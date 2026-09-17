@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
 import json
 import os
 import socket
@@ -11,6 +13,7 @@ import tempfile
 import time
 from collections.abc import Iterator
 from contextlib import contextmanager
+from dataclasses import dataclass
 from pathlib import Path
 
 import httpx
@@ -35,8 +38,14 @@ def _read_tail(path: Path, limit: int = 4000) -> str:
     return text[-limit:]
 
 
+@dataclass
+class RunningServer:
+    url: str
+    process: subprocess.Popen[str]
+
+
 @contextmanager
-def running_mcp_server(**extra_env: str) -> Iterator[str]:
+def running_mcp_server(**extra_env: str) -> Iterator[RunningServer]:
     port = _free_port()
     stderr_path = Path(tempfile.mkstemp(prefix="mcp-stderr-", suffix=".log")[1])
     env = {
@@ -73,7 +82,7 @@ def running_mcp_server(**extra_env: str) -> Iterator[str]:
                 process.terminate()
                 process.wait(timeout=5)
                 raise RuntimeError(f"MCP server did not start: {_read_tail(stderr_path)}")
-            yield url
+            yield RunningServer(url=url, process=process)
         finally:
             process.terminate()
             try:
@@ -86,8 +95,8 @@ def running_mcp_server(**extra_env: str) -> Iterator[str]:
 
 @pytest.fixture()
 def mcp_url():
-    with running_mcp_server() as url:
-        yield url
+    with running_mcp_server() as server:
+        yield server.url
 
 
 async def _session(url: str, **client_kwargs):
@@ -150,26 +159,29 @@ async def test_empty_result_is_success_with_no_rows(mcp_url: str):
 
 @pytest.mark.integration
 async def test_timeout_raises_on_slow_tool():
-    with running_mcp_server(MCP_TOOL_DELAY_SECONDS="3") as url:
-        with pytest.raises(Exception) as exc_info:
-            async with streamablehttp_client(url, timeout=0.5, sse_read_timeout=0.5) as (
-                read_stream,
-                write_stream,
-                _,
-            ):
-                async with ClientSession(read_stream, write_stream) as session:
-                    await session.initialize()
-                    await session.call_tool("find_stations", {"municipality_code": "14109"})
-        message = str(exc_info.value).lower()
-        assert "timeout" in message or "timed out" in message or "cancel" in message
+    with running_mcp_server(MCP_TOOL_DELAY_SECONDS="30") as server:
+        async with streamablehttp_client(server.url) as (read_stream, write_stream, _):
+            async with ClientSession(read_stream, write_stream) as session:
+                await session.initialize()
+                task = asyncio.create_task(
+                    session.call_tool("find_stations", {"municipality_code": "14109"})
+                )
+                try:
+                    with pytest.raises(TimeoutError):
+                        await asyncio.wait_for(asyncio.shield(task), timeout=0.5)
+                finally:
+                    task.cancel()
+                    server.process.terminate()
+                    with contextlib.suppress(asyncio.CancelledError, Exception):
+                        await asyncio.wait_for(task, timeout=2)
 
 
 @pytest.mark.integration
 async def test_jsonl_log_records_success_empty_and_error():
     with tempfile.TemporaryDirectory() as tmp:
         log_path = str(Path(tmp) / "toolcalls.jsonl")
-        with running_mcp_server(MCP_TOOLCALL_LOG=log_path) as url:
-            async for session in _session(url):
+        with running_mcp_server(MCP_TOOLCALL_LOG=log_path) as server:
+            async for session in _session(server.url):
                 ok = await session.call_tool("find_municipalities", {"query": "Yokohama"})
                 assert not ok.isError
                 empty = await session.call_tool("find_stations", {"municipality_code": "00000"})

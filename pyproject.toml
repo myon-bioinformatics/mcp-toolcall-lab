@@ -23,7 +23,7 @@ packages = ["src/mcp_toolcall_lab"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 filterwarnings = [
-    "ignore:.*streamablehttp_client.*:DeprecationWarning",
+    "ignore:Use `streamable_http_client` instead.:DeprecationWarning",
 ]
 markers = [
     "integration: starts a local Streamable HTTP MCP server",

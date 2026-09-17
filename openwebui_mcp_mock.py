@@ -61,7 +61,7 @@ def search_municipalities(query: str) -> list[dict[str, str]]:
 
 def search_transaction_prices(municipality_code: str, year: int) -> list[dict[str, int | str]]:
     """Return a stable fake transaction-price result, or [] when the code is unknown."""
-    if municipality_code not in STATIONS:
+    if municipality_code not in KNOWN_MUNICIPALITY_CODES:
         return []
     return [
         {
