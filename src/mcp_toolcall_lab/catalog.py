@@ -1,7 +1,10 @@
-"""Pure-Python mock data used by the FastMCP server and unit tests."""
+"""Pure-Python mock data used by the FastMCP server and unit tests.
+
+A valid call that matches nothing returns an empty list. That is not an error.
+Protocol problems (unknown tool, invalid arguments, timeout) are errors.
+"""
 
 from __future__ import annotations
-
 
 AVAILABLE_TOOLS = (
     "find_municipalities",
@@ -9,20 +12,43 @@ AVAILABLE_TOOLS = (
     "find_stations",
 )
 
+TOOL_DESCRIPTIONS = {
+    "find_municipalities": "Find mock municipalities by name or prefecture.",
+    "find_transaction_prices": "Return mock property transaction prices. This never calls a live API.",
+    "find_stations": "Find mock stations in a municipality.",
+}
+
+MUNICIPALITIES = (
+    {"code": "13101", "name": "Chiyoda", "prefecture": "Tokyo"},
+    {"code": "14109", "name": "Yokohama", "prefecture": "Kanagawa"},
+    {"code": "12207", "name": "Matsudo", "prefecture": "Chiba"},
+)
+
+STATIONS = {
+    "14109": [{"name": "Yokohama", "line": "JR"}],
+    "12207": [{"name": "Matsudo", "line": "JR Joban"}],
+    "13101": [{"name": "Tokyo", "line": "JR"}],
+}
+
+KNOWN_MUNICIPALITY_CODES = tuple(row["code"] for row in MUNICIPALITIES)
+
 
 def search_municipalities(query: str) -> list[dict[str, str]]:
     """Return deterministic municipality-like records; no external API is called."""
     normalized = query.strip().lower()
-    rows = [
-        {"code": "13101", "name": "Chiyoda", "prefecture": "Tokyo"},
-        {"code": "14109", "name": "Yokohama", "prefecture": "Kanagawa"},
-        {"code": "12207", "name": "Matsudo", "prefecture": "Chiba"},
+    if not normalized:
+        return []
+    return [
+        row
+        for row in MUNICIPALITIES
+        if normalized in row["name"].lower() or normalized in row["prefecture"].lower()
     ]
-    return [row for row in rows if normalized in row["name"].lower() or normalized in row["prefecture"].lower()]
 
 
 def search_transaction_prices(municipality_code: str, year: int) -> list[dict[str, int | str]]:
-    """Return a stable fake transaction-price result for protocol experiments."""
+    """Return a stable fake transaction-price result, or [] when the code is unknown."""
+    if municipality_code not in STATIONS:
+        return []
     return [
         {
             "municipality_code": municipality_code,
@@ -35,10 +61,5 @@ def search_transaction_prices(municipality_code: str, year: int) -> list[dict[st
 
 
 def search_stations(municipality_code: str) -> list[dict[str, str]]:
-    """Return deterministic station-like records."""
-    samples = {
-        "14109": [{"name": "Yokohama", "line": "JR"}],
-        "12207": [{"name": "Matsudo", "line": "JR Joban"}],
-        "13101": [{"name": "Tokyo", "line": "JR"}],
-    }
-    return samples.get(municipality_code, [])
+    """Return deterministic station-like records, or [] when the code is unknown."""
+    return list(STATIONS.get(municipality_code, []))

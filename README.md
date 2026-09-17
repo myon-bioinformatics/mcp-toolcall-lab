@@ -7,15 +7,18 @@ This repository deliberately does **not** call the Ministry of Land, Infrastruct
 ## What this first PR provides
 
 - A FastMCP Streamable HTTP server with three deterministic real-estate-style mock tools.
-- A strict system-prompt example that requires `initialize` and `tools/list` before `tools/call`.
-- Unit tests for mock data behavior, with no API key or network access.
+- A copyable standalone file generated from the package so tool names, schemas, and docstrings cannot drift.
+- A strict system-prompt example that limits the model to Open WebUI's advertised tool specs.
+- Protocol tests for the Open WebUI client flow plus unknown-tool, missing-argument, type-mismatch, empty-result, and timeout cases.
+
+## Requirements
+
+- Python 3.11 or newer (`datetime.UTC` and `X | Y` type hints).
+- `fastmcp==3.4.7` (pinned). FastMCP 4.x requires `mcp>=2` and cannot share a venv with Open WebUI's `mcp==1.27.2`.
 
 ## Run locally
 
-`openwebui_mcp_mock.py` is intentionally self-contained: copy the whole file
-to the machine that runs the MCP process. It serves MCP over Streamable HTTP at
-`/mcp`, which is the transport used by Open WebUI's server-side MCP client.
-Do not copy only one function.
+`openwebui_mcp_mock.py` is generated from `src/mcp_toolcall_lab/` and is the file you copy onto another machine. Do not copy only one function. After changing tools, regenerate with `python -m mcp_toolcall_lab.export`.
 
 ```bash
 python -m venv .venv
@@ -26,29 +29,50 @@ python openwebui_mcp_mock.py
 
 If your shell does not support the activation command, invoke `.venv/bin/python` directly.
 
+On a VM or container that should only run the mock, copy the standalone file and install FastMCP:
+
+```bash
+pip install "fastmcp==3.4.7"
+MCP_HOST=0.0.0.0 python openwebui_mcp_mock.py
+```
+
+The MCP endpoint is Streamable HTTP at `/mcp`. In Open WebUI (v0.6.31+), add an **MCP (Streamable HTTP)** connection, not OpenAPI:
+
+| Where Open WebUI runs | Server URL |
+| --- | --- |
+| Same host as the mock | `http://127.0.0.1:8000/mcp` |
+| Docker, mock on the host | `http://host.docker.internal:8000/mcp` |
+| Another VM / compose service | `http://<mock-hostname>:8000/mcp` |
+
+The mock process must bind `MCP_HOST=0.0.0.0` whenever the client is not on the same network namespace. Set auth to **None** unless you add a token yourself.
+
 ## Test
 
 ```bash
 pip install -e '.[test]'
-PYTHONPATH=src pytest -q
+pytest -q
 ```
+
+`pip install -e` already puts `src` on the import path, so `PYTHONPATH=src` is not required.
+
+## Empty vs error
+
+- **Empty** is a successful `tools/call` whose result is `[]` (unknown municipality, blank query, or a Japanese name that is not in this tiny English mock). Open WebUI forwards `content`, so the model sees an empty list, not a protocol error.
+- **Error** is an unknown tool name, a missing/invalid argument, or a client timeout. Those calls set `isError` or raise at the client. They are not empty results.
+
+Set `MCP_TOOLCALL_LOG=toolcalls.jsonl` before launch to record every `tools/call` as JSON Lines, including empty results and errors. The same logger is used by `python -m mcp_toolcall_lab` and by the standalone file. `arguments` in the log are the values received on the wire, before pydantic coercion.
 
 ## Open WebUI experiment record
 
-Use `system_prompts/strict_tool_selection.md` as the starting system prompt, then record each run in this table.
+Use `system_prompts/strict_tool_selection.md` as the starting system prompt. Open WebUI performs `initialize` and `tools/list`; the model only chooses among the resulting tool specs.
 
-| Run | Model / settings | initialize | tools/list | selected tool | result | notes |
-| --- | --- | --- | --- | --- | --- | --- |
-| 001 | GPT-OSS 20B / baseline | | | | | |
+| Run | Model / settings | selected tool | args valid | outcome | notes |
+| --- | --- | --- | --- | --- | --- |
+| 001 | GPT-OSS 20B / baseline | | | | |
 
-Success means the model chooses an exact name from `tools/list` and sends schema-valid arguments. A fictional tool name is a failure even if the intended action sounds correct.
-
-Set `MCP_TOOLCALL_LOG=toolcalls.jsonl` before launching the standalone file to
-retain each successful mock tool call as JSON Lines. Set `MCP_HOST=0.0.0.0`
-when the server must be reached from another container or VM.
+Success means the model copies an exact name from the advertised specs and sends schema-valid arguments. A fictional tool name is a failure even if the intended action sounds correct. `outcome` is `success`, `empty`, or `error`.
 
 ## Next increments
 
-1. Expand the protocol test into error, timeout, and invalid-tool cases.
-2. Add a versioned mock catalogue modeled on public REINFOLIB documentation, without API keys.
-3. Compare system prompts and model runtime settings in a recorded experiment matrix.
+1. Add a versioned mock catalogue modeled on public REINFOLIB documentation, without API keys.
+2. Compare system prompts and model runtime settings in a recorded experiment matrix.

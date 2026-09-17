@@ -1,12 +1,16 @@
-"""Protocol test using the same Streamable HTTP client flow as Open WebUI."""
+"""Protocol tests using the same Streamable HTTP client flow as Open WebUI."""
 
 from __future__ import annotations
 
+import json
 import os
 import socket
 import subprocess
 import sys
+import tempfile
 import time
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 
 import httpx
@@ -23,47 +27,159 @@ def _free_port() -> int:
         return int(sock.getsockname()[1])
 
 
+def _read_tail(path: Path, limit: int = 4000) -> str:
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace")
+    except FileNotFoundError:
+        return ""
+    return text[-limit:]
+
+
+@contextmanager
+def running_mcp_server(**extra_env: str) -> Iterator[str]:
+    port = _free_port()
+    stderr_path = Path(tempfile.mkstemp(prefix="mcp-stderr-", suffix=".log")[1])
+    env = {
+        **os.environ,
+        "MCP_HOST": "127.0.0.1",
+        "MCP_PORT": str(port),
+        "FASTMCP_SHOW_SERVER_BANNER": "false",
+        **extra_env,
+    }
+    python = env.get("MCP_SERVER_PYTHON", sys.executable)
+    with stderr_path.open("w", encoding="utf-8") as stderr_file:
+        process = subprocess.Popen(
+            [python, "openwebui_mcp_mock.py"],
+            cwd=ROOT,
+            env=env,
+            stdout=subprocess.DEVNULL,
+            stderr=stderr_file,
+            text=True,
+        )
+        url = f"http://127.0.0.1:{port}/mcp"
+        try:
+            for _ in range(50):
+                if process.poll() is not None:
+                    raise RuntimeError(
+                        f"MCP server exited {process.returncode}: {_read_tail(stderr_path)}"
+                    )
+                try:
+                    # A malformed request is enough to prove the HTTP listener is ready.
+                    httpx.post(url, timeout=0.2, content=b"{}")
+                    break
+                except httpx.TransportError:
+                    time.sleep(0.1)
+            else:
+                process.terminate()
+                process.wait(timeout=5)
+                raise RuntimeError(f"MCP server did not start: {_read_tail(stderr_path)}")
+            yield url
+        finally:
+            process.terminate()
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait(timeout=5)
+    stderr_path.unlink(missing_ok=True)
+
+
 @pytest.fixture()
 def mcp_url():
-    port = _free_port()
-    process = subprocess.Popen(
-        [sys.executable, "openwebui_mcp_mock.py"],
-        cwd=ROOT,
-        env={**os.environ, "MCP_HOST": "127.0.0.1", "MCP_PORT": str(port)},
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.PIPE,
-        text=True,
-    )
-    url = f"http://127.0.0.1:{port}/mcp"
-    try:
-        for _ in range(50):
-            try:
-                # A malformed request is enough to prove the HTTP listener is ready.
-                httpx.post(url, timeout=0.2, content=b"{}")
-                break
-            except httpx.ConnectError:
-                time.sleep(0.1)
-        else:
-            process.terminate()
-            process.wait(timeout=5)
-            stderr = process.stderr.read() if process.stderr else ""
-            raise RuntimeError(f"MCP server did not start: {stderr}")
+    with running_mcp_server() as url:
         yield url
-    finally:
-        process.terminate()
-        process.wait(timeout=5)
+
+
+async def _session(url: str, **client_kwargs):
+    async with streamablehttp_client(url, **client_kwargs) as (read_stream, write_stream, _):
+        async with ClientSession(read_stream, write_stream) as session:
+            await session.initialize()
+            yield session
 
 
 @pytest.mark.integration
 async def test_initialize_list_and_call_via_streamable_http(mcp_url: str):
     """Verify the exact operation order used by Open WebUI's MCP client."""
-    async with streamablehttp_client(mcp_url) as (read_stream, write_stream, _):
-        async with ClientSession(read_stream, write_stream) as session:
-            await session.initialize()
-            tools = await session.list_tools()
-            names = {tool.name for tool in tools.tools}
-            assert "find_municipalities" in names
+    async for session in _session(mcp_url):
+        tools = await session.list_tools()
+        names = {tool.name for tool in tools.tools}
+        assert names == {"find_municipalities", "find_transaction_prices", "find_stations"}
 
-            result = await session.call_tool("find_municipalities", {"query": "Yokohama"})
-            assert not result.isError
-            assert "Yokohama" in result.content[0].text
+        result = await session.call_tool("find_municipalities", {"query": "Yokohama"})
+        assert not result.isError
+        assert "Yokohama" in result.content[0].text
+
+
+@pytest.mark.integration
+async def test_unknown_tool_is_error(mcp_url: str):
+    async for session in _session(mcp_url):
+        result = await session.call_tool("find_transaction_price", {"query": "Yokohama"})
+        assert result.isError
+        assert "find_transaction_price" in result.content[0].text
+
+
+@pytest.mark.integration
+async def test_missing_required_argument_is_error(mcp_url: str):
+    async for session in _session(mcp_url):
+        result = await session.call_tool("find_municipalities", {})
+        assert result.isError
+        assert "query" in result.content[0].text.lower() or "missing" in result.content[0].text.lower()
+
+
+@pytest.mark.integration
+async def test_type_mismatch_is_error(mcp_url: str):
+    async for session in _session(mcp_url):
+        result = await session.call_tool(
+            "find_transaction_prices",
+            {"municipality_code": 14109, "year": 2025},
+        )
+        assert result.isError
+        assert "string" in result.content[0].text.lower() or "municipality_code" in result.content[0].text
+
+
+@pytest.mark.integration
+async def test_empty_result_is_success_with_no_rows(mcp_url: str):
+    async for session in _session(mcp_url):
+        result = await session.call_tool("find_stations", {"municipality_code": "00000"})
+        assert not result.isError
+        assert result.content == []
+        structured = getattr(result, "structuredContent", None) or getattr(result, "structured_content", None)
+        if structured is not None:
+            assert structured.get("result") == []
+
+
+@pytest.mark.integration
+async def test_timeout_raises_on_slow_tool():
+    with running_mcp_server(MCP_TOOL_DELAY_SECONDS="3") as url:
+        with pytest.raises(Exception) as exc_info:
+            async with streamablehttp_client(url, timeout=0.5, sse_read_timeout=0.5) as (
+                read_stream,
+                write_stream,
+                _,
+            ):
+                async with ClientSession(read_stream, write_stream) as session:
+                    await session.initialize()
+                    await session.call_tool("find_stations", {"municipality_code": "14109"})
+        message = str(exc_info.value).lower()
+        assert "timeout" in message or "timed out" in message or "cancel" in message
+
+
+@pytest.mark.integration
+async def test_jsonl_log_records_success_empty_and_error():
+    with tempfile.TemporaryDirectory() as tmp:
+        log_path = str(Path(tmp) / "toolcalls.jsonl")
+        with running_mcp_server(MCP_TOOLCALL_LOG=log_path) as url:
+            async for session in _session(url):
+                ok = await session.call_tool("find_municipalities", {"query": "Yokohama"})
+                assert not ok.isError
+                empty = await session.call_tool("find_stations", {"municipality_code": "00000"})
+                assert not empty.isError
+                err = await session.call_tool("find_transaction_price", {})
+                assert err.isError
+
+        events = [json.loads(line) for line in Path(log_path).read_text(encoding="utf-8").splitlines()]
+        outcomes = {event["outcome"] for event in events}
+        assert {"success", "empty", "error"} <= outcomes
+        error_event = next(event for event in events if event["outcome"] == "error")
+        assert error_event["tool"] == "find_transaction_price"
+        assert "arguments" in error_event
