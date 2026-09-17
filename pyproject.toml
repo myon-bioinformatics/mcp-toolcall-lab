@@ -1,0 +1,27 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mcp-toolcall-lab"
+version = "0.1.0"
+description = "FastMCP mock tools for reproducible tool-calling experiments"
+requires-python = ">=3.11"
+dependencies = ["fastmcp>=2,<3"]
+
+[project.optional-dependencies]
+test = [
+    "httpx>=0.28,<0.29",
+    "mcp==1.27.2",
+    "pytest>=8,<9",
+    "pytest-asyncio>=0.24,<1",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mcp_toolcall_lab"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+markers = [
+    "integration: starts a local Streamable HTTP MCP server",
+]

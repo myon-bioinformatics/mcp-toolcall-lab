@@ -1,0 +1,44 @@
+"""Pure-Python mock data used by the FastMCP server and unit tests."""
+
+from __future__ import annotations
+
+
+AVAILABLE_TOOLS = (
+    "find_municipalities",
+    "find_transaction_prices",
+    "find_stations",
+)
+
+
+def search_municipalities(query: str) -> list[dict[str, str]]:
+    """Return deterministic municipality-like records; no external API is called."""
+    normalized = query.strip().lower()
+    rows = [
+        {"code": "13101", "name": "Chiyoda", "prefecture": "Tokyo"},
+        {"code": "14109", "name": "Yokohama", "prefecture": "Kanagawa"},
+        {"code": "12207", "name": "Matsudo", "prefecture": "Chiba"},
+    ]
+    return [row for row in rows if normalized in row["name"].lower() or normalized in row["prefecture"].lower()]
+
+
+def search_transaction_prices(municipality_code: str, year: int) -> list[dict[str, int | str]]:
+    """Return a stable fake transaction-price result for protocol experiments."""
+    return [
+        {
+            "municipality_code": municipality_code,
+            "year": year,
+            "price_yen": 52_000_000,
+            "property_type": "condominium",
+            "source": "mock",
+        }
+    ]
+
+
+def search_stations(municipality_code: str) -> list[dict[str, str]]:
+    """Return deterministic station-like records."""
+    samples = {
+        "14109": [{"name": "Yokohama", "line": "JR"}],
+        "12207": [{"name": "Matsudo", "line": "JR Joban"}],
+        "13101": [{"name": "Tokyo", "line": "JR"}],
+    }
+    return samples.get(municipality_code, [])
