@@ -21,6 +21,8 @@ import pytest
 from mcp import ClientSession
 from mcp.client.streamable_http import streamablehttp_client
 
+from tests.test_schema import EXPECTED_TOOL_SPECS, advertised_specs_from_list_tools
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -45,7 +47,11 @@ class RunningServer:
 
 
 @contextmanager
-def running_mcp_server(**extra_env: str) -> Iterator[RunningServer]:
+def running_mcp_server(
+    *,
+    server_args: tuple[str, ...] = ("openwebui_mcp_mock.py",),
+    **extra_env: str,
+) -> Iterator[RunningServer]:
     port = _free_port()
     stderr_path = Path(tempfile.mkstemp(prefix="mcp-stderr-", suffix=".log")[1])
     env = {
@@ -58,7 +64,7 @@ def running_mcp_server(**extra_env: str) -> Iterator[RunningServer]:
     python = env.get("MCP_SERVER_PYTHON", sys.executable)
     with stderr_path.open("w", encoding="utf-8") as stderr_file:
         process = subprocess.Popen(
-            [python, "openwebui_mcp_mock.py"],
+            [python, *server_args],
             cwd=ROOT,
             env=env,
             stdout=subprocess.DEVNULL,
@@ -111,12 +117,19 @@ async def test_initialize_list_and_call_via_streamable_http(mcp_url: str):
     """Verify the exact operation order used by Open WebUI's MCP client."""
     async for session in _session(mcp_url):
         tools = await session.list_tools()
-        names = {tool.name for tool in tools.tools}
-        assert names == {"find_municipalities", "find_transaction_prices", "find_stations"}
+        assert advertised_specs_from_list_tools(tools.tools) == EXPECTED_TOOL_SPECS
 
         result = await session.call_tool("find_municipalities", {"query": "Yokohama"})
         assert not result.isError
         assert "Yokohama" in result.content[0].text
+
+
+@pytest.mark.integration
+async def test_package_module_advertises_the_same_tool_specs_over_http():
+    with running_mcp_server(server_args=("-m", "mcp_toolcall_lab")) as server:
+        async for session in _session(server.url):
+            tools = await session.list_tools()
+            assert advertised_specs_from_list_tools(tools.tools) == EXPECTED_TOOL_SPECS
 
 
 @pytest.mark.integration

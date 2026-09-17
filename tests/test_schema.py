@@ -48,16 +48,25 @@ EXPECTED_TOOL_SPECS = [
 ]
 
 
+def advertised_specs_from_list_tools(tools) -> list[dict]:
+    """Normalize FastMCP or MCP SDK tool objects to the Open WebUI-visible surface."""
+    specs = []
+    for tool in sorted(tools, key=lambda item: item.name):
+        schema = getattr(tool, "parameters", None) or getattr(tool, "inputSchema", None)
+        if hasattr(schema, "model_dump"):
+            schema = schema.model_dump(mode="json")
+        specs.append(
+            {
+                "name": tool.name,
+                "description": tool.description,
+                "inputSchema": schema,
+            }
+        )
+    return specs
+
+
 async def _advertised_specs(mcp) -> list[dict]:
-    tools = await mcp.list_tools()
-    return [
-        {
-            "name": tool.name,
-            "description": tool.description,
-            "inputSchema": tool.parameters,
-        }
-        for tool in sorted(tools, key=lambda item: item.name)
-    ]
+    return advertised_specs_from_list_tools(await mcp.list_tools())
 
 
 def _load_standalone():
