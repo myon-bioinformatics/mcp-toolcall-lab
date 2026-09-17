@@ -53,7 +53,7 @@ pip install -e '.[test]'
 pytest -q
 ```
 
-`pip install -e` already puts `src` on the import path, so `PYTHONPATH=src` is not required.
+`pip install -e` already puts `src` on the import path, so `PYTHONPATH=src` is not required. Pull requests run the same commands on GitHub Actions with Python 3.11.
 
 ## Empty vs error
 
@@ -66,13 +66,13 @@ Set `MCP_TOOLCALL_LOG=toolcalls.jsonl` before launch to record every `tools/call
 
 Use `system_prompts/strict_tool_selection.md` as the starting system prompt. Open WebUI performs `initialize` and `tools/list`; the model only chooses among the resulting tool specs.
 
-| Run | Model / settings | selected tool | args valid | outcome | notes |
-| --- | --- | --- | --- | --- | --- |
-| 001 | GPT-OSS 20B / baseline | | | | |
+| Run | Model / settings | selected tool | raw schema valid | server accepted | outcome | notes |
+| --- | --- | --- | --- | --- | --- | --- |
+| 001 | GPT-OSS 20B / baseline | | | | | |
 
-Success means the model copies an exact name from the advertised specs and sends schema-valid arguments. A fictional tool name is a failure even if the intended action sounds correct. `outcome` is `success`, `empty`, or `error`.
+Success means the model copies an exact name from the advertised specs. A fictional tool name is a failure even if the intended action sounds correct. Record **raw schema valid** (arguments match `inputSchema` before coercion) separately from **server accepted** (the mock did not return `isError`). Pydantic may coerce `year: "2025"` and accept the call even when the raw JSON is not schema-valid. `outcome` is `success`, `empty`, or `error`.
 
 ## Next increments
 
 1. Add a versioned mock catalogue modeled on public REINFOLIB documentation, without API keys.
-2. Compare system prompts and model runtime settings in a recorded experiment matrix.
+2. Compare schema strictness (raw-valid vs server-accepted) and system prompts in a recorded experiment matrix.
