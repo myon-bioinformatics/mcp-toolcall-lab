@@ -68,6 +68,27 @@ scripts/mcp_curl_smoke.sh                      # defaults to http://127.0.0.1:80
 scripts/mcp_curl_smoke.sh http://host:port/mcp # or point it at another running instance
 ```
 
+## Talking to the mock with FastMCP's own CLI
+
+`fastmcp` ships a client CLI (`fastmcp list`, `fastmcp call`) alongside the server framework — since
+`fastmcp==3.4.7` is already a pinned dependency here, this needs nothing beyond `pip install -e .`,
+not even curl. It also handles the `initialize` / `notifications/initialized` / `Mcp-Session-Id`
+handshake itself, so there's nothing to wire up by hand:
+
+```bash
+python openwebui_mcp_mock.py &
+fastmcp list http://127.0.0.1:8000/mcp --json
+fastmcp call http://127.0.0.1:8000/mcp find_municipalities query=Yokohama --json
+scripts/mcp_fastmcp_cli_smoke.sh   # runs the above plus an empty-result and an unknown-tool case
+```
+
+One behavioral difference from curl or the `mcp` SDK: the CLI checks a tool name against its own
+`tools/list` result before calling, so an unknown tool never reaches the server as an
+`isError: true` `tools/call` — it fails client-side with a non-zero exit instead.
+`tests/test_fastmcp_cli.py` covers both this and the success/empty-result cases; unlike
+`tests/test_browser_fetch_protocol.py`, it needs no extra install and runs in CI along with
+everything else in `pytest -q`.
+
 ## Tracing a call: chat-simulated vs. direct
 
 A request can reach this mock two ways: **through a chat UI** (the model decides to call a tool,
