@@ -89,6 +89,24 @@ One behavioral difference from curl or the `mcp` SDK: the CLI checks a tool name
 `tests/test_browser_fetch_protocol.py`, it needs no extra install and runs in CI along with
 everything else in `pytest -q`.
 
+## Talking to the mock with httpx — a plain Python client, no MCP SDK
+
+`httpx==0.28.1` is already a pinned test dependency (`test_streamable_http_protocol.py` uses it
+just to poll for server readiness). `tests/test_httpx_protocol.py` puts it to fuller use: a raw
+Streamable HTTP client built on one reused `httpx.Client`, filling the gap between curl (reachable
+from any shell, no Python) and the `mcp` SDK (the official, protocol-aware client) — the way a
+lightweight Python service that doesn't want the full SDK as a dependency would actually talk to
+this server.
+
+Two things it demonstrates that curl and the SDK don't as directly:
+
+- The same `httpx.Client` (and its `Mcp-Session-Id`) serves multiple calls in a row over one
+  connection — curl spawns a brand-new process (and connection) per call instead.
+- Timing out is a plain `httpx.TimeoutException` on the raw request
+  (`test_httpx_timeout_on_slow_tool`), not something that needs the `mcp` SDK's async
+  cancellation machinery the way `test_timeout_raises_on_slow_tool` does in
+  `test_streamable_http_protocol.py`.
+
 ## Tracing a call: chat-simulated vs. direct
 
 A request can reach this mock two ways: **through a chat UI** (the model decides to call a tool,
