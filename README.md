@@ -55,6 +55,85 @@ pytest -q
 
 `pip install -e` already puts `src` on the import path, so `PYTHONPATH=src` is not required. Pull requests run the same commands on GitHub Actions with Python 3.11.
 
+## Talking to the mock with nothing but curl
+
+Streamable HTTP is plain JSON-RPC over HTTP — no chat UI, browser, or even the `mcp`/`fastmcp`
+Python SDKs are required to drive it. `scripts/mcp_curl_smoke.sh` performs the same handshake
+Open WebUI does (`initialize` → `notifications/initialized` → `tools/list` → `tools/call`), using
+only `curl` and `python3 -m json.tool` for pretty-printing:
+
+```bash
+python openwebui_mcp_mock.py &
+scripts/mcp_curl_smoke.sh                      # defaults to http://127.0.0.1:8000/mcp
+scripts/mcp_curl_smoke.sh http://host:port/mcp # or point it at another running instance
+```
+
+## Tracing a call: chat-simulated vs. direct
+
+A request can reach this mock two ways: **through a chat UI** (the model decides to call a tool,
+the UI executes it) or **straight to MCP** (curl, a script, anything speaking Streamable HTTP
+directly). Both are traceable through the same `MCP_TOOLCALL_LOG` JSONL file, correlated by
+whatever the caller puts in the request's `_meta` field — MCP reserves that field for exactly this,
+no protocol extension needed.
+
+`mcp_toolcall_lab.chat_sim` mocks the "chat経由" path generically: the OpenAI-compatible
+`tool_calls`/`tool`-role message shapes that Open WebUI, LibreChat, LobeChat, and most other chat
+UIs share (rather than reimplementing any one product's own internal ids like Open WebUI's
+`chat_id`/`function_id`), wired to a real MCP call tagged with `call_id`/`chat_id`/`source: "chat"`.
+`send_direct` is the other path — no chat layer, tagged `source: "direct"`.
+
+```python
+import asyncio
+from mcp_toolcall_lab.chat_sim import send_via_chat, send_direct
+
+async def main():
+    trace = await send_via_chat(
+        "http://127.0.0.1:8000/mcp",
+        user_text="Where is Yokohama?",
+        tool_name="find_municipalities",
+        arguments={"query": "Yokohama"},
+    )
+    print(trace.assistant_tool_call_message)  # {"role": "assistant", "tool_calls": [...]}
+    print(trace.tool_result_message)          # {"role": "tool", "tool_call_id": ..., "content": ...}
+
+    await send_direct("http://127.0.0.1:8000/mcp", tool_name="find_stations",
+                       arguments={"municipality_code": "14109"}, trace_id="probe-1")
+
+asyncio.run(main())
+```
+
+With `MCP_TOOLCALL_LOG` set, both calls above land in the same JSONL file with the same shape,
+distinguished only by `meta.source` — see `tests/test_trace.py`.
+
+`tests/test_curl_protocol.py` gives the same raw-HTTP handshake pytest coverage (success, empty
+result, unknown tool, missing argument), alongside `tests/test_streamable_http_protocol.py`'s
+`mcp`-SDK-based client flow.
+
+`chat_sim.py` mocks the generic OpenAI-compatible tool-calling wire shape, not any one chat UI's
+own database. See [`docs/openwebui_schema_notes.md`](docs/openwebui_schema_notes.md) for Open
+WebUI's actual `chat`/`file`/`function`/`tool` table schemas (verified against its source), kept
+as a reference for a dedicated Open WebUI-specific mock later.
+
+### Proving the loose HTTP coupling from a real browser
+
+This mock has **no chat screen** — `GET /` is a plain 404 and `/mcp` only speaks JSON-RPC, so
+there's no UI to click through or screenshot (Open WebUI's actual chat interface is a separate
+application entirely). What's still worth proving is that the API is reachable from a real
+browser's own `fetch()`, not just curl or a Python client:
+
+```bash
+pip install -e '.[test,browser-test]'
+playwright install chromium
+pytest -q tests/test_browser_fetch_protocol.py
+```
+
+`tests/test_browser_fetch_protocol.py` navigates a headless Chromium to the server's own origin
+(same-origin, so no CORS is needed — the server sends no `Access-Control-Allow-Origin` header and
+405s on OPTIONS preflight, so a *cross*-origin browser fetch would be blocked) and runs the same
+`initialize`/`tools/list`/`tools/call` handshake as `test_curl_protocol.py`, purely through
+`page.evaluate(() => fetch(...))`. Not part of `test` extras or CI — it `pytest.importorskip`s
+when `playwright` isn't installed, same as every other optional path in this repo.
+
 ## Empty vs error
 
 - **Empty** is a successful `tools/call` whose result is `[]` (unknown municipality, blank query, or a Japanese name that is not in this tiny English mock). Open WebUI forwards `content`, so the model sees an empty list, not a protocol error.

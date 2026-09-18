@@ -100,11 +100,19 @@ def record_call(
     outcome: str,
     result: Any = None,
     error: str | None = None,
+    meta: dict[str, Any] | None = None,
 ) -> None:
     """Append one call record when MCP_TOOLCALL_LOG is set.
 
     `arguments` are the values received on `tools/call` before pydantic coercion.
     `outcome` is success, empty (valid call, no rows), or error.
+
+    `meta` is whatever the caller put in the request's MCP `_meta` field (e.g.
+    a chat-simulated caller's `call_id`/`chat_id`, or a caller talking to MCP
+    directly passing its own correlation id). It is opaque to this function —
+    logged verbatim when present — so a trace can be reconstructed from this
+    JSONL file regardless of which path (chat-simulated or direct) made the
+    call.
     """
     log_path = os.environ.get("MCP_TOOLCALL_LOG")
     if not log_path:
@@ -115,6 +123,8 @@ def record_call(
         "arguments": arguments,
         "outcome": outcome,
     }
+    if meta:
+        event["meta"] = meta
     if outcome == OUTCOME_ERROR:
         event["error"] = error or "unknown error"
     else:
@@ -164,6 +174,30 @@ def _outcome_for_result(result: Any, payload: Any) -> str:
     return OUTCOME_SUCCESS
 
 
+def _request_meta(context: MiddlewareContext) -> dict[str, Any]:
+    """Pull the caller-supplied MCP `_meta` object off a tools/call request.
+
+    Any client can attach arbitrary correlation data here (a chat-simulated
+    caller's `call_id`/`chat_id`, or a direct caller's own trace id) — MCP
+    reserves `_meta` exactly for this, so no protocol extension is needed.
+
+    Note: `context.message.meta` is *not* the original request's `_meta` —
+    FastMCP's own tools/call dispatch (fastmcp==3.4.7) rebuilds
+    CallToolRequestParams internally and overwrites `_meta` with its own
+    version-pinning metadata before middleware ever sees it. The original,
+    client-supplied `_meta` survives on the lower-level request context
+    instead, so that is what we read here.
+    """
+    ctx = context.fastmcp_context
+    request_context = ctx.request_context if ctx is not None else None
+    meta = getattr(request_context, "meta", None) if request_context is not None else None
+    if meta is None:
+        return {}
+    if hasattr(meta, "model_dump"):
+        meta = meta.model_dump(mode="json", exclude_none=True)
+    return {k: v for k, v in dict(meta).items() if k != "progressToken"}
+
+
 class ObservabilityMiddleware(Middleware):
     """Log every tools/call, including unknown names and validation failures."""
 
@@ -173,17 +207,18 @@ class ObservabilityMiddleware(Middleware):
             await asyncio.sleep(delay)
         name = context.message.name
         arguments = dict(context.message.arguments or {})
+        meta = _request_meta(context)
         try:
             result = await call_next(context)
         except Exception as exc:
-            record_call(tool=name, arguments=arguments, outcome=OUTCOME_ERROR, error=str(exc))
+            record_call(tool=name, arguments=arguments, outcome=OUTCOME_ERROR, error=str(exc), meta=meta)
             raise
         payload = _result_payload(result)
         outcome = _outcome_for_result(result, payload)
         if outcome == OUTCOME_ERROR:
-            record_call(tool=name, arguments=arguments, outcome=outcome, error=str(payload))
+            record_call(tool=name, arguments=arguments, outcome=outcome, error=str(payload), meta=meta)
         else:
-            record_call(tool=name, arguments=arguments, outcome=outcome, result=payload)
+            record_call(tool=name, arguments=arguments, outcome=outcome, result=payload, meta=meta)
         return result
 
 
