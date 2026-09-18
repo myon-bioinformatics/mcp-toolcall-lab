@@ -133,6 +133,19 @@ async def test_package_module_advertises_the_same_tool_specs_over_http():
 
 
 @pytest.mark.integration
+async def test_librechat_standalone_file_advertises_the_same_tool_specs_over_http():
+    """librechat_mcp_mock.py is the same server as openwebui_mcp_mock.py, run directly."""
+    with running_mcp_server(server_args=("librechat_mcp_mock.py",)) as server:
+        async for session in _session(server.url):
+            tools = await session.list_tools()
+            assert advertised_specs_from_list_tools(tools.tools) == EXPECTED_TOOL_SPECS
+
+            result = await session.call_tool("find_municipalities", {"query": "Yokohama"})
+            assert not result.isError
+            assert "Yokohama" in result.content[0].text
+
+
+@pytest.mark.integration
 async def test_unknown_tool_is_error(mcp_url: str):
     async for session in _session(mcp_url):
         result = await session.call_tool("find_transaction_price", {"query": "Yokohama"})
