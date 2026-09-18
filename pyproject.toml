@@ -16,6 +16,10 @@ test = [
     "pytest>=8,<9",
     "pytest-asyncio>=0.24,<1",
 ]
+# Optional: real-browser fetch() coverage of the HTTP API (tests/test_browser_fetch_protocol.py).
+# Not part of `test` — CI and `pip install -e '.[test]'` stay lean; this file's tests
+# pytest.importorskip when playwright isn't installed. Needs `playwright install chromium` too.
+browser-test = ["playwright>=1.40"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/mcp_toolcall_lab"]

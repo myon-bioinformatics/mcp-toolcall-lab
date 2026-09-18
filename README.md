@@ -114,6 +114,26 @@ own database. See [`docs/openwebui_schema_notes.md`](docs/openwebui_schema_notes
 WebUI's actual `chat`/`file`/`function`/`tool` table schemas (verified against its source), kept
 as a reference for a dedicated Open WebUI-specific mock later.
 
+### Proving the loose HTTP coupling from a real browser
+
+This mock has **no chat screen** — `GET /` is a plain 404 and `/mcp` only speaks JSON-RPC, so
+there's no UI to click through or screenshot (Open WebUI's actual chat interface is a separate
+application entirely). What's still worth proving is that the API is reachable from a real
+browser's own `fetch()`, not just curl or a Python client:
+
+```bash
+pip install -e '.[test,browser-test]'
+playwright install chromium
+pytest -q tests/test_browser_fetch_protocol.py
+```
+
+`tests/test_browser_fetch_protocol.py` navigates a headless Chromium to the server's own origin
+(same-origin, so no CORS is needed — the server sends no `Access-Control-Allow-Origin` header and
+405s on OPTIONS preflight, so a *cross*-origin browser fetch would be blocked) and runs the same
+`initialize`/`tools/list`/`tools/call` handshake as `test_curl_protocol.py`, purely through
+`page.evaluate(() => fetch(...))`. Not part of `test` extras or CI — it `pytest.importorskip`s
+when `playwright` isn't installed, same as every other optional path in this repo.
+
 ## Empty vs error
 
 - **Empty** is a successful `tools/call` whose result is `[]` (unknown municipality, blank query, or a Japanese name that is not in this tiny English mock). Open WebUI forwards `content`, so the model sees an empty list, not a protocol error.
