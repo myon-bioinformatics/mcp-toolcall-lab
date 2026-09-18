@@ -6,55 +6,67 @@ mocks the OpenAI-compatible tool-calling wire shape that OWUI and most other cha
 These notes exist so a *dedicated* Open WebUI mock (deferred — see conversation), if built later,
 starts from verified facts instead of forum-search guesses.
 
-## Coverage of `backend/open_webui/models/` (26 files, fetched 2026-09-18)
+## Coverage of `backend/open_webui/models/` (26/26 files reviewed, fetched 2026-09-18)
 
-Tables were prioritized by relevance to tool-calling/MCP correlation work, not by file-list order.
-Everything below marked "not started" is genuinely unexamined — do not assume parity with real
-OWUI behavior for it.
+All 26 files have now been looked at. Nine were pulled with full column detail because they matter
+to tool-calling/MCP correlation work; the other seventeen got a lighter pass (columns + id
+generation only) since none of them turned out relevant — see "Reviewed, nothing notable" below
+before assuming a file needs another look.
 
 | # | File | Status |
 | - | --- | --- |
-| 1 | `access_grants.py` | not started |
-| 2 | `auths.py` | not started |
-| 3 | `automations.py` | not started |
-| 4 | `calendar.py` | not started |
-| 5 | `channels.py` | not started |
-| 6 | `chat_messages.py` | not started |
-| 7 | `chats.py` | **done** — see `chat` table below |
-| 8 | `config.py` | not started (distinct from the top-level `backend/open_webui/config.py` env/settings loader — this one is a `models/` table) |
-| 9 | `feedbacks.py` | not started |
-| 10 | `files.py` | **done** — see `file` table below |
-| 11 | `folders.py` | not started |
-| 12 | `functions.py` | **done** — see `function` table below |
-| 13 | `groups.py` | not started |
-| 14 | `knowledge.py` | not started |
-| 15 | `memories.py` | not started |
-| 16 | `messages.py` | not started |
-| 17 | `models.py` | not started |
-| 18 | `notes.py` | not started |
-| 19 | `oauth_sessions.py` | not started |
-| 20 | `prompt_history.py` | not started |
-| 21 | `prompts.py` | not started |
-| 22 | `shared_chats.py` | **done** — see `shared_chat` table below (corrects the earlier "mentioned only" entry) |
-| 23 | `skills.py` | not started |
-| 24 | `tags.py` | not started |
-| 25 | `tools.py` | **done** — see `tool` table below |
-| 26 | `users.py` | **done** — see `user` / `api_key` tables below |
+| 1 | `access_grants.py` | reviewed, nothing notable — `uuid4()` id, generic resource/principal/permission ACL row |
+| 2 | `auths.py` | **done** — see `auth` table |
+| 3 | `automations.py` | reviewed — see note below (scheduled prompts, not tool-calling) |
+| 4 | `calendar.py` | reviewed, nothing notable — `uuid4()` ids, own access-grant integration |
+| 5 | `channels.py` | reviewed, nothing notable — `uuid4()` ids; webhook tokens use `secrets.token_urlsafe(32)` (a token-generation detail, not an id-shape one) |
+| 6 | `chat_messages.py` | **done** — see `chat_message` table |
+| 7 | `chats.py` | **done** — see `chat` table |
+| 8 | `config.py` (models/ variant) | reviewed — see note below (new id kind: settings key as PK) |
+| 9 | `feedbacks.py` | reviewed, nothing notable — `uuid4()` id |
+| 10 | `files.py` | **done** — see `file` table |
+| 11 | `folders.py` | reviewed, nothing notable — `uuid4()` id, own access-grant integration |
+| 12 | `functions.py` | **done** — see `function` table |
+| 13 | `groups.py` | reviewed, nothing notable — `uuid4()` id; group-level `data.config.share` permission scoping exists but isn't tool/MCP-specific |
+| 14 | `knowledge.py` | reviewed, nothing notable — `uuid4()` ids throughout a 3-table knowledge-base hierarchy |
+| 15 | `memories.py` | reviewed, nothing notable — `uuid4()` id |
+| 16 | `messages.py` | reviewed, nothing notable — **channel** messages (threaded, `parent_id`/`reply_to_id`), distinct from `chat_messages.py`'s per-chat messages; `uuid4()` id |
+| 17 | `models.py` | **done** — see `model` table |
+| 18 | `notes.py` | reviewed, nothing notable — `uuid4()` id |
+| 19 | `oauth_sessions.py` | reviewed, nothing notable — `uuid4()` id; token stored Fernet-encrypted, not an id-shape detail |
+| 20 | `prompt_history.py` | reviewed, nothing notable — `uuid4()` id, git-commit-like `parent_id` chain |
+| 21 | `prompts.py` | reviewed, nothing notable — `uuid4()` id (slash-command templates, not "skills") |
+| 22 | `shared_chats.py` | **done** — see `shared_chat` table |
+| 23 | `skills.py` | reviewed — see note below (false lead: unrelated to tool-calling despite the name) |
+| 24 | `tags.py` | reviewed — see note below (new id kind: slugified-from-name, composite PK) |
+| 25 | `tools.py` | **done** — see `tool` table |
+| 26 | `users.py` | **done** — see `user` / `api_key` tables |
 
-Also done, chosen for MCP/tool-calling relevance rather than by file-list order:
+**Notes on the reviewed-but-not-fully-documented files that had something worth flagging:**
 
-| File | Status |
-| --- | --- |
-| `auths.py` | **done** — see `auth` table below |
-| `models.py` | **done** — see `model` table below |
-| `chat_messages.py` | **done** — see `chat_message` table below |
+- **`skills.py` is a false lead.** The name suggests agent/tool "skills," but it's just a
+  standalone reusable-prompt-like object (id, name, description, content, meta) with no
+  relationship to tool-calling, MCP, or function registration at all — closer in spirit to
+  `prompts.py` than to `functions.py`/`tools.py`. Worth remembering so nobody re-investigates it
+  expecting a tool registry.
+- **`tags.py`** introduces a new id pattern: `tag.id` is the tag's `name` lowercased with spaces
+  replaced by underscores (e.g. "My Tag" → `my_tag`) — deterministic and content-derived, not
+  random and not freely chosen like `function.id`. Its primary key is also **composite**,
+  `(id, user_id)`, the first confirmed composite PK in this survey (`chat_message.id`'s
+  `{chat_id}-{message_id}` shape was reported but not independently verified).
+- **`config.py`** (the `models/` table, not the top-level env loader) is a generic key-value
+  store: `key` (Text) is the primary key itself — a settings namespace path, not an entity id at
+  all — with `value` (JSON) and `updated_at`. Nothing tool-calling/MCP-specific lives here.
+- **`automations.py`** stores scheduled prompts (`Automation`/`AutomationRun`, RRULE-based timing,
+  `FOR UPDATE SKIP LOCKED` claiming for distributed scheduling) — the closest thing to "automated
+  execution" in the schema, but it schedules **prompts**, not MCP tool calls, so it's out of scope
+  for this repo's tracing work.
 
-9 of 26 fully verified. Nothing outside `backend/open_webui/models/` (e.g. the top-level
-`config.py`, `main.py`, `routers/`, `utils/`) has been examined at all, and the remaining 17
-`models/` files (`access_grants.py`, `automations.py`, `calendar.py`, `channels.py`,
-`config.py` (models/ variant), `feedbacks.py`, `folders.py`, `groups.py`, `knowledge.py`,
-`memories.py`, `messages.py`, `notes.py`, `oauth_sessions.py`, `prompt_history.py`,
-`prompts.py`, `skills.py`, `tags.py`) remain not started.
+26 of 26 files reviewed; 9 fully documented with column tables. Nothing outside
+`backend/open_webui/models/` (the top-level `config.py`, `main.py`, `routers/`, `utils/` —
+especially `utils/middleware.py`, which is where the actual tool-call request/response handling
+and persistence logic lives) has been examined. That middleware code, not the model files, is
+where a real Open WebUI-specific mock would need to start.
 
 ## `chat` table
 
@@ -295,19 +307,25 @@ shape, which is out of scope here.
 
 ## ID taxonomy across these tables
 
-Six genuinely different "kinds" of id showed up across nine verified tables — worth keeping
-straight before mocking any of them:
+Nine genuinely different "kinds" of id showed up across the tables checked — worth keeping
+straight before mocking any of them. (Everything in the "reviewed, nothing notable" rows above
+used plain `uuid.uuid4()`, i.e. the first row here, so it isn't repeated per-table.)
 
 | Kind | Examples | Generation |
 | --- | --- | --- |
-| Opaque random token | `chat.id`, `file.id`, `shared_chat.id`/`chat.share_id`, `chat_file.id`, OpenAI `tool_calls[].id` (`call_xxx`) | `uuid.uuid4()` or equivalent, unrelated to any other row |
+| Opaque random token | `chat.id`, `file.id`, `shared_chat.id`/`chat.share_id`, `chat_file.id`, most other tables' `id`, OpenAI `tool_calls[].id` (`call_xxx`) | `uuid.uuid4()` or equivalent, unrelated to any other row |
 | Human-chosen slug | `function.id`, `tool.id`, `model.id` | Typed in by whoever creates the Function/Tool/workspace-model entry; doubles as a display/reference name |
+| Content-derived slug | `tag.id` | Deterministically computed from `name` (lowercased, spaces → underscores) — same input always produces the same id, unlike a freely chosen slug |
 | Mirrored primary key | `auth.id` | Copied verbatim from `user.id` at account creation; not a FK, just the same string in two tables |
 | Derived-from-another-row | `api_key.id` | Mechanically built as `f"key_{user_id}"` |
 | Composite (unverified) | `chat_message.id` | Reportedly `f"{chat_id}-{message_id}"`; not confirmed against actual source, flagged in its table above |
+| Composite primary key | `tag` (`id`, `user_id`) | Two columns together form the PK — the row's uniqueness isn't `id` alone, so `id` values like `my_tag` can repeat across different users |
 | FK-only relation, no shared id | `chat_file` linking `chat_id`↔`file_id` | Each side keeps its own table's real id; the join row has its own separate `id` too |
+| Semantic namespace key (no entity) | `config.key` | Not an entity id at all — a settings namespace path (e.g. `"ui.default_locale"`) used directly as the primary key of a plain key-value store |
 
 ## Sources
+
+Fully documented (column tables above):
 
 - `backend/open_webui/models/chats.py`
 - `backend/open_webui/models/files.py`
@@ -319,5 +337,26 @@ straight before mocking any of them:
 - `backend/open_webui/models/models.py`
 - `backend/open_webui/models/chat_messages.py`
 
+Reviewed at a lighter level (columns + id generation only; see the coverage table's notes):
+
+- `backend/open_webui/models/access_grants.py`
+- `backend/open_webui/models/automations.py`
+- `backend/open_webui/models/calendar.py`
+- `backend/open_webui/models/channels.py`
+- `backend/open_webui/models/config.py`
+- `backend/open_webui/models/feedbacks.py`
+- `backend/open_webui/models/folders.py`
+- `backend/open_webui/models/groups.py`
+- `backend/open_webui/models/knowledge.py`
+- `backend/open_webui/models/memories.py`
+- `backend/open_webui/models/messages.py`
+- `backend/open_webui/models/notes.py`
+- `backend/open_webui/models/oauth_sessions.py`
+- `backend/open_webui/models/prompt_history.py`
+- `backend/open_webui/models/prompts.py`
+- `backend/open_webui/models/skills.py`
+- `backend/open_webui/models/tags.py`
+
 (all in `github.com/open-webui/open-webui`, `main` branch, fetched 2026-09-18 — re-verify against
-the current source before relying on this for a real implementation, as OWUI's schema evolves.)
+the current source before relying on this for a real implementation, as OWUI's schema evolves.
+`backend/open_webui/utils/middleware.py` and everything outside `models/` remain unexamined.)
