@@ -42,6 +42,30 @@ def _outcome_for_result(result: Any, payload: Any) -> str:
     return OUTCOME_SUCCESS
 
 
+def _request_meta(context: MiddlewareContext) -> dict[str, Any]:
+    """Pull the caller-supplied MCP `_meta` object off a tools/call request.
+
+    Any client can attach arbitrary correlation data here (a chat-simulated
+    caller's `call_id`/`chat_id`, or a direct caller's own trace id) — MCP
+    reserves `_meta` exactly for this, so no protocol extension is needed.
+
+    Note: `context.message.meta` is *not* the original request's `_meta` —
+    FastMCP's own tools/call dispatch (fastmcp==3.4.7) rebuilds
+    CallToolRequestParams internally and overwrites `_meta` with its own
+    version-pinning metadata before middleware ever sees it. The original,
+    client-supplied `_meta` survives on the lower-level request context
+    instead, so that is what we read here.
+    """
+    ctx = context.fastmcp_context
+    request_context = ctx.request_context if ctx is not None else None
+    meta = getattr(request_context, "meta", None) if request_context is not None else None
+    if meta is None:
+        return {}
+    if hasattr(meta, "model_dump"):
+        meta = meta.model_dump(mode="json", exclude_none=True)
+    return {k: v for k, v in dict(meta).items() if k != "progressToken"}
+
+
 class ObservabilityMiddleware(Middleware):
     """Log every tools/call, including unknown names and validation failures."""
 
@@ -51,17 +75,18 @@ class ObservabilityMiddleware(Middleware):
             await asyncio.sleep(delay)
         name = context.message.name
         arguments = dict(context.message.arguments or {})
+        meta = _request_meta(context)
         try:
             result = await call_next(context)
         except Exception as exc:
-            record_call(tool=name, arguments=arguments, outcome=OUTCOME_ERROR, error=str(exc))
+            record_call(tool=name, arguments=arguments, outcome=OUTCOME_ERROR, error=str(exc), meta=meta)
             raise
         payload = _result_payload(result)
         outcome = _outcome_for_result(result, payload)
         if outcome == OUTCOME_ERROR:
-            record_call(tool=name, arguments=arguments, outcome=outcome, error=str(payload))
+            record_call(tool=name, arguments=arguments, outcome=outcome, error=str(payload), meta=meta)
         else:
-            record_call(tool=name, arguments=arguments, outcome=outcome, result=payload)
+            record_call(tool=name, arguments=arguments, outcome=outcome, result=payload, meta=meta)
         return result
 
 

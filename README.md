@@ -68,6 +68,43 @@ scripts/mcp_curl_smoke.sh                      # defaults to http://127.0.0.1:80
 scripts/mcp_curl_smoke.sh http://host:port/mcp # or point it at another running instance
 ```
 
+## Tracing a call: chat-simulated vs. direct
+
+A request can reach this mock two ways: **through a chat UI** (the model decides to call a tool,
+the UI executes it) or **straight to MCP** (curl, a script, anything speaking Streamable HTTP
+directly). Both are traceable through the same `MCP_TOOLCALL_LOG` JSONL file, correlated by
+whatever the caller puts in the request's `_meta` field — MCP reserves that field for exactly this,
+no protocol extension needed.
+
+`mcp_toolcall_lab.chat_sim` mocks the "chat経由" path generically: the OpenAI-compatible
+`tool_calls`/`tool`-role message shapes that Open WebUI, LibreChat, LobeChat, and most other chat
+UIs share (rather than reimplementing any one product's own internal ids like Open WebUI's
+`chat_id`/`function_id`), wired to a real MCP call tagged with `call_id`/`chat_id`/`source: "chat"`.
+`send_direct` is the other path — no chat layer, tagged `source: "direct"`.
+
+```python
+import asyncio
+from mcp_toolcall_lab.chat_sim import send_via_chat, send_direct
+
+async def main():
+    trace = await send_via_chat(
+        "http://127.0.0.1:8000/mcp",
+        user_text="Where is Yokohama?",
+        tool_name="find_municipalities",
+        arguments={"query": "Yokohama"},
+    )
+    print(trace.assistant_tool_call_message)  # {"role": "assistant", "tool_calls": [...]}
+    print(trace.tool_result_message)          # {"role": "tool", "tool_call_id": ..., "content": ...}
+
+    await send_direct("http://127.0.0.1:8000/mcp", tool_name="find_stations",
+                       arguments={"municipality_code": "14109"}, trace_id="probe-1")
+
+asyncio.run(main())
+```
+
+With `MCP_TOOLCALL_LOG` set, both calls above land in the same JSONL file with the same shape,
+distinguished only by `meta.source` — see `tests/test_trace.py`.
+
 `tests/test_curl_protocol.py` gives the same raw-HTTP handshake pytest coverage (success, empty
 result, unknown tool, missing argument), alongside `tests/test_streamable_http_protocol.py`'s
 `mcp`-SDK-based client flow.
