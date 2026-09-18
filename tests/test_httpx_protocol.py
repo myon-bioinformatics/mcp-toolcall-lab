@@ -12,9 +12,11 @@ no new dependency.
 Two things this layer demonstrates that neither curl nor the SDK does as
 directly:
 
-- A single ``httpx.Client`` is reused (keep-alive) across every call in a
-  session, the way a real long-lived service would talk to this server —
-  unlike curl, which spawns a brand-new process (and connection) per call.
+- A single ``httpx.Client`` (eligible for HTTP keep-alive) is reused across
+  every call in a session, the way a real long-lived service would talk to
+  this server — unlike curl, which spawns a brand-new process per call.
+  (This is client/session reuse, not a guarantee the underlying TCP
+  connection is never re-established — that isn't instrumented here.)
 - Timing out is a plain HTTP client timeout (``httpx.TimeoutException``) on
   the raw request, not something that needs the ``mcp`` SDK's async
   cancellation machinery — see ``test_httpx_timeout_on_slow_tool`` versus
@@ -87,7 +89,11 @@ class McpHttpxSession:
             payload["params"] = params
         self._next_id += 1
         headers = {"Content-Type": "application/json", "Accept": ACCEPT, "Mcp-Session-Id": self.session_id}
-        response = self.client.post(self.url, headers=headers, json=payload, timeout=timeout)
+        # httpx treats an explicit timeout=None as "no timeout at all", not "use the
+        # client's default" (that's httpx.USE_CLIENT_DEFAULT) -- so the kwarg is only
+        # passed when a caller actually wants to override the client's configured timeout.
+        kwargs = {"timeout": timeout} if timeout is not None else {}
+        response = self.client.post(self.url, headers=headers, json=payload, **kwargs)
         return _extract_sse_data(response.text)["result"]
 
     def list_tools(self) -> list[dict]:
@@ -160,5 +166,25 @@ def test_httpx_timeout_on_slow_tool() -> None:
             session.initialize()
             with pytest.raises(httpx.TimeoutException):
                 session.call_tool("find_stations", {"municipality_code": "14109"}, timeout=0.5)
+        finally:
+            session.close()
+
+
+def test_httpx_default_call_still_times_out_using_the_clients_own_timeout() -> None:
+    """A call with no explicit timeout= override must still inherit the client's default.
+
+    httpx treats an explicit timeout=None as "no timeout at all", not "use the
+    client's configured timeout" -- passing it through unconditionally would make
+    every ordinary call() / call_tool() wait indefinitely regardless of the
+    McpHttpxSession(..., timeout=...) passed at construction. Build a session with
+    a short client-level timeout and confirm a slow tool still raises without any
+    per-call override.
+    """
+    with running_mcp_server(MCP_TOOL_DELAY_SECONDS="30") as server:
+        session = McpHttpxSession(server.url, timeout=0.5)
+        try:
+            session.initialize()
+            with pytest.raises(httpx.TimeoutException):
+                session.call_tool("find_stations", {"municipality_code": "14109"})
         finally:
             session.close()

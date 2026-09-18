@@ -100,8 +100,9 @@ this server.
 
 Two things it demonstrates that curl and the SDK don't as directly:
 
-- The same `httpx.Client` (and its `Mcp-Session-Id`) serves multiple calls in a row over one
-  connection — curl spawns a brand-new process (and connection) per call instead.
+- The same `httpx.Client` (and its `Mcp-Session-Id`) serves multiple calls in a row through one
+  reused client/session (eligible for HTTP keep-alive) — curl spawns a brand-new process per
+  call instead.
 - Timing out is a plain `httpx.TimeoutException` on the raw request
   (`test_httpx_timeout_on_slow_tool`), not something that needs the `mcp` SDK's async
   cancellation machinery the way `test_timeout_raises_on_slow_tool` does in
