@@ -5,9 +5,20 @@ function/tool calling all speak the same OpenAI-compatible wire shape for it:
 the assistant message carries ``tool_calls: [{"id": "call_xxx", "type":
 "function", "function": {"name", "arguments"}}]``, and the tool's result comes
 back as ``{"role": "tool", "tool_call_id": "call_xxx", "content": ...}``. That
-shared shape — not any one UI's own internal ids like Open WebUI's
-``chat_id``/``function_id`` — is what this module mocks, so it stands in for
-"a chat UI" generically rather than reimplementing one specific product.
+shared shape — not any one UI's own internal identifiers — is what this
+module mocks, so it stands in for "a chat UI" generically rather than
+reimplementing one specific product.
+
+The ``call_id``/``chat_id`` this module generates are *not* modeled on any
+one UI's database schema. Verified against Open WebUI's actual SQLAlchemy
+models (see ``docs/openwebui_schema_notes.md``): its ``chat.id`` and
+``chat.share_id`` are real, generated-and-stored identifiers comparable in
+spirit to this module's ``chat_id``, but its ``function.id``/``tool.id`` are
+user-chosen slugs for its own Python plugin system — a different kind of "id"
+entirely, unrelated to MCP tool names or this module's ``call_id``. A
+dedicated Open WebUI-specific mock (its own database shape, not just the
+tool-calling wire format) is deferred; this module intentionally stays
+generic until that's scoped.
 
 This is deliberately not part of ``INLINE_MODULES`` in export.py: it is a
 test/harness-side stand-in for *a caller* of the mock MCP server, not part of

@@ -109,6 +109,11 @@ distinguished only by `meta.source` — see `tests/test_trace.py`.
 result, unknown tool, missing argument), alongside `tests/test_streamable_http_protocol.py`'s
 `mcp`-SDK-based client flow.
 
+`chat_sim.py` mocks the generic OpenAI-compatible tool-calling wire shape, not any one chat UI's
+own database. See [`docs/openwebui_schema_notes.md`](docs/openwebui_schema_notes.md) for Open
+WebUI's actual `chat`/`file`/`function`/`tool` table schemas (verified against its source), kept
+as a reference for a dedicated Open WebUI-specific mock later.
+
 ## Empty vs error
 
 - **Empty** is a successful `tools/call` whose result is `[]` (unknown municipality, blank query, or a Japanese name that is not in this tiny English mock). Open WebUI forwards `content`, so the model sees an empty list, not a protocol error.
