@@ -1,0 +1,25 @@
+# Example fragment for LibreChat → mcp-toolcall-lab mock.
+#
+# Merge the `mcpServers` map into your real librechat.yaml (keep your version / other keys).
+# Docs: https://www.librechat.ai/docs/configuration/librechat_yaml/object_structure/mcp_servers
+#
+# Start the mock first:
+#   MCP_HOST=0.0.0.0 python openwebui_mcp_mock.py
+#
+# Then point `url` at wherever LibreChat can reach that process (see docs/librechat_mcp_notes.md).
+
+mcpServers:
+  mcp-toolcall-lab:
+    type: streamable-http
+    # Same host as LibreChat:
+    url: http://127.0.0.1:8000/mcp
+    # LibreChat in Docker, mock on the host — use instead of the line above:
+    # url: http://host.docker.internal:8000/mcp
+    requiresOAuth: false
+    startup: true
+    timeout: 60000
+    # initTimeout: 30000
+    # headers:
+    #   Authorization: "Bearer ${MCP_API_TOKEN}"
+    serverInstructions: true
+    chatMenu: true

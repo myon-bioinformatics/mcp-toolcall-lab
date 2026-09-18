@@ -46,6 +46,25 @@ The MCP endpoint is Streamable HTTP at `/mcp`. In Open WebUI (v0.6.31+), add an 
 
 The mock process must bind `MCP_HOST=0.0.0.0` whenever the client is not on the same network namespace. Set auth to **None** unless you add a token yourself.
 
+### LibreChat (second chat client, same mock)
+
+LibreChat is the next first-class UI target. Point it at the **same** `/mcp` URL via
+`librechat.yaml` — do not stand up a second mock. Copy
+[`examples/librechat.mcp.example.yaml`](examples/librechat.mcp.example.yaml) into your
+LibreChat config, then use the chat MCP picker (Agents are a follow-up axis).
+
+```yaml
+mcpServers:
+  mcp-toolcall-lab:
+    type: streamable-http
+    url: http://127.0.0.1:8000/mcp
+    requiresOAuth: false
+    startup: true
+```
+
+Details: [`docs/librechat_mcp_notes.md`](docs/librechat_mcp_notes.md).
+Prompt: [`system_prompts/strict_tool_selection_librechat.md`](system_prompts/strict_tool_selection_librechat.md).
+
 ## Test
 
 ```bash
@@ -152,7 +171,9 @@ result, unknown tool, missing argument), alongside `tests/test_streamable_http_p
 `chat_sim.py` mocks the generic OpenAI-compatible tool-calling wire shape, not any one chat UI's
 own database. See [`docs/openwebui_schema_notes.md`](docs/openwebui_schema_notes.md) for Open
 WebUI's actual `chat`/`file`/`function`/`tool` table schemas (verified against its source), kept
-as a reference for a dedicated Open WebUI-specific mock later.
+as a reference for a dedicated Open WebUI-specific mock later. See
+[`docs/librechat_mcp_notes.md`](docs/librechat_mcp_notes.md) for the same kind of notes on
+LibreChat, this lab's second chat client.
 
 ### Proving the loose HTTP coupling from a real browser
 
