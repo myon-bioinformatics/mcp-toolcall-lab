@@ -49,7 +49,7 @@ def _list_tools(url: str) -> list[dict]:
     return json.loads(result.stdout)["tools"]
 
 
-def _call(url: str, tool: str, **arguments: str) -> dict:
+def _call(url: str, tool: str, **arguments: str) -> subprocess.CompletedProcess[str]:
     args = [f"{key}={value}" for key, value in arguments.items()]
     result = _run("call", url, tool, *args, "--json")
     return result
