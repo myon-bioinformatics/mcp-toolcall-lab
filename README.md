@@ -55,6 +55,23 @@ pytest -q
 
 `pip install -e` already puts `src` on the import path, so `PYTHONPATH=src` is not required. Pull requests run the same commands on GitHub Actions with Python 3.11.
 
+## Talking to the mock with nothing but curl
+
+Streamable HTTP is plain JSON-RPC over HTTP — no chat UI, browser, or even the `mcp`/`fastmcp`
+Python SDKs are required to drive it. `scripts/mcp_curl_smoke.sh` performs the same handshake
+Open WebUI does (`initialize` → `notifications/initialized` → `tools/list` → `tools/call`), using
+only `curl` and `python3 -m json.tool` for pretty-printing:
+
+```bash
+python openwebui_mcp_mock.py &
+scripts/mcp_curl_smoke.sh                      # defaults to http://127.0.0.1:8000/mcp
+scripts/mcp_curl_smoke.sh http://host:port/mcp # or point it at another running instance
+```
+
+`tests/test_curl_protocol.py` gives the same raw-HTTP handshake pytest coverage (success, empty
+result, unknown tool, missing argument), alongside `tests/test_streamable_http_protocol.py`'s
+`mcp`-SDK-based client flow.
+
 ## Empty vs error
 
 - **Empty** is a successful `tools/call` whose result is `[]` (unknown municipality, blank query, or a Japanese name that is not in this tiny English mock). Open WebUI forwards `content`, so the model sees an empty list, not a protocol error.
