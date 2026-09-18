@@ -6,6 +6,45 @@ mocks the OpenAI-compatible tool-calling wire shape that OWUI and most other cha
 These notes exist so a *dedicated* Open WebUI mock (deferred — see conversation), if built later,
 starts from verified facts instead of forum-search guesses.
 
+## Coverage of `backend/open_webui/models/` (26 files, fetched 2026-09-18)
+
+Only the four tables actually relevant to tool-calling/MCP correlation work have been pulled and
+verified so far. Everything else below is genuinely unexamined — do not assume parity with real
+OWUI behavior for any file marked "not started".
+
+| # | File | Status |
+| - | --- | --- |
+| 1 | `access_grants.py` | not started |
+| 2 | `auths.py` | not started |
+| 3 | `automations.py` | not started |
+| 4 | `calendar.py` | not started |
+| 5 | `channels.py` | not started |
+| 6 | `chat_messages.py` | not started |
+| 7 | `chats.py` | **done** — see `chat` table below |
+| 8 | `config.py` | not started (distinct from the top-level `backend/open_webui/config.py` env/settings loader — this one is a `models/` table) |
+| 9 | `feedbacks.py` | not started |
+| 10 | `files.py` | **done** — see `file` table below |
+| 11 | `folders.py` | not started |
+| 12 | `functions.py` | **done** — see `function` table below |
+| 13 | `groups.py` | not started |
+| 14 | `knowledge.py` | not started |
+| 15 | `memories.py` | not started |
+| 16 | `messages.py` | not started |
+| 17 | `models.py` | not started |
+| 18 | `notes.py` | not started |
+| 19 | `oauth_sessions.py` | not started |
+| 20 | `prompt_history.py` | not started |
+| 21 | `prompts.py` | not started |
+| 22 | `shared_chats.py` | **mentioned only** — referenced above (a `SharedChats` model exists, populated via `insert_shared_chat_by_chat_id()`) but its actual columns have not been fetched/verified |
+| 23 | `skills.py` | not started |
+| 24 | `tags.py` | not started |
+| 25 | `tools.py` | **done** — see `tool` table below |
+| 26 | `users.py` | not started |
+
+4 of 26 fully verified, 1 partially (name/purpose only, no columns). Nothing outside
+`backend/open_webui/models/` (e.g. the top-level `config.py`, `main.py`, `routers/`, `utils/`) has
+been examined at all.
+
 ## `chat` table
 
 ```python
