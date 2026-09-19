@@ -21,6 +21,10 @@ __all__ = [
     "extract_code_blocks",
     "extract_raw_html",
     "extract_urls",
+    "extract_section",
+    "strip_prose_keep_structure",
+    "minify_markdown",
+    "safe_truncate",
     "inventory",
     "make_link",
     "make_image",
@@ -75,6 +79,7 @@ SUPPORTED = {
         "images ![alt](url)",
         "raw HTML tags (best-effort extraction)",
         "horizontal rules (--- *** ___)",
+        "context helpers: extract_section / strip_prose_keep_structure / minify_markdown / safe_truncate",
     ],
     "conversion": [
         "link/image builders",
@@ -475,6 +480,154 @@ def inventory(content: str) -> dict[str, Any]:
         "supported": SUPPORTED,
         "unsupported": UNSUPPORTED,
     }
+
+def extract_section(
+    content: str,
+    heading_name: str,
+    *,
+    level: int | None = None,
+    partial: bool = False,
+) -> str:
+    """Return one ATX heading section, including nested child headings.
+
+    Matching is case-insensitive and exact by default. Set partial=True for a
+    case-insensitive substring match, and level to restrict heading depth. The
+    section ends at the next heading with a level less than or equal to the
+    selected heading. A missing or empty heading name returns an empty string.
+    """
+    wanted = str(heading_name).strip()
+    if not wanted:
+        return ""
+
+    selected_start: int | None = None
+    selected_level: int | None = None
+    lines = content.splitlines(keepends=True)
+
+    for index, line in enumerate(lines):
+        match = _HEADING_RE.match(line.rstrip("\r\n"))
+        if not match:
+            continue
+        current_level = len(match.group(1))
+        title = match.group(2).strip()
+        if level is not None and current_level != level:
+            continue
+        normalized_title = title.casefold()
+        normalized_wanted = wanted.casefold()
+        matched = (
+            normalized_wanted in normalized_title
+            if partial
+            else normalized_title == normalized_wanted
+        )
+        if matched:
+            selected_start = index
+            selected_level = current_level
+            break
+
+    if selected_start is None or selected_level is None:
+        return ""
+
+    selected_end = len(lines)
+    for index in range(selected_start + 1, len(lines)):
+        match = _HEADING_RE.match(lines[index].rstrip("\r\n"))
+        if match and len(match.group(1)) <= selected_level:
+            selected_end = index
+            break
+
+    result = "".join(lines[selected_start:selected_end])
+    if result and not result.endswith(("\n", "\r")):
+        result += "\n"
+    return result
+
+
+def strip_prose_keep_structure(content: str) -> str:
+    """Keep Markdown structure while dropping ordinary prose lines.
+
+    Headings, lists, blockquotes, thematic breaks, and complete fenced code
+    blocks are preserved verbatim. Lines inside a fenced block are always
+    retained, including prose-looking lines. This is a deterministic
+    extraction heuristic, not a summarizer.
+    """
+    kept: list[str] = []
+    active_fence: str | None = None
+
+    for line in content.splitlines():
+        fence = _FENCE_RE.match(line)
+        if active_fence is not None:
+            kept.append(line)
+            if fence and line.startswith(active_fence):
+                active_fence = None
+            continue
+
+        if fence:
+            kept.append(line)
+            active_fence = fence.group(1)
+            continue
+
+        if not line.strip():
+            if kept and kept[-1] != "":
+                kept.append("")
+            continue
+
+        if (
+            _HEADING_RE.match(line)
+            or _HR_RE.match(line)
+            or re.match(r"^\s*(?:[-+*]\s+|\d+[.)]\s+|>)", line)
+        ):
+            kept.append(line)
+
+    while kept and kept[-1] == "":
+        kept.pop()
+
+    if not kept:
+        return ""
+    result = "\n".join(kept)
+    return result + ("\n" if content.endswith(("\n", "\r")) else "")
+
+
+def minify_markdown(content: str, strip_html: bool = True) -> str:
+    """Apply conservative physical Markdown minification.
+
+    When strip_html is true, HTML comments are removed. Three or more
+    consecutive newlines are reduced to two, and surrounding whitespace is
+    stripped. No Markdown parsing or semantic conversion is performed.
+    """
+    if strip_html:
+        content = re.sub(r"<!--.*?-->", "", content, flags=re.DOTALL)
+    return re.sub(r"\n{3,}", "\n\n", content).strip()
+
+
+def safe_truncate(content: str, max_chars: int) -> str:
+    """Truncate to max_chars while closing an open fenced code block.
+
+    The length limit is hard: when there is enough room, a matching closing
+    fence is appended within the limit. If the limit is too small to retain
+    both the prefix and a closing fence, the raw prefix is returned.
+    ValueError is raised for a negative limit.
+    """
+    if max_chars < 0:
+        raise ValueError("max_chars must be non-negative")
+    if len(content) <= max_chars:
+        return content
+
+    prefix = content[:max_chars]
+    active_fence: str | None = None
+    for line in prefix.splitlines():
+        match = _FENCE_RE.match(line)
+        if not match:
+            continue
+        marker = match.group(1)
+        if active_fence is None:
+            active_fence = marker
+        elif line.startswith(active_fence):
+            active_fence = None
+
+    if active_fence is None:
+        return prefix
+
+    suffix = ("" if prefix.endswith(("\n", "\r")) else "\n") + active_fence
+    if len(suffix) > max_chars:
+        return prefix
+    return prefix[: max_chars - len(suffix)] + suffix
 
 
 # ---------------------------------------------------------------------------

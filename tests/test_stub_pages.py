@@ -48,8 +48,8 @@ def test_vendored_markdown_py_is_loadable() -> None:
     assert md is not None
     assert md.split_sections("# Yokohama\n\nbody\n")[0]["title"] == "Yokohama"
     recorded = assert_markdown_provenance()
-    assert recorded["commit"] == "f3c0bf82a7d0f0e9653a224d7055911e3068b7ff"
-    assert recorded["blob_sha"] == "ad3b9f8e81dafd8e17bb40035c390e42e69869ad"
+    assert recorded["commit"] == "77b9cdcc6fe0de743a1642afe0289f0925843821"
+    assert recorded["blob_sha"] == "a5fb7b7eed022dd73fa68ab51cf6d54cbba63a91"
     readme = (ROOT / "vendor" / "README.md").read_text(encoding="utf-8")
     assert "ref=${COMMIT}" in readme
     assert "not `main`" in readme
