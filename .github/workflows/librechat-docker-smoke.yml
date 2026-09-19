@@ -17,8 +17,9 @@ on:
     paths:
       - "docker/librechat-smoke/**"
       - "demos/openai_toolcall_mock.py"
+      - "librechat_mcp_mock.py"
       - "openwebui_mcp_mock.py"
-      - "src/mcp_toolcall_lab/antipatterns.py"
+      - "src/mcp_toolcall_lab/**"
       - "tests/real_chat_ui/**"
       - ".github/workflows/librechat-docker-smoke.yml"
 

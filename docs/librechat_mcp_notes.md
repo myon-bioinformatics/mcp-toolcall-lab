@@ -12,7 +12,7 @@ Fetched / cross-checked 2026-09-18.
 
 ## Why LibreChat next
 
-| | Open WebUI (already documented) | LibreChat (this PR) |
+| | Open WebUI (already documented) | LibreChat (second client) |
 | --- | --- | --- |
 | Role in this lab | First client; native Streamable HTTP | Second client; multi-transport MCP + Agents |
 | Config surface | UI "MCP (Streamable HTTP)" connection | `librechat.yaml` `mcpServers` (+ UI panel) |
@@ -88,7 +88,7 @@ Auth: none unless you add a token yourself (then mirror it in `headers:`).
 `docker/librechat-smoke/` runs **real LibreChat** (published image) on the same
 compose network (`mcp-toolcall-lab`) as:
 
-1. `mcp-mock` — this repo's Streamable HTTP MCP server (`openwebui_mcp_mock.py`)
+1. `mcp-mock` — this repo's Streamable HTTP MCP server (`librechat_mcp_mock.py`)
 2. `openai-mock` — `demos/openai_toolcall_mock.py`, a stdlib OpenAI-compatible
    server that emits `tool_calls` for Yokohama / municipalities (LibreChat
    prefixes MCP tools as `find_municipalities_mcp_<server>`)

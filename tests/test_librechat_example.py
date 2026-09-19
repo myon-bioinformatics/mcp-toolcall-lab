@@ -19,6 +19,8 @@ def test_librechat_example_yaml_exists_and_targets_streamable_http() -> None:
     # stdio-only knobs must not sneak into the HTTP example
     assert "command:" not in text
     assert "args:" not in text
+    assert "librechat_mcp_mock.py" in text
+    assert "openwebui_mcp_mock.py" not in text
 
 
 def test_librechat_smoke_compose_uses_shared_docker_network() -> None:
@@ -38,9 +40,19 @@ def test_librechat_smoke_compose_uses_shared_docker_network() -> None:
 
 
 def test_librechat_docs_and_prompt_are_present() -> None:
-    assert (ROOT / "docs" / "librechat_mcp_notes.md").is_file()
+    notes = (ROOT / "docs" / "librechat_mcp_notes.md").read_text(encoding="utf-8")
+    assert "librechat_mcp_mock.py" in notes
+    assert "http://mcp-mock:8000/mcp" in notes
     prompt = (ROOT / "system_prompts" / "strict_tool_selection_librechat.md").read_text(
         encoding="utf-8"
     )
     assert "LibreChat" in prompt
     assert "tools/list" in prompt
+
+
+def test_librechat_smoke_workflow_tracks_the_librechat_named_mock() -> None:
+    workflow = (ROOT / ".github" / "workflows" / "librechat-docker-smoke.yml").read_text(
+        encoding="utf-8"
+    )
+    assert "librechat_mcp_mock.py" in workflow
+    assert "pytest -q" in workflow
