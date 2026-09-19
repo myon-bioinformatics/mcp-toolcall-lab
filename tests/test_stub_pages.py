@@ -138,6 +138,7 @@ def test_stub_pages_compose_uses_service_dns() -> None:
     assert "vendor/markdown.py" in stub_df
     workflow = (ROOT / ".github" / "workflows" / "stub-pages.yml").read_text(encoding="utf-8")
     assert "actions/deploy-pages" in workflow
+    assert workflow.count("if: github.ref == 'refs/heads/main'") >= 2
     assert "stub-pages-smoke.py" in workflow or "stub_pages_smoke.py" in workflow
     assert "_site/mcp-toolcalls.jsonl" not in workflow
     assert "_site/antipatterns.jsonl" not in workflow

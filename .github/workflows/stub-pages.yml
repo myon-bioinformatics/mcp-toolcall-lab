@@ -128,7 +128,7 @@ jobs:
           if-no-files-found: ignore
 
       - name: Upload Pages artifact
-        if: github.event_name != 'pull_request'
+        if: github.ref == 'refs/heads/main'
         uses: actions/upload-pages-artifact@v3
         with:
           path: _site
@@ -141,7 +141,11 @@ jobs:
 
   deploy:
     needs: smoke
-    if: github.event_name != 'pull_request'
+    # Pages is the merged main report only. Feature-branch
+    # workflow_dispatch (including use_real_gguf=true) must not
+    # enter the github-pages environment — that job fails with no
+    # steps when the environment is restricted to main.
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment:
       name: github-pages

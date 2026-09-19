@@ -8,5 +8,6 @@
   "size_bytes": 105454432,
   "sha256_verified_against_pin": true,
   "observed_in": "https://github.com/myon-bioinformatics/mcp-toolcall-lab/actions/runs/35433174462",
-  "notes": "Hashed on the GitHub-hosted runner after download. The same run then failed at compose (digest image + leftover lite build). Pin lives in scripts/fetch_tiny_cpu_gguf.py DEFAULT_*."
+  "verified_in": "https://github.com/myon-bioinformatics/mcp-toolcall-lab/actions/runs/35433482811",
+  "notes": "Hashed on the GitHub-hosted runner after download. Pin lives in scripts/fetch_tiny_cpu_gguf.py DEFAULT_*. Run 35433482811 re-fetched against that pin, started llama.cpp, and passed /v1/chat/completions (cpu_llm_backend=real-gguf)."
 }

@@ -57,6 +57,9 @@ API; `CPU_LLM_GGUF_URL` downloads that URL. Bytes are always re-hashed;
 a pin mismatch is a hard failure. Overlay `build: !reset` drops the lite
 Dockerfile so `up --build` pulls the digest-pinned llama.cpp image
 instead of trying to tag a built stand-in as `image@sha256:...`.
+Pages deploy runs only from `main` (`github.ref == 'refs/heads/main'`).
+A feature-branch `workflow_dispatch` (including `use_real_gguf=true`)
+must not enter the `github-pages` environment.
 
 `scripts/stub_pages_smoke.py` also calls `/v1/chat/completions` for real
 (not just `/health`) — a process can be "up" while inference itself is

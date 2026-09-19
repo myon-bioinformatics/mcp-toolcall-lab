@@ -33,8 +33,7 @@ split. It is not a product clone and not a CommonMark engine.
 - Playwright against the stub (reuse `frontends.py`; no product Docker)
 - Optional `openai_toolcall_mock` backend for the stub
 - Playwright against the stub (reuse `frontends.py`; no product Docker)
-- Re-run `stub-pages` with `use_real_gguf=true` so the digest-pinned
-  llama.cpp image actually starts (compose overlay now `build: !reset`)
+- Real GGUF opt-in is proven on Actions run 35433482811 (`cpu_llm_backend=real-gguf`, completions ok). Pages deploy stays main-only.
 
 ## One-liners
 
