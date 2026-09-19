@@ -104,6 +104,8 @@ def test_pages_tree_does_not_claim_a_live_wikipedia_backend(tmp_path: Path) -> N
     assert "cannot keep that backend" in html or "does not include the live form" in html
     assert 'data-testid="wiki-title"' not in html
     assert 'action="/wiki"' not in html
+    assert 'href="/wiki"' not in html
+    assert 'href="#wiki"' in html
     assert "GitHub Pages is static" in html
 
 
