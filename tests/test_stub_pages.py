@@ -78,6 +78,8 @@ def test_pages_tree_excludes_raw_mcp_logs(tmp_path: Path) -> None:
                 },
                 "observation": {"verdict": "PASS", "antipattern_id": None},
                 "cpu_llm_ok": True,
+                "cpu_llm_backend": "lite-stub",
+                "cpu_llm_completion_ok": True,
                 "stub_health": {"status": 200, "body": "ok"},
                 "turn_http": 200,
             }
@@ -105,6 +107,8 @@ def test_pages_tree_excludes_raw_mcp_logs(tmp_path: Path) -> None:
     assert set(summary) == set(PAGES_SUMMARY_KEYS)
     assert summary["verdict"] == "PASS"
     assert summary["showed_expected_fragment"] is True
+    assert summary["cpu_llm_backend"] == "lite-stub"
+    assert summary["cpu_llm_completion_ok"] is True
     assert pages_summary({"turn": {"case": "HEADING_MISS"}}, [])["case"] == "HEADING_MISS"
 
 

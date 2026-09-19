@@ -30,13 +30,50 @@ Ledger: `test-results/antipatterns.jsonl` (dictionary:
 Raw MCP / cpu-llm / last-run files stay Actions artifacts. Pages only gets
 `index.html` + allowlisted `summary.json`.
 
+## Real tiny GGUF (opt-in)
+
+`docker-compose.gguf.yml` swaps `cpu-llm` for `ghcr.io/ggml-org/llama.cpp:server`
+serving a real model instead of `demos/cpu_llm_lite.py`'s stdlib stand-in.
+Off by default (never on a plain push); turn it on via the `stub-pages`
+workflow's `use_real_gguf` dispatch input, or locally:
+
+```bash
+scripts/fetch_tiny_cpu_gguf.sh docker/stub-pages/models/model.gguf
+docker compose -f docker/stub-pages/docker-compose.yml \
+  -f docker/stub-pages/docker-compose.gguf.yml up --build
+```
+
+`scripts/fetch_tiny_cpu_gguf.py` auto-discovers the smallest `*.gguf` in a
+small Apache-2.0 repo (default `HuggingFaceTB/SmolLM2-135M-Instruct-GGUF`)
+via the Hugging Face API and resolves it against that repo's current
+commit, or downloads `CPU_LLM_GGUF_URL` directly if you set one. Either
+way the downloaded bytes are always hashed after the fact; that digest
+is the ground truth. **No `CPU_LLM_GGUF_SHA256` is pinned into this repo
+yet** — this dev sandbox's egress proxy denies the CONNECT to
+`huggingface.co` (403), so nothing here could verify a checksum out of
+band before committing it. First real CI run (which does have internet)
+prints the computed sha256 and writes it to
+`docker/stub-pages/models/model.gguf.provenance.json` (uploaded as part
+of the `stub-pages-observations` artifact) — promote that value into
+`CPU_LLM_GGUF_SHA256` (repo variable or workflow env) once you've seen it
+succeed, so future fetches hard-fail on a mismatch instead of silently
+trusting a re-resolved commit.
+
+`scripts/stub_pages_smoke.py` also calls `/v1/chat/completions` for real
+(not just `/health`) — a process can be "up" while inference itself is
+broken (OOM, bad model args, a GGUF that never finished loading). A miss
+there is logged as `CPU_LLM_COMPLETION_FAILED`, distinct from
+`CPU_LLM_UNREACHABLE`. `cpu_llm_backend` (`lite-stub` / `real-gguf`) is
+in the published summary so the Pages report says honestly which one ran.
+
 ## Role split
 
-**Cursor (this slice):** compose network, stdlib stub + vendored
-`markdown.py`, Actions → Pages, anti-pattern JSONL, `usable_session_id`
-kept, lite `cpu-llm` so the stack always starts.
+**Cursor:** compose network, stdlib stub + vendored `markdown.py`,
+Actions → Pages, anti-pattern JSONL, `usable_session_id` kept, lite
+`cpu-llm` so the stack always starts.
 
-**GPT:** drop a real tiny GGUF behind the same DNS using
-`docker/stub-pages/docker-compose.gguf.yml` + `scripts/fetch_tiny_cpu_gguf.sh`.
-Pin image + checksum. Accuracy still does not matter. Do not add a
-second log schema.
+**Claude (this slice):** real tiny GGUF overlay + auto-discovery/checksum
+fetch script, opt-in workflow_dispatch wiring, a real `/v1/chat/completions`
+smoke check (not just `/health`) for both backends, `cpu_llm_backend` in
+the published summary. Accuracy still does not matter. No second log
+schema was added.

@@ -22,14 +22,19 @@ split. It is not a product clone and not a CommonMark engine.
 - Serverless stub try: Actions boots `docker/stub-pages` (stub + MCP +
   CPU-class `cpu-llm`), JSONL anti-patterns, GitHub Pages static report
 - Vendored `markdown.py` for heading→body / table / HTML on the stub
+- Real tiny GGUF overlay (`docker-compose.gguf.yml`, opt-in via
+  `stub-pages.yml`'s `use_real_gguf` input): auto-discovered + checksummed
+  fetch script, `/v1/chat/completions` smoke check distinct from `/health`,
+  `cpu_llm_backend` in the published summary
 
 ## Later (unnumbered)
 
 - Accuracy harness vs `myon-bioinformatics/markdown` (do not vendor CommonMark here)
 - Playwright against the stub (reuse `frontends.py`; no product Docker)
 - Optional `openai_toolcall_mock` backend for the stub
-- GPT: real tiny GGUF behind `cpu-llm` (`docker-compose.gguf.yml`)
 - Playwright against the stub (reuse `frontends.py`; no product Docker)
+- Pin `CPU_LLM_GGUF_SHA256` once a real `stub-pages` CI run (with real
+  internet) has printed and verified the digest out of band
 
 ## One-liners
 

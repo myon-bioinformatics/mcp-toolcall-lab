@@ -11,8 +11,10 @@
 #   cpu-llm:8080/v1
 #   stub-front:8765
 #
-# A real tiny GGUF behind the same cpu-llm DNS is the GPT overlay:
-#   docker-compose.gguf.yml
+# A real tiny GGUF behind the same cpu-llm DNS is an opt-in overlay
+# (stub-pages.yml's `use_real_gguf` workflow_dispatch input):
+#   scripts/fetch_tiny_cpu_gguf.sh
+#   docker compose -f docker-compose.yml -f docker-compose.gguf.yml up --build
 networks:
   lab:
     name: mcp-toolcall-lab-pages

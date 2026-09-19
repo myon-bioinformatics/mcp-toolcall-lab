@@ -109,7 +109,9 @@ python -m mcp_toolcall_lab.stub_front pages --out _site --last-run test-results/
 ```
 
 The stub is `markdown.py` + the standard library. A real tiny GGUF behind
-the same `cpu-llm` DNS is the GPT overlay (`docker-compose.gguf.yml`).
+the same `cpu-llm` DNS is an opt-in overlay (`docker-compose.gguf.yml`,
+`stub-pages.yml`'s `use_real_gguf` input) — off by default, since it
+needs internet to huggingface.co that a plain push should not depend on.
 Details: [`docs/stub_pages.md`](docs/stub_pages.md).
 
 ### Frontend catalog + one-liners (LibreChat / Open WebUI)
