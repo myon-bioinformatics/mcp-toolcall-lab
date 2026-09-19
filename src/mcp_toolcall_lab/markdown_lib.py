@@ -3,6 +3,13 @@
 The sibling repo ships one file. We keep a snapshot under ``vendor/`` so
 Docker / GitHub Pages builds stay offline after checkout. If the file is
 missing, callers fall back to the stub's own ATX splitter.
+
+``Section``/``slugify``/``parse_sections``/``lookup_heading`` live here
+too: the heading -> body split is "use the vendored module, else a local
+ATX regex fallback" regardless of *what* corpus is being split (a
+fixtures/stub_front/*.md file for stub_front.py, or a live Wikipedia
+extract converted to ATX for wikipedia_tool.py) -- one implementation,
+not one per caller.
 """
 
 from __future__ import annotations
@@ -11,11 +18,97 @@ import hashlib
 import importlib.util
 import json
 import os
+import re
+from dataclasses import dataclass
 from pathlib import Path
 from types import ModuleType
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+def _repo_root() -> Path:
+    """``src/mcp_toolcall_lab/markdown_lib.py`` -> repo root, two levels up.
+
+    This module is also concatenated into the standalone
+    ``openwebui_mcp_mock.py`` / ``librechat_mcp_mock.py`` (see
+    ``export.py``'s ``INLINE_MODULES``), which run from a flat ``/app/``
+    with no such ancestry -- ``.parents[2]`` would raise ``IndexError``
+    there. Fall back to the file's own directory; ``markdown_py_path()``
+    already has an explicit ``/app/vendor/markdown.py`` candidate for
+    that case.
+    """
+    here = Path(__file__).resolve()
+    parents = here.parents
+    return parents[2] if len(parents) > 2 else here.parent
+
+
+REPO_ROOT = _repo_root()
 PROVENANCE_PATH = REPO_ROOT / "vendor" / "markdown.provenance.json"
+
+_HEADING_RE = re.compile(r"^(#{1,6})\s+(.+?)\s*#*\s*$")
+
+
+@dataclass(frozen=True)
+class Section:
+    level: int
+    title: str
+    slug: str
+    body: str
+    line: int
+
+
+def slugify(title: str) -> str:
+    lowered = title.casefold().strip()
+    return re.sub(r"[^a-z0-9]+", "-", lowered).strip("-")
+
+
+def parse_sections(markdown: str) -> list[Section]:
+    """Heading → body. Prefer vendored ``markdown.py``; ATX regex is the fallback."""
+    md = load_markdown()
+    if md is not None and hasattr(md, "split_sections"):
+        sections: list[Section] = []
+        line = 1
+        for part in md.split_sections(markdown):
+            level = int(part.get("level") or 0)
+            title = str(part.get("title") or "")
+            raw = str(part.get("content") or "")
+            if level <= 0 or not title:
+                line += raw.count("\n") or 1
+                continue
+            body_lines = raw.splitlines()
+            body = "\n".join(body_lines[1:]).strip()
+            sections.append(Section(level, title, slugify(title), body, line))
+            line += raw.count("\n") or 1
+        return sections
+    lines = markdown.splitlines()
+    found: list[tuple[int, int, str]] = []
+    for index, line in enumerate(lines):
+        match = _HEADING_RE.match(line)
+        if match:
+            found.append((index, len(match.group(1)), match.group(2).strip()))
+    sections = []
+    for idx, (start, level, title) in enumerate(found):
+        end = found[idx + 1][0] if idx + 1 < len(found) else len(lines)
+        body = "\n".join(lines[start + 1 : end]).strip()
+        sections.append(Section(level, title, slugify(title), body, start + 1))
+    return sections
+
+
+def lookup_heading(query: str, sections: list[Section], *, fuzzy: bool = True) -> Section | None:
+    needle = query.strip()
+    if needle.startswith("#"):
+        needle = needle.lstrip("#").strip()
+    if not needle:
+        return None
+    slug = slugify(needle)
+    folded = needle.casefold()
+    for section in sections:
+        if section.title == needle or section.title.casefold() == folded or section.slug == slug:
+            return section
+    if not fuzzy:
+        return None
+    for section in sections:
+        title = section.title.casefold()
+        if title.startswith(folded) or folded.startswith(title) or folded in title:
+            return section
+    return None
 
 
 def markdown_py_path() -> Path | None:

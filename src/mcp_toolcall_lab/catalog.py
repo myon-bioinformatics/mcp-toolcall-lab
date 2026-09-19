@@ -2,22 +2,37 @@
 
 A valid call that matches nothing returns an empty list. That is not an error.
 Protocol problems (unknown tool, invalid arguments, timeout) are errors.
+
+``fetch_wikipedia_section`` is the one tool below that is NOT a
+deterministic offline mock -- it is registered here (same
+``AVAILABLE_TOOLS``/``TOOL_DESCRIPTIONS``/``dispatch_tool()`` surface as
+every other tool, so it is callable the same way over real MCP) but its
+actual implementation, including the "this makes a real HTTP call" fact,
+lives in ``wikipedia_tool.py``, not here -- see that module's docstring.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
+from .wikipedia_tool import fetch_wikipedia_section
+
 AVAILABLE_TOOLS = (
     "find_municipalities",
     "find_transaction_prices",
     "find_stations",
+    "fetch_wikipedia_section",
 )
 
 TOOL_DESCRIPTIONS = {
     "find_municipalities": "Find mock municipalities by name or prefecture.",
     "find_transaction_prices": "Return mock property transaction prices. This never calls a live API.",
     "find_stations": "Find mock stations in a municipality.",
+    "fetch_wikipedia_section": (
+        "Fetch a real Wikipedia article's sections over HTTP (the one tool here that is not a "
+        "mock). Omit `heading` to list section titles (a pulldown); pass one to get that "
+        "section's body. Unmatched heading is an empty result, not an error."
+    ),
 }
 
 MUNICIPALITIES = (
@@ -77,5 +92,10 @@ def dispatch_tool(name: str, arguments: dict[str, Any]) -> list[dict[str, Any]]:
         return search_transaction_prices(
             str(arguments.get("municipality_code", "")),
             int(arguments.get("year", 2025)),
+        )
+    if name == "fetch_wikipedia_section":
+        return fetch_wikipedia_section(
+            str(arguments.get("title", "")),
+            str(arguments.get("heading", "")),
         )
     raise KeyError(name)

@@ -180,6 +180,10 @@ def create_mcp() -> FastMCP:
     def find_stations(municipality_code: str) -> list[dict[str, str]]:
         return dispatch_tool("find_stations", {"municipality_code": municipality_code})
 
+    @mcp.tool(description=TOOL_DESCRIPTIONS["fetch_wikipedia_section"])
+    def fetch_wikipedia_section(title: str, heading: str = "") -> list[dict[str, str]]:
+        return dispatch_tool("fetch_wikipedia_section", {"title": title, "heading": heading})
+
     return mcp
 
 
