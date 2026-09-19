@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import time
 from typing import Any
 
 from fastmcp import FastMCP
@@ -76,17 +77,39 @@ class ObservabilityMiddleware(Middleware):
         name = context.message.name
         arguments = dict(context.message.arguments or {})
         meta = _request_meta(context)
+        started = time.perf_counter()
         try:
             result = await call_next(context)
         except Exception as exc:
-            record_call(tool=name, arguments=arguments, outcome=OUTCOME_ERROR, error=str(exc), meta=meta)
+            record_call(
+                tool=name,
+                arguments=arguments,
+                outcome=OUTCOME_ERROR,
+                error=str(exc),
+                meta=meta,
+                duration_ms=(time.perf_counter() - started) * 1000,
+            )
             raise
         payload = _result_payload(result)
         outcome = _outcome_for_result(result, payload)
         if outcome == OUTCOME_ERROR:
-            record_call(tool=name, arguments=arguments, outcome=outcome, error=str(payload), meta=meta)
+            record_call(
+                tool=name,
+                arguments=arguments,
+                outcome=outcome,
+                error=str(payload),
+                meta=meta,
+                duration_ms=(time.perf_counter() - started) * 1000,
+            )
         else:
-            record_call(tool=name, arguments=arguments, outcome=outcome, result=payload, meta=meta)
+            record_call(
+                tool=name,
+                arguments=arguments,
+                outcome=outcome,
+                result=payload,
+                meta=meta,
+                duration_ms=(time.perf_counter() - started) * 1000,
+            )
         return result
 
 
