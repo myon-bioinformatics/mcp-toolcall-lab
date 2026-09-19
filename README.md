@@ -92,7 +92,44 @@ LIBRECHAT_BASE_URL=http://127.0.0.1:3080 \
 ```
 
 Skipped in default `pytest` (`LIBRECHAT_BASE_URL` unset). CI workflow:
-`.github/workflows/librechat-docker-smoke.yml`.
+`.github/workflows/librechat-docker-smoke.yml`. Docker logs (time / level /
+message) land in `test-results/docker-logs/` on every smoke.
+
+### Open WebUI in Docker + Playwright (input → Send → OpenAI + MCP wire)
+
+`docker/openwebui-smoke/` starts published Open WebUI, `openwebui_mcp_mock.py`,
+and the same OpenAI tool-call mock on **one Docker network**
+(`mcp-toolcall-lab-openwebui`). Open WebUI reaches them by service DNS
+(`http://mcp-mock:8000/mcp`, `http://openai-mock:8090/v1`). Playwright
+types into `#chat-input` and clicks `#send-message-button`, then asserts
+the product loop: `POST /v1/chat/completions` → `tool_calls[]` → MCP
+`initialize` / `tools/list` / `tools/call` → `role: "tool"` follow-up
+with the same `tool_call_id` → Yokohama in the UI. Product `chat.id` is
+not treated as a lab `chat_*` pin.
+
+This stack is CI/local Docker only. GitHub Pages stays static.
+
+```bash
+mkdir -p test-results
+docker compose -f docker/openwebui-smoke/docker-compose.yml up --build -d
+OPEN_WEBUI_BASE_URL=http://127.0.0.1:3000 \
+  MCP_TOOLCALL_LOG=$PWD/test-results/mcp-toolcalls.jsonl \
+  OPENAI_MOCK_LOG=$PWD/test-results/openai-mock.jsonl \
+  pytest tests/real_chat_ui/test_openwebui_docker.py -v
+```
+
+Skipped in default `pytest` (`OPEN_WEBUI_BASE_URL` unset). Dedicated CI:
+`.github/workflows/openwebui-docker-smoke.yml` (`workflow_dispatch`).
+Details: [`docs/openwebui_mcp_notes.md`](docs/openwebui_mcp_notes.md).
+After a smoke, container logs (time / level / message) are in
+`test-results/docker-logs/` plus a merged `test-results/timeline.jsonl`:
+
+```bash
+python -m mcp_toolcall_lab.docker_logs capture \
+  -f docker/openwebui-smoke/docker-compose.yml -o test-results/docker-logs
+python -m mcp_toolcall_lab.docker_logs timeline \
+  --dir test-results -o test-results/timeline.jsonl
+```
 
 ### Serverless stub try (Actions + Pages)
 

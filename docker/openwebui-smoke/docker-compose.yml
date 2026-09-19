@@ -1,0 +1,110 @@
+# Real Open WebUI + MCP mock + OpenAI tool-call mock on one Docker network.
+#
+# Service DNS (reproducible; no host.docker.internal):
+#   mcp-mock:8000/mcp     → openwebui_mcp_mock.py
+#   openai-mock:8090/v1   → demos/openai_toolcall_mock.py
+#   open-webui:8080       (published to the host as :3000 for Playwright)
+#   mcp-mock / openai-mock are not published on the host (avoids colliding
+#   with docker/librechat-smoke on :8000 / :8090).
+#
+#   mkdir -p test-results
+#   docker compose -f docker/openwebui-smoke/docker-compose.yml up --build -d
+#   # wait for http://127.0.0.1:3000/health
+#   OPEN_WEBUI_BASE_URL=http://127.0.0.1:3000 \
+#     MCP_TOOLCALL_LOG=$PWD/test-results/mcp-toolcalls.jsonl \
+#     OPENAI_MOCK_LOG=$PWD/test-results/openai-mock.jsonl \
+#     pytest tests/real_chat_ui/test_openwebui_docker.py -v
+#
+# Open WebUI image is the published registry tag. `:main` is intentional for
+# "does the current product still wire MCP?" — pin a digest to replay a run.
+#
+# GitHub Pages does not host this stack. It is CI / local Docker only.
+networks:
+  lab:
+    name: mcp-toolcall-lab-openwebui
+    driver: bridge
+
+services:
+  mcp-mock:
+    build:
+      context: ../..
+      dockerfile: docker/openwebui-smoke/Dockerfile.mcp
+    environment:
+      MCP_HOST: "0.0.0.0"
+      MCP_PORT: "8000"
+      MCP_TOOLCALL_LOG: /logs/mcp-toolcalls.jsonl
+    volumes:
+      - ../../test-results:/logs
+    networks: [lab]
+    # Host 8000/8090 stay unpublished here so LibreChat smoke can bind them.
+    # Playwright only needs Open WebUI on :3000; mocks are reached by service DNS.
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.error,urllib.request; req=urllib.request.Request('http://127.0.0.1:8000/mcp',data=b'{}',headers={'Accept':'application/json, text/event-stream','Content-Type':'application/json','MCP-Protocol-Version':'2025-03-26'},method='POST');\ntry:\n urllib.request.urlopen(req,timeout=2)\nexcept urllib.error.HTTPError as e:\n raise SystemExit(0 if e.code in (400,406,415) else e.code)",
+        ]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+    restart: "no"
+
+  openai-mock:
+    build:
+      context: ../..
+      dockerfile: docker/librechat-smoke/Dockerfile.openai
+    environment:
+      HOST: "0.0.0.0"
+      PORT: "8090"
+      OPENAI_MOCK_LOG: /logs/openai-mock.jsonl
+    volumes:
+      - ../../test-results:/logs
+    networks: [lab]
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8090/v1/models', timeout=2)",
+        ]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+    restart: "no"
+
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    ports:
+      - "3000:8080"
+    env_file:
+      - env.smoke
+    environment:
+      WEBUI_AUTH: "False"
+      OPENAI_API_BASE_URL: http://openai-mock:8090/v1
+      OPENAI_API_KEY: sk-mcp-toolcall-lab
+      ENABLE_OLLAMA_API: "False"
+      ENABLE_FORWARD_USER_INFO_HEADERS: "True"
+      ENABLE_PERSISTENT_CONFIG: "False"
+    volumes:
+      - open-webui-data:/app/backend/data
+    depends_on:
+      mcp-mock:
+        condition: service_healthy
+      openai-mock:
+        condition: service_healthy
+    networks: [lab]
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://127.0.0.1:8080/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 40s
+    restart: "no"
+
+volumes:
+  open-webui-data:

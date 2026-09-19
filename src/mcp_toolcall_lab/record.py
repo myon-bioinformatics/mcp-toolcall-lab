@@ -25,20 +25,30 @@ OUTCOME_SUCCESS = "success"
 OUTCOME_EMPTY = "empty"
 OUTCOME_ERROR = "error"
 
+# MCP JSON-RPC method names written as ``event``. Not a lab-specific protocol.
+EVENT_INITIALIZE = "initialize"
+EVENT_INITIALIZED = "notifications/initialized"
+EVENT_TOOLS_LIST = "tools/list"
 EVENT_TOOLS_CALL = "tools/call"
 
 __all__ = [
     "CHAT_ID_HEADER_KEYS",
+    "EVENT_INITIALIZE",
+    "EVENT_INITIALIZED",
     "EVENT_TOOLS_CALL",
+    "EVENT_TOOLS_LIST",
     "MESSAGE_ID_HEADER_KEYS",
     "OUTCOME_EMPTY",
     "OUTCOME_ERROR",
     "OUTCOME_SUCCESS",
     "chat_id_from_headers",
+    "id_from_headers",
+    "mcp_tool_calls",
     "new_call_id",
     "new_chat_id",
     "read_jsonl",
     "record_call",
+    "record_protocol_event",
     "resolve_correlation",
     "usable_session_id",
 ]
@@ -160,7 +170,45 @@ def record_call(
         if isinstance(result, list):
             debug_row["result_n"] = len(result)
     if debug_row:
-        row["debug"] = debug_row
-        if debug_row.get("chat_id"):
-            row["chat_id"] = debug_row["chat_id"]
+        _attach_debug_ids(row, debug_row)
     append_jsonl(log_path, row)
+
+
+def record_protocol_event(
+    *,
+    event: str,
+    debug: dict[str, Any] | None = None,
+) -> None:
+    """Append one MCP JSON-RPC method row (initialize / tools/list / ...).
+
+    Same JSONL as ``record_call``. ``event`` is the wire method name.
+    """
+    log_path = os.environ.get("MCP_TOOLCALL_LOG")
+    if not log_path:
+        return
+    row: dict[str, Any] = {
+        "at": datetime.now(UTC).isoformat(),
+        "event": event,
+    }
+    debug_row = dict(debug) if debug else {}
+    if debug_row:
+        _attach_debug_ids(row, debug_row)
+    append_jsonl(log_path, row)
+
+
+def _attach_debug_ids(row: dict[str, Any], debug_row: dict[str, Any]) -> None:
+    """Copy correlation ids onto the JSONL row. Message id is harvested, never minted."""
+    row["debug"] = debug_row
+    if debug_row.get("chat_id"):
+        row["chat_id"] = debug_row["chat_id"]
+    if debug_row.get("message_id"):
+        row["message_id"] = debug_row["message_id"]
+
+
+def mcp_tool_calls(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """``tools/call`` rows only. Handshake events are not tool executions."""
+    return [
+        event
+        for event in events
+        if event.get("event", EVENT_TOOLS_CALL) == EVENT_TOOLS_CALL and event.get("tool")
+    ]

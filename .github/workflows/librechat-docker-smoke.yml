@@ -59,6 +59,16 @@ jobs:
           LIBRECHAT_CHAT_MESSAGE: ${{ github.event.inputs.message || 'Find municipalities named Yokohama' }}
         run: pytest -q tests/real_chat_ui/test_librechat_docker.py -v
 
+      - name: Capture Docker logs (time, level, content)
+        if: always()
+        run: |
+          python -m mcp_toolcall_lab.docker_logs capture \
+            --compose docker/librechat-smoke/docker-compose.yml \
+            --out test-results/docker-logs
+          python -m mcp_toolcall_lab.docker_logs timeline \
+            --dir test-results \
+            --out test-results/timeline.jsonl
+
       - name: Dump logs on failure
         if: failure()
         working-directory: docker/librechat-smoke

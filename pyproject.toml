@@ -14,6 +14,7 @@ mcp-chat-ui = "mcp_toolcall_lab.chat_ui:main"
 mcp-frontends = "mcp_toolcall_lab.frontends:main"
 mcp-trace-probe = "mcp_toolcall_lab.trace_probe:main"
 mcp-stub-front = "mcp_toolcall_lab.stub_front:main"
+mcp-docker-logs = "mcp_toolcall_lab.docker_logs:main"
 
 [project.optional-dependencies]
 test = [
@@ -37,5 +38,5 @@ filterwarnings = [
 ]
 markers = [
     "integration: starts a local Streamable HTTP MCP server",
-    "real_chat_ui: needs LibreChat Docker + Playwright (skipped unless LIBRECHAT_BASE_URL is set)",
+    "real_chat_ui: needs LibreChat or Open WebUI Docker + Playwright (skipped unless LIBRECHAT_BASE_URL or OPEN_WEBUI_BASE_URL is set)",
 ]

@@ -1,0 +1,8 @@
+open-webui-1  | 2026-09-19T12:55:10.140000000Z INFO:     Application startup complete.
+open-webui-1  | 2026-09-19T12:55:10.150000000Z INFO  [open_webui.utils.mcp.client] initialize
+mcp-mock-1  | 2026-09-19T12:55:10.154082000Z 2026-09-19T12:55:10.154082+00:00 INFO event=initialize session_id=c692fe70-eb7d-4773-b80a-759104ca747c
+mcp-mock-1  | 2026-09-19T12:55:10.174059000Z INFO:     172.18.0.3:41234 - "POST /mcp HTTP/1.1" 200 OK
+openai-mock-1  | 2026-09-19T12:55:09.900000000Z 127.0.0.1 POST /v1/chat/completions
+librechat-1  | 2026-09-19T12:55:11.000000000Z info: [MCP] Streamable HTTP connection to http://mcp-mock:8000/mcp
+open-webui-1  | 2026-09-19T12:55:09.800000000Z DEBUG ### Task: Generate a concise chat title
+open-webui-1  | 2026-09-19T12:55:12.000000000Z ERROR failed with Authorization: Bearer sk-mcp-toolcall-lab-example

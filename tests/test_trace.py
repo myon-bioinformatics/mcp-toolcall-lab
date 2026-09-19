@@ -20,6 +20,7 @@ from pathlib import Path
 import pytest
 
 from mcp_toolcall_lab.chat_sim import send_direct, send_via_chat
+from mcp_toolcall_lab.record import mcp_tool_calls
 from tests.test_streamable_http_protocol import running_mcp_server
 
 
@@ -44,7 +45,7 @@ async def test_chat_path_is_traceable_via_the_shared_log():
         assert trace.tool_result_message["tool_call_id"] == trace.call_id
         assert "Yokohama" in trace.tool_result_message["content"]
 
-        events = _read_events(log_path)
+        events = mcp_tool_calls(_read_events(log_path))
         assert len(events) == 1
         event = events[0]
         assert event["tool"] == "find_municipalities"
@@ -73,7 +74,7 @@ async def test_direct_path_is_traceable_via_the_shared_log():
             )
 
         assert not result.isError
-        events = _read_events(log_path)
+        events = mcp_tool_calls(_read_events(log_path))
         assert len(events) == 1
         event = events[0]
         assert event["tool"] == "find_stations"
@@ -100,7 +101,7 @@ async def test_chat_and_direct_paths_share_the_same_log_schema():
                 arguments={"municipality_code": "12207"},
             )
 
-        chat_event, direct_event = _read_events(log_path)
+        chat_event, direct_event = mcp_tool_calls(_read_events(log_path))
         assert set(chat_event.keys()) == set(direct_event.keys())
         assert chat_event["meta"]["source"] == "chat"
         assert direct_event["meta"]["source"] == "direct"
@@ -120,6 +121,6 @@ async def test_chat_path_unknown_tool_is_traceable_as_an_error():
             )
 
         assert trace.mcp_result.isError
-        events = _read_events(log_path)
+        events = mcp_tool_calls(_read_events(log_path))
         assert events[0]["outcome"] == "error"
         assert events[0]["meta"]["call_id"] == trace.call_id

@@ -61,4 +61,5 @@ def test_librechat_smoke_workflow_tracks_the_librechat_named_mock() -> None:
         encoding="utf-8"
     )
     assert "librechat_mcp_mock.py" in workflow
+    assert "mcp_toolcall_lab.docker_logs" in workflow
     assert "pytest -q" in workflow

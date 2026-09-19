@@ -98,6 +98,9 @@ def test_jsonrpc_error_is_not_classified_empty(monkeypatch) -> None:
         def initialize(self) -> None:
             return None
 
+        def list_tools(self) -> dict:
+            return {"result": {"tools": []}}
+
         def call_tool(self, *args, **kwargs):
             return {"jsonrpc": "2.0", "id": 1, "error": {"code": -32603, "message": "boom"}}
 
@@ -112,6 +115,41 @@ def test_jsonrpc_error_is_not_classified_empty(monkeypatch) -> None:
     assert via == "mcp"
     assert outcome == "error"
     assert payload == {"code": -32603, "message": "boom"}
+
+
+def test_stub_front_lists_tools_before_call(monkeypatch) -> None:
+    from mcp_toolcall_lab import stub_front
+
+    seen: list[str] = []
+
+    class _Fake:
+        def initialize(self) -> None:
+            seen.append("initialize")
+
+        def list_tools(self) -> dict:
+            seen.append("list_tools")
+            return {"result": {"tools": []}}
+
+        def call_tool(self, *args, **kwargs):
+            seen.append("call_tool")
+            return {
+                "result": {
+                    "structuredContent": {"result": [{"code": "14109", "name": "Yokohama"}]}
+                }
+            }
+
+    monkeypatch.setattr(stub_front, "McpStdlibSession", lambda *args, **kwargs: _Fake())
+    outcome, payload, via = stub_front._call_mcp(
+        tool="find_municipalities",
+        arguments={"query": "Yokohama"},
+        chat_id="chat_x",
+        call_id="call_x",
+        mcp_url="http://127.0.0.1:9/mcp",
+    )
+    assert via == "mcp"
+    assert outcome == "success"
+    assert seen == ["initialize", "list_tools", "call_tool"]
+    assert payload[0]["name"] == "Yokohama"
 
 
 def test_mcp_empty_case() -> None:
