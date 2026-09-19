@@ -148,11 +148,26 @@ def record_compose_image(compose_file: Path, service: str, out_path: Path) -> di
     inspect = json.loads(
         subprocess.check_output(["docker", "inspect", cid[0]], text=True)
     )[0]
+    image_name = (inspect.get("Config") or {}).get("Image")
+    repo_digests = list(inspect.get("RepoDigests") or [])
+    image_id = inspect.get("Image")
+    if image_name:
+        try:
+            img = json.loads(
+                subprocess.check_output(["docker", "image", "inspect", image_name], text=True)
+            )[0]
+            image_id = img.get("Id") or image_id
+            for digest in img.get("RepoDigests") or []:
+                if digest not in repo_digests:
+                    repo_digests.append(digest)
+        except Exception:
+            pass
     row = {
         "service": service,
-        "image": (inspect.get("Config") or {}).get("Image"),
+        "image": image_name,
         "id": inspect.get("Id"),
-        "repo_digests": inspect.get("RepoDigests") or [],
+        "image_id": image_id,
+        "repo_digests": repo_digests,
         "created": inspect.get("Created"),
     }
     out_path.parent.mkdir(parents=True, exist_ok=True)

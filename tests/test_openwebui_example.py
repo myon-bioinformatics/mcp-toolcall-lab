@@ -37,7 +37,10 @@ def test_openwebui_smoke_compose_uses_shared_docker_network() -> None:
         encoding="utf-8"
     )
     assert "openai_toolcall_mock.py" in openai_df
-    assert compose.count("dockerfile: docker/librechat-smoke/Dockerfile.openai") == 1
+    assert compose.count("8000:8000") == 0
+    assert compose.count("8090:8090") == 0
+    assert "HTTPError as e" in compose
+    assert "e.code in (400,406,415)" in compose
 
 
 def test_openwebui_docs_and_workflow_track_the_owui_named_mock() -> None:
@@ -49,7 +52,10 @@ def test_openwebui_docs_and_workflow_track_the_owui_named_mock() -> None:
         encoding="utf-8"
     )
     default_ci = (ROOT / ".github" / "workflows" / "test.yml").read_text(encoding="utf-8")
+    assert "src/mcp_toolcall_lab/chat_ui.py" in workflow
+    assert "src/mcp_toolcall_lab/frontends.py" in workflow
     assert "openwebui_mcp_mock.py" in workflow
+    assert "demos/openai_toolcall_mock.py" in workflow
     assert "workflow_dispatch:" in workflow
     assert "tests/real_chat_ui/test_openwebui_docker.py" in workflow
     assert "mcp_toolcall_lab.docker_logs" in workflow

@@ -62,6 +62,78 @@ def test_openai_loop_joins_tool_call_id_across_the_followup() -> None:
     assert loop["final_is_assistant"] is True
 
 
+def test_summarize_picks_the_last_complete_tool_loop() -> None:
+    call_old = "call_" + "c" * 24
+    call_new = CALL
+    events = [
+        {
+            "kind": "chat.completions",
+            "tool_names": ["lab_find_municipalities"],
+            "call_ids": [call_old],
+            "inbound_call_ids": [],
+            "has_tool_result": False,
+            "completion_id": "chatcmpl-old1",
+            "wire_assistant": {"role": "assistant", "tool_calls": [{"id": call_old}]},
+        },
+        {
+            "kind": "chat.completions",
+            "tool_names": ["lab_find_municipalities"],
+            "call_ids": [],
+            "inbound_call_ids": [call_old],
+            "has_tool_result": True,
+            "completion_id": "chatcmpl-old2",
+            "wire_messages": [{"role": "tool", "tool_call_id": call_old}],
+            "wire_assistant": {"role": "assistant"},
+        },
+        {
+            "kind": "chat.completions",
+            "tool_names": ["lab_find_municipalities"],
+            "call_ids": [call_new],
+            "inbound_call_ids": [],
+            "has_tool_result": False,
+            "completion_id": CHATCMPL_1,
+            "wire_assistant": {"role": "assistant", "tool_calls": [{"id": call_new}]},
+        },
+        {
+            "kind": "chat.completions",
+            "tool_names": ["lab_find_municipalities"],
+            "call_ids": [],
+            "inbound_call_ids": [call_new],
+            "has_tool_result": True,
+            "completion_id": CHATCMPL_2,
+            "wire_messages": [{"role": "tool", "tool_call_id": call_new}],
+            "wire_assistant": {"role": "assistant"},
+        },
+        {
+            "kind": "chat.completions",
+            "tool_names": ["lab_find_municipalities"],
+            "call_ids": ["call_" + "d" * 24],
+            "inbound_call_ids": [],
+            "has_tool_result": False,
+            "completion_id": "chatcmpl-orphan",
+            "wire_assistant": {"role": "assistant", "tool_calls": [{"id": "call_" + "d" * 24}]},
+        },
+    ]
+    loop = summarize_openai_tool_loop(events)
+    assert loop["first_completion_id"] == CHATCMPL_1
+    assert loop["follow_completion_id"] == CHATCMPL_2
+    assert loop["call_ids"] == [call_new]
+
+
+def test_role_tool_followup_requires_matching_tool_call_id() -> None:
+    openai = _openai_tool_loop_rows()
+    openai[1]["wire_messages"] = [{"role": "tool", "tool_call_id": "call_other"}]
+    openai[1]["inbound_call_ids"] = [CALL]
+    with pytest.raises(AssertionError, match="tool_call_id"):
+        assert_openwebui_tool_loop(
+            openai_events=openai,
+            mcp_events=_mcp_handshake_rows(),
+            page_url=f"http://127.0.0.1:3000/c/{OWUI_CHAT}",
+            ui_text="Yokohama",
+            ui_message_ids=[OWUI_MSG],
+        )
+
+
 def test_mcp_handshake_reads_wire_method_names() -> None:
     events = [
         {"event": "initialize", "debug": {"session_id": "sess-1", "request_id": "req-init"}},

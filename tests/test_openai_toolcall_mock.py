@@ -105,6 +105,7 @@ def test_stream_branch_closes_http11_connection() -> None:
     """Keep-alive SSE never ends; LibreChat would hang on the next reuse."""
     source = Path(mock.__file__).read_text(encoding="utf-8")
     assert "close_http11_sse" in source
+    assert "MESSAGE_ID_HEADER_KEYS" in source
     common = (ROOT / "src" / "mcp_toolcall_lab" / "mock" / "common.py").read_text(
         encoding="utf-8"
     )

@@ -14,10 +14,20 @@ on:
   pull_request:
     paths:
       - "docker/openwebui-smoke/**"
+      - "docker/librechat-smoke/Dockerfile.openai"
+      - "openwebui_mcp_mock.py"
+      - "demos/openai_toolcall_mock.py"
+      - "src/mcp_toolcall_lab/chat_ui.py"
+      - "src/mcp_toolcall_lab/frontends.py"
+      - "src/mcp_toolcall_lab/mcp_http.py"
+      - "src/mcp_toolcall_lab/server.py"
+      - "src/mcp_toolcall_lab/record.py"
+      - "src/mcp_toolcall_lab/mock/**"
+      - "src/mcp_toolcall_lab/docker_logs.py"
       - "tests/real_chat_ui/test_openwebui_docker.py"
       - "tests/real_chat_ui/openwebui_loop.py"
       - "tests/test_openwebui_example.py"
-      - "src/mcp_toolcall_lab/docker_logs.py"
+      - "tests/test_openwebui_loop.py"
       - ".github/workflows/openwebui-docker-smoke.yml"
 
 jobs:

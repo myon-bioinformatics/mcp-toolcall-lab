@@ -4,6 +4,8 @@
 #   mcp-mock:8000/mcp     → openwebui_mcp_mock.py
 #   openai-mock:8090/v1   → demos/openai_toolcall_mock.py
 #   open-webui:8080       (published to the host as :3000 for Playwright)
+#   mcp-mock / openai-mock are not published on the host (avoids colliding
+#   with docker/librechat-smoke on :8000 / :8090).
 #
 #   mkdir -p test-results
 #   docker compose -f docker/openwebui-smoke/docker-compose.yml up --build -d
@@ -34,15 +36,15 @@ services:
     volumes:
       - ../../test-results:/logs
     networks: [lab]
-    ports:
-      - "8000:8000"
+    # Host 8000/8090 stay unpublished here so LibreChat smoke can bind them.
+    # Playwright only needs Open WebUI on :3000; mocks are reached by service DNS.
     healthcheck:
       test:
         [
           "CMD",
           "python",
           "-c",
-          "import urllib.error,urllib.request; req=urllib.request.Request('http://127.0.0.1:8000/mcp',data=b'{}',method='POST');\ntry:\n urllib.request.urlopen(req,timeout=2)\nexcept urllib.error.HTTPError:\n pass",
+          "import urllib.error,urllib.request; req=urllib.request.Request('http://127.0.0.1:8000/mcp',data=b'{}',headers={'Accept':'application/json, text/event-stream','Content-Type':'application/json'},method='POST');\ntry:\n urllib.request.urlopen(req,timeout=2)\nexcept urllib.error.HTTPError as e:\n raise SystemExit(0 if e.code in (400,406,415) else e.code)",
         ]
       interval: 2s
       timeout: 3s
@@ -61,8 +63,6 @@ services:
     volumes:
       - ../../test-results:/logs
     networks: [lab]
-    ports:
-      - "8090:8090"
     healthcheck:
       test:
         [

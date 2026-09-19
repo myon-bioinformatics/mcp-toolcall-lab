@@ -32,6 +32,7 @@ from urllib.parse import urlparse
 try:
     from mcp_toolcall_lab.mock.common import (
         CHAT_ID_HEADER_KEYS,
+        MESSAGE_ID_HEADER_KEYS,
         append_jsonl,
         close_http11_sse,
         id_from_headers,
@@ -40,6 +41,7 @@ try:
 except ImportError:  # Docker smoke copies mock/common.py next to this file
     from common import (  # type: ignore[no-redef]
         CHAT_ID_HEADER_KEYS,
+        MESSAGE_ID_HEADER_KEYS,
         append_jsonl,
         close_http11_sse,
         id_from_headers,
@@ -57,6 +59,9 @@ def _log(event: dict[str, Any], headers: Any = None) -> None:
     chat_id = id_from_headers(headers, CHAT_ID_HEADER_KEYS)
     if chat_id:
         row["chat_id"] = chat_id
+    message_id = id_from_headers(headers, MESSAGE_ID_HEADER_KEYS)
+    if message_id:
+        row["message_id"] = message_id
     append_jsonl(LOG_PATH, row)
 
 

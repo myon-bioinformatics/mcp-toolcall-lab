@@ -72,6 +72,9 @@ The Playwright job asserts the product loop, not a lab stand-in:
    (not a lab `chat_*` / `call_*`, not an unsubstituted `{{MESSAGE_ID}}`).
    If the product version does not send that header, or the chats API
    does not yield the same id, the smoke fails — it does not PASS.
+   Two Playwright Sends share one OpenAI JSONL; the helper selects the last
+   complete `tool_calls[]` → `role:"tool"` pair, and requires the follow-up
+   `tool_call_id` (not just inbound ids).
 
 Open WebUI may also POST `/v1/chat/completions` for background jobs whose
 user text starts with `### Task:` (titles, tags, follow-ups). Those are

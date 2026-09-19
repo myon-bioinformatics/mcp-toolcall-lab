@@ -24,24 +24,28 @@ def is_background_task(event: dict[str, Any]) -> bool:
 
 
 def summarize_openai_tool_loop(events: list[dict[str, Any]]) -> dict[str, Any]:
+    """Pick the last *complete* tool_calls → role:tool pair.
+
+    Two Playwright Sends share one JSONL. Last-wins on a bare tool_calls row
+    can latch onto a turn that never got a follow-up; first-wins can keep the
+    earlier Send. A complete pair is the unit we assert.
+    """
     rows = [event for event in openai_completions(events) if not is_background_task(event)]
-    first: dict[str, Any] = {}
-    for row in rows:
-        if row.get("call_ids") and row.get("tool_names"):
-            first = row
-    follow: dict[str, Any] = {}
+    pairs: list[tuple[dict[str, Any], dict[str, Any]]] = []
+    for index, row in enumerate(rows):
+        call_ids = [str(item) for item in (row.get("call_ids") or [])]
+        if not (call_ids and row.get("tool_names")):
+            continue
+        follow: dict[str, Any] = {}
+        for later in rows[index + 1 :]:
+            inbound = [str(item) for item in (later.get("inbound_call_ids") or [])]
+            if later.get("has_tool_result") and set(call_ids) <= set(inbound):
+                follow = later
+                break
+        if follow:
+            pairs.append((row, follow))
+    first, follow = pairs[-1] if pairs else ({}, {})
     call_ids = [str(item) for item in (first.get("call_ids") or [])]
-    seen_first = not first
-    for row in rows:
-        if first and row.get("completion_id") == first.get("completion_id"):
-            seen_first = True
-            continue
-        if not seen_first:
-            continue
-        inbound = [str(item) for item in (row.get("inbound_call_ids") or [])]
-        if row.get("has_tool_result") and call_ids and set(call_ids) <= set(inbound):
-            follow = row
-            break
     inbound = [str(item) for item in (follow.get("inbound_call_ids") or [])]
     follow_tool_ids = []
     for message in follow.get("wire_messages") or []:
@@ -60,6 +64,7 @@ def summarize_openai_tool_loop(events: list[dict[str, Any]]) -> dict[str, Any]:
         "final_is_assistant": (follow.get("wire_assistant") or {}).get("role") == "assistant"
         and not (follow.get("wire_assistant") or {}).get("tool_calls"),
         "chat_id": first.get("chat_id") or follow.get("chat_id"),
+        "message_id": first.get("message_id") or follow.get("message_id"),
     }
 
 
@@ -305,12 +310,15 @@ def assert_openwebui_tool_loop(
         "chatcmpl-"
     ), openai_loop["first_completion_id"]
     assert openai_loop["has_tool_result_followup"], "no role:tool follow-up completion"
-    assert openai_loop["follow_inbound_call_ids"] == openai_loop["call_ids"] or set(
-        openai_loop["call_ids"]
-    ) <= set(openai_loop["follow_inbound_call_ids"])
-    assert set(openai_loop["call_ids"]) <= set(openai_loop["follow_tool_message_ids"]) or set(
-        openai_loop["call_ids"]
-    ) <= set(openai_loop["follow_inbound_call_ids"])
+    assert set(openai_loop["call_ids"]) <= set(openai_loop["follow_inbound_call_ids"]), (
+        openai_loop["call_ids"],
+        openai_loop["follow_inbound_call_ids"],
+    )
+    assert set(openai_loop["call_ids"]) <= set(openai_loop["follow_tool_message_ids"]), (
+        "role:tool follow-up missing matching tool_call_id",
+        openai_loop["call_ids"],
+        openai_loop["follow_tool_message_ids"],
+    )
     assert openai_loop["final_is_assistant"]
     assert openai_loop["follow_completion_id"] and str(openai_loop["follow_completion_id"]).startswith(
         "chatcmpl-"
@@ -348,6 +356,12 @@ def assert_openwebui_tool_loop(
         header_message_ids[-1],
         harvested_ui_ids,
     )
+    openai_message_id = openai_loop.get("message_id")
+    if openai_message_id:
+        assert str(openai_message_id) == header_message_ids[-1], (
+            openai_message_id,
+            header_message_ids[-1],
+        )
 
     assert expected_fragment.lower() in ui_text.lower(), ui_text[-500:]
 
