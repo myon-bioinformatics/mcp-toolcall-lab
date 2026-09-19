@@ -17,11 +17,14 @@ A tool that fetches an arbitrary external URL belongs in the MCP catalog,
 where a real client (LibreChat, Open WebUI, the stub) makes an actual
 network call through the MCP server process. GitHub Pages is a static
 host: it cannot fetch Wikipedia. The published report is generation
-identity + induction to local `/wiki`, not a mock heading pulldown.
+identity plus a same-origin `#wiki` page transition to local `/wiki`
+induction, not a mock heading pulldown and not a live github.io `/wiki`
+path.
 
 The stdlib stub serves a **local** `GET /wiki` form (title input +
 server-rendered heading `<select>`). That form is not published as a live
-backend on Pages. The Pages report says so explicitly.
+backend on Pages. The Pages index stays `index.html`; `#wiki` (optional
+`?view=wiki`) only hide/shows the induction panel.
 
 ## Why Wikipedia's own API, not HTML scraping
 
@@ -113,13 +116,16 @@ screenshot it without filling widgets):
   selected section body
 
 Displayed text is `html.escape`d into `<pre>`. GitHub Pages does not
-host this form. Local `/wiki` may include a small authored `<style>`
-block for the form; the published Pages report is a different host
-(no Wikipedia-form CSS, and no live Wikipedia backend) on purpose.
+host this form (a `/wiki` path on github.io stays 404). Local `/wiki`
+may include a small authored `<style>` block for the form; the published
+Pages report is a different host (no Wikipedia-form CSS, and no live
+Wikipedia backend) on purpose. Pages navigation to that fact is
+`#wiki` on `index.html`, not a second Pages route.
 
 ```bash
 python -m mcp_toolcall_lab.stub_front serve --port 8765
 # open http://127.0.0.1:8765/wiki
+# Pages induction: https://myon-bioinformatics.github.io/mcp-toolcall-lab/#wiki
 ```
 
 ## Testing without live network

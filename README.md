@@ -138,10 +138,13 @@ https://myon-bioinformatics.github.io/mcp-toolcall-lab/
 Actions (`stub-pages`) starts Docker — stub UI + MCP mock + CPU-class
 model on one network — then writes anti-pattern JSONL and publishes the
 report. The published page is generation identity (Commit / optional
-Version, `_site/build_meta.json`) plus induction to local `/wiki` and a
-concise Last Actions snapshot — not a mock Wiki UI. Live Wikipedia title
+Version, `_site/build_meta.json`) plus a same-origin `#wiki` transition
+to local `/wiki` induction and a concise Last Actions snapshot — not a
+mock Wiki UI, and not a live github.io `/wiki` path. Live Wikipedia title
 form + heading select: `python -m mcp_toolcall_lab.stub_front serve --port 8765`
-then open `/wiki`. See [`docs/stub_pages.md`](docs/stub_pages.md).
+then open `/wiki`. Pages deep-link:
+`https://myon-bioinformatics.github.io/mcp-toolcall-lab/#wiki`.
+See [`docs/stub_pages.md`](docs/stub_pages.md).
 Local:
 
 ```bash

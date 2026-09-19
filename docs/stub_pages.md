@@ -6,11 +6,15 @@ one compose network, sends a turn through the stub, appends
 anti-patterns as JSONL, then publishes `_site/` to
 https://myon-bioinformatics.github.io/mcp-toolcall-lab/.
 
-The published `index.html` is generation identity (Commit / optional
-Version, plus `_site/build_meta.json`) plus a clear pointer to local
-`/wiki`, then a concise Last Actions snapshot. It does **not** embed
-the mock heading-pulldown "Try it" demo — that pulldown read
-`fixtures/stub_front`, not Wikipedia, and looked like a stub Wiki UI.
+The published `index.html` stays on one GitHub Pages endpoint. A
+same-origin hash switch (`#wiki`, optional `?view=wiki`) shows an
+in-page induction panel; there is no live `/wiki` path on github.io
+(that URL stays 404 by design). Default view (`#` / empty hash) is
+generation identity (Commit / optional Version, plus
+`_site/build_meta.json`), a short pointer, and a concise Last Actions
+snapshot. It does **not** embed the mock heading-pulldown "Try it"
+demo — that pulldown read `fixtures/stub_front`, not Wikipedia, and
+looked like a stub Wiki UI.
 
 `usable_session_id()` stays on the MCP mock: a missing session is
 missing, never the string `"None"`.
@@ -89,18 +93,26 @@ exists — this package does not invent one). Schema:
 it ignores default `_site/` and the chosen `--out` directory so generating
 (or regenerating) the Pages tree cannot mark a clean checkout dirty.
 
-Then `/wiki` induction: the live Wikipedia title form + heading select
-is the local stub, not github.io.
+The home view keeps Last Actions on this host. `#wiki` is the induction
+screen: github.io cannot host the live Wikipedia title form + heading
+select. That form is the local stub (`GET /wiki`), not a Pages route.
 
 ```bash
 python -m mcp_toolcall_lab.stub_front serve --port 8765
 # open http://127.0.0.1:8765/wiki
 ```
 
+Deep-link the induction panel as
+`https://myon-bioinformatics.github.io/mcp-toolcall-lab/#wiki`
+(or `index.html?view=wiki`, which the hash script treats like `#wiki`).
+`write_pages()` copies `pages-hash.js` next to `index.html` so load and
+`hashchange` hide/show the home and wiki panels. Do not confuse that
+with `stub-demo.js` (local/test only).
+
 GitHub Pages cannot fetch MediaWiki or keep that backend. The "Last
-Actions summary" JSON below that is the last `stub-pages` smoke
+Actions summary" JSON on the home view is the last `stub-pages` smoke
 snapshot — the actual value of this host — kept thinner than generation
-+ `/wiki` guidance.
++ `#wiki` guidance.
 
 ## Local heading-lookup JS (not on Pages)
 
@@ -109,7 +121,8 @@ snapshot — the actual value of this host — kept thinner than generation
 local tests. `write_stub_demo_page()` writes that script plus
 `{title, slug, body}` corpus JSON. `write_pages()` does **not** copy
 those files into `_site/` and does not mount `#stub-demo` on the
-published index.
+published index. The Pages `#wiki` view is live-Wiki induction (local
+serve command + what `/wiki` is), not that fixtures/stub_front mock.
 
 A prompt that would trigger a real MCP tool call (mirrors
 `MCP_PATTERNS`' tokens and tool names, kept in sync by

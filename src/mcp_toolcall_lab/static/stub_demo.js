@@ -2,7 +2,7 @@
  * Local-only, client-side re-implementation of stub_front.py's heading ->
  * body lookup (parse_sections / slugify / lookup_heading / classify_prompt).
  * No server, no MCP. Not embedded on the published GitHub Pages index
- * (that report is generation identity + /wiki induction).
+ * (that report is generation identity + #wiki induction, not this demo).
  *
  * Corpus data (title/slug/body only -- no chat_id, no MCP arguments, no
  * logs) is fetched from stub-demo-data.json, written by
