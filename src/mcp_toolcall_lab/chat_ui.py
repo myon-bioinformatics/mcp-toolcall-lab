@@ -186,10 +186,33 @@ def type_and_send(page: Any, frontend: ChatFrontend, text: str) -> dict[str, boo
     return flags
 
 
-def wait_for_assistant(page: Any, frontend: ChatFrontend, timeout_ms: int = 45_000) -> bool:
+def wait_for_assistant(
+    page: Any,
+    frontend: ChatFrontend,
+    timeout_ms: int = 45_000,
+    *,
+    min_count: int | None = None,
+    text_in_last: str | None = None,
+) -> bool:
     if frontend.response.container is not None:
         try:
-            page.locator(frontend.response.container.css()).last.wait_for(timeout=timeout_ms)
+            css = frontend.response.container.css()
+            needle = (text_in_last or "").strip().lower()
+            if min_count is not None or needle:
+                page.wait_for_function(
+                    """(args) => {
+                        const nodes = document.querySelectorAll(args.sel);
+                        if (args.n != null && nodes.length < args.n) return false;
+                        if (!args.text) return args.n != null || nodes.length > 0;
+                        if (!nodes.length) return false;
+                        const last = nodes[nodes.length - 1];
+                        return (last.innerText || '').toLowerCase().includes(args.text);
+                    }""",
+                    arg={"sel": css, "n": min_count, "text": needle or None},
+                    timeout=timeout_ms,
+                )
+            else:
+                page.locator(css).last.wait_for(timeout=timeout_ms)
             return True
         except Exception:
             return False

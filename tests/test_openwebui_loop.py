@@ -6,6 +6,7 @@ import pytest
 
 from tests.real_chat_ui.openwebui_loop import (
     assert_openwebui_tool_loop,
+    is_background_task,
     lab_vs_product_chat_ids,
     product_conversation_id,
     summarize_mcp_handshake,
@@ -90,8 +91,19 @@ def test_lab_chat_star_is_not_the_product_conversation_id() -> None:
     assert split["product_chat_ids"] == [OWUI_CHAT]
 
 
-def test_assert_loop_accepts_a_complete_fixture_and_rejects_a_short_one() -> None:
-    openai = [
+def test_product_conversation_id_falls_back_to_logs_when_url_stays_on_root() -> None:
+    assert product_conversation_id("http://127.0.0.1:3000/") is None
+    assert (
+        product_conversation_id(
+            "http://127.0.0.1:3000/",
+            [{"kind": "chat.completions", "chat_id": OWUI_CHAT}],
+        )
+        == OWUI_CHAT
+    )
+
+
+def _openai_tool_loop_rows() -> list[dict]:
+    return [
         {
             "kind": "chat.completions",
             "tool_names": ["lab_find_municipalities"],
@@ -100,8 +112,12 @@ def test_assert_loop_accepts_a_complete_fixture_and_rejects_a_short_one() -> Non
             "has_tool_result": False,
             "completion_id": CHATCMPL_1,
             "chat_id": OWUI_CHAT,
+            "user": "Find municipalities named Yokohama",
             "wire_messages": [{"role": "user"}],
-            "wire_assistant": {"role": "assistant", "tool_calls": [{"id": CALL}]},
+            "wire_assistant": {
+                "role": "assistant",
+                "tool_calls": [{"id": CALL, "type": "function", "name": "lab_find_municipalities"}],
+            },
         },
         {
             "kind": "chat.completions",
@@ -111,11 +127,19 @@ def test_assert_loop_accepts_a_complete_fixture_and_rejects_a_short_one() -> Non
             "has_tool_result": True,
             "completion_id": CHATCMPL_2,
             "chat_id": OWUI_CHAT,
-            "wire_messages": [{"role": "tool", "tool_call_id": CALL}],
+            "user": "Find municipalities named Yokohama",
+            "wire_messages": [
+                {"role": "user"},
+                {"role": "assistant", "tool_calls": [{"id": CALL}]},
+                {"role": "tool", "tool_call_id": CALL},
+            ],
             "wire_assistant": {"role": "assistant"},
         },
     ]
-    mcp = [
+
+
+def _mcp_handshake_rows() -> list[dict]:
+    return [
         {
             "event": "initialize",
             "debug": {"session_id": "sess-1", "request_id": "1-init", "chat_id": OWUI_CHAT},
@@ -131,6 +155,43 @@ def test_assert_loop_accepts_a_complete_fixture_and_rejects_a_short_one() -> Non
             "debug": {"session_id": "sess-1", "request_id": "3-call", "chat_id": OWUI_CHAT},
         },
     ]
+
+
+def test_title_generation_is_not_the_chat_turn() -> None:
+    """Open WebUI background jobs start with ``### Task:`` and carry no tools."""
+    title = {
+        "kind": "chat.completions",
+        "user": "### Task: Generate a concise chat title",
+        "tool_names": [],
+        "call_ids": [],
+        "inbound_call_ids": [],
+        "has_tool_result": False,
+        "completion_id": "chatcmpl-title",
+        "chat_id": OWUI_CHAT,
+        "wire_messages": [{"role": "user"}],
+        "wire_assistant": {"role": "assistant"},
+    }
+    assert is_background_task(title) is True
+    events = [title, *_openai_tool_loop_rows()]
+    loop = summarize_openai_tool_loop(events)
+    assert loop["first_completion_id"] == CHATCMPL_1
+    assert loop["follow_completion_id"] == CHATCMPL_2
+    assert loop["tool_names"] == ["lab_find_municipalities"]
+    assert loop["call_ids"] == [CALL]
+    assert loop["chat_id"] == OWUI_CHAT
+
+    result = assert_openwebui_tool_loop(
+        openai_events=events,
+        mcp_events=_mcp_handshake_rows(),
+        page_url="http://127.0.0.1:3000/",
+        ui_text="Yokohama (code 14109) is in Kanagawa.",
+    )
+    assert result["conversation_id"] == OWUI_CHAT
+
+
+def test_assert_loop_accepts_a_complete_fixture_and_rejects_a_short_one() -> None:
+    openai = _openai_tool_loop_rows()
+    mcp = _mcp_handshake_rows()
     result = assert_openwebui_tool_loop(
         openai_events=openai,
         mcp_events=mcp,

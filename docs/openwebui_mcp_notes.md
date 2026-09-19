@@ -68,6 +68,14 @@ The Playwright job asserts the product loop, not a lab stand-in:
 6. follow-up completion with `role: "tool"` and the same `tool_call_id`
 7. final assistant text containing Yokohama in `#response-content-container`
 
+Open WebUI may also POST `/v1/chat/completions` for background jobs whose
+user text starts with `### Task:` (titles, tags, follow-ups). Those are
+not the chat turn under test. The smoke helper skips them, and
+`docker/openwebui-smoke/env.smoke` turns title/tags/follow-up generation
+off so they are less likely to run. Product `chat.id` is taken from the
+`/c/{id}` URL when present, otherwise from the OpenAI/MCP log headers —
+not from a lab `chat_*` pin.
+
 JSONL artifacts are projections of that wire (OpenAI mock request/response
 IDs, MCP method rows). They do not replace the wire.
 

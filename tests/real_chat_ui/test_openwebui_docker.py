@@ -83,8 +83,18 @@ def test_openwebui_toolcall_loop_and_id_continuity(page) -> None:
     ui_text = ""
     if logged_in:
         enable_mcp_picker(page, OPENWEBUI)
+        before = 0
+        if OPENWEBUI.response.container is not None:
+            before = page.locator(OPENWEBUI.response.container.css()).count()
         flags.update(type_and_send(page, OPENWEBUI, CHAT_MESSAGE))
-        flags["assistant_visible"] = wait_for_assistant(page, OPENWEBUI, timeout_ms=90_000)
+        # A prior Send (or leftover chat) can already have #response-content-container.
+        flags["assistant_visible"] = wait_for_assistant(
+            page,
+            OPENWEBUI,
+            timeout_ms=90_000,
+            min_count=before + 1,
+            text_in_last=OPENWEBUI.sample_result_fragment,
+        )
         ui_text = page.locator("body").inner_text()
         flags["page_url"] = page.url
         flags["ui_text_tail"] = ui_text

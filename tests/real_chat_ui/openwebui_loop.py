@@ -18,18 +18,38 @@ def openai_completions(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return [event for event in events if event.get("kind") == "chat.completions"]
 
 
+def is_background_task(event: dict[str, Any]) -> bool:
+    """Open WebUI title/tags/follow-up jobs. Not the chat turn under test."""
+    return str(event.get("user") or "").lstrip().startswith("### Task:")
+
+
 def summarize_openai_tool_loop(events: list[dict[str, Any]]) -> dict[str, Any]:
-    rows = openai_completions(events)
-    first = rows[0] if rows else {}
-    follow = next((row for row in rows[1:] if row.get("has_tool_result")), {})
+    rows = [event for event in openai_completions(events) if not is_background_task(event)]
+    first: dict[str, Any] = {}
+    for row in rows:
+        if row.get("call_ids") and row.get("tool_names"):
+            first = row
+    follow: dict[str, Any] = {}
     call_ids = [str(item) for item in (first.get("call_ids") or [])]
+    seen_first = not first
+    for row in rows:
+        if first and row.get("completion_id") == first.get("completion_id"):
+            seen_first = True
+            continue
+        if not seen_first:
+            continue
+        inbound = [str(item) for item in (row.get("inbound_call_ids") or [])]
+        if row.get("has_tool_result") and call_ids and set(call_ids) <= set(inbound):
+            follow = row
+            break
     inbound = [str(item) for item in (follow.get("inbound_call_ids") or [])]
     follow_tool_ids = []
     for message in follow.get("wire_messages") or []:
         if message.get("role") == "tool" and message.get("tool_call_id"):
             follow_tool_ids.append(str(message["tool_call_id"]))
+    loop_rows = [row for row in (first, follow) if row]
     return {
-        "completion_n": len(rows),
+        "completion_n": len(loop_rows),
         "first_completion_id": first.get("completion_id"),
         "follow_completion_id": follow.get("completion_id"),
         "tool_names": list(first.get("tool_names") or []),
@@ -39,6 +59,7 @@ def summarize_openai_tool_loop(events: list[dict[str, Any]]) -> dict[str, Any]:
         "has_tool_result_followup": bool(follow),
         "final_is_assistant": (follow.get("wire_assistant") or {}).get("role") == "assistant"
         and not (follow.get("wire_assistant") or {}).get("tool_calls"),
+        "chat_id": first.get("chat_id") or follow.get("chat_id"),
     }
 
 
@@ -66,12 +87,18 @@ def summarize_mcp_handshake(events: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-def product_conversation_id(page_url: str | None) -> str | None:
-    if not page_url:
-        return None
-    for found in extract_ids_from_url(page_url):
-        if found.kind == "conversation_id":
-            return found.value
+def product_conversation_id(
+    page_url: str | None,
+    events: list[dict[str, Any]] | None = None,
+) -> str | None:
+    if page_url:
+        for found in extract_ids_from_url(page_url):
+            if found.kind == "conversation_id":
+                return found.value
+    if events:
+        product = lab_vs_product_chat_ids(events)["product_chat_ids"]
+        if product:
+            return product[-1]
     return None
 
 
@@ -106,7 +133,12 @@ def assert_openwebui_tool_loop(
     openai_loop = summarize_openai_tool_loop(openai_events)
     mcp_loop = summarize_mcp_handshake(mcp_events)
     ids = lab_vs_product_chat_ids([*openai_events, *mcp_events])
-    conversation_id = product_conversation_id(page_url)
+    conversation_id = product_conversation_id(page_url, [*openai_events, *mcp_events])
+    if openai_loop.get("chat_id") and not str(openai_loop["chat_id"]).startswith("chat_"):
+        conversation_id = conversation_id or str(openai_loop["chat_id"])
+        if conversation_id != openai_loop["chat_id"]:
+            # Prefer the id on the tool-call hop over an earlier page URL miss.
+            conversation_id = str(openai_loop["chat_id"])
     trace = snapshot_trace(
         page_url=page_url,
         text=ui_text,
@@ -140,7 +172,7 @@ def assert_openwebui_tool_loop(
     assert mcp_loop["session_ids"], "MCP session_id missing"
     assert mcp_loop["request_ids"], "MCP request_id missing"
 
-    assert conversation_id, f"no product /c/{{id}} in {page_url!r}"
+    assert conversation_id, f"no product chat.id in {page_url!r} or logs"
     assert not conversation_id.startswith("chat_"), conversation_id
     if ids["product_chat_ids"]:
         assert conversation_id in ids["product_chat_ids"], (conversation_id, ids)

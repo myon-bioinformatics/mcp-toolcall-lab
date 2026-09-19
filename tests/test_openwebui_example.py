@@ -26,6 +26,9 @@ def test_openwebui_smoke_compose_uses_shared_docker_network() -> None:
     assert "OPENAI_API_BASE_URL=http://openai-mock:8090/v1" in env
     assert "WEBUI_AUTH=False" in env
     assert "ENABLE_FORWARD_USER_INFO_HEADERS=True" in env
+    assert "ENABLE_TITLE_GENERATION=False" in env
+    assert "ENABLE_TAGS_GENERATION=False" in env
+    assert "ENABLE_FOLLOW_UP_GENERATION=False" in env
     assert "host.docker.internal" not in env
     assert "http://openai-mock:8090/v1" in compose
     assert "openwebui_mcp_mock.py" in dockerfile
