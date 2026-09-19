@@ -19,6 +19,10 @@ on:
         description: "HF repo to auto-discover a small .gguf in (only used when use_real_gguf is true)"
         required: false
         default: "bartowski/SmolLM2-135M-Instruct-GGUF"
+      cpu_llm_gguf_sha256:
+        description: "Pin: expected sha256 of the fetched .gguf. Leave blank on the first bootstrap run — fill it in from that run's provenance artifact to verify future runs."
+        required: false
+        default: ""
   push:
     branches: [main]
     paths:
@@ -71,7 +75,8 @@ jobs:
       - name: Fetch a real tiny GGUF (opt-in)
         if: github.event.inputs.use_real_gguf == 'true'
         env:
-          CPU_LLM_GGUF_REPO: ${{ github.event.inputs.cpu_llm_gguf_repo || 'HuggingFaceTB/SmolLM2-135M-Instruct-GGUF' }}
+          CPU_LLM_GGUF_REPO: ${{ github.event.inputs.cpu_llm_gguf_repo }}
+          CPU_LLM_GGUF_SHA256: ${{ github.event.inputs.cpu_llm_gguf_sha256 }}
         run: scripts/fetch_tiny_cpu_gguf.sh docker/stub-pages/models/model.gguf
 
       - name: Start stub + MCP + CPU-class model
