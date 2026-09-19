@@ -85,7 +85,9 @@ exists — this package does not invent one). Schema:
 `write_pages()` → `_site/build_meta.json` (`version`, `sha`, `shortSha`,
 `ref`, `committedAt`, `subject`, `commitUrl`, `dirty`). Prefers
 `GITHUB_SHA` / `GITHUB_REF_NAME` / `GITHUB_REPOSITORY` /
-`GITHUB_SERVER_URL` when Actions sets them.
+`GITHUB_SERVER_URL` when Actions sets them. `dirty` is source-tree dirty:
+it ignores default `_site/` and the chosen `--out` directory so generating
+(or regenerating) the Pages tree cannot mark a clean checkout dirty.
 
 Then `/wiki` induction: the live Wikipedia title form + heading select
 is the local stub, not github.io.

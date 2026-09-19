@@ -28,6 +28,7 @@ from mcp_toolcall_lab.stub_front import (
     STUB_DEMO_DATA_NAME,
     STUB_DEMO_JS_NAME,
     STUB_DEMO_JS_SOURCE,
+    _status_is_dirty,
     collect_revision,
     load_corpus,
     pages_summary,
@@ -255,6 +256,21 @@ def test_write_pages_shows_version_only_when_present(tmp_path: Path) -> None:
     assert "Commit abcdef12" in html
 
 
+def _stub_git_status(monkeypatch, porcelain: str) -> None:
+    def fake_git(args: list[str]) -> str | None:
+        table = {
+            ("rev-parse", "HEAD"): "deadbeefcafebabe000000000000000000000000",
+            ("rev-parse", "--short=8", "HEAD"): "deadbeef",
+            ("branch", "--show-current"): "main",
+            ("show", "-s", "--format=%cI", "HEAD"): "2026-09-19T12:00:00+00:00",
+            ("show", "-s", "--format=%s", "HEAD"): "subject",
+            ("status", "--porcelain"): porcelain,
+        }
+        return table.get(tuple(args))
+
+    monkeypatch.setattr("mcp_toolcall_lab.stub_front._git_output", fake_git)
+
+
 def test_collect_revision_prefers_github_actions_env(monkeypatch) -> None:
     def fake_git(args: list[str]) -> str | None:
         table = {
@@ -331,6 +347,71 @@ def test_collect_revision_reads_package_version_when_present(monkeypatch) -> Non
     monkeypatch.setattr("mcp_toolcall_lab.__version__", "9.9.9", raising=False)
     meta = collect_revision({})
     assert meta["version"] == "9.9.9"
+
+
+def test_collect_revision_ignores_default_site_output(monkeypatch) -> None:
+    _stub_git_status(
+        monkeypatch,
+        "?? _site/index.html\n?? _site/build_meta.json\n?? _site/\n",
+    )
+    meta = collect_revision({})
+    assert meta["dirty"] is False
+
+
+def test_collect_revision_ignores_custom_out_dir(monkeypatch) -> None:
+    _stub_git_status(monkeypatch, "?? tmp-pages/index.html\n?? tmp-pages/summary.json\n")
+    meta = collect_revision({}, ignore_paths=(Path("tmp-pages"),))
+    assert meta["dirty"] is False
+
+
+def test_collect_revision_dirty_when_source_changes_alongside_site(monkeypatch) -> None:
+    _stub_git_status(
+        monkeypatch,
+        "?? _site/index.html\n M README.md\n",
+    )
+    meta = collect_revision({})
+    assert meta["dirty"] is True
+
+
+def test_write_pages_dirty_matches_source_tree_not_its_output() -> None:
+    """Regenerating Pages under the real worktree must not flip dirty by itself."""
+    out = ROOT / "_site_revision_probe"
+    try:
+        write_pages(out)
+        first = json.loads((out / BUILD_META_NAME).read_text(encoding="utf-8"))
+        write_pages(out)
+        meta = json.loads((out / BUILD_META_NAME).read_text(encoding="utf-8"))
+        assert meta["dirty"] is first["dirty"]
+        porcelain = subprocess.run(
+            ["git", "status", "--porcelain"],
+            cwd=ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout
+        assert meta["dirty"] is _status_is_dirty(porcelain, (out,))
+        html = (out / "index.html").read_text(encoding="utf-8")
+        if meta["dirty"]:
+            assert "(dirty)" in html
+        else:
+            assert "(dirty)" not in html
+    finally:
+        shutil.rmtree(out, ignore_errors=True)
+
+
+def test_write_pages_dirty_when_untracked_source_exists() -> None:
+    out = ROOT / "_site_revision_probe"
+    probe = ROOT / "_revision_source_probe.txt"
+    try:
+        probe.write_text("untracked source change\n", encoding="utf-8")
+        write_pages(out)
+        meta = json.loads((out / BUILD_META_NAME).read_text(encoding="utf-8"))
+        assert meta["dirty"] is True
+        html = (out / "index.html").read_text(encoding="utf-8")
+        assert "(dirty)" in html
+    finally:
+        probe.unlink(missing_ok=True)
+        shutil.rmtree(out, ignore_errors=True)
 
 
 def test_write_stub_demo_page_is_local_only(tmp_path: Path) -> None:

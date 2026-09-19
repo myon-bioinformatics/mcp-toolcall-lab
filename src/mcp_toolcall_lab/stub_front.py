@@ -30,7 +30,7 @@ import html
 import json
 import os
 import subprocess
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass, field
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -386,6 +386,9 @@ def pages_summary(
     }
 
 
+PAGES_OUTPUT_NAME = "_site"
+
+
 def _git_output(args: list[str]) -> str | None:
     """Run a git command in the repo root. None if git is missing or the command fails."""
     try:
@@ -404,7 +407,74 @@ def _git_output(args: list[str]) -> str | None:
     return value or None
 
 
-def collect_revision(env: Mapping[str, str] | None = None) -> dict[str, Any]:
+def _porcelain_relpath(line: str) -> str | None:
+    """Return the worktree-relative path from one ``git status --porcelain`` line."""
+    if len(line) < 4:
+        return None
+    rest = line[3:]
+    if " -> " in rest:
+        rest = rest.split(" -> ", 1)[1]
+    rest = rest.strip()
+    if len(rest) >= 2 and rest[0] == rest[-1] == '"':
+        rest = rest[1:-1]
+    rest = rest.replace("\\", "/").rstrip("/")
+    return rest or None
+
+
+def _ignore_roots(ignore_paths: Sequence[Path | str] = ()) -> list[Path]:
+    roots = [REPO_ROOT / PAGES_OUTPUT_NAME]
+    for path in ignore_paths:
+        candidate = Path(path)
+        roots.append(candidate if candidate.is_absolute() else REPO_ROOT / candidate)
+    unique: list[Path] = []
+    seen: set[Path] = set()
+    for root in roots:
+        try:
+            key = root.resolve()
+        except OSError:
+            key = root
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(root)
+    return unique
+
+
+def _relpath_is_ignored(rel: str, roots: Sequence[Path]) -> bool:
+    repo = REPO_ROOT.resolve()
+    for root in roots:
+        try:
+            rel_root = os.path.relpath(root.resolve(), repo).replace("\\", "/")
+        except (OSError, ValueError):
+            continue
+        if rel_root.startswith("..") or rel_root in {".", ""}:
+            continue
+        rel_root = rel_root.rstrip("/")
+        if rel == rel_root or rel.startswith(rel_root + "/"):
+            return True
+    return False
+
+
+def _status_is_dirty(status: str | None, ignore_paths: Sequence[Path | str] = ()) -> bool:
+    """True when porcelain reports a change outside ``_site/`` and ``ignore_paths``."""
+    if not status:
+        return False
+    roots = _ignore_roots(ignore_paths)
+    for line in status.splitlines():
+        rel = _porcelain_relpath(line)
+        if rel is None:
+            continue
+        if _relpath_is_ignored(rel, roots):
+            continue
+        return True
+    return False
+
+
+def collect_revision(
+    env: Mapping[str, str] | None = None,
+    *,
+    ignore_paths: Sequence[Path | str] = (),
+) -> dict[str, Any]:
     """Collect a small revision/generation block for the Pages report.
 
     Schema written to ``_site/build_meta.json`` (same idea as
@@ -416,6 +486,8 @@ def collect_revision(env: Mapping[str, str] | None = None) -> dict[str, Any]:
     - ``sha`` / ``shortSha`` (8): ``GITHUB_SHA`` when set, else ``git rev-parse``.
     - ``ref``: ``GITHUB_REF_NAME`` when set, else ``git branch --show-current``.
     - ``committedAt`` / ``subject`` / ``dirty``: git (``%cI``, ``%s``, porcelain).
+      ``dirty`` ignores the default ``_site/`` tree and ``ignore_paths`` so the
+      generated Pages output cannot mark a clean source tree dirty.
     - ``commitUrl``: ``{server}/{repo}/commit/{sha}`` when sha and
       ``GITHUB_REPOSITORY`` are known (``GITHUB_SERVER_URL`` or https://github.com).
     """
@@ -438,7 +510,7 @@ def collect_revision(env: Mapping[str, str] | None = None) -> dict[str, Any]:
     committed_at = _git_output(["show", "-s", "--format=%cI", "HEAD"])
     subject = _git_output(["show", "-s", "--format=%s", "HEAD"])
     status = _git_output(["status", "--porcelain"])
-    dirty = bool(status)
+    dirty = _status_is_dirty(status, ignore_paths)
 
     repo = _env("GITHUB_REPOSITORY")
     server = (_env("GITHUB_SERVER_URL") or "https://github.com").rstrip("/")
@@ -572,6 +644,10 @@ def write_pages(
     """
     from mcp_toolcall_lab.mock.common import read_jsonl
 
+    # Snapshot revision before mkdir/write so first generation does not create
+    # untracked files first. Ignore ``_site/`` and this out_dir so a leftover
+    # or regenerated tree cannot mark a clean source checkout dirty.
+    meta = dict(revision) if revision is not None else collect_revision(ignore_paths=(out_dir,))
     md = load_markdown()
     out_dir.mkdir(parents=True, exist_ok=True)
     for name in PAGES_FORBIDDEN_NAMES:
@@ -580,7 +656,6 @@ def write_pages(
             leftover.unlink()
     summary = pages_summary(_load_json_object(last_run), read_jsonl(observations) if observations else [])
     summary_text = json.dumps(summary, indent=2, ensure_ascii=False)
-    meta = dict(revision) if revision is not None else collect_revision()
     if md is not None:
         body = md.section(
             "Live Wikipedia form (`/wiki`, not on this host)",
