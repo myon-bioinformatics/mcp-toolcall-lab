@@ -14,15 +14,19 @@ from __future__ import annotations
 import io
 import json
 import os
+from pathlib import Path
 from urllib.error import URLError
 
 import pytest
 
 from mcp_toolcall_lab.wikipedia_tool import (
+    FIXTURE_ENV,
     WikipediaFetchError,
     _wiki_headings_to_atx,
     fetch_article_sections,
+    fetch_wikipedia_article,
     fetch_wikipedia_section,
+    load_wikipedia_article,
 )
 
 
@@ -157,6 +161,28 @@ def test_fetch_wikipedia_section_unmatched_heading_is_empty_not_error(monkeypatc
     _mock_extract_response(monkeypatch, title="Yokohama", extract=extract)
 
     assert fetch_wikipedia_section("Yokohama", "this heading does not exist xyz") == []
+
+
+def test_shipped_fixture_is_used_instead_of_network(monkeypatch: pytest.MonkeyPatch) -> None:
+    fixture = Path(__file__).resolve().parents[1] / "fixtures" / "wikipedia" / "yokohama_extract.json"
+    monkeypatch.setenv(FIXTURE_ENV, str(fixture))
+
+    def fail_network(request, timeout=0):  # noqa: ARG001
+        raise AssertionError("fixture path must not call urlopen")
+
+    import mcp_toolcall_lab.wikipedia_tool as wt
+
+    monkeypatch.setattr(wt.urllib.request, "urlopen", fail_network)
+    article, lookup = load_wikipedia_article("Yokohama")
+    assert lookup == "miss"
+    assert article.canonical_title == "Yokohama"
+    assert "14109" in article.extract
+    assert "== Geography ==" in article.extract
+    result = fetch_wikipedia_article("Yokohama, Japan")
+    assert result["canonical_title"] == "Yokohama"
+    assert any(row["heading"] == "Geography" for row in result["headings"])
+    with pytest.raises(WikipediaFetchError, match="no en.wikipedia.org article"):
+        load_wikipedia_article("This Title Is Not In The Fixture")
 
 
 @pytest.mark.integration

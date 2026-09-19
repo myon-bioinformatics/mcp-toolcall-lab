@@ -184,6 +184,10 @@ def create_mcp() -> FastMCP:
     def fetch_wikipedia_section(title: str, heading: str = "") -> list[dict[str, str]]:
         return dispatch_tool("fetch_wikipedia_section", {"title": title, "heading": heading})
 
+    @mcp.tool(description=TOOL_DESCRIPTIONS["fetch_wikipedia_article"])
+    def fetch_wikipedia_article(title: str, lang: str = "en") -> dict[str, Any]:
+        return dispatch_tool("fetch_wikipedia_article", {"title": title, "lang": lang})
+
     return mcp
 
 

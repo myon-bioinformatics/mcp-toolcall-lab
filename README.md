@@ -151,6 +151,8 @@ pytest -q
 
 `pip install -e` already puts `src` on the import path, so `PYTHONPATH=src` is not required. Pull requests run the same commands on GitHub Actions with Python 3.11.
 
+Wikipedia article screenshots (`python -m playwright screenshot` against the stub's `/wiki` form) are a dedicated workflow / manual lane: `.github/workflows/wikipedia-article-screenshot.yml`. They are not part of `pytest -q`. CI uses `fixtures/wikipedia/yokohama_extract.json`; live Wikipedia is `workflow_dispatch` `--live` or `MCP_TOOLCALL_LAB_LIVE_WIKIPEDIA=1` locally. See [`docs/wikipedia_tool.md`](docs/wikipedia_tool.md).
+
 ## Talking to the mock with nothing but curl
 
 Streamable HTTP is plain JSON-RPC over HTTP — no chat UI, browser, or even the `mcp`/`fastmcp`
@@ -256,7 +258,9 @@ files — overlapping helpers only, not a forced single mock.
 LibreChat / Open WebUI stay the products under test. `stub_front` is a
 zero-extra-dep reference UI: ATX markdown headings are the deterministic
 model, the page reuses both products' composer locators, and `/c/{chat_id}`
-puts that id on MCP `_meta` and `X-Chat-Id`. Roadmap for later slices
+puts that id on MCP `_meta` and `X-Chat-Id`. `GET /wiki` is a thin
+title form plus a server-rendered heading select against a MediaWiki
+plaintext extract (escaped; not on GitHub Pages). Roadmap for later slices
 (Playwright-on-stub, `markdown` accuracy, CPU LLM in Docker — unnumbered):
 [`docs/stub_front_roadmap.md`](docs/stub_front_roadmap.md).
 
@@ -264,6 +268,10 @@ puts that id on MCP `_meta` and `X-Chat-Id`. Roadmap for later slices
 python -m mcp_toolcall_lab.stub_front turn --heading "Yokohama"
 python -m mcp_toolcall_lab.stub_front turn --heading "Find municipalities named Yokohama"
 python -m mcp_toolcall_lab.stub_front serve --port 8765
+# Wikipedia article → heading select (local server only; Pages has no backend)
+# http://127.0.0.1:8765/wiki?title=Yokohama
+# fixture screenshots (not part of pytest -q):
+python scripts/wikipedia_article_screenshot.py --out test-results/wiki-screenshots
 ```
 
 ### Trace probe (the other ids)

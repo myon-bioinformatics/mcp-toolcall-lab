@@ -1,0 +1,54 @@
+name: wikipedia-article-screenshot
+
+# Stdlib stub /wiki screenshots via `python -m playwright screenshot`.
+# Default pytest (`test` workflow, `pytest -q`) does not run this.
+# Deterministic CI uses fixtures/wikipedia/yokohama_extract.json.
+# Live Wikipedia is workflow_dispatch --live only (or a local --live run).
+on:
+  workflow_dispatch:
+    inputs:
+      live_wikipedia:
+        description: "Fetch live Wikipedia instead of the pinned fixture (off by default)"
+        type: boolean
+        default: false
+  pull_request:
+    paths:
+      - "src/mcp_toolcall_lab/wikipedia_tool.py"
+      - "src/mcp_toolcall_lab/stub_front.py"
+      - "src/mcp_toolcall_lab/catalog.py"
+      - "src/mcp_toolcall_lab/server.py"
+      - "scripts/wikipedia_article_screenshot.py"
+      - "fixtures/wikipedia/**"
+      - "docs/wikipedia_tool.md"
+      - ".github/workflows/wikipedia-article-screenshot.yml"
+
+jobs:
+  screenshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install stub + Playwright CLI
+        run: |
+          pip install -e ".[test,browser-test]"
+          playwright install --with-deps chromium
+      - name: Screenshot title-entered and heading-selected (fixture)
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.live_wikipedia != true }}
+        env:
+          MCP_TOOLCALL_LAB_WIKIPEDIA_FIXTURE: ${{ github.workspace }}/fixtures/wikipedia/yokohama_extract.json
+        run: python scripts/wikipedia_article_screenshot.py --out test-results/wiki-screenshots
+      - name: Screenshot title-entered and heading-selected (live Wikipedia)
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.live_wikipedia == true }}
+        env:
+          MCP_TOOLCALL_LAB_LIVE_WIKIPEDIA: "1"
+        run: python scripts/wikipedia_article_screenshot.py --live --out test-results/wiki-screenshots
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wikipedia-article-screenshots
+          path: test-results/wiki-screenshots/
+          if-no-files-found: error

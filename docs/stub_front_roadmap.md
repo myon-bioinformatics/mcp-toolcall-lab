@@ -30,11 +30,13 @@ split. It is not a product clone and not a CommonMark engine.
   `stub_demo.js` re-implements heading→body lookup in vanilla JS (corpus
   from `stub-demo-data.json`); an MCP-shaped prompt is labelled, never
   faked, since this page has no server behind it
-- `fetch_wikipedia_section` MCP tool (`wikipedia_tool.py`): the one tool
-  in `catalog.py` that is not a deterministic mock — a real Wikipedia
-  article's sections via Wikipedia's own extracts API (no HTML/wikitext
-  parsing), through the same `markdown_lib.parse_sections()` every other
-  corpus uses. See `docs/wikipedia_tool.md`.
+- `fetch_wikipedia_section` / `fetch_wikipedia_article` MCP tools
+  (`wikipedia_tool.py`): the tools in `catalog.py` that are not
+  deterministic mocks — a real Wikipedia article as a MediaWiki
+  plaintext extract (no HTML scraping, no markdown.py HTML conversion),
+  heading list from the same fetch, in-process TTL/LRU cache so heading
+  switches do not refetch. Stdlib stub `GET /wiki` is the thin form;
+  Pages does not host it. See `docs/wikipedia_tool.md`.
 
 ## Later (unnumbered)
 
@@ -48,6 +50,6 @@ split. It is not a product clone and not a CommonMark engine.
 
 ```bash
 python -m mcp_toolcall_lab.stub_front turn --heading "Yokohama"
-python -m mcp_toolcall_lab.stub_front serve --port 8765
+python -m mcp_toolcall_lab.stub_front serve --port 8765   # then open /wiki
 python -m mcp_toolcall_lab.trace_probe --chat-id chat_lab1
 ```

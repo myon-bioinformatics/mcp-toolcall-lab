@@ -52,6 +52,11 @@ from mcp_toolcall_lab.record import (
     new_chat_id,
     record_call,
 )
+from mcp_toolcall_lab.wikipedia_tool import (
+    DEFAULT_LANG,
+    WikipediaFetchError,
+    load_wikipedia_article,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_CORPUS = REPO_ROOT / "fixtures" / "stub_front"
@@ -62,6 +67,15 @@ CASE_MCP_SUCCESS = "MCP_SUCCESS"
 CASE_MCP_EMPTY = "MCP_EMPTY"
 CASE_MCP_ERROR = "MCP_ERROR"
 CASE_MCP_UNREACHABLE = "MCP_UNREACHABLE"
+
+WIKI_PAGES_DISCLAIMER = (
+    "This form runs on the local stdlib stub (or a CI job). "
+    "GitHub Pages is static and cannot fetch Wikipedia or keep this backend online."
+)
+WIKI_EXTRACT_NOTE = (
+    "MediaWiki plaintext extract, HTML-escaped. "
+    "This page does not scrape Wikipedia HTML or run it through markdown.py."
+)
 
 # Dual locators live in frontends.py — do not re-string them here.
 LIBRECHAT_INPUT = LIBRECHAT.composer.input.value
@@ -441,6 +455,12 @@ def write_pages(
                 md.bullet_list(titles or ["(empty)"]),
                 md.heading("Last Actions summary", 2),
                 md.code_block(summary_text, lang="json"),
+                md.heading("Wikipedia article fetch (not on this host)", 2),
+                "The stdlib stub serves GET /wiki as a title form plus a server-rendered heading "
+                "select against a MediaWiki plaintext extract. GitHub Pages is static and cannot "
+                "keep that backend, so this page does not include the live form. Reproduce locally: "
+                "`python -m mcp_toolcall_lab.stub_front serve --port 8765` then open `/wiki`. "
+                "CI screenshots use `fixtures/wikipedia/yokohama_extract.json`, not live Wikipedia.",
             ],
         )
         inner = md.markdown_to_html(body)
@@ -468,6 +488,109 @@ def write_pages(
     return out_dir / "index.html"
 
 
+def render_wiki_page(
+    *,
+    title: str = "",
+    heading: str = "",
+    lang: str = DEFAULT_LANG,
+) -> str:
+    """Server-rendered Wikipedia title form + heading select. No live JS backend."""
+    title = title.strip()
+    heading = heading.strip()
+    lang = (lang or DEFAULT_LANG).strip() or DEFAULT_LANG
+    error = ""
+    extract = ""
+    canonical = ""
+    cache_status = ""
+    section_title = ""
+    section_body = ""
+    section_options = ['<option value="">(full extract)</option>']
+    if title:
+        try:
+            article, cache_status = load_wikipedia_article(title, lang=lang)
+            canonical = article.canonical_title
+            extract = article.extract
+            for section in article.sections():
+                selected = " selected" if heading and section.title == heading else ""
+                section_options.append(
+                    f'<option value="{html.escape(section.title)}"{selected}>'
+                    f"{html.escape(section.title)}</option>"
+                )
+            if heading:
+                match = lookup_heading(heading, article.sections(), fuzzy=True)
+                if match is not None:
+                    section_title = match.title
+                    section_body = match.body
+                    # Re-mark the matched title as selected when the query was fuzzy.
+                    if match.title != heading:
+                        section_options = ['<option value="">(full extract)</option>']
+                        for section in article.sections():
+                            selected = " selected" if section.title == match.title else ""
+                            section_options.append(
+                                f'<option value="{html.escape(section.title)}"{selected}>'
+                                f"{html.escape(section.title)}</option>"
+                            )
+        except WikipediaFetchError as exc:
+            error = str(exc)
+            cache_status = "error"
+
+    heading_select = ""
+    if extract:
+        heading_select = (
+            '<label for="wiki-heading-select">Heading</label>'
+            f'<select id="wiki-heading-select" name="heading" data-testid="wiki-heading-select">'
+            f"{''.join(section_options)}</select>"
+            '<button type="submit" data-testid="wiki-show-section">Show section</button>'
+        )
+
+    article_html = ""
+    if canonical:
+        article_html += (
+            f'<p>canonical title <strong data-testid="wiki-canonical-title">'
+            f"{html.escape(canonical)}</strong></p>"
+        )
+    if cache_status:
+        article_html += (
+            f'<p data-testid="wiki-cache" data-cache="{html.escape(cache_status)}">'
+            f"cache {html.escape(cache_status)}</p>"
+        )
+    if error:
+        article_html += f'<p data-testid="wiki-error">{html.escape(error)}</p>'
+    if extract:
+        article_html += (
+            f"<p>{html.escape(WIKI_EXTRACT_NOTE)}</p>"
+            f'<pre data-testid="wiki-extract">{html.escape(extract)}</pre>'
+        )
+    if section_title:
+        article_html += (
+            f"<h2>Selected section: {html.escape(section_title)}</h2>"
+            f'<pre data-testid="wiki-section">{html.escape(section_body)}</pre>'
+        )
+
+    return f"""<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>wikipedia article (local stub)</title>
+<style>
+ body {{ font-family: sans-serif; max-width: 52rem; margin: 1.5rem auto; }}
+ input, select {{ width: 100%; margin: .4rem 0; }}
+ pre {{ white-space: pre-wrap; border: 1px solid #ccc; padding: .6rem; }}
+ .disclaimer {{ background: #f4f4f4; padding: .6rem .8rem; }}
+</style></head>
+<body>
+<p><a href="/">chat stub</a> · Wikipedia article (this server)</p>
+<p class="disclaimer">{html.escape(WIKI_PAGES_DISCLAIMER)}</p>
+<form method="get" action="/wiki">
+<label for="wiki-title">Wikipedia title</label>
+<input id="wiki-title" name="title" value="{html.escape(title)}" data-testid="wiki-title">
+<label for="wiki-lang">Language</label>
+<input id="wiki-lang" name="lang" value="{html.escape(lang)}" data-testid="wiki-lang" size="4">
+<button type="submit" data-testid="wiki-fetch">Show article</button>
+{heading_select}
+</form>
+{article_html}
+</body></html>
+"""
+
+
 def _page(chat_id: str, turns: list[Turn], prompt: str = "", sections: list[Section] | None = None) -> str:
     bubbles = []
     for turn in turns:
@@ -490,7 +613,8 @@ def _page(chat_id: str, turns: list[Turn], prompt: str = "", sections: list[Sect
  select {{ width: 100%; margin: .4rem 0; }}
 </style></head>
 <body>
-<p>lab chat_id <code data-testid="chat-id">{html.escape(chat_id)}</code> · stdlib stub</p>
+<p>lab chat_id <code data-testid="chat-id">{html.escape(chat_id)}</code> · stdlib stub
+ · <a href="/wiki">Wikipedia article (this server only)</a></p>
 <form method="post" action="/c/{html.escape(chat_id)}">
 <label for="heading-select">Headings</label>
 <select id="heading-select" name="heading" data-testid="heading-select">{"".join(options)}</select>
@@ -528,9 +652,19 @@ def make_handler(state: StubState) -> type[BaseHTTPRequestHandler]:
             return None
 
         def do_GET(self) -> None:  # noqa: N802
-            path = urlparse(self.path).path.rstrip("/") or "/"
+            parsed = urlparse(self.path)
+            path = parsed.path.rstrip("/") or "/"
             if path == "/health":
                 self._send(200, b'{"ok":true}\n', "application/json")
+                return
+            if path == "/wiki":
+                query = parse_qs(parsed.query)
+                page = render_wiki_page(
+                    title=(query.get("title") or [""])[0],
+                    heading=(query.get("heading") or [""])[0],
+                    lang=(query.get("lang") or [DEFAULT_LANG])[0],
+                )
+                self._send(200, page.encode("utf-8"), "text/html; charset=utf-8")
                 return
             if path in {"/", "/login", "/c", "/c/new"}:
                 chat_id = new_chat_id()
