@@ -571,7 +571,8 @@ def render_wiki_page(
 <html lang="en"><head><meta charset="utf-8"><title>wikipedia article (local stub)</title>
 <style>
  body {{ font-family: sans-serif; max-width: 52rem; margin: 1.5rem auto; }}
- input, select {{ width: 100%; margin: .4rem 0; }}
+ input, select {{ width: 100%; margin: .4rem 0; display: block; }}
+ label, button {{ display: block; margin: .4rem 0; }}
  pre {{ white-space: pre-wrap; border: 1px solid #ccc; padding: .6rem; }}
  .disclaimer {{ background: #f4f4f4; padding: .6rem .8rem; }}
 </style></head>
