@@ -3,25 +3,28 @@
 A valid call that matches nothing returns an empty list. That is not an error.
 Protocol problems (unknown tool, invalid arguments, timeout) are errors.
 
-``fetch_wikipedia_section`` is the one tool below that is NOT a
-deterministic offline mock -- it is registered here (same
-``AVAILABLE_TOOLS``/``TOOL_DESCRIPTIONS``/``dispatch_tool()`` surface as
-every other tool, so it is callable the same way over real MCP) but its
-actual implementation, including the "this makes a real HTTP call" fact,
-lives in ``wikipedia_tool.py``, not here -- see that module's docstring.
+``fetch_wikipedia_section`` and ``fetch_wikipedia_article`` are the tools
+below that are NOT deterministic offline mocks -- they are registered
+here (same ``AVAILABLE_TOOLS``/``TOOL_DESCRIPTIONS``/``dispatch_tool()``
+surface as every other tool, so they are callable the same way over real
+MCP) but their actual implementation, including the "this makes a real
+HTTP call" fact, lives in ``wikipedia_tool.py``, not here -- see that
+module's docstring. The list-of-rows contract for
+``fetch_wikipedia_section`` is unchanged.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
-from .wikipedia_tool import fetch_wikipedia_section
+from .wikipedia_tool import DEFAULT_LANG, fetch_wikipedia_article, fetch_wikipedia_section
 
 AVAILABLE_TOOLS = (
     "find_municipalities",
     "find_transaction_prices",
     "find_stations",
     "fetch_wikipedia_section",
+    "fetch_wikipedia_article",
 )
 
 TOOL_DESCRIPTIONS = {
@@ -29,9 +32,15 @@ TOOL_DESCRIPTIONS = {
     "find_transaction_prices": "Return mock property transaction prices. This never calls a live API.",
     "find_stations": "Find mock stations in a municipality.",
     "fetch_wikipedia_section": (
-        "Fetch a real Wikipedia article's sections over HTTP (the one tool here that is not a "
+        "Fetch a real Wikipedia article's sections over HTTP (the one family here that is not a "
         "mock). Omit `heading` to list section titles (a pulldown); pass one to get that "
-        "section's body. Unmatched heading is an empty result, not an error."
+        "section's body. Unmatched heading is an empty result, not an error. Same article is "
+        "cached in-process so heading switches do not refetch."
+    ),
+    "fetch_wikipedia_article": (
+        "Fetch a real Wikipedia article as a MediaWiki plaintext extract (not HTML). Returns "
+        "canonical_title, extract, and headings from that same fetch. In-process TTL/LRU cache "
+        "reuses the extract when only the heading changes."
     ),
 }
 
@@ -82,7 +91,7 @@ def search_stations(municipality_code: str) -> list[dict[str, str]]:
     return list(STATIONS.get(municipality_code, []))
 
 
-def dispatch_tool(name: str, arguments: dict[str, Any]) -> list[dict[str, Any]]:
+def dispatch_tool(name: str, arguments: dict[str, Any]) -> Any:
     """In-process tool body. FastMCP wrappers and the stub front share this."""
     if name == "find_municipalities":
         return search_municipalities(str(arguments.get("query", "")))
@@ -97,5 +106,11 @@ def dispatch_tool(name: str, arguments: dict[str, Any]) -> list[dict[str, Any]]:
         return fetch_wikipedia_section(
             str(arguments.get("title", "")),
             str(arguments.get("heading", "")),
+            lang=str(arguments.get("lang") or DEFAULT_LANG),
+        )
+    if name == "fetch_wikipedia_article":
+        return fetch_wikipedia_article(
+            str(arguments.get("title", "")),
+            lang=str(arguments.get("lang") or DEFAULT_LANG),
         )
     raise KeyError(name)

@@ -1,0 +1,19 @@
+{
+  "batchcomplete": "",
+  "query": {
+    "redirects": [
+      {
+        "from": "Yokohama, Japan",
+        "to": "Yokohama"
+      }
+    ],
+    "pages": {
+      "3436090": {
+        "pageid": 3436090,
+        "ns": 0,
+        "title": "Yokohama",
+        "extract": "Yokohama is a mock municipality in this lab (code 14109, Kanagawa).\nThis extract is MediaWiki plaintext from action=query&prop=extracts, not scraped HTML.\n\n== Geography ==\nKanagawa Prefecture, south of Tokyo. The mock station is JR Yokohama.\n\n== History ==\nThe lab does not call a live encyclopedia or MLIT. Transaction-price rows for 14109 are always the same condominium mock.\n\n=== Climate ===\nMild in this fixture; nested under History only so heading levels can be asserted.\n\n== See also ==\nFind municipalities, Find stations, Tracing.\n"
+      }
+    }
+  }
+}

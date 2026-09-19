@@ -16,6 +16,19 @@ ROOT = Path(__file__).resolve().parents[1]
 
 EXPECTED_TOOL_SPECS = [
     {
+        "name": "fetch_wikipedia_article",
+        "description": TOOL_DESCRIPTIONS["fetch_wikipedia_article"],
+        "inputSchema": {
+            "additionalProperties": False,
+            "properties": {
+                "title": {"type": "string"},
+                "lang": {"type": "string", "default": "en"},
+            },
+            "required": ["title"],
+            "type": "object",
+        },
+    },
+    {
         "name": "fetch_wikipedia_section",
         "description": TOOL_DESCRIPTIONS["fetch_wikipedia_section"],
         "inputSchema": {
