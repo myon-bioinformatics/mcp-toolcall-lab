@@ -80,6 +80,29 @@ def test_reply_heading_and_mcp_inprocess(tmp_path: Path, monkeypatch) -> None:
     assert miss.case == CASE_HEADING_MISS
 
 
+def test_jsonrpc_error_is_not_classified_empty(monkeypatch) -> None:
+    from mcp_toolcall_lab import stub_front
+
+    class _Fake:
+        def initialize(self) -> None:
+            return None
+
+        def call_tool(self, *args, **kwargs):
+            return {"jsonrpc": "2.0", "id": 1, "error": {"code": -32603, "message": "boom"}}
+
+    monkeypatch.setattr(stub_front, "McpStdlibSession", lambda *args, **kwargs: _Fake())
+    outcome, payload, via = stub_front._call_mcp(
+        tool="find_municipalities",
+        arguments={"query": "Yokohama"},
+        chat_id="chat_x",
+        call_id="call_x",
+        mcp_url="http://127.0.0.1:9/mcp",
+    )
+    assert via == "mcp"
+    assert outcome == "error"
+    assert payload == {"code": -32603, "message": "boom"}
+
+
 def test_mcp_empty_case() -> None:
     sections = parse_sections("# Other\n\nbody\n")
     classified = classify_prompt("stations unknown code 00000", sections)

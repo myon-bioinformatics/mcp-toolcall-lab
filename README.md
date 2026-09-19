@@ -94,6 +94,24 @@ LIBRECHAT_BASE_URL=http://127.0.0.1:3080 \
 Skipped in default `pytest` (`LIBRECHAT_BASE_URL` unset). CI workflow:
 `.github/workflows/librechat-docker-smoke.yml`.
 
+### Serverless stub try (Actions + Pages)
+
+GitHub Pages is static:
+https://myon-bioinformatics.github.io/mcp-toolcall-lab/
+Actions (`stub-pages`) starts Docker — stub UI + MCP mock + CPU-class
+model on one network — then writes anti-pattern JSONL and publishes the
+report. Local:
+
+```bash
+docker compose -f docker/stub-pages/docker-compose.yml up --build
+python scripts/stub_pages_smoke.py
+python -m mcp_toolcall_lab.stub_front pages --out _site --last-run test-results/last-run.json
+```
+
+The stub is `markdown.py` + the standard library. A real tiny GGUF behind
+the same `cpu-llm` DNS is the GPT overlay (`docker-compose.gguf.yml`).
+Details: [`docs/stub_pages.md`](docs/stub_pages.md).
+
 ### Frontend catalog + one-liners (LibreChat / Open WebUI)
 
 Playwright 用のセレクタ・認証・MCP の tool 名規則は

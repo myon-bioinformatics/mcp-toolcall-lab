@@ -1,0 +1,106 @@
+# Serverless try stack: stub UI + MCP mock + CPU-class model, one network.
+# GitHub Actions starts this; GitHub Pages only hosts the static report.
+#
+#   docker compose -f docker/stub-pages/docker-compose.yml up --build
+#   curl -s http://127.0.0.1:8765/health
+#   curl -s http://127.0.0.1:8765/api/turn -H 'Content-Type: application/json' \
+#     -d '{"prompt":"Find municipalities named Yokohama"}'
+#
+# Service DNS (compose network, not host-gateway):
+#   mcp-mock:8000/mcp
+#   cpu-llm:8080/v1
+#   stub-front:8765
+#
+# A real tiny GGUF behind the same cpu-llm DNS is the GPT overlay:
+#   docker-compose.gguf.yml
+networks:
+  lab:
+    name: mcp-toolcall-lab-pages
+    driver: bridge
+
+services:
+  mcp-mock:
+    build:
+      context: ../..
+      dockerfile: docker/librechat-smoke/Dockerfile.mcp
+    environment:
+      MCP_HOST: "0.0.0.0"
+      MCP_PORT: "8000"
+      MCP_TOOLCALL_LOG: /logs/mcp-toolcalls.jsonl
+    volumes:
+      - ../../test-results:/logs
+    networks: [lab]
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.error,urllib.request; req=urllib.request.Request('http://127.0.0.1:8000/mcp',data=b'{}',method='POST');\ntry:\n urllib.request.urlopen(req,timeout=2)\nexcept urllib.error.HTTPError:\n pass",
+        ]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+
+  cpu-llm:
+    build:
+      context: ../..
+      dockerfile: docker/stub-pages/Dockerfile.cpu
+    environment:
+      HOST: "0.0.0.0"
+      PORT: "8080"
+      CPU_LLM_LOG: /logs/cpu-llm.jsonl
+    volumes:
+      - ../../test-results:/logs
+    networks: [lab]
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=2)",
+        ]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+
+  stub-front:
+    build:
+      context: ../..
+      dockerfile: docker/stub-pages/Dockerfile.stub
+    environment:
+      STUB_HOST: "0.0.0.0"
+      STUB_PORT: "8765"
+      STUB_MCP_URL: http://mcp-mock:8000/mcp
+      STUB_CPU_LLM_URL: http://cpu-llm:8080/v1
+      MCP_TOOLCALL_LOG: /logs/mcp-toolcalls.jsonl
+    volumes:
+      - ../../test-results:/logs
+      - ../../fixtures/stub_front:/app/fixtures/stub_front:ro
+    ports:
+      - "8765:8765"
+    depends_on:
+      mcp-mock:
+        condition: service_healthy
+      cpu-llm:
+        condition: service_healthy
+    networks: [lab]
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8765/health', timeout=2)",
+        ]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+      start_period: 5s

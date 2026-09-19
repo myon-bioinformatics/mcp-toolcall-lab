@@ -3,9 +3,8 @@
 LibreChat / Open WebUI stay the products under test. This module is a
 **reference front** you can run with ``python -m mcp_toolcall_lab.stub_front``:
 
-* ATX headings (``#`` … ``######``) are the deterministic "model". Pass a
-  heading, get that section's body back as the assistant turn. Not CommonMark
-  — accuracy work against ``myon-bioinformatics/markdown`` is a later slice.
+* Heading → body uses vendored ``markdown.py`` (``split_sections``) when
+  present, else the local ATX splitter. Not a CommonMark engine.
 * The same composer locators both products use (``data-testid=text-input`` /
   ``send-button`` and ``#chat-input`` / ``#send-message-button`` /
   ``#response-content-container``) so Playwright can point here without Docker.
@@ -38,6 +37,7 @@ from urllib.parse import parse_qs, urlparse
 
 from mcp_toolcall_lab.catalog import dispatch_tool
 from mcp_toolcall_lab.frontends import LIBRECHAT, OPENWEBUI, STUB
+from mcp_toolcall_lab.markdown_lib import load_markdown
 from mcp_toolcall_lab.mcp_http import McpStdlibSession
 from mcp_toolcall_lab.record import (
     OUTCOME_EMPTY,
@@ -100,14 +100,30 @@ def slugify(title: str) -> str:
 
 
 def parse_sections(markdown: str) -> list[Section]:
-    """Split ATX headings only. Setext / HTML / indented fences are out of scope."""
+    """Heading → body. Prefer vendored ``markdown.py``; ATX regex is the fallback."""
+    md = load_markdown()
+    if md is not None and hasattr(md, "split_sections"):
+        sections: list[Section] = []
+        line = 1
+        for part in md.split_sections(markdown):
+            level = int(part.get("level") or 0)
+            title = str(part.get("title") or "")
+            raw = str(part.get("content") or "")
+            if level <= 0 or not title:
+                line += raw.count("\n") or 1
+                continue
+            body_lines = raw.splitlines()
+            body = "\n".join(body_lines[1:]).strip()
+            sections.append(Section(level, title, slugify(title), body, line))
+            line += raw.count("\n") or 1
+        return sections
     lines = markdown.splitlines()
     found: list[tuple[int, int, str]] = []
     for index, line in enumerate(lines):
         match = HEADING_RE.match(line)
         if match:
             found.append((index, len(match.group(1)), match.group(2).strip()))
-    sections: list[Section] = []
+    sections = []
     for idx, (start, level, title) in enumerate(found):
         end = found[idx + 1][0] if idx + 1 < len(found) else len(lines)
         body = "\n".join(lines[start + 1 : end]).strip()
@@ -210,6 +226,10 @@ def render_rows(rows: list[dict[str, Any]]) -> str:
         for key in row:
             if key not in keys:
                 keys.append(str(key))
+    table_rows = [[str(row.get(key, "")) for key in keys] for row in rows]
+    md = load_markdown()
+    if md is not None and hasattr(md, "table"):
+        return md.table(keys, table_rows)
     header = "| " + " | ".join(keys) + " |"
     sep = "| " + " | ".join("---" for _ in keys) + " |"
     body = ["| " + " | ".join(str(row.get(key, "")) for key in keys) + " |" for row in rows]
@@ -241,7 +261,11 @@ def _call_mcp(
         session = McpStdlibSession(mcp_url, client_name="stub-front")
         session.initialize()
         body = session.call_tool(tool, arguments, meta=meta, extra_headers={"X-Chat-Id": chat_id})
-        result = body.get("result") or body
+        if isinstance(body, dict) and body.get("error"):
+            return OUTCOME_ERROR, body["error"], "mcp"
+        result = body.get("result") if isinstance(body, dict) else None
+        if not isinstance(result, dict):
+            return OUTCOME_ERROR, body, "mcp"
         if result.get("isError"):
             return OUTCOME_ERROR, result, "mcp"
         structured = result.get("structuredContent") or {}
@@ -317,6 +341,57 @@ def reply(
     )
 
 
+def _assistant_html(text: str) -> str:
+    md = load_markdown()
+    if md is not None and hasattr(md, "markdown_to_html"):
+        return md.markdown_to_html(text)
+    return f"<pre>{html.escape(text)}</pre>"
+
+
+def write_pages(out_dir: Path, *, last_run: Path | None = None, corpus: Path | None = None) -> Path:
+    """Write a static GitHub Pages tree. No live MCP — serverless host only."""
+    md = load_markdown()
+    out_dir.mkdir(parents=True, exist_ok=True)
+    sections = load_corpus(corpus)
+    titles = [section.title for section in sections]
+    last_text = ""
+    if last_run and last_run.is_file():
+        last_text = last_run.read_text(encoding="utf-8")
+    if md is not None:
+        body = md.section(
+            "mcp-toolcall-lab stub",
+            [
+                "Serverless try: GitHub Actions starts Docker (stub + MCP mock + CPU-class model) "
+                "on one compose network, records anti-patterns as JSONL, then publishes this page.",
+                md.bullet_list(
+                    [
+                        "Local: `docker compose -f docker/stub-pages/docker-compose.yml up --build`",
+                        "Actions: workflow `stub-pages` (`workflow_dispatch`)",
+                        "MCP: `http://mcp-mock:8000/mcp` · CPU model: `http://cpu-llm:8080/v1`",
+                        "This Pages host is static. It cannot keep Docker running.",
+                    ]
+                ),
+                md.heading("Corpus headings", 2),
+                md.bullet_list(titles or ["(empty)"]),
+                md.heading("Last Actions run", 2),
+                md.code_block(last_text or "(no last-run.json yet)", lang="json"),
+            ],
+        )
+        inner = md.markdown_to_html(body)
+    else:
+        inner = "<pre>" + html.escape("\n".join(titles) + "\n" + last_text) + "</pre>"
+    html_page = (
+        "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
+        "<title>mcp-toolcall-lab stub</title>"
+        "<style>body{font-family:sans-serif;max-width:52rem;margin:1.5rem auto}</style>"
+        f"</head><body>{inner}</body></html>\n"
+    )
+    (out_dir / "index.html").write_text(html_page, encoding="utf-8")
+    if last_run and last_run.is_file():
+        (out_dir / "last-run.json").write_text(last_text, encoding="utf-8")
+    return out_dir / "index.html"
+
+
 def _page(chat_id: str, turns: list[Turn], prompt: str = "") -> str:
     bubbles = []
     for turn in turns:
@@ -324,7 +399,7 @@ def _page(chat_id: str, turns: list[Turn], prompt: str = "") -> str:
             f'<section class="turn" data-case="{html.escape(turn.case)}">'
             f"<h3>user</h3><pre>{html.escape(turn.user)}</pre>"
             f"<h3>assistant · {html.escape(turn.case)}</h3>"
-            f'<article id="{OWUI_RESPONSE}"><pre>{html.escape(turn.assistant)}</pre></article>'
+            f'<article id="{OWUI_RESPONSE}">{_assistant_html(turn.assistant)}</article>'
             f"</section>"
         )
     thread = "\n".join(bubbles) or "<p>Send a heading (e.g. <code>Find municipalities</code>) or <code>Yokohama</code>.</p>"
@@ -443,10 +518,22 @@ def main(argv: list[str] | None = None) -> int:
     serve_p.add_argument("--port", type=int, default=int(os.environ.get("STUB_PORT", str(urlparse(STUB.default_url).port or 8765))))
     serve_p.add_argument("--corpus", default=str(DEFAULT_CORPUS))
     serve_p.add_argument("--mcp", default=os.environ.get("STUB_MCP_URL", ""))
+    pages = sub.add_parser("pages", help="write a static GitHub Pages tree")
+    pages.add_argument("--out", default="_site")
+    pages.add_argument("--corpus", default=str(DEFAULT_CORPUS))
+    pages.add_argument("--last-run", default=os.environ.get("STUB_LAST_RUN", ""))
     args = parser.parse_args(argv)
     if args.cmd is None:
         parser.print_help()
         return 2
+    if args.cmd == "pages":
+        path = write_pages(
+            Path(args.out),
+            last_run=Path(args.last_run) if args.last_run else None,
+            corpus=Path(args.corpus),
+        )
+        print(path)
+        return 0
     if args.cmd == "turn":
         result = reply(
             args.prompt,

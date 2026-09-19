@@ -29,6 +29,8 @@ MCP_PICKER_OFF = "MCP_PICKER_OFF"
 MCP_NOT_CALLED = "MCP_NOT_CALLED"
 MCP_ERROR = "MCP_ERROR"
 UI_NO_RESULT = "UI_NO_RESULT"
+MCP_UNREACHABLE = "MCP_UNREACHABLE"
+CPU_LLM_UNREACHABLE = "CPU_LLM_UNREACHABLE"
 
 KNOWN_IDS = frozenset(
     {
@@ -40,6 +42,8 @@ KNOWN_IDS = frozenset(
         MCP_NOT_CALLED,
         MCP_ERROR,
         UI_NO_RESULT,
+        MCP_UNREACHABLE,
+        CPU_LLM_UNREACHABLE,
     }
 )
 
@@ -91,6 +95,35 @@ def _anti(antipattern_id: str, detail: str) -> dict[str, Any]:
         "antipattern_id": antipattern_id,
         "detail": detail,
     }
+
+
+def classify_stub_turn(turn: dict[str, Any], *, cpu_llm_ok: bool | None = None) -> dict[str, Any]:
+    """Classify one stub-front turn. A miss is an anti-pattern, not a crash."""
+    case = str(turn.get("case") or "")
+    assistant = str(turn.get("assistant") or "")
+    if case == "MCP_SUCCESS" and "yokohama" in assistant.lower():
+        result = {
+            "verdict": VERDICT_PASS,
+            "antipattern_id": None,
+            "detail": "stub Send reached MCP and the body showed Yokohama",
+            "case": case,
+        }
+    elif case == "MCP_UNREACHABLE":
+        result = _anti(MCP_UNREACHABLE, assistant or "stub could not reach /mcp")
+    elif case == "MCP_ERROR":
+        result = _anti(MCP_ERROR, assistant or "stub MCP tools/call error")
+    elif case == "MCP_EMPTY":
+        result = _anti(UI_NO_RESULT, "MCP returned empty; UI had no Yokohama rows")
+    elif case == "MCP_SUCCESS":
+        result = _anti(UI_NO_RESULT, "MCP succeeded but Yokohama was not in the assistant body")
+    else:
+        result = _anti(MCP_NOT_CALLED, f"stub case={case or 'missing'} did not take the MCP path")
+    result["case"] = case
+    if cpu_llm_ok is False:
+        result["cpu_llm_ok"] = False
+    elif cpu_llm_ok is True:
+        result["cpu_llm_ok"] = True
+    return result
 
 
 def write_observation(

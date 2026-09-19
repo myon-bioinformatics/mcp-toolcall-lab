@@ -19,15 +19,17 @@ split. It is not a product clone and not a CommonMark engine.
   chat headers, SSE close). MCP log schema and OpenAI `tool_calls`
   decision stay in their own files
 - `dispatch_tool`, stdlib `McpStdlibSession`
+- Serverless stub try: Actions boots `docker/stub-pages` (stub + MCP +
+  CPU-class `cpu-llm`), JSONL anti-patterns, GitHub Pages static report
+- Vendored `markdown.py` for heading→body / table / HTML on the stub
 
 ## Later (unnumbered)
 
 - Accuracy harness vs `myon-bioinformatics/markdown` (do not vendor CommonMark here)
 - Playwright against the stub (reuse `frontends.py`; no product Docker)
 - Optional `openai_toolcall_mock` backend for the stub
-- Light CPU LLM in Docker as a test-time backend (compose service DNS)
-- Stub anti-pattern matrix (same catalog IDs as LibreChat smoke)
-- CI: stub + protocol on every PR; product UIs stay smoke / `chat-e2e`
+- GPT: real tiny GGUF behind `cpu-llm` (`docker-compose.gguf.yml`)
+- Playwright against the stub (reuse `frontends.py`; no product Docker)
 
 ## One-liners
 

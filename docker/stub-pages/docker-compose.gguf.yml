@@ -1,0 +1,25 @@
+# GPT slice: real tiny GGUF behind the same service DNS ``cpu-llm``.
+# Do not merge until a pinned, CPU-only image + checksummed GGUF is chosen.
+#
+#   scripts/fetch_tiny_cpu_gguf.sh
+#   docker compose -f docker/stub-pages/docker-compose.yml \
+#     -f docker/stub-pages/docker-compose.gguf.yml up --build
+services:
+  cpu-llm:
+    image: ghcr.io/ggml-org/llama.cpp:server
+    command:
+      - -m
+      - /models/model.gguf
+      - --host
+      - "0.0.0.0"
+      - --port
+      - "8080"
+    volumes:
+      - ./models:/models
+    environment: {}
+    healthcheck:
+      test: ["CMD-SHELL", "bash -lc 'exec 3<>/dev/tcp/127.0.0.1/8080'"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s

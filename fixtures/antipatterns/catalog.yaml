@@ -37,3 +37,11 @@ antipatterns:
   - id: UI_NO_RESULT
     when: MCP returned success but the chat transcript lacks the expected fragment
     note: LibreChat rendered an error/empty assistant message after a good MCP call.
+
+  - id: MCP_UNREACHABLE
+    when: the stub (or smoke) could not complete initialize/tools/call against /mcp
+    note: compose DNS, healthcheck, or the mock process died.
+
+  - id: CPU_LLM_UNREACHABLE
+    when: the cpu-llm service on the stub-pages network did not answer /health
+    note: lite stand-in or GGUF overlay failed to start. Accuracy is out of scope.

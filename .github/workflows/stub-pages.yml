@@ -1,0 +1,116 @@
+name: stub-pages
+
+# Serverless try: Actions boots Docker (stub + MCP + CPU-class model),
+# records anti-patterns as JSONL, publishes a static report to GitHub Pages.
+# Default `test` workflow stays `pytest -q` (no Docker).
+on:
+  workflow_dispatch:
+    inputs:
+      message:
+        description: "Prompt to send through the stub /api/turn"
+        required: false
+        default: "Find municipalities named Yokohama"
+  push:
+    branches: [main]
+    paths:
+      - "docker/stub-pages/**"
+      - "demos/cpu_llm_lite.py"
+      - "vendor/markdown.py"
+      - "src/mcp_toolcall_lab/stub_front.py"
+      - "src/mcp_toolcall_lab/markdown_lib.py"
+      - "scripts/stub_pages_smoke.py"
+      - ".github/workflows/stub-pages.yml"
+  pull_request:
+    paths:
+      - "docker/stub-pages/**"
+      - "demos/cpu_llm_lite.py"
+      - "vendor/markdown.py"
+      - "src/mcp_toolcall_lab/stub_front.py"
+      - "src/mcp_toolcall_lab/markdown_lib.py"
+      - "scripts/stub_pages_smoke.py"
+      - ".github/workflows/stub-pages.yml"
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: stub-pages
+  cancel-in-progress: false
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Start stub + MCP + CPU-class model
+        run: |
+          mkdir -p test-results
+          docker compose -f docker/stub-pages/docker-compose.yml up --build -d
+
+      - name: Wait for stub and cpu-llm
+        run: |
+          for i in $(seq 1 60); do
+            curl -sf http://127.0.0.1:8765/health >/dev/null && \
+              curl -sf http://127.0.0.1:8080/health >/dev/null && break
+            sleep 2
+          done
+          curl -sf http://127.0.0.1:8765/health
+          curl -sf http://127.0.0.1:8080/health
+
+      - name: Smoke turn and append anti-patterns
+        env:
+          STUB_BASE_URL: http://127.0.0.1:8765
+          CPU_LLM_BASE_URL: http://127.0.0.1:8080
+          STUB_CHAT_MESSAGE: ${{ github.event.inputs.message || 'Find municipalities named Yokohama' }}
+          STUB_LAST_RUN: ${{ github.workspace }}/test-results/last-run.json
+          ANTIPATTERN_LOG: ${{ github.workspace }}/test-results/antipatterns.jsonl
+          MCP_TOOLCALL_LOG: ${{ github.workspace }}/test-results/mcp-toolcalls.jsonl
+        run: python scripts/stub_pages_smoke.py
+
+      - name: Build static Pages tree
+        env:
+          STUB_LAST_RUN: ${{ github.workspace }}/test-results/last-run.json
+          PYTHONPATH: src
+        run: |
+          python -m mcp_toolcall_lab.stub_front pages --out _site --last-run test-results/last-run.json
+          cp -f test-results/antipatterns.jsonl _site/antipatterns.jsonl || true
+          cp -f test-results/mcp-toolcalls.jsonl _site/mcp-toolcalls.jsonl || true
+
+      - name: Upload observations
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stub-pages-observations
+          path: |
+            test-results/
+            _site/
+          if-no-files-found: ignore
+
+      - name: Upload Pages artifact
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - name: Tear down
+        if: always()
+        run: docker compose -f docker/stub-pages/docker-compose.yml down -v
+
+  deploy:
+    needs: smoke
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - name: Deploy GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@v4
