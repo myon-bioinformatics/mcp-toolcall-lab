@@ -1,9 +1,13 @@
 """Offline prompt/model experiment replay.
 
 Inputs are official OpenAI Chat Completions ``tools`` / ``tool_calls`` plus
-recorded MCP Streamable HTTP events (``initialize`` / ``tools/list`` /
-``tools/call``). Nothing here opens a socket, calls a model, or talks to
-MLIT. Audit JSONL is comparison fields only — not a new wire log.
+recorded MCP Streamable HTTP hops (JSON-RPC 2.0 request/response on
+``POST /mcp``). Handshake is ``initialize`` → ``notifications/initialized``
+→ ``tools/list``; a selected tool is ``tools/call``. Nothing here opens a
+socket, calls a model, or talks to MLIT.
+
+Audit JSONL is comparison fields only — not a wire log and not a substitute
+for the HTTP/JSON-RPC records in the fixtures.
 
     python -m mcp_toolcall_lab.prompt_experiment replay --out test-results/prompt-experiments.jsonl
 """
@@ -15,14 +19,19 @@ import json
 from pathlib import Path
 from typing import Any
 
+from mcp_toolcall_lab.mcp_http import extract_sse_data
 from mcp_toolcall_lab.mock.common import append_jsonl
-from mcp_toolcall_lab.record import EVENT_TOOLS_LIST, mcp_tool_calls
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_FIXTURE_DIR = REPO_ROOT / "fixtures" / "prompt_experiments"
 
 VERDICT_PASS = "PASS"
 VERDICT_FAIL = "FAIL"
+
+MCP_INITIALIZE = "initialize"
+MCP_INITIALIZED = "notifications/initialized"
+MCP_TOOLS_LIST = "tools/list"
+MCP_TOOLS_CALL = "tools/call"
 
 AUDIT_KEYS = (
     "id",
@@ -61,6 +70,17 @@ def load_case(path: Path, *, repo_root: Path | None = None) -> dict[str, Any]:
                 messages[0] = {**messages[0], "content": text}
         request["messages"] = messages
         case.setdefault("openai", {})["request"] = request
+        followup = (case.get("openai") or {}).get("followup") or {}
+        follow_req = followup.get("request") if isinstance(followup, dict) else None
+        if isinstance(follow_req, dict):
+            follow_messages = list(follow_req.get("messages") or [])
+            if follow_messages and follow_messages[0].get("role") == "system":
+                content = follow_messages[0].get("content")
+                if content in {None, "", rel}:
+                    follow_messages[0] = {**follow_messages[0], "content": text}
+            follow_req["messages"] = follow_messages
+            followup["request"] = follow_req
+            case["openai"]["followup"] = followup
     return case
 
 
@@ -70,6 +90,90 @@ def iter_cases(directory: Path | None = None) -> list[dict[str, Any]]:
     if not cases:
         raise FileNotFoundError(f"no prompt experiment fixtures in {folder}")
     return cases
+
+
+def hop_http(hop: dict[str, Any]) -> dict[str, Any]:
+    http = hop.get("http")
+    return http if isinstance(http, dict) else hop
+
+
+def hop_request(hop: dict[str, Any]) -> dict[str, Any]:
+    request = hop_http(hop).get("request")
+    return request if isinstance(request, dict) else {}
+
+
+def hop_response(hop: dict[str, Any]) -> dict[str, Any]:
+    """Return the JSON-RPC response object (from ``response`` or SSE ``data:``)."""
+    http = hop_http(hop)
+    response = http.get("response")
+    if isinstance(response, dict):
+        return response
+    sse = http.get("response_sse")
+    if isinstance(sse, str) and sse.strip():
+        parsed = extract_sse_data(sse)
+        return parsed if isinstance(parsed, dict) else {}
+    return {}
+
+
+def hop_method(hop: dict[str, Any]) -> str:
+    return str(hop_request(hop).get("method") or "")
+
+
+def hop_was_sent(hop: dict[str, Any]) -> bool:
+    return hop.get("sent", True) is not False
+
+
+def iter_mcp_hops(case: dict[str, Any], *, sent_only: bool = False) -> list[dict[str, Any]]:
+    hops = [hop for hop in (case.get("mcp") or []) if isinstance(hop, dict)]
+    if sent_only:
+        return [hop for hop in hops if hop_was_sent(hop)]
+    return hops
+
+
+def mcp_listed_tools(hops: list[dict[str, Any]]) -> list[str]:
+    names: list[str] = []
+    for hop in hops:
+        if hop_method(hop) != MCP_TOOLS_LIST:
+            continue
+        tools = (hop_response(hop).get("result") or {}).get("tools")
+        if not isinstance(tools, list):
+            continue
+        for item in tools:
+            if isinstance(item, str):
+                names.append(item)
+            elif isinstance(item, dict) and item.get("name"):
+                names.append(str(item["name"]))
+    return names
+
+
+def mcp_call_hops(hops: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [hop for hop in hops if hop_was_sent(hop) and hop_method(hop) == MCP_TOOLS_CALL]
+
+
+def tools_call_outcome(hop: dict[str, Any]) -> str | None:
+    result = hop_response(hop).get("result")
+    if not isinstance(result, dict):
+        return None
+    if result.get("isError"):
+        return "error"
+    structured = result.get("structuredContent")
+    rows = structured.get("result") if isinstance(structured, dict) else None
+    if rows == []:
+        return "empty"
+    return "success"
+
+
+def mcp_called_tools(hops: list[dict[str, Any]]) -> list[str]:
+    names: list[str] = []
+    for hop in mcp_call_hops(hops):
+        name = hop_request(hop).get("params", {}).get("name") if isinstance(hop_request(hop).get("params"), dict) else None
+        if name:
+            names.append(str(name))
+    return names
+
+
+def mcp_call_outcomes(hops: list[dict[str, Any]]) -> list[str]:
+    return [outcome for hop in mcp_call_hops(hops) if (outcome := tools_call_outcome(hop))]
 
 
 def openai_advertised_tools(request: dict[str, Any]) -> list[str]:
@@ -121,29 +225,50 @@ def selected_tool_calls(completion: dict[str, Any]) -> list[dict[str, Any]]:
                 parsed = json.loads(str(raw_args))
             except json.JSONDecodeError:
                 parsed = None
-        calls.append({"name": str(name), "arguments": parsed, "raw_arguments": raw_args})
+        calls.append(
+            {
+                "id": item.get("id"),
+                "name": str(name),
+                "arguments": parsed,
+                "raw_arguments": raw_args,
+            }
+        )
     return calls
 
 
-def mcp_listed_tools(events: list[dict[str, Any]]) -> list[str]:
-    names: list[str] = []
-    for event in events:
-        if event.get("event") != EVENT_TOOLS_LIST:
-            continue
-        listed = event.get("tools")
-        if listed is None:
-            listed = event.get("result")
-        if isinstance(listed, list):
-            for item in listed:
-                if isinstance(item, str):
-                    names.append(item)
-                elif isinstance(item, dict) and item.get("name"):
-                    names.append(str(item["name"]))
-    return names
+def tool_result_messages(openai: dict[str, Any]) -> list[dict[str, Any]]:
+    """``role: tool`` rows on the follow-up Chat Completions request (the return path)."""
+    followup = openai.get("followup") if isinstance(openai.get("followup"), dict) else {}
+    request = followup.get("request") if isinstance(followup.get("request"), dict) else {}
+    messages: list[dict[str, Any]] = []
+    for item in request.get("messages") or []:
+        if isinstance(item, dict) and item.get("role") == "tool":
+            messages.append(item)
+    return messages
 
 
-def mcp_called_tools(events: list[dict[str, Any]]) -> list[str]:
-    return [str(event["tool"]) for event in mcp_tool_calls(events)]
+def request_header(hop: dict[str, Any], name: str) -> str | None:
+    headers = hop_http(hop).get("request_headers")
+    if not isinstance(headers, dict):
+        return None
+    wanted = name.lower()
+    for key, value in headers.items():
+        if str(key).lower() == wanted:
+            text = str(value).strip()
+            return text or None
+    return None
+
+
+def response_header(hop: dict[str, Any], name: str) -> str | None:
+    headers = hop_http(hop).get("response_headers")
+    if not isinstance(headers, dict):
+        return None
+    wanted = name.lower()
+    for key, value in headers.items():
+        if str(key).lower() == wanted:
+            text = str(value).strip()
+            return text or None
+    return None
 
 
 def _value_matches_type(value: Any, expected: str | None) -> bool:
@@ -190,23 +315,22 @@ def replay_case(case: dict[str, Any]) -> dict[str, Any]:
     openai = case.get("openai") or {}
     request = openai.get("request") if isinstance(openai.get("request"), dict) else {}
     completion = openai.get("completion") if isinstance(openai.get("completion"), dict) else {}
-    events = list(case.get("mcp") or [])
+    hops = iter_mcp_hops(case, sent_only=True)
     advertised = openai_advertised_tools(request)
-    listed = mcp_listed_tools(events)
+    listed = mcp_listed_tools(hops)
     calls = selected_tool_calls(completion)
     selected = [item["name"] for item in calls]
     fictional = [name for name in selected if name not in advertised]
-    called = mcp_called_tools(events)
+    called = mcp_called_tools(hops)
     fictional.extend(name for name in called if name not in advertised and name not in fictional)
     choices = completion.get("choices") or []
     finish = choices[0].get("finish_reason") if choices and isinstance(choices[0], dict) else None
     schema_flags = [raw_schema_valid(item["name"], item["arguments"], request) for item in calls]
     raw_valid: bool | None = all(schema_flags) if schema_flags else None
-    call_rows = mcp_tool_calls(events)
-    if call_rows:
-        server_accepted = all(row.get("outcome") != "error" for row in call_rows)
-        outcomes = [str(row.get("outcome")) for row in call_rows if row.get("outcome")]
-        outcome = outcomes[0] if outcomes else None
+    outcomes = mcp_call_outcomes(hops)
+    if outcomes:
+        server_accepted = all(row != "error" for row in outcomes)
+        outcome = outcomes[0]
     else:
         server_accepted = None
         outcome = None

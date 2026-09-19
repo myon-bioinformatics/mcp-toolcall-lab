@@ -375,8 +375,10 @@ Set `MCP_TOOLCALL_LOG=toolcalls.jsonl` before launch to record every `tools/call
 ## Prompt / model experiment fixtures (offline)
 
 Inputs are official OpenAI Chat Completions `tools` / `tool_calls` plus recorded
-MCP Streamable HTTP events (`initialize` / `tools/list` / `tools/call`). Replay
-does not change that wire, call a model, or reach MLIT.
+MCP Streamable HTTP hops: JSON-RPC 2.0 request/response on `POST /mcp`
+(`initialize` → `notifications/initialized` → `tools/list`, then
+`tools/call` when the model selected a tool). Replay does not change that
+wire, call a model, or reach MLIT. Comparison JSONL is not a wire log.
 
 Use `system_prompts/strict_tool_selection.md`. The model may only choose among
 the advertised specs. A fictional tool name is a failure even if the intended
@@ -386,15 +388,16 @@ action sounds correct. **raw schema valid** (arguments match advertised
 
 | id | Model / settings | selected tool | raw schema valid | server accepted | outcome | notes |
 | --- | --- | --- | --- | --- | --- | --- |
-| `available_tool_success` | lab-model / temperature 0, reasoning.effort=low, stop=[] | `find_municipalities` | true | true | success | advertised tool only |
-| `fictional_tool_reject` | lab-model / temperature 0, reasoning.effort=low, stop=[] | _(none)_ | — | — | — | refuses `query_reinfoldib`; no `tools/call` |
+| `available_tool_success` | lab-model / temperature 0, reasoning.effort=low, stop=[] | `find_municipalities` | true | true | success | advertised tool only; UI `chat_id` / message id / `call_*` bind the `tools/call` return to `role:tool` |
+| `fictional_tool_reject` | lab-model / temperature 0, reasoning.effort=low, stop=[] | _(none)_ | — | — | — | refuses `query_reinfoldib`; no sent `tools/call`; server `isError` envelope recorded separately |
 
 ```bash
 python -m mcp_toolcall_lab.prompt_experiment replay --out test-results/prompt-experiments.jsonl
 ```
 
 The JSONL is comparison/audit fields only (verdict, selected/fictional tools,
-finish_reason, schema flags). Fixtures: `fixtures/prompt_experiments/`.
+finish_reason, schema flags). It is not a substitute for the HTTP/JSON-RPC
+records. Fixtures: `fixtures/prompt_experiments/`.
 
 ## Next increments
 

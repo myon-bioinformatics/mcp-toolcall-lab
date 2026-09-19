@@ -4,10 +4,18 @@
   "settings": {
     "model": "lab-model",
     "temperature": 0,
-    "reasoning": {"effort": "low"},
+    "reasoning": {
+      "effort": "low"
+    },
     "stop": []
   },
   "system_prompt": "system_prompts/strict_tool_selection.md",
+  "ui": {
+    "chat_id": "chat_fixture_reject",
+    "message_id": "msg_fixture_reject",
+    "tool_call_id": null,
+    "mcp_session_id": "sess_fixture_reject"
+  },
   "openai": {
     "request": {
       "model": "lab-model",
@@ -33,8 +41,14 @@
             "description": "Find mock municipalities by name or prefecture.",
             "parameters": {
               "type": "object",
-              "properties": {"query": {"type": "string"}},
-              "required": ["query"],
+              "properties": {
+                "query": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "query"
+              ],
               "additionalProperties": false
             }
           }
@@ -46,8 +60,14 @@
             "description": "Find mock stations in a municipality.",
             "parameters": {
               "type": "object",
-              "properties": {"municipality_code": {"type": "string"}},
-              "required": ["municipality_code"],
+              "properties": {
+                "municipality_code": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "municipality_code"
+              ],
               "additionalProperties": false
             }
           }
@@ -60,10 +80,17 @@
             "parameters": {
               "type": "object",
               "properties": {
-                "municipality_code": {"type": "string"},
-                "year": {"type": "integer"}
+                "municipality_code": {
+                  "type": "string"
+                },
+                "year": {
+                  "type": "integer"
+                }
               },
-              "required": ["municipality_code", "year"],
+              "required": [
+                "municipality_code",
+                "year"
+              ],
               "additionalProperties": false
             }
           }
@@ -87,13 +114,368 @@
     }
   },
   "mcp": [
-    {"event": "initialize", "chat_id": "chat_fixture_reject"},
     {
-      "event": "tools/list",
-      "tools": ["find_municipalities", "find_stations", "find_transaction_prices"],
-      "chat_id": "chat_fixture_reject"
+      "http": {
+        "method": "POST",
+        "path": "/mcp",
+        "request_headers": {
+          "Content-Type": "application/json",
+          "Accept": "application/json, text/event-stream"
+        },
+        "request": {
+          "jsonrpc": "2.0",
+          "id": 1,
+          "method": "initialize",
+          "params": {
+            "protocolVersion": "2025-06-18",
+            "capabilities": {},
+            "clientInfo": {
+              "name": "mcp-toolcall-lab",
+              "version": "0.0.1"
+            }
+          }
+        },
+        "status": 200,
+        "response_headers": {
+          "Content-Type": "text/event-stream",
+          "Mcp-Session-Id": "sess_fixture_reject",
+          "Cache-Control": "no-cache, no-transform"
+        },
+        "response_sse": "event: message\r\ndata: {\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"protocolVersion\":\"2025-06-18\",\"capabilities\":{\"experimental\":{},\"logging\":{},\"prompts\":{\"listChanged\":true},\"resources\":{\"subscribe\":false,\"listChanged\":true},\"tools\":{\"listChanged\":true},\"extensions\":{\"io.modelcontextprotocol/ui\":{}}},\"serverInfo\":{\"name\":\"mcp-toolcall-lab\",\"version\":\"3.4.7\"}}}\r\n\r\n",
+        "response": {
+          "jsonrpc": "2.0",
+          "id": 1,
+          "result": {
+            "protocolVersion": "2025-06-18",
+            "capabilities": {
+              "experimental": {},
+              "logging": {},
+              "prompts": {
+                "listChanged": true
+              },
+              "resources": {
+                "subscribe": false,
+                "listChanged": true
+              },
+              "tools": {
+                "listChanged": true
+              },
+              "extensions": {
+                "io.modelcontextprotocol/ui": {}
+              }
+            },
+            "serverInfo": {
+              "name": "mcp-toolcall-lab",
+              "version": "3.4.7"
+            }
+          }
+        }
+      }
+    },
+    {
+      "http": {
+        "method": "POST",
+        "path": "/mcp",
+        "request_headers": {
+          "Content-Type": "application/json",
+          "Accept": "application/json, text/event-stream",
+          "Mcp-Session-Id": "sess_fixture_reject"
+        },
+        "request": {
+          "jsonrpc": "2.0",
+          "method": "notifications/initialized"
+        },
+        "status": 202,
+        "response_headers": {
+          "Content-Type": "application/json",
+          "Mcp-Session-Id": "sess_fixture_reject"
+        },
+        "response_sse": "",
+        "response": null
+      }
+    },
+    {
+      "http": {
+        "method": "POST",
+        "path": "/mcp",
+        "request_headers": {
+          "Content-Type": "application/json",
+          "Accept": "application/json, text/event-stream",
+          "Mcp-Session-Id": "sess_fixture_reject"
+        },
+        "request": {
+          "jsonrpc": "2.0",
+          "id": 2,
+          "method": "tools/list",
+          "params": {}
+        },
+        "status": 200,
+        "response_headers": {
+          "Content-Type": "text/event-stream",
+          "Mcp-Session-Id": "sess_fixture_reject",
+          "Cache-Control": "no-cache, no-transform"
+        },
+        "response_sse": "event: message\r\ndata: {\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{\"tools\":[{\"name\":\"find_municipalities\",\"description\":\"Find mock municipalities by name or prefecture.\",\"inputSchema\":{\"additionalProperties\":false,\"properties\":{\"query\":{\"type\":\"string\"}},\"required\":[\"query\"],\"type\":\"object\"},\"outputSchema\":{\"properties\":{\"result\":{\"items\":{\"additionalProperties\":{\"type\":\"string\"},\"type\":\"object\"},\"type\":\"array\"}},\"required\":[\"result\"],\"type\":\"object\",\"x-fastmcp-wrap-result\":true},\"_meta\":{\"fastmcp\":{\"tags\":[]}}},{\"name\":\"find_transaction_prices\",\"description\":\"Return mock property transaction prices. This never calls a live API.\",\"inputSchema\":{\"additionalProperties\":false,\"properties\":{\"municipality_code\":{\"type\":\"string\"},\"year\":{\"type\":\"integer\"}},\"required\":[\"municipality_code\",\"year\"],\"type\":\"object\"},\"outputSchema\":{\"properties\":{\"result\":{\"items\":{\"additionalProperties\":{\"anyOf\":[{\"type\":\"integer\"},{\"type\":\"string\"}]},\"type\":\"object\"},\"type\":\"array\"}},\"required\":[\"result\"],\"type\":\"object\",\"x-fastmcp-wrap-result\":true},\"_meta\":{\"fastmcp\":{\"tags\":[]}}},{\"name\":\"find_stations\",\"description\":\"Find mock stations in a municipality.\",\"inputSchema\":{\"additionalProperties\":false,\"properties\":{\"municipality_code\":{\"type\":\"string\"}},\"required\":[\"municipality_code\"],\"type\":\"object\"},\"outputSchema\":{\"properties\":{\"result\":{\"items\":{\"additionalProperties\":{\"type\":\"string\"},\"type\":\"object\"},\"type\":\"array\"}},\"required\":[\"result\"],\"type\":\"object\",\"x-fastmcp-wrap-result\":true},\"_meta\":{\"fastmcp\":{\"tags\":[]}}},{\"name\":\"fetch_wikipedia_section\",\"description\":\"Fetch a real Wikipedia article's sections over HTTP (the one family here that is not a mock). Omit `heading` to list section titles (a pulldown); pass one to get that section's body. Unmatched heading is an empty result, not an error. Same article is cached in-process so heading switches do not refetch.\",\"inputSchema\":{\"additionalProperties\":false,\"properties\":{\"title\":{\"type\":\"string\"},\"heading\":{\"default\":\"\",\"type\":\"string\"}},\"required\":[\"title\"],\"type\":\"object\"},\"outputSchema\":{\"properties\":{\"result\":{\"items\":{\"additionalProperties\":{\"type\":\"string\"},\"type\":\"object\"},\"type\":\"array\"}},\"required\":[\"result\"],\"type\":\"object\",\"x-fastmcp-wrap-result\":true},\"_meta\":{\"fastmcp\":{\"tags\":[]}}},{\"name\":\"fetch_wikipedia_article\",\"description\":\"Fetch a real Wikipedia article as a MediaWiki plaintext extract (not HTML). Returns canonical_title, extract, and headings from that same fetch. In-process TTL/LRU cache reuses the extract when only the heading changes.\",\"inputSchema\":{\"additionalProperties\":false,\"properties\":{\"title\":{\"type\":\"string\"},\"lang\":{\"default\":\"en\",\"type\":\"string\"}},\"required\":[\"title\"],\"type\":\"object\"},\"outputSchema\":{\"additionalProperties\":true,\"type\":\"object\"},\"_meta\":{\"fastmcp\":{\"tags\":[]}}}]}}\r\n\r\n",
+        "response": {
+          "jsonrpc": "2.0",
+          "id": 2,
+          "result": {
+            "tools": [
+              {
+                "name": "find_municipalities",
+                "description": "Find mock municipalities by name or prefecture.",
+                "inputSchema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "query": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "query"
+                  ],
+                  "type": "object"
+                },
+                "outputSchema": {
+                  "properties": {
+                    "result": {
+                      "items": {
+                        "additionalProperties": {
+                          "type": "string"
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "required": [
+                    "result"
+                  ],
+                  "type": "object",
+                  "x-fastmcp-wrap-result": true
+                },
+                "_meta": {
+                  "fastmcp": {
+                    "tags": []
+                  }
+                }
+              },
+              {
+                "name": "find_transaction_prices",
+                "description": "Return mock property transaction prices. This never calls a live API.",
+                "inputSchema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "municipality_code": {
+                      "type": "string"
+                    },
+                    "year": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "municipality_code",
+                    "year"
+                  ],
+                  "type": "object"
+                },
+                "outputSchema": {
+                  "properties": {
+                    "result": {
+                      "items": {
+                        "additionalProperties": {
+                          "anyOf": [
+                            {
+                              "type": "integer"
+                            },
+                            {
+                              "type": "string"
+                            }
+                          ]
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "required": [
+                    "result"
+                  ],
+                  "type": "object",
+                  "x-fastmcp-wrap-result": true
+                },
+                "_meta": {
+                  "fastmcp": {
+                    "tags": []
+                  }
+                }
+              },
+              {
+                "name": "find_stations",
+                "description": "Find mock stations in a municipality.",
+                "inputSchema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "municipality_code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "municipality_code"
+                  ],
+                  "type": "object"
+                },
+                "outputSchema": {
+                  "properties": {
+                    "result": {
+                      "items": {
+                        "additionalProperties": {
+                          "type": "string"
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "required": [
+                    "result"
+                  ],
+                  "type": "object",
+                  "x-fastmcp-wrap-result": true
+                },
+                "_meta": {
+                  "fastmcp": {
+                    "tags": []
+                  }
+                }
+              },
+              {
+                "name": "fetch_wikipedia_section",
+                "description": "Fetch a real Wikipedia article's sections over HTTP (the one family here that is not a mock). Omit `heading` to list section titles (a pulldown); pass one to get that section's body. Unmatched heading is an empty result, not an error. Same article is cached in-process so heading switches do not refetch.",
+                "inputSchema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "title": {
+                      "type": "string"
+                    },
+                    "heading": {
+                      "default": "",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "title"
+                  ],
+                  "type": "object"
+                },
+                "outputSchema": {
+                  "properties": {
+                    "result": {
+                      "items": {
+                        "additionalProperties": {
+                          "type": "string"
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "required": [
+                    "result"
+                  ],
+                  "type": "object",
+                  "x-fastmcp-wrap-result": true
+                },
+                "_meta": {
+                  "fastmcp": {
+                    "tags": []
+                  }
+                }
+              },
+              {
+                "name": "fetch_wikipedia_article",
+                "description": "Fetch a real Wikipedia article as a MediaWiki plaintext extract (not HTML). Returns canonical_title, extract, and headings from that same fetch. In-process TTL/LRU cache reuses the extract when only the heading changes.",
+                "inputSchema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "title": {
+                      "type": "string"
+                    },
+                    "lang": {
+                      "default": "en",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "title"
+                  ],
+                  "type": "object"
+                },
+                "outputSchema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "_meta": {
+                  "fastmcp": {
+                    "tags": []
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
     }
   ],
+  "mcp_rejected_call": {
+    "http": {
+      "method": "POST",
+      "path": "/mcp",
+      "request_headers": {
+        "Content-Type": "application/json",
+        "Accept": "application/json, text/event-stream",
+        "Mcp-Session-Id": "sess_fixture_reject",
+        "X-Chat-Id": "chat_fixture_reject",
+        "X-OpenWebUI-Message-Id": "msg_fixture_reject"
+      },
+      "request": {
+        "jsonrpc": "2.0",
+        "id": 4,
+        "method": "tools/call",
+        "params": {
+          "name": "query_reinfoldib",
+          "arguments": {
+            "query": "Yokohama"
+          },
+          "_meta": {
+            "chat_id": "chat_fixture_reject",
+            "call_id": "call_fixture_reject01234567890123",
+            "source": "chat"
+          }
+        }
+      },
+      "status": 200,
+      "response_headers": {
+        "Content-Type": "text/event-stream",
+        "Mcp-Session-Id": "sess_fixture_reject",
+        "Cache-Control": "no-cache, no-transform"
+      },
+      "response_sse": "event: message\r\ndata: {\"jsonrpc\":\"2.0\",\"id\":4,\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"Unknown tool: 'query_reinfoldib'\"}],\"isError\":true}}\r\n\r\n",
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 4,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "Unknown tool: 'query_reinfoldib'"
+            }
+          ],
+          "isError": true
+        }
+      }
+    }
+  },
   "expected": {
     "verdict": "PASS",
     "selected_tools": [],

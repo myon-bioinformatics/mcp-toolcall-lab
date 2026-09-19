@@ -4,10 +4,18 @@
   "settings": {
     "model": "lab-model",
     "temperature": 0,
-    "reasoning": {"effort": "low"},
+    "reasoning": {
+      "effort": "low"
+    },
     "stop": []
   },
   "system_prompt": "system_prompts/strict_tool_selection.md",
+  "ui": {
+    "chat_id": "chat_fixture_available",
+    "message_id": "msg_fixture_available",
+    "tool_call_id": "call_fixture_available012345678901",
+    "mcp_session_id": "sess_fixture_available"
+  },
   "openai": {
     "request": {
       "model": "lab-model",
@@ -33,8 +41,14 @@
             "description": "Find mock municipalities by name or prefecture.",
             "parameters": {
               "type": "object",
-              "properties": {"query": {"type": "string"}},
-              "required": ["query"],
+              "properties": {
+                "query": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "query"
+              ],
               "additionalProperties": false
             }
           }
@@ -46,8 +60,14 @@
             "description": "Find mock stations in a municipality.",
             "parameters": {
               "type": "object",
-              "properties": {"municipality_code": {"type": "string"}},
-              "required": ["municipality_code"],
+              "properties": {
+                "municipality_code": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "municipality_code"
+              ],
               "additionalProperties": false
             }
           }
@@ -60,10 +80,17 @@
             "parameters": {
               "type": "object",
               "properties": {
-                "municipality_code": {"type": "string"},
-                "year": {"type": "integer"}
+                "municipality_code": {
+                  "type": "string"
+                },
+                "year": {
+                  "type": "integer"
+                }
               },
-              "required": ["municipality_code", "year"],
+              "required": [
+                "municipality_code",
+                "year"
+              ],
               "additionalProperties": false
             }
           }
@@ -94,30 +121,511 @@
           }
         }
       ]
+    },
+    "followup": {
+      "request": {
+        "model": "lab-model",
+        "temperature": 0,
+        "stop": [],
+        "tool_choice": "auto",
+        "reasoning_effort": "low",
+        "messages": [
+          {
+            "role": "system",
+            "content": "system_prompts/strict_tool_selection.md"
+          },
+          {
+            "role": "user",
+            "content": "Find municipalities named Yokohama."
+          },
+          {
+            "role": "assistant",
+            "content": null,
+            "tool_calls": [
+              {
+                "id": "call_fixture_available012345678901",
+                "type": "function",
+                "function": {
+                  "name": "find_municipalities",
+                  "arguments": "{\"query\":\"Yokohama\"}"
+                }
+              }
+            ]
+          },
+          {
+            "role": "tool",
+            "tool_call_id": "call_fixture_available012345678901",
+            "content": "[{\"code\":\"14109\",\"name\":\"Yokohama\",\"prefecture\":\"Kanagawa\"}]"
+          }
+        ],
+        "tools": [
+          {
+            "type": "function",
+            "function": {
+              "name": "find_municipalities",
+              "description": "Find mock municipalities by name or prefecture.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "query": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "query"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          {
+            "type": "function",
+            "function": {
+              "name": "find_stations",
+              "description": "Find mock stations in a municipality.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "municipality_code": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "municipality_code"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          {
+            "type": "function",
+            "function": {
+              "name": "find_transaction_prices",
+              "description": "Return mock property transaction prices. This never calls a live API.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "municipality_code": {
+                    "type": "string"
+                  },
+                  "year": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "municipality_code",
+                  "year"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        ]
+      },
+      "completion": {
+        "id": "chatcmpl-fixture-available-followup",
+        "object": "chat.completion",
+        "model": "lab-model",
+        "choices": [
+          {
+            "index": 0,
+            "finish_reason": "stop",
+            "message": {
+              "role": "assistant",
+              "content": "Yokohama (code 14109) is in Kanagawa."
+            }
+          }
+        ]
+      }
     }
   },
   "mcp": [
-    {"event": "initialize", "chat_id": "chat_fixture_available"},
     {
-      "event": "tools/list",
-      "tools": ["find_municipalities", "find_stations", "find_transaction_prices"],
-      "chat_id": "chat_fixture_available"
+      "http": {
+        "method": "POST",
+        "path": "/mcp",
+        "request_headers": {
+          "Content-Type": "application/json",
+          "Accept": "application/json, text/event-stream"
+        },
+        "request": {
+          "jsonrpc": "2.0",
+          "id": 1,
+          "method": "initialize",
+          "params": {
+            "protocolVersion": "2025-06-18",
+            "capabilities": {},
+            "clientInfo": {
+              "name": "mcp-toolcall-lab",
+              "version": "0.0.1"
+            }
+          }
+        },
+        "status": 200,
+        "response_headers": {
+          "Content-Type": "text/event-stream",
+          "Mcp-Session-Id": "sess_fixture_available",
+          "Cache-Control": "no-cache, no-transform"
+        },
+        "response_sse": "event: message\r\ndata: {\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"protocolVersion\":\"2025-06-18\",\"capabilities\":{\"experimental\":{},\"logging\":{},\"prompts\":{\"listChanged\":true},\"resources\":{\"subscribe\":false,\"listChanged\":true},\"tools\":{\"listChanged\":true},\"extensions\":{\"io.modelcontextprotocol/ui\":{}}},\"serverInfo\":{\"name\":\"mcp-toolcall-lab\",\"version\":\"3.4.7\"}}}\r\n\r\n",
+        "response": {
+          "jsonrpc": "2.0",
+          "id": 1,
+          "result": {
+            "protocolVersion": "2025-06-18",
+            "capabilities": {
+              "experimental": {},
+              "logging": {},
+              "prompts": {
+                "listChanged": true
+              },
+              "resources": {
+                "subscribe": false,
+                "listChanged": true
+              },
+              "tools": {
+                "listChanged": true
+              },
+              "extensions": {
+                "io.modelcontextprotocol/ui": {}
+              }
+            },
+            "serverInfo": {
+              "name": "mcp-toolcall-lab",
+              "version": "3.4.7"
+            }
+          }
+        }
+      }
     },
     {
-      "event": "tools/call",
-      "tool": "find_municipalities",
-      "arguments": {"query": "Yokohama"},
-      "outcome": "success",
-      "result": [{"code": "14109", "name": "Yokohama", "prefecture": "Kanagawa"}],
-      "chat_id": "chat_fixture_available"
+      "http": {
+        "method": "POST",
+        "path": "/mcp",
+        "request_headers": {
+          "Content-Type": "application/json",
+          "Accept": "application/json, text/event-stream",
+          "Mcp-Session-Id": "sess_fixture_available"
+        },
+        "request": {
+          "jsonrpc": "2.0",
+          "method": "notifications/initialized"
+        },
+        "status": 202,
+        "response_headers": {
+          "Content-Type": "application/json",
+          "Mcp-Session-Id": "sess_fixture_available"
+        },
+        "response_sse": "",
+        "response": null
+      }
+    },
+    {
+      "http": {
+        "method": "POST",
+        "path": "/mcp",
+        "request_headers": {
+          "Content-Type": "application/json",
+          "Accept": "application/json, text/event-stream",
+          "Mcp-Session-Id": "sess_fixture_available"
+        },
+        "request": {
+          "jsonrpc": "2.0",
+          "id": 2,
+          "method": "tools/list",
+          "params": {}
+        },
+        "status": 200,
+        "response_headers": {
+          "Content-Type": "text/event-stream",
+          "Mcp-Session-Id": "sess_fixture_available",
+          "Cache-Control": "no-cache, no-transform"
+        },
+        "response_sse": "event: message\r\ndata: {\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{\"tools\":[{\"name\":\"find_municipalities\",\"description\":\"Find mock municipalities by name or prefecture.\",\"inputSchema\":{\"additionalProperties\":false,\"properties\":{\"query\":{\"type\":\"string\"}},\"required\":[\"query\"],\"type\":\"object\"},\"outputSchema\":{\"properties\":{\"result\":{\"items\":{\"additionalProperties\":{\"type\":\"string\"},\"type\":\"object\"},\"type\":\"array\"}},\"required\":[\"result\"],\"type\":\"object\",\"x-fastmcp-wrap-result\":true},\"_meta\":{\"fastmcp\":{\"tags\":[]}}},{\"name\":\"find_transaction_prices\",\"description\":\"Return mock property transaction prices. This never calls a live API.\",\"inputSchema\":{\"additionalProperties\":false,\"properties\":{\"municipality_code\":{\"type\":\"string\"},\"year\":{\"type\":\"integer\"}},\"required\":[\"municipality_code\",\"year\"],\"type\":\"object\"},\"outputSchema\":{\"properties\":{\"result\":{\"items\":{\"additionalProperties\":{\"anyOf\":[{\"type\":\"integer\"},{\"type\":\"string\"}]},\"type\":\"object\"},\"type\":\"array\"}},\"required\":[\"result\"],\"type\":\"object\",\"x-fastmcp-wrap-result\":true},\"_meta\":{\"fastmcp\":{\"tags\":[]}}},{\"name\":\"find_stations\",\"description\":\"Find mock stations in a municipality.\",\"inputSchema\":{\"additionalProperties\":false,\"properties\":{\"municipality_code\":{\"type\":\"string\"}},\"required\":[\"municipality_code\"],\"type\":\"object\"},\"outputSchema\":{\"properties\":{\"result\":{\"items\":{\"additionalProperties\":{\"type\":\"string\"},\"type\":\"object\"},\"type\":\"array\"}},\"required\":[\"result\"],\"type\":\"object\",\"x-fastmcp-wrap-result\":true},\"_meta\":{\"fastmcp\":{\"tags\":[]}}},{\"name\":\"fetch_wikipedia_section\",\"description\":\"Fetch a real Wikipedia article's sections over HTTP (the one family here that is not a mock). Omit `heading` to list section titles (a pulldown); pass one to get that section's body. Unmatched heading is an empty result, not an error. Same article is cached in-process so heading switches do not refetch.\",\"inputSchema\":{\"additionalProperties\":false,\"properties\":{\"title\":{\"type\":\"string\"},\"heading\":{\"default\":\"\",\"type\":\"string\"}},\"required\":[\"title\"],\"type\":\"object\"},\"outputSchema\":{\"properties\":{\"result\":{\"items\":{\"additionalProperties\":{\"type\":\"string\"},\"type\":\"object\"},\"type\":\"array\"}},\"required\":[\"result\"],\"type\":\"object\",\"x-fastmcp-wrap-result\":true},\"_meta\":{\"fastmcp\":{\"tags\":[]}}},{\"name\":\"fetch_wikipedia_article\",\"description\":\"Fetch a real Wikipedia article as a MediaWiki plaintext extract (not HTML). Returns canonical_title, extract, and headings from that same fetch. In-process TTL/LRU cache reuses the extract when only the heading changes.\",\"inputSchema\":{\"additionalProperties\":false,\"properties\":{\"title\":{\"type\":\"string\"},\"lang\":{\"default\":\"en\",\"type\":\"string\"}},\"required\":[\"title\"],\"type\":\"object\"},\"outputSchema\":{\"additionalProperties\":true,\"type\":\"object\"},\"_meta\":{\"fastmcp\":{\"tags\":[]}}}]}}\r\n\r\n",
+        "response": {
+          "jsonrpc": "2.0",
+          "id": 2,
+          "result": {
+            "tools": [
+              {
+                "name": "find_municipalities",
+                "description": "Find mock municipalities by name or prefecture.",
+                "inputSchema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "query": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "query"
+                  ],
+                  "type": "object"
+                },
+                "outputSchema": {
+                  "properties": {
+                    "result": {
+                      "items": {
+                        "additionalProperties": {
+                          "type": "string"
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "required": [
+                    "result"
+                  ],
+                  "type": "object",
+                  "x-fastmcp-wrap-result": true
+                },
+                "_meta": {
+                  "fastmcp": {
+                    "tags": []
+                  }
+                }
+              },
+              {
+                "name": "find_transaction_prices",
+                "description": "Return mock property transaction prices. This never calls a live API.",
+                "inputSchema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "municipality_code": {
+                      "type": "string"
+                    },
+                    "year": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "municipality_code",
+                    "year"
+                  ],
+                  "type": "object"
+                },
+                "outputSchema": {
+                  "properties": {
+                    "result": {
+                      "items": {
+                        "additionalProperties": {
+                          "anyOf": [
+                            {
+                              "type": "integer"
+                            },
+                            {
+                              "type": "string"
+                            }
+                          ]
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "required": [
+                    "result"
+                  ],
+                  "type": "object",
+                  "x-fastmcp-wrap-result": true
+                },
+                "_meta": {
+                  "fastmcp": {
+                    "tags": []
+                  }
+                }
+              },
+              {
+                "name": "find_stations",
+                "description": "Find mock stations in a municipality.",
+                "inputSchema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "municipality_code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "municipality_code"
+                  ],
+                  "type": "object"
+                },
+                "outputSchema": {
+                  "properties": {
+                    "result": {
+                      "items": {
+                        "additionalProperties": {
+                          "type": "string"
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "required": [
+                    "result"
+                  ],
+                  "type": "object",
+                  "x-fastmcp-wrap-result": true
+                },
+                "_meta": {
+                  "fastmcp": {
+                    "tags": []
+                  }
+                }
+              },
+              {
+                "name": "fetch_wikipedia_section",
+                "description": "Fetch a real Wikipedia article's sections over HTTP (the one family here that is not a mock). Omit `heading` to list section titles (a pulldown); pass one to get that section's body. Unmatched heading is an empty result, not an error. Same article is cached in-process so heading switches do not refetch.",
+                "inputSchema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "title": {
+                      "type": "string"
+                    },
+                    "heading": {
+                      "default": "",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "title"
+                  ],
+                  "type": "object"
+                },
+                "outputSchema": {
+                  "properties": {
+                    "result": {
+                      "items": {
+                        "additionalProperties": {
+                          "type": "string"
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "required": [
+                    "result"
+                  ],
+                  "type": "object",
+                  "x-fastmcp-wrap-result": true
+                },
+                "_meta": {
+                  "fastmcp": {
+                    "tags": []
+                  }
+                }
+              },
+              {
+                "name": "fetch_wikipedia_article",
+                "description": "Fetch a real Wikipedia article as a MediaWiki plaintext extract (not HTML). Returns canonical_title, extract, and headings from that same fetch. In-process TTL/LRU cache reuses the extract when only the heading changes.",
+                "inputSchema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "title": {
+                      "type": "string"
+                    },
+                    "lang": {
+                      "default": "en",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "title"
+                  ],
+                  "type": "object"
+                },
+                "outputSchema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "_meta": {
+                  "fastmcp": {
+                    "tags": []
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "http": {
+        "method": "POST",
+        "path": "/mcp",
+        "request_headers": {
+          "Content-Type": "application/json",
+          "Accept": "application/json, text/event-stream",
+          "Mcp-Session-Id": "sess_fixture_available",
+          "X-Chat-Id": "chat_fixture_available",
+          "X-OpenWebUI-Message-Id": "msg_fixture_available"
+        },
+        "request": {
+          "jsonrpc": "2.0",
+          "id": 3,
+          "method": "tools/call",
+          "params": {
+            "name": "find_municipalities",
+            "arguments": {
+              "query": "Yokohama"
+            },
+            "_meta": {
+              "chat_id": "chat_fixture_available",
+              "call_id": "call_fixture_available012345678901",
+              "source": "chat"
+            }
+          }
+        },
+        "status": 200,
+        "response_headers": {
+          "Content-Type": "text/event-stream",
+          "Mcp-Session-Id": "sess_fixture_available",
+          "Cache-Control": "no-cache, no-transform"
+        },
+        "response_sse": "event: message\r\ndata: {\"jsonrpc\":\"2.0\",\"id\":3,\"result\":{\"_meta\":{\"fastmcp\":{\"wrap_result\":true}},\"content\":[{\"type\":\"text\",\"text\":\"[{\\\"code\\\":\\\"14109\\\",\\\"name\\\":\\\"Yokohama\\\",\\\"prefecture\\\":\\\"Kanagawa\\\"}]\"}],\"structuredContent\":{\"result\":[{\"code\":\"14109\",\"name\":\"Yokohama\",\"prefecture\":\"Kanagawa\"}]},\"isError\":false}}\r\n\r\n",
+        "response": {
+          "jsonrpc": "2.0",
+          "id": 3,
+          "result": {
+            "_meta": {
+              "fastmcp": {
+                "wrap_result": true
+              }
+            },
+            "content": [
+              {
+                "type": "text",
+                "text": "[{\"code\":\"14109\",\"name\":\"Yokohama\",\"prefecture\":\"Kanagawa\"}]"
+              }
+            ],
+            "structuredContent": {
+              "result": [
+                {
+                  "code": "14109",
+                  "name": "Yokohama",
+                  "prefecture": "Kanagawa"
+                }
+              ]
+            },
+            "isError": false
+          }
+        }
+      }
     }
   ],
   "expected": {
     "verdict": "PASS",
-    "selected_tools": ["find_municipalities"],
+    "selected_tools": [
+      "find_municipalities"
+    ],
     "fictional_tools": [],
     "finish_reason": "tool_calls",
-    "mcp_called": ["find_municipalities"],
+    "mcp_called": [
+      "find_municipalities"
+    ],
     "raw_schema_valid": true,
     "server_accepted": true,
     "outcome": "success"
