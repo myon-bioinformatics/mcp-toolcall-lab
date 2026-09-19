@@ -27,7 +27,6 @@ import argparse
 import html
 import json
 import os
-import re
 from dataclasses import asdict, dataclass, field
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -37,7 +36,13 @@ from urllib.parse import parse_qs, urlparse
 
 from mcp_toolcall_lab.catalog import dispatch_tool
 from mcp_toolcall_lab.frontends import LIBRECHAT, OPENWEBUI, STUB
-from mcp_toolcall_lab.markdown_lib import load_markdown
+from mcp_toolcall_lab.markdown_lib import (
+    Section,
+    load_markdown,
+    lookup_heading,
+    parse_sections,
+    slugify,
+)
 from mcp_toolcall_lab.mcp_http import McpStdlibSession
 from mcp_toolcall_lab.record import (
     OUTCOME_EMPTY,
@@ -50,8 +55,6 @@ from mcp_toolcall_lab.record import (
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_CORPUS = REPO_ROOT / "fixtures" / "stub_front"
-
-HEADING_RE = re.compile(r"^(#{1,6})\s+(.+?)\s*#*\s*$")
 
 CASE_HEADING_HIT = "HEADING_HIT"
 CASE_HEADING_MISS = "HEADING_MISS"
@@ -66,15 +69,6 @@ LIBRECHAT_SEND = LIBRECHAT.composer.send.value
 OWUI_INPUT = OPENWEBUI.composer.input.value
 OWUI_SEND = OPENWEBUI.composer.send.value
 OWUI_RESPONSE = OPENWEBUI.response.container.value if OPENWEBUI.response.container else "response-content-container"
-
-
-@dataclass(frozen=True)
-class Section:
-    level: int
-    title: str
-    slug: str
-    body: str
-    line: int
 
 
 @dataclass
@@ -94,43 +88,6 @@ class Turn:
         return asdict(self)
 
 
-def slugify(title: str) -> str:
-    lowered = title.casefold().strip()
-    return re.sub(r"[^a-z0-9]+", "-", lowered).strip("-")
-
-
-def parse_sections(markdown: str) -> list[Section]:
-    """Heading → body. Prefer vendored ``markdown.py``; ATX regex is the fallback."""
-    md = load_markdown()
-    if md is not None and hasattr(md, "split_sections"):
-        sections: list[Section] = []
-        line = 1
-        for part in md.split_sections(markdown):
-            level = int(part.get("level") or 0)
-            title = str(part.get("title") or "")
-            raw = str(part.get("content") or "")
-            if level <= 0 or not title:
-                line += raw.count("\n") or 1
-                continue
-            body_lines = raw.splitlines()
-            body = "\n".join(body_lines[1:]).strip()
-            sections.append(Section(level, title, slugify(title), body, line))
-            line += raw.count("\n") or 1
-        return sections
-    lines = markdown.splitlines()
-    found: list[tuple[int, int, str]] = []
-    for index, line in enumerate(lines):
-        match = HEADING_RE.match(line)
-        if match:
-            found.append((index, len(match.group(1)), match.group(2).strip()))
-    sections = []
-    for idx, (start, level, title) in enumerate(found):
-        end = found[idx + 1][0] if idx + 1 < len(found) else len(lines)
-        body = "\n".join(lines[start + 1 : end]).strip()
-        sections.append(Section(level, title, slugify(title), body, start + 1))
-    return sections
-
-
 def load_corpus(root: Path | None = None) -> list[Section]:
     directory = root or DEFAULT_CORPUS
     sections: list[Section] = []
@@ -139,26 +96,6 @@ def load_corpus(root: Path | None = None) -> list[Section]:
     for path in sorted(directory.glob("*.md")):
         sections.extend(parse_sections(path.read_text(encoding="utf-8")))
     return sections
-
-
-def lookup_heading(query: str, sections: list[Section], *, fuzzy: bool = True) -> Section | None:
-    needle = query.strip()
-    if needle.startswith("#"):
-        needle = needle.lstrip("#").strip()
-    if not needle:
-        return None
-    slug = slugify(needle)
-    folded = needle.casefold()
-    for section in sections:
-        if section.title == needle or section.title.casefold() == folded or section.slug == slug:
-            return section
-    if not fuzzy:
-        return None
-    for section in sections:
-        title = section.title.casefold()
-        if title.startswith(folded) or folded.startswith(title) or folded in title:
-            return section
-    return None
 
 
 def _municipality_query(text: str) -> str:

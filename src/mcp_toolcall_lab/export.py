@@ -22,9 +22,11 @@ PACKAGE_DIR = Path(__file__).resolve().parent
 REPO_ROOT = PACKAGE_DIR.parents[1]
 STANDALONE_PATH = REPO_ROOT / "openwebui_mcp_mock.py"
 LIBRECHAT_STANDALONE_PATH = REPO_ROOT / "librechat_mcp_mock.py"
-# mock/common.py first so record.py's `from .mock.common import ...` can be
-# stripped and still resolve to the inlined helpers in the standalone file.
-INLINE_MODULES = ("mock/common.py", "catalog.py", "record.py", "server.py")
+# Order matters: each module's own `from .x import ...` must already be
+# defined by an earlier chunk once stripped. mock/common.py first for
+# record.py; markdown_lib.py then wikipedia_tool.py before catalog.py
+# (fetch_wikipedia_section's Section/lookup_heading/parse_sections).
+INLINE_MODULES = ("mock/common.py", "markdown_lib.py", "wikipedia_tool.py", "catalog.py", "record.py", "server.py")
 
 
 def _header(run_command: str, audience: str) -> str:

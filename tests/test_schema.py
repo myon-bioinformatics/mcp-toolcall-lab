@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import sys
 from pathlib import Path
 
 from mcp_toolcall_lab.catalog import AVAILABLE_TOOLS, TOOL_DESCRIPTIONS
@@ -14,6 +15,19 @@ LIBRECHAT_RENDER_KWARGS = {"run_command": "librechat_mcp_mock.py", "audience": "
 ROOT = Path(__file__).resolve().parents[1]
 
 EXPECTED_TOOL_SPECS = [
+    {
+        "name": "fetch_wikipedia_section",
+        "description": TOOL_DESCRIPTIONS["fetch_wikipedia_section"],
+        "inputSchema": {
+            "additionalProperties": False,
+            "properties": {
+                "title": {"type": "string"},
+                "heading": {"type": "string", "default": ""},
+            },
+            "required": ["title"],
+            "type": "object",
+        },
+    },
     {
         "name": "find_municipalities",
         "description": TOOL_DESCRIPTIONS["find_municipalities"],
@@ -77,6 +91,14 @@ def _load_standalone(filename: str = "openwebui_mcp_mock.py"):
     spec = importlib.util.spec_from_file_location(module_name, path)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
+    # Must be registered before exec_module(): the standalone file inlines
+    # markdown_lib.py's `Section` (a `@dataclass` under this file's own
+    # `from __future__ import annotations`), and dataclass's own ClassVar/
+    # InitVar detection resolves string annotations via
+    # sys.modules[cls.__module__] -- omitting this line makes that lookup
+    # find nothing and crash with "'NoneType' object has no attribute
+    # '__dict__'" the moment any dataclass in the loaded module is touched.
+    sys.modules[module_name] = module
     spec.loader.exec_module(module)
     return module
 

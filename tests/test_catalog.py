@@ -1,4 +1,5 @@
 import unittest
+from unittest import mock
 
 from mcp_toolcall_lab.catalog import (
     AVAILABLE_TOOLS,
@@ -13,7 +14,7 @@ class MockCatalogTest(unittest.TestCase):
     def test_mock_catalog_has_multiple_tools(self):
         self.assertEqual(
             AVAILABLE_TOOLS,
-            ("find_municipalities", "find_transaction_prices", "find_stations"),
+            ("find_municipalities", "find_transaction_prices", "find_stations", "fetch_wikipedia_section"),
         )
 
     def test_municipality_search_is_deterministic(self):
@@ -46,3 +47,14 @@ class MockCatalogTest(unittest.TestCase):
         )
         with self.assertRaises(KeyError):
             dispatch_tool("find_transaction_price", {"municipality_code": "14109", "year": 2025})
+
+    def test_dispatch_tool_routes_to_fetch_wikipedia_section(self):
+        # The only tool here that is not a deterministic mock -- mocked at
+        # the dispatch boundary rather than hitting the network, since
+        # this sandbox cannot reach en.wikipedia.org (see
+        # tests/test_wikipedia_tool.py for the real fetch/parse coverage).
+        with mock.patch("mcp_toolcall_lab.catalog.fetch_wikipedia_section") as fetch:
+            fetch.return_value = [{"heading": "Geography", "body": "..."}]
+            result = dispatch_tool("fetch_wikipedia_section", {"title": "Yokohama", "heading": "Geography"})
+        fetch.assert_called_once_with("Yokohama", "Geography")
+        self.assertEqual(result, [{"heading": "Geography", "body": "..."}])

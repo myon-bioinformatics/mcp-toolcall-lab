@@ -30,6 +30,11 @@ split. It is not a product clone and not a CommonMark engine.
   `stub_demo.js` re-implements heading→body lookup in vanilla JS (corpus
   from `stub-demo-data.json`); an MCP-shaped prompt is labelled, never
   faked, since this page has no server behind it
+- `fetch_wikipedia_section` MCP tool (`wikipedia_tool.py`): the one tool
+  in `catalog.py` that is not a deterministic mock — a real Wikipedia
+  article's sections via Wikipedia's own extracts API (no HTML/wikitext
+  parsing), through the same `markdown_lib.parse_sections()` every other
+  corpus uses. See `docs/wikipedia_tool.md`.
 
 ## Later (unnumbered)
 

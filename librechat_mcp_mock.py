@@ -100,26 +100,316 @@ def close_http11_sse(handler: Any) -> None:
     handler.send_header("Connection", "close")
     handler.close_connection = True
 
+# --- markdown_lib.py ---
+"""Load the vendored stdlib ``markdown.py`` without making it a package import.
+
+The sibling repo ships one file. We keep a snapshot under ``vendor/`` so
+Docker / GitHub Pages builds stay offline after checkout. If the file is
+missing, callers fall back to the stub's own ATX splitter.
+
+``Section``/``slugify``/``parse_sections``/``lookup_heading`` live here
+too: the heading -> body split is "use the vendored module, else a local
+ATX regex fallback" regardless of *what* corpus is being split (a
+fixtures/stub_front/*.md file for stub_front.py, or a live Wikipedia
+extract converted to ATX for wikipedia_tool.py) -- one implementation,
+not one per caller.
+"""
+
+
+import hashlib
+import importlib.util
+import json
+import os
+import re
+from dataclasses import dataclass
+from pathlib import Path
+from types import ModuleType
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+PROVENANCE_PATH = REPO_ROOT / "vendor" / "markdown.provenance.json"
+
+_HEADING_RE = re.compile(r"^(#{1,6})\s+(.+?)\s*#*\s*$")
+
+
+@dataclass(frozen=True)
+class Section:
+    level: int
+    title: str
+    slug: str
+    body: str
+    line: int
+
+
+def slugify(title: str) -> str:
+    lowered = title.casefold().strip()
+    return re.sub(r"[^a-z0-9]+", "-", lowered).strip("-")
+
+
+def parse_sections(markdown: str) -> list[Section]:
+    """Heading → body. Prefer vendored ``markdown.py``; ATX regex is the fallback."""
+    md = load_markdown()
+    if md is not None and hasattr(md, "split_sections"):
+        sections: list[Section] = []
+        line = 1
+        for part in md.split_sections(markdown):
+            level = int(part.get("level") or 0)
+            title = str(part.get("title") or "")
+            raw = str(part.get("content") or "")
+            if level <= 0 or not title:
+                line += raw.count("\n") or 1
+                continue
+            body_lines = raw.splitlines()
+            body = "\n".join(body_lines[1:]).strip()
+            sections.append(Section(level, title, slugify(title), body, line))
+            line += raw.count("\n") or 1
+        return sections
+    lines = markdown.splitlines()
+    found: list[tuple[int, int, str]] = []
+    for index, line in enumerate(lines):
+        match = _HEADING_RE.match(line)
+        if match:
+            found.append((index, len(match.group(1)), match.group(2).strip()))
+    sections = []
+    for idx, (start, level, title) in enumerate(found):
+        end = found[idx + 1][0] if idx + 1 < len(found) else len(lines)
+        body = "\n".join(lines[start + 1 : end]).strip()
+        sections.append(Section(level, title, slugify(title), body, start + 1))
+    return sections
+
+
+def lookup_heading(query: str, sections: list[Section], *, fuzzy: bool = True) -> Section | None:
+    needle = query.strip()
+    if needle.startswith("#"):
+        needle = needle.lstrip("#").strip()
+    if not needle:
+        return None
+    slug = slugify(needle)
+    folded = needle.casefold()
+    for section in sections:
+        if section.title == needle or section.title.casefold() == folded or section.slug == slug:
+            return section
+    if not fuzzy:
+        return None
+    for section in sections:
+        title = section.title.casefold()
+        if title.startswith(folded) or folded.startswith(title) or folded in title:
+            return section
+    return None
+
+
+def markdown_py_path() -> Path | None:
+    override = os.environ.get("MARKDOWN_PY")
+    candidates = []
+    if override:
+        candidates.append(Path(override))
+    candidates.append(REPO_ROOT / "vendor" / "markdown.py")
+    candidates.append(Path("/app/vendor/markdown.py"))
+    for path in candidates:
+        if path.is_file():
+            return path
+    return None
+
+
+def load_markdown() -> ModuleType | None:
+    path = markdown_py_path()
+    if path is None:
+        return None
+    spec = importlib.util.spec_from_file_location("lab_vendored_markdown", path)
+    if spec is None or spec.loader is None:
+        return None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def git_blob_sha(path: Path) -> str:
+    data = path.read_bytes()
+    return hashlib.sha1(b"blob %d\0" % len(data) + data).hexdigest()
+
+
+def load_provenance() -> dict[str, str]:
+    return json.loads(PROVENANCE_PATH.read_text(encoding="utf-8"))
+
+
+def assert_markdown_provenance(path: Path | None = None) -> dict[str, str]:
+    """Fail if the vendored file drifted from the recorded commit/blob."""
+    recorded = load_provenance()
+    target = path or markdown_py_path()
+    if target is None:
+        raise FileNotFoundError("vendor/markdown.py is missing")
+    digest = hashlib.sha256(target.read_bytes()).hexdigest()
+    blob = git_blob_sha(target)
+    if blob != recorded["blob_sha"] or digest != recorded["sha256"]:
+        raise ValueError(
+            f"vendored markdown.py does not match {PROVENANCE_PATH.name}: "
+            f"blob={blob} sha256={digest} recorded={recorded}"
+        )
+    return recorded
+
+# --- wikipedia_tool.py ---
+"""Fetch a real Wikipedia article's sections over HTTP.
+
+This is the one tool in this lab's MCP catalog that is **not** a
+deterministic offline mock -- every other tool in ``catalog.py`` returns
+canned data on purpose (see its own module docstring: "never calls a
+live API"). This one calls Wikipedia's own action API for real, so a
+heading-pulldown + section-extraction UX can be tried against a genuine
+article, not only the vendored ``fixtures/stub_front/*.md`` corpus.
+
+Wikipedia's ``action=query&prop=extracts&explaintext=1&exsectionformat=wiki``
+does the heavy lifting: it returns already-plain-text article content
+(infoboxes, references, navboxes, and other markup already stripped by
+Wikipedia's own extract engine) with MediaWiki ``== Heading ==`` markers.
+No HTML or wikitext parsing happens here -- those markers are rewritten
+to ATX (``## Heading``) and handed to
+``mcp_toolcall_lab.markdown_lib.parse_sections()``, the same
+heading-splitter every other corpus in this repo already goes through.
+One implementation, not a second one for "real" documents.
+
+This sandbox's own dev environment cannot reach en.wikipedia.org (the
+agent proxy denies the CONNECT, same as huggingface.co -- see
+scripts/fetch_tiny_cpu_gguf.py's module docstring for that precedent),
+so the live path is covered by unit tests against a mocked
+``urllib.request.urlopen`` here, plus one real-network integration test
+gated behind ``MCP_TOOLCALL_LAB_LIVE_WIKIPEDIA=1`` for a human or a
+CI runner with real internet to opt into -- never on by default, so a
+plain ``pytest -q`` never depends on Wikipedia being reachable.
+"""
+
+
+import json
+import re
+import urllib.error
+import urllib.parse
+import urllib.request
+from typing import Any
+
+
+WIKIPEDIA_API = "https://{lang}.wikipedia.org/w/api.php"
+DEFAULT_LANG = "en"
+TIMEOUT = 10.0
+USER_AGENT = "mcp-toolcall-lab/1.0 (https://github.com/myon-bioinformatics/mcp-toolcall-lab; lab demo, not production traffic)"
+
+_WIKI_HEADING_RE = re.compile(r"^(=+)\s*(.+?)\s*=+\s*$", re.MULTILINE)
+
+
+class WikipediaFetchError(RuntimeError):
+    """The live fetch failed: network, timeout, no such article, or a bad response."""
+
+
+def _wiki_headings_to_atx(text: str) -> str:
+    """MediaWiki ``== Heading ==`` -> ATX ``## Heading``.
+
+    Wikipedia's plaintext extract never emits a single ``=`` (that would be
+    the article's own title, which is not part of the extract body), so
+    level 2 is the shallowest marker actually seen; it is kept as ATX
+    level 2 to match fixtures/stub_front/wiki_yokohama.md's own shape,
+    where the fetched article's title is a separately-added level-1 ATX
+    heading wrapping the lead paragraph and every ``==`` section under it.
+    """
+
+    def replace(match: re.Match[str]) -> str:
+        level = len(match.group(1))
+        return f"{'#' * level} {match.group(2)}"
+
+    return _WIKI_HEADING_RE.sub(replace, text)
+
+
+def _fetch_extract(title: str, lang: str) -> tuple[str, str]:
+    """Return (canonical_title, plaintext_extract_with_wiki_headings)."""
+    query = urllib.parse.urlencode(
+        {
+            "action": "query",
+            "format": "json",
+            "prop": "extracts",
+            "explaintext": 1,
+            "exsectionformat": "wiki",
+            "redirects": 1,
+            "titles": title,
+        }
+    )
+    url = f"{WIKIPEDIA_API.format(lang=lang)}?{query}"
+    request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, "Accept": "application/json"})
+    try:
+        with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
+        raise WikipediaFetchError(f"could not fetch {title!r} from {lang}.wikipedia.org: {exc}") from exc
+
+    pages = (payload.get("query") or {}).get("pages") or {}
+    page = next(iter(pages.values()), None)
+    if not isinstance(page, dict) or "missing" in page:
+        raise WikipediaFetchError(f"no {lang}.wikipedia.org article named {title!r}")
+    extract = str(page.get("extract") or "")
+    canonical_title = str(page.get("title") or title)
+    return canonical_title, extract
+
+
+def fetch_article_sections(title: str, *, lang: str = DEFAULT_LANG) -> list[Section]:
+    """Sections for a real Wikipedia article, via the same ``Section``
+    shape (and the same ``parse_sections()``) as every other corpus in
+    this repo -- so ``lookup_heading()`` works identically on either."""
+    canonical_title, extract = _fetch_extract(title, lang)
+    atx = f"# {canonical_title}\n\n{_wiki_headings_to_atx(extract)}"
+    return parse_sections(atx)
+
+
+def fetch_wikipedia_section(title: str, heading: str = "", *, lang: str = DEFAULT_LANG) -> list[dict[str, Any]]:
+    """MCP tool body: ``dispatch_tool("fetch_wikipedia_section", ...)``.
+
+    No ``heading`` (or a blank one): return every section's title only --
+    the "pulldown" list, deliberately without body text so a caller lists
+    options before committing to a possibly-large fetch's body payload.
+    A ``heading`` that matches (see ``lookup_heading()`` -- exact first,
+    then fuzzy): that one section's title + body. A ``heading`` that
+    matches nothing is a normal empty result, not an error -- same
+    "valid call, no rows" contract catalog.py's other tools use. A fetch
+    that fails outright (network, no such article) raises
+    ``WikipediaFetchError``, which the caller lets propagate as an actual
+    MCP tool error, same as any other unexpected exception in this catalog.
+    """
+    sections = fetch_article_sections(title, lang=lang)
+    if not heading.strip():
+        return [{"heading": section.title} for section in sections]
+    match = lookup_heading(heading, sections, fuzzy=True)
+    if match is None:
+        return []
+    return [{"heading": match.title, "body": match.body}]
+
 # --- catalog.py ---
 """Pure-Python mock data used by the FastMCP server and unit tests.
 
 A valid call that matches nothing returns an empty list. That is not an error.
 Protocol problems (unknown tool, invalid arguments, timeout) are errors.
+
+``fetch_wikipedia_section`` is the one tool below that is NOT a
+deterministic offline mock -- it is registered here (same
+``AVAILABLE_TOOLS``/``TOOL_DESCRIPTIONS``/``dispatch_tool()`` surface as
+every other tool, so it is callable the same way over real MCP) but its
+actual implementation, including the "this makes a real HTTP call" fact,
+lives in ``wikipedia_tool.py``, not here -- see that module's docstring.
 """
 
 
 from typing import Any
 
+
 AVAILABLE_TOOLS = (
     "find_municipalities",
     "find_transaction_prices",
     "find_stations",
+    "fetch_wikipedia_section",
 )
 
 TOOL_DESCRIPTIONS = {
     "find_municipalities": "Find mock municipalities by name or prefecture.",
     "find_transaction_prices": "Return mock property transaction prices. This never calls a live API.",
     "find_stations": "Find mock stations in a municipality.",
+    "fetch_wikipedia_section": (
+        "Fetch a real Wikipedia article's sections over HTTP (the one tool here that is not a "
+        "mock). Omit `heading` to list section titles (a pulldown); pass one to get that "
+        "section's body. Unmatched heading is an empty result, not an error."
+    ),
 }
 
 MUNICIPALITIES = (
@@ -179,6 +469,11 @@ def dispatch_tool(name: str, arguments: dict[str, Any]) -> list[dict[str, Any]]:
         return search_transaction_prices(
             str(arguments.get("municipality_code", "")),
             int(arguments.get("year", 2025)),
+        )
+    if name == "fetch_wikipedia_section":
+        return fetch_wikipedia_section(
+            str(arguments.get("title", "")),
+            str(arguments.get("heading", "")),
         )
     raise KeyError(name)
 
@@ -511,6 +806,10 @@ def create_mcp() -> FastMCP:
     @mcp.tool(description=TOOL_DESCRIPTIONS["find_stations"])
     def find_stations(municipality_code: str) -> list[dict[str, str]]:
         return dispatch_tool("find_stations", {"municipality_code": municipality_code})
+
+    @mcp.tool(description=TOOL_DESCRIPTIONS["fetch_wikipedia_section"])
+    def fetch_wikipedia_section(title: str, heading: str = "") -> list[dict[str, str]]:
+        return dispatch_tool("fetch_wikipedia_section", {"title": title, "heading": heading})
 
     return mcp
 
