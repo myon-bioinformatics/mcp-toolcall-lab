@@ -125,7 +125,23 @@ from dataclasses import dataclass
 from pathlib import Path
 from types import ModuleType
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+def _repo_root() -> Path:
+    """``src/mcp_toolcall_lab/markdown_lib.py`` -> repo root, two levels up.
+
+    This module is also concatenated into the standalone
+    ``openwebui_mcp_mock.py`` / ``librechat_mcp_mock.py`` (see
+    ``export.py``'s ``INLINE_MODULES``), which run from a flat ``/app/``
+    with no such ancestry -- ``.parents[2]`` would raise ``IndexError``
+    there. Fall back to the file's own directory; ``markdown_py_path()``
+    already has an explicit ``/app/vendor/markdown.py`` candidate for
+    that case.
+    """
+    here = Path(__file__).resolve()
+    parents = here.parents
+    return parents[2] if len(parents) > 2 else here.parent
+
+
+REPO_ROOT = _repo_root()
 PROVENANCE_PATH = REPO_ROOT / "vendor" / "markdown.provenance.json"
 
 _HEADING_RE = re.compile(r"^(#{1,6})\s+(.+?)\s*#*\s*$")
