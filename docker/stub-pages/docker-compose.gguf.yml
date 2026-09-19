@@ -1,22 +1,18 @@
 # Real tiny GGUF behind the same service DNS ``cpu-llm``, in place of
-# demos/cpu_llm_lite.py. Opt-in only (needs internet to huggingface.co,
-# which this repo's own dev sandbox cannot reach — see
-# scripts/fetch_tiny_cpu_gguf.py's module docstring): CI wires this in via
-# stub-pages.yml's `use_real_gguf` workflow_dispatch input, never on a
-# plain push, so the always-on smoke job never depends on that reachability.
+# demos/cpu_llm_lite.py. Opt-in only (needs internet to huggingface.co):
+# CI wires this in via stub-pages.yml's `use_real_gguf` workflow_dispatch
+# input, never on a plain push.
 #
-# The image tag below (`:server`) floats with upstream's latest server
-# build — accuracy/reproducibility of the *model* does not matter here
-# (see catalog note), but if the *image* itself ever needs pinning, list
-# tags at https://github.com/ggml-org/llama.cpp/pkgs/container/llama.cpp
-# and swap in a dated one.
+# Image is digest-pinned (see llama.cpp.image.provenance.json). The GGUF
+# checksum is still discovered on first opt-in run — promote that sha256
+# into CPU_LLM_GGUF_SHA256 after inspecting the Actions artifact.
 #
 #   scripts/fetch_tiny_cpu_gguf.sh docker/stub-pages/models/model.gguf
 #   docker compose -f docker/stub-pages/docker-compose.yml \
 #     -f docker/stub-pages/docker-compose.gguf.yml up --build
 services:
   cpu-llm:
-    image: ghcr.io/ggml-org/llama.cpp:server
+    image: ghcr.io/ggml-org/llama.cpp:server@sha256:9002e60256635720c05c50455fdebf992a98dc25466dc932758ecd7936244c1c
     command:
       - -m
       - /models/model.gguf
@@ -28,7 +24,8 @@ services:
       - ./models:/models
     environment: {}
     healthcheck:
-      test: ["CMD-SHELL", "bash -lc 'exec 3<>/dev/tcp/127.0.0.1/8080'"]
+      # Image-native check (Ubuntu 24.04 ships curl; /health is the server probe).
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:8080/health"]
       interval: 5s
       timeout: 5s
       retries: 30

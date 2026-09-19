@@ -32,8 +32,11 @@ Raw MCP / cpu-llm / last-run files stay Actions artifacts. Pages only gets
 
 ## Real tiny GGUF (opt-in)
 
-`docker-compose.gguf.yml` swaps `cpu-llm` for `ghcr.io/ggml-org/llama.cpp:server`
-serving a real model instead of `demos/cpu_llm_lite.py`'s stdlib stand-in.
+`docker-compose.gguf.yml` swaps `cpu-llm` for a **digest-pinned**
+`ghcr.io/ggml-org/llama.cpp:server` (`b11046`, see
+`llama.cpp.image.provenance.json`) serving a real model instead of
+`demos/cpu_llm_lite.py`. Healthcheck is the image's own `curl -f /health`
+(no `bash` / `/dev/tcp`).
 Off by default (never on a plain push); turn it on via the `stub-pages`
 workflow's `use_real_gguf` dispatch input, or locally:
 
@@ -43,7 +46,7 @@ docker compose -f docker/stub-pages/docker-compose.yml \
   -f docker/stub-pages/docker-compose.gguf.yml up --build
 ```
 
-`scripts/fetch_tiny_cpu_gguf.py` auto-discovers the smallest `*.gguf` in a
+`scripts/fetch_tiny_cpu_gguf.py` auto-discovers a preferred tiny `*.gguf` in a
 small Apache-2.0 repo (default `bartowski/SmolLM2-135M-Instruct-GGUF` — a
 GGUF quantization of `HuggingFaceTB/SmolLM2-135M-Instruct`, verified to
 actually exist via the Hugging Face Hub connector; an earlier default,

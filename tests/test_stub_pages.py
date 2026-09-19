@@ -141,3 +141,20 @@ def test_stub_pages_compose_uses_service_dns() -> None:
     assert "stub-pages-smoke.py" in workflow or "stub_pages_smoke.py" in workflow
     assert "_site/mcp-toolcalls.jsonl" not in workflow
     assert "_site/antipatterns.jsonl" not in workflow
+
+
+def test_gguf_overlay_pins_image_digest_and_uses_curl_healthcheck() -> None:
+    overlay = (ROOT / "docker" / "stub-pages" / "docker-compose.gguf.yml").read_text(
+        encoding="utf-8"
+    )
+    provenance = json.loads(
+        (ROOT / "docker" / "stub-pages" / "llama.cpp.image.provenance.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    digest = provenance["digest"]
+    assert digest.startswith("sha256:")
+    assert f"ghcr.io/ggml-org/llama.cpp:server@{digest}" in overlay
+    assert "/dev/tcp" not in overlay
+    assert 'test: ["CMD", "curl", "-f", "http://127.0.0.1:8080/health"]' in overlay
+    assert provenance["healthcheck"] == ["CMD", "curl", "-f", "http://127.0.0.1:8080/health"]

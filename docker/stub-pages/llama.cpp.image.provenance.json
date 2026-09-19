@@ -1,0 +1,10 @@
+{
+  "image": "ghcr.io/ggml-org/llama.cpp",
+  "tag": "server",
+  "digest": "sha256:9002e60256635720c05c50455fdebf992a98dc25466dc932758ecd7936244c1c",
+  "version": "b11046",
+  "revision": "60081bb2b5b3294165a4d67c5cbeebe74c868014",
+  "amd64_manifest": "sha256:7fdf852303fa3ea0d2d23b909a3595e0319322444a946f8b00df272a17afdd1a",
+  "healthcheck": ["CMD", "curl", "-f", "http://127.0.0.1:8080/health"],
+  "notes": "Multi-arch index digest observed from GHCR on 2026-09-19. Image embeds curl and HEALTHCHECK /health (Ubuntu 24.04)."
+}

@@ -42,7 +42,8 @@ HF_API = "https://huggingface.co/api/models"
 # "HuggingFaceTB/SmolLM2-135M-Instruct-GGUF", which does not exist and
 # would have 404'd on the very first real run.
 DEFAULT_REPO = "bartowski/SmolLM2-135M-Instruct-GGUF"
-# Smallest-first preference. Accuracy is out of scope; startup time is not.
+# Preferred tiny quantization/file, then alphabetical. Not sorted by byte size.
+# Accuracy is out of scope; startup time is not.
 PATTERN_PREFERENCE = ("*q4_k_m*.gguf", "*q4_0*.gguf", "*q8_0*.gguf", "*.gguf")
 RETRIES = 4
 TIMEOUT = 30.0
@@ -61,6 +62,7 @@ def _get_json(url: str) -> Any:
 
 
 def _pick_file(siblings: list[dict[str, Any]], explicit: str | None) -> str:
+    """Choose a preferred tiny quantization/file. Does not compare byte sizes."""
     names = [str(s["rfilename"]) for s in siblings if "rfilename" in s]
     if explicit:
         if explicit not in names:
