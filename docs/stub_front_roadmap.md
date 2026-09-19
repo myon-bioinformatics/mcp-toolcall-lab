@@ -26,10 +26,10 @@ split. It is not a product clone and not a CommonMark engine.
   `stub-pages.yml`'s `use_real_gguf` input): auto-discovered + checksummed
   fetch script, `/v1/chat/completions` smoke check distinct from `/health`,
   `cpu_llm_backend` in the published summary
-- Static client-side "Try it" demo on the published page itself:
-  `stub_demo.js` re-implements heading→body lookup in vanilla JS (corpus
-  from `stub-demo-data.json`); an MCP-shaped prompt is labelled, never
-  faked, since this page has no server behind it
+- GitHub Pages report: generation identity (`build_meta.json` / Commit)
+  + local `/wiki` induction + Last Actions snapshot. The mock "Try it"
+  heading pulldown is **not** on the published index (`stub_demo.js`
+  remains a local/test asset via `write_stub_demo_page()`)
 - `fetch_wikipedia_section` / `fetch_wikipedia_article` MCP tools
   (`wikipedia_tool.py`): the tools in `catalog.py` that are not
   deterministic mocks — a real Wikipedia article as a MediaWiki
