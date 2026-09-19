@@ -195,6 +195,53 @@ pytest -q tests/test_browser_fetch_protocol.py
 `page.evaluate(() => fetch(...))`. Not part of `test` extras or CI — it `pytest.importorskip`s
 when `playwright` isn't installed, same as every other optional path in this repo.
 
+## Client roles
+
+| Bucket | Clients | What a result from it means |
+| --- | --- | --- |
+| Clients under test | Open WebUI, LibreChat | The actual product behavior this lab exists to exercise. |
+| Reference / diagnostic clients | Gradio, Streamlit | Thin adapters (`apps/gradio_app.py`, `apps/streamlit_app.py`) with no product-specific behavior of their own -- a pass here while a client-under-test fails narrows the failure to that product, not to MCP/the mock server. |
+| Protocol-level clients | MCP SDK, httpx, curl, FastMCP CLI, existing browser `fetch()` | Ground truth for "is the server itself doing the right thing," independent of any UI. |
+
+Full architecture write-up, network model, and test-lane commands:
+[`docs/e2e_foundation.md`](docs/e2e_foundation.md).
+
+## Reference/diagnostic clients: Gradio and Streamlit
+
+Neither Gradio nor Streamlit implements its own MCP client -- both are thin
+adapters over `src/mcp_toolcall_lab/reference_client.py` (tool discovery,
+calling, and success/empty/error classification shared in one place, kept
+compatible with `record.py`'s existing semantics). Run either against a
+local mock:
+
+```bash
+pip install -e ".[reference-clients]"
+MCP_HOST=0.0.0.0 python openwebui_mcp_mock.py &
+python -m apps.gradio_app        # http://127.0.0.1:7860
+streamlit run apps/streamlit_app.py   # http://127.0.0.1:8501
+```
+
+`tests/test_reference_client.py` and `tests/test_reference_apps.py` cover
+this layer browserlessly (part of `pip install -e ".[test]"` / `pytest -q`).
+
+## Docker Compose: all four UI clients against one mock
+
+`docker-compose.yml` puts `mcp-mock` and all four UI clients (plus a
+deterministic mock LLM backend for Open WebUI/LibreChat) on Compose's
+default network, reachable by service name (`http://mcp-mock:8000/mcp`),
+never a container IP or `localhost`:
+
+```bash
+docker compose up --build
+```
+
+Not executed end-to-end in the environment that produced this PR (no Docker
+registry access there) -- validate before relying on it. See
+[`docs/e2e_foundation.md`](docs/e2e_foundation.md) for the full network
+model, the `chat-e2e` and browser-smoke Playwright lanes built on top of it,
+and what is still follow-up work (the full anti-pattern catalogue, CI
+wiring, Open WebUI tool-selection coverage).
+
 ## Empty vs error
 
 - **Empty** is a successful `tools/call` whose result is `[]` (unknown municipality, blank query, or a Japanese name that is not in this tiny English mock). Open WebUI forwards `content`, so the model sees an empty list, not a protocol error.

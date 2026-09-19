@@ -1,0 +1,55 @@
+# Proposed workflow -- NOT active. Claude's GitHub App permissions don't allow writing to
+# .github/workflows/, so this lives here as a copy-paste starting point for issue #14's
+# `chat-e2e` lane (see docs/e2e_foundation.md). To activate: copy this file to
+# .github/workflows/chat-e2e.yml (drop the `.example` suffix and this comment block).
+#
+# Not executed in the environment that produced this PR -- there was no Docker registry
+# access there. Validate `docker compose up` locally (see docs/e2e_foundation.md) before
+# trusting this in CI.
+
+name: chat-e2e
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "docker-compose.yml"
+      - "docker/**"
+      - "src/mcp_toolcall_lab/**"
+      - "tests/e2e/**"
+      - "examples/librechat.mcp.example.yaml"
+
+jobs:
+  chat-e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install test deps + Playwright
+        run: |
+          pip install -e ".[test,browser-test]"
+          playwright install --with-deps chromium
+
+      - name: Start the chat-e2e stack
+        run: docker compose up -d --build mcp-mock mock-llm openwebui librechat librechat-mongo
+
+      - name: Wait for chat UIs to come up
+        run: |
+          for url in http://127.0.0.1:3000 http://127.0.0.1:3080; do
+            timeout 120 bash -c "until curl -sf \"$url\" >/dev/null; do sleep 2; done"
+          done
+
+      - name: Run chat-e2e tests
+        run: pytest -q -m chat_e2e tests/e2e
+
+      - name: Compose logs (on failure)
+        if: failure()
+        run: docker compose logs
+
+      - name: Tear down
+        if: always()
+        run: docker compose down -v

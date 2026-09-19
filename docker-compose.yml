@@ -1,0 +1,112 @@
+# E2E foundation for issue #14: every UI client below points at the SAME mock MCP
+# implementation (mcp-mock), reached over Compose's default service-DNS network --
+# never a container IP, never `localhost` (which inside a container means that
+# container's own network namespace, not the host or a sibling service).
+#
+# Conceptually (see docs/e2e_foundation.md for the full write-up):
+#
+#   mcp-mock (http://mcp-mock:8000/mcp)
+#       ^-- openwebui       (client under test)
+#       ^-- librechat       (client under test)
+#       ^-- gradio          (reference/diagnostic client)
+#       ^-- streamlit       (reference/diagnostic client)
+#
+#   mock-llm (http://mock-llm:8081/v1) -- deterministic assistant replies for
+#   openwebui/librechat, so "assistant response can be awaited" doesn't need a
+#   real model/API key (see docker/mock_llm.py).
+#
+# No explicitly named network: the default Compose network already puts every
+# service in this file on one network with working service-name DNS, and the
+# issue calls for a named network only where there's a concrete need for one.
+#
+# Status: written from each product's public docs/images; NOT executed end-to-end in the
+# environment that produced this PR (no Docker/registry access there -- see the PR
+# description). Treat openwebui/librechat as a starting point to validate, the same way
+# docs/librechat_mcp_notes.md already flags its own config as unverified against a live
+# container.
+
+services:
+  mcp-mock:
+    build:
+      context: .
+      dockerfile: docker/mcp-mock.Dockerfile
+    environment:
+      MCP_HOST: "0.0.0.0"
+      MCP_PORT: "8000"
+    ports:
+      - "8000:8000"
+
+  mock-llm:
+    build:
+      context: .
+      dockerfile: docker/mock-llm.Dockerfile
+    environment:
+      MOCK_LLM_HOST: "0.0.0.0"
+      MOCK_LLM_PORT: "8081"
+    ports:
+      - "8081:8081"
+
+  # Client under test (see README's "Client roles" section).
+  openwebui:
+    image: ghcr.io/open-webui/open-webui:main
+    depends_on:
+      - mcp-mock
+      - mock-llm
+    environment:
+      WEBUI_AUTH: "false"
+      ENABLE_OPENAI_API: "true"
+      OPENAI_API_BASE_URLS: "http://mock-llm:8081/v1"
+      OPENAI_API_KEYS: "sk-mock"
+      ENABLE_OLLAMA_API: "false"
+      # Registering mcp-mock as an Open WebUI "MCP (Streamable HTTP)" tool server is a
+      # stored-in-DB admin action today (see README's "Run locally" section) -- there is no
+      # env var for it yet, so the chat-e2e Playwright test drives UI input + Send only
+      # (issue #14's minimum bar), not tool selection. See docs/e2e_foundation.md.
+    ports:
+      - "3000:8080"
+
+  # Client under test (see README's "Client roles" section).
+  librechat:
+    image: ghcr.io/danny-avila/librechat:latest
+    depends_on:
+      - mcp-mock
+      - mock-llm
+      - librechat-mongo
+    environment:
+      HOST: "0.0.0.0"
+      MONGO_URI: "mongodb://librechat-mongo:27017/LibreChat"
+      ALLOW_REGISTRATION: "true"
+      ALLOW_EMAIL_LOGIN: "true"
+      SEARCH: "false"
+    volumes:
+      - ./docker/librechat.compose.yaml:/app/librechat.yaml:ro
+    ports:
+      - "3080:3080"
+
+  # LibreChat's own session/config store; not part of this lab's mock surface.
+  librechat-mongo:
+    image: mongo:7
+
+  # Reference/diagnostic client (see README's "Client roles" section).
+  gradio:
+    build:
+      context: .
+      dockerfile: docker/gradio.Dockerfile
+    depends_on:
+      - mcp-mock
+    environment:
+      MCP_URL: "http://mcp-mock:8000/mcp"
+    ports:
+      - "7860:7860"
+
+  # Reference/diagnostic client (see README's "Client roles" section).
+  streamlit:
+    build:
+      context: .
+      dockerfile: docker/streamlit.Dockerfile
+    depends_on:
+      - mcp-mock
+    environment:
+      MCP_URL: "http://mcp-mock:8000/mcp"
+    ports:
+      - "8501:8501"

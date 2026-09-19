@@ -1,0 +1,55 @@
+# Proposed workflow -- NOT active. See chat-e2e.workflow.yml.example's header comment for why
+# this lives here instead of .github/workflows/ and how to activate it
+# (copy to .github/workflows/browser-smoke.yml).
+#
+# Deliberately NOT on every PR, per issue #14: this lane is manual/path-filtered, since
+# Gradio/Streamlit are reference/diagnostic clients, not products under test
+# (docs/e2e_foundation.md).
+
+name: browser-smoke
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "apps/**"
+      - "src/mcp_toolcall_lab/reference_client.py"
+      - "docker/gradio.Dockerfile"
+      - "docker/streamlit.Dockerfile"
+      - "tests/e2e/test_gradio_smoke.py"
+      - "tests/e2e/test_streamlit_smoke.py"
+
+jobs:
+  browser-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install test deps + Playwright
+        run: |
+          pip install -e ".[test,browser-test]"
+          playwright install --with-deps chromium
+
+      - name: Start Gradio + Streamlit against the mock
+        run: docker compose up -d --build mcp-mock gradio streamlit
+
+      - name: Wait for reference UIs to come up
+        run: |
+          for url in http://127.0.0.1:7860 http://127.0.0.1:8501; do
+            timeout 60 bash -c "until curl -sf \"$url\" >/dev/null; do sleep 2; done"
+          done
+
+      - name: Run browser-smoke tests
+        run: pytest -q -m browser_smoke tests/e2e
+
+      - name: Compose logs (on failure)
+        if: failure()
+        run: docker compose logs
+
+      - name: Tear down
+        if: always()
+        run: docker compose down -v

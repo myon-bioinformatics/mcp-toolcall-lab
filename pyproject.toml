@@ -10,11 +10,24 @@ requires-python = ">=3.11"
 dependencies = ["fastmcp==3.4.7"]
 
 [project.optional-dependencies]
+# Runtime deps for the Gradio/Streamlit reference/diagnostic adapters (apps/*.py) — kept as
+# their own extra so the Docker images that only run one adapter (docker/gradio.Dockerfile,
+# docker/streamlit.Dockerfile) don't also pull in pytest/httpx.
+reference-clients = [
+    "gradio>=4,<6",
+    "streamlit>=1.30",
+]
 test = [
     "httpx==0.28.1",
     "mcp==1.27.2",
     "pytest>=8,<9",
     "pytest-asyncio>=0.24,<1",
+    # tests/test_reference_apps.py needs both adapters importable for its browserless
+    # import/startup checks — listed directly (rather than a self-referential extra, to
+    # avoid depending on pip's support for that) so the normal-PR lane covers them on every
+    # PR per issue #14, without needing a Docker container or a browser.
+    "gradio>=4,<6",
+    "streamlit>=1.30",
 ]
 # Optional: real-browser fetch() coverage of the HTTP API (tests/test_browser_fetch_protocol.py).
 # Not part of `test` — CI and `pip install -e '.[test]'` stay lean; this file's tests
@@ -31,4 +44,6 @@ filterwarnings = [
 ]
 markers = [
     "integration: starts a local Streamable HTTP MCP server",
+    "chat_e2e: drives a real chat product (Open WebUI / LibreChat) with Playwright; needs docker compose",
+    "browser_smoke: drives Gradio/Streamlit with Playwright; manual/workflow_dispatch lane",
 ]

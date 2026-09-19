@@ -1,0 +1,42 @@
+# LibreChat config for the chat-e2e Compose lane only -- NOT the same file as
+# examples/librechat.mcp.example.yaml (that one is the copy-paste snippet documented in
+# docs/librechat_mcp_notes.md and guarded by tests/test_librechat_example.py; this one is a
+# full librechat.yaml for the containerized lane, including a model endpoint so LibreChat has
+# something to answer with).
+#
+# Same MCP endpoint as every other client in this lab, reached over Compose service DNS
+# rather than 127.0.0.1/host.docker.internal (see docker-compose.yml and
+# docs/e2e_foundation.md's "Docker / network model" section):
+#   http://mcp-mock:8000/mcp
+#
+# `endpoints.custom` points LibreChat at docker/mock_llm.py (see docker-compose.yml's
+# `mock-llm` service) instead of a real provider, so "assistant response can be awaited"
+# (issue #14's chat-e2e minimum bar) is possible with no API key and no external network call.
+# This shape is written from LibreChat's public librechat.yaml docs
+# (https://www.librechat.ai/docs/configuration/librechat_yaml) and has not been run against a
+# live LibreChat container in this environment -- verify before relying on it end-to-end.
+version: 1.2.1
+cache: true
+
+endpoints:
+  custom:
+    - name: "mock-llm"
+      apiKey: "sk-mock"
+      baseURL: "http://mock-llm:8081/v1"
+      models:
+        default: ["mock-llm"]
+        fetch: false
+      titleConvo: false
+      summarize: false
+      forcePrompt: false
+      modelDisplayLabel: "mock-llm"
+
+mcpServers:
+  mcp-toolcall-lab:
+    type: streamable-http
+    url: http://mcp-mock:8000/mcp
+    requiresOAuth: false
+    startup: true
+    timeout: 60000
+    serverInstructions: true
+    chatMenu: true
