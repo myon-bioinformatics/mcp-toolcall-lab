@@ -33,8 +33,8 @@ split. It is not a product clone and not a CommonMark engine.
 - Playwright against the stub (reuse `frontends.py`; no product Docker)
 - Optional `openai_toolcall_mock` backend for the stub
 - Playwright against the stub (reuse `frontends.py`; no product Docker)
-- Pin `CPU_LLM_GGUF_SHA256` once a real `stub-pages` CI run (with real
-  internet) has printed and verified the digest out of band
+- Re-run `stub-pages` with `use_real_gguf=true` so the digest-pinned
+  llama.cpp image actually starts (compose overlay now `build: !reset`)
 
 ## One-liners
 

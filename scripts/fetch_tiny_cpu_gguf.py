@@ -1,23 +1,19 @@
 #!/usr/bin/env python3
 """Fetch a tiny CPU-class GGUF for docker-compose.gguf.yml. Stdlib only.
 
-Two modes:
+Three modes:
 
 * ``CPU_LLM_GGUF_URL`` set -> download that URL directly (explicit pin).
-* otherwise -> auto-discover the smallest ``*.gguf`` file in
-  ``CPU_LLM_GGUF_REPO`` (default a small, Apache-2.0 instruct model) via the
-  Hugging Face API, resolved against that repo's current commit so the URL
-  used for *this* fetch is content-pinned even though the commit itself was
-  not hand-picked in advance.
+* default repo + no explicit file -> commit-pinned URL + ``DEFAULT_SHA256``
+  (Actions run 35433174462 hashed the bytes after download).
+* otherwise -> auto-discover a preferred tiny ``*.gguf`` in
+  ``CPU_LLM_GGUF_REPO`` via the Hugging Face API, resolved against that
+  repo's current commit.
 
-Either way, the downloaded bytes are always hashed after the fact — that
-sha256 is the ground truth, never metadata we merely printed. If
-``CPU_LLM_GGUF_SHA256`` is set, a mismatch is a hard failure (supply-chain
-check for a repeat/production run). If it is unset, the computed digest is
-only recorded to ``<dest>.provenance.json`` so a human can promote it into
-``CPU_LLM_GGUF_SHA256`` once they have verified it out of band -- this
-sandbox has no route to huggingface.co to do that itself (agent proxy
-denies the CONNECT), so no checksum is hand-typed into this repo unverified.
+Downloaded bytes are always hashed after the fact. If
+``CPU_LLM_GGUF_SHA256`` is set (or the default pin applies), a mismatch
+is a hard failure. Custom-repo discovery with no pin still only records
+the digest to ``<dest>.provenance.json``.
 """
 
 from __future__ import annotations
@@ -42,6 +38,13 @@ HF_API = "https://huggingface.co/api/models"
 # "HuggingFaceTB/SmolLM2-135M-Instruct-GGUF", which does not exist and
 # would have 404'd on the very first real run.
 DEFAULT_REPO = "bartowski/SmolLM2-135M-Instruct-GGUF"
+# Commit + file + sha256 from GitHub Actions run 35433174462
+# (workflow_dispatch, use_real_gguf=true, 2026-09-19). Bytes were
+# hashed on the runner after download; do not re-guess this digest.
+DEFAULT_REVISION = "09816acd5d99df7be770d85ea30822623dab342c"
+DEFAULT_FILE = "SmolLM2-135M-Instruct-Q4_K_M.gguf"
+DEFAULT_SHA256 = "2e8040ceae7815abe0dcb3540b9995eaa1fa0d2ca9e797d0a635ae4433c68c2d"
+DEFAULT_SIZE_BYTES = 105454432
 # Preferred tiny quantization/file, then alphabetical. Not sorted by byte size.
 # Accuracy is out of scope; startup time is not.
 PATTERN_PREFERENCE = ("*q4_k_m*.gguf", "*q4_0*.gguf", "*q8_0*.gguf", "*.gguf")
@@ -124,6 +127,12 @@ def main(argv: list[str] | None = None) -> int:
     if explicit_url:
         commit, filename, url = "explicit-url", explicit_url.rsplit("/", 1)[-1], explicit_url
         source = "explicit"
+    elif repo == DEFAULT_REPO and not explicit_file:
+        commit, filename = DEFAULT_REVISION, DEFAULT_FILE
+        url = f"https://huggingface.co/{DEFAULT_REPO}/resolve/{DEFAULT_REVISION}/{DEFAULT_FILE}"
+        source = "pinned-default"
+        if not expected_sha256:
+            expected_sha256 = DEFAULT_SHA256
     else:
         try:
             commit, filename, url = discover(repo, explicit_file)

@@ -6,3 +6,5 @@ __pycache__/
 *.egg-info
 toolcalls.jsonl
 test-results/
+docker/stub-pages/models/*.gguf
+docker/stub-pages/models/*.gguf.part

@@ -141,6 +141,10 @@ def test_stub_pages_compose_uses_service_dns() -> None:
     assert "stub-pages-smoke.py" in workflow or "stub_pages_smoke.py" in workflow
     assert "_site/mcp-toolcalls.jsonl" not in workflow
     assert "_site/antipatterns.jsonl" not in workflow
+    assert "2e8040ceae7815abe0dcb3540b9995eaa1fa0d2ca9e797d0a635ae4433c68c2d" in workflow
+    assert "build: !reset" in (
+        ROOT / "docker" / "stub-pages" / "docker-compose.gguf.yml"
+    ).read_text(encoding="utf-8")
 
 
 def test_gguf_overlay_pins_image_digest_and_uses_curl_healthcheck() -> None:
@@ -155,6 +159,15 @@ def test_gguf_overlay_pins_image_digest_and_uses_curl_healthcheck() -> None:
     digest = provenance["digest"]
     assert digest.startswith("sha256:")
     assert f"ghcr.io/ggml-org/llama.cpp:server@{digest}" in overlay
+    assert "build: !reset" in overlay
+    assert "environment: !reset" in overlay
     assert "/dev/tcp" not in overlay
     assert 'test: ["CMD", "curl", "-f", "http://127.0.0.1:8080/health"]' in overlay
     assert provenance["healthcheck"] == ["CMD", "curl", "-f", "http://127.0.0.1:8080/health"]
+    model_pin = json.loads(
+        (ROOT / "docker" / "stub-pages" / "models" / "model.gguf.provenance.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert model_pin["sha256_verified_against_pin"] is True
+    assert model_pin["sha256"] == "2e8040ceae7815abe0dcb3540b9995eaa1fa0d2ca9e797d0a635ae4433c68c2d"

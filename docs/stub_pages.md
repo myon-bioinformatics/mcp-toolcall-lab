@@ -46,26 +46,17 @@ docker compose -f docker/stub-pages/docker-compose.yml \
   -f docker/stub-pages/docker-compose.gguf.yml up --build
 ```
 
-`scripts/fetch_tiny_cpu_gguf.py` auto-discovers a preferred tiny `*.gguf` in a
-small Apache-2.0 repo (default `bartowski/SmolLM2-135M-Instruct-GGUF` — a
-GGUF quantization of `HuggingFaceTB/SmolLM2-135M-Instruct`, verified to
-actually exist via the Hugging Face Hub connector; an earlier default,
-`HuggingFaceTB/SmolLM2-135M-Instruct-GGUF`, did not) via the Hugging Face
-API and resolves it against that repo's current commit, or downloads
-`CPU_LLM_GGUF_URL` directly if you set one. Either way the downloaded
-bytes are always hashed after the fact; that digest is the ground truth.
-**No `CPU_LLM_GGUF_SHA256` is pinned into this repo yet** — this dev
-sandbox's egress proxy denies the CONNECT to `huggingface.co` itself
-(403; the separate Hugging Face Hub *connector* is a different, allowed
-path, but it surfaces file names/sizes, not an LFS blob's bytes or
-sha256), so nothing here could verify a checksum out of band before
-committing it. First real CI run (which does have internet) prints the
-computed sha256 and writes it to
-`docker/stub-pages/models/model.gguf.provenance.json` (uploaded as part
-of the `stub-pages-observations` artifact) — promote that value into
-`CPU_LLM_GGUF_SHA256` (repo variable or workflow env) once you've seen it
-succeed, so future fetches hard-fail on a mismatch instead of silently
-trusting a re-resolved commit.
+`scripts/fetch_tiny_cpu_gguf.py` uses a **commit-pinned URL + sha256** for
+the default file (`bartowski/SmolLM2-135M-Instruct-GGUF` /
+`SmolLM2-135M-Instruct-Q4_K_M.gguf` @ `09816acd…`,
+`sha256=2e8040ceae7815abe0dcb3540b9995eaa1fa0d2ca9e797d0a635ae4433c68c2d`).
+That digest was hashed on GitHub-hosted Actions run
+[35433174462](https://github.com/myon-bioinformatics/mcp-toolcall-lab/actions/runs/35433174462)
+after download. A custom `CPU_LLM_GGUF_REPO` still discovers via the HF
+API; `CPU_LLM_GGUF_URL` downloads that URL. Bytes are always re-hashed;
+a pin mismatch is a hard failure. Overlay `build: !reset` drops the lite
+Dockerfile so `up --build` pulls the digest-pinned llama.cpp image
+instead of trying to tag a built stand-in as `image@sha256:...`.
 
 `scripts/stub_pages_smoke.py` also calls `/v1/chat/completions` for real
 (not just `/health`) — a process can be "up" while inference itself is

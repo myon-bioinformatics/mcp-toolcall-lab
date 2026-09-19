@@ -24,6 +24,10 @@ def test_default_repo_is_the_verified_one() -> None:
     # HuggingFaceTB/SmolLM2-135M-Instruct). Regression guard against
     # reintroducing an unverified repo name as the default.
     assert fetch.DEFAULT_REPO == "bartowski/SmolLM2-135M-Instruct-GGUF"
+    assert fetch.DEFAULT_FILE == "SmolLM2-135M-Instruct-Q4_K_M.gguf"
+    assert fetch.DEFAULT_REVISION == "09816acd5d99df7be770d85ea30822623dab342c"
+    assert fetch.DEFAULT_SHA256 == "2e8040ceae7815abe0dcb3540b9995eaa1fa0d2ca9e797d0a635ae4433c68c2d"
+    assert fetch.DEFAULT_SIZE_BYTES == 105454432
 
 
 def test_pick_file_prefers_smallest_pattern() -> None:
@@ -134,6 +138,26 @@ def test_main_verifies_expected_sha256_and_fails_loud(tmp_path, monkeypatch) -> 
     code = fetch.main([str(dest)])
     assert code == 3
     assert not dest.exists()
+
+
+def test_main_default_repo_uses_pinned_url_and_default_sha(tmp_path, monkeypatch) -> None:
+    seen: dict[str, str] = {}
+
+    def fake_urlopen(request, timeout=0):  # noqa: ARG001
+        seen["url"] = request.full_url
+        return _FakeResponse(b"not the real gguf")
+
+    monkeypatch.setattr(fetch.urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.delenv("CPU_LLM_GGUF_URL", raising=False)
+    monkeypatch.delenv("CPU_LLM_GGUF_REPO", raising=False)
+    monkeypatch.delenv("CPU_LLM_GGUF_FILE", raising=False)
+    monkeypatch.delenv("CPU_LLM_GGUF_SHA256", raising=False)
+    dest = tmp_path / "model.gguf"
+    code = fetch.main([str(dest)])
+    assert code == 3
+    assert not dest.exists()
+    assert fetch.DEFAULT_REVISION in seen["url"]
+    assert fetch.DEFAULT_FILE in seen["url"]
 
 
 def test_main_records_digest_when_no_pin_given(tmp_path, monkeypatch) -> None:

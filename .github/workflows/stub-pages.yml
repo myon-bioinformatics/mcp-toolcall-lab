@@ -20,9 +20,9 @@ on:
         required: false
         default: "bartowski/SmolLM2-135M-Instruct-GGUF"
       cpu_llm_gguf_sha256:
-        description: "Pin: expected sha256 of the fetched .gguf. Leave blank on the first bootstrap run — fill it in from that run's provenance artifact to verify future runs."
+        description: "Expected sha256 of the fetched .gguf. Default is the digest from Actions run 35433174462. Clear it only when bootstrapping a different file."
         required: false
-        default: ""
+        default: "2e8040ceae7815abe0dcb3540b9995eaa1fa0d2ca9e797d0a635ae4433c68c2d"
   push:
     branches: [main]
     paths:
