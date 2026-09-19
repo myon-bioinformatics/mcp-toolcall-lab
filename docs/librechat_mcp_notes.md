@@ -81,7 +81,10 @@ LibreChat talks to them by service DNS (`http://mcp-mock:8000/mcp`,
 `http://openai-mock:8090/v1`). That is more reproducible than host-network
 mocks plus `host.docker.internal`. Playwright on the host still types into
 `[data-testid=text-input]` and clicks `[data-testid=send-button]`. That UI
-contract is a hard assertion.
+contract is a hard assertion. Selectors, OWUI twins (`#chat-input` /
+`#send-message-button`), and MCP tool-key rules live in
+[`src/mcp_toolcall_lab/frontends.py`](../src/mcp_toolcall_lab/frontends.py)
+and are driven by `python -m mcp_toolcall_lab.chat_ui`.
 
 Whether MCP actually ran is classified afterwards
 (`src/mcp_toolcall_lab/antipatterns.py` + `fixtures/antipatterns/catalog.yaml`):

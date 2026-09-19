@@ -88,6 +88,26 @@ LIBRECHAT_BASE_URL=http://127.0.0.1:3080 \
 Skipped in default `pytest` (`LIBRECHAT_BASE_URL` unset). CI workflow:
 `.github/workflows/librechat-docker-smoke.yml`.
 
+### Frontend catalog + one-liners (LibreChat / Open WebUI)
+
+Playwright 用のセレクタ・認証・MCP の tool 名規則は
+[`src/mcp_toolcall_lab/frontends.py`](src/mcp_toolcall_lab/frontends.py)
+が単一ソースです（upstream の testid / id と provenance 付き）。
+`chat_ui.py` がその定義を共有して type + Send します。
+
+```bash
+python -m mcp_toolcall_lab.frontends                 # 両クライアントの JSON
+python -m mcp_toolcall_lab.frontends librechat
+python -m mcp_toolcall_lab.chat_ui describe
+python -m mcp_toolcall_lab.chat_ui describe openwebui
+# UI が上がっているとき（pip install -e '.[browser-test]' && playwright install chromium）
+python -m mcp_toolcall_lab.chat_ui send --client librechat --url http://127.0.0.1:3080
+python -m mcp_toolcall_lab.chat_ui send --client openwebui --url http://127.0.0.1:3000
+# after `pip install -e .` the same entry points:
+mcp-frontends librechat
+mcp-chat-ui send --client librechat --url http://127.0.0.1:3080
+```
+
 ## Test
 
 ```bash

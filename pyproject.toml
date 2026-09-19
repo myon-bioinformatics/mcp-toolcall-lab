@@ -9,6 +9,10 @@ description = "FastMCP mock tools for reproducible tool-calling experiments"
 requires-python = ">=3.11"
 dependencies = ["fastmcp==3.4.7"]
 
+[project.scripts]
+mcp-chat-ui = "mcp_toolcall_lab.chat_ui:main"
+mcp-frontends = "mcp_toolcall_lab.frontends:main"
+
 [project.optional-dependencies]
 test = [
     "httpx==0.28.1",
