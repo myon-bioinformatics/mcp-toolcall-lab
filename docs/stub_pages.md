@@ -27,6 +27,8 @@ does not start this stack.
 
 Ledger: `test-results/antipatterns.jsonl` (dictionary:
 `fixtures/antipatterns/catalog.yaml`). A miss does not pretend Send failed.
+Raw MCP / cpu-llm / last-run files stay Actions artifacts. Pages only gets
+`index.html` + allowlisted `summary.json`.
 
 ## Role split
 

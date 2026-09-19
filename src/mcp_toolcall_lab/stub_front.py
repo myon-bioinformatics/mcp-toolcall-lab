@@ -348,21 +348,103 @@ def _assistant_html(text: str) -> str:
     return f"<pre>{html.escape(text)}</pre>"
 
 
-def write_pages(out_dir: Path, *, last_run: Path | None = None, corpus: Path | None = None) -> Path:
-    """Write a static GitHub Pages tree. No live MCP — serverless host only."""
+PAGES_FORBIDDEN_NAMES = frozenset(
+    {
+        "mcp-toolcalls.jsonl",
+        "openai-mock.jsonl",
+        "cpu-llm.jsonl",
+        "antipatterns.jsonl",
+        "last-run.json",
+    }
+)
+
+# Public Pages may only show these keys. Prompts, arguments, _meta, and ids stay off-site.
+PAGES_SUMMARY_KEYS = (
+    "source",
+    "verdict",
+    "antipattern_id",
+    "case",
+    "cpu_llm_ok",
+    "stub_ok",
+    "turn_http",
+    "showed_expected_fragment",
+    "observation_n",
+    "antipattern_ids",
+)
+
+
+def pages_summary(
+    last_run: dict[str, Any] | None = None,
+    observations: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Allowlisted public summary. No prompts, arguments, `_meta`, or raw ids."""
+    last_run = last_run or {}
+    observations = observations or []
+    turn = last_run.get("turn") if isinstance(last_run.get("turn"), dict) else {}
+    obs = last_run.get("observation") if isinstance(last_run.get("observation"), dict) else {}
+    health = last_run.get("stub_health") if isinstance(last_run.get("stub_health"), dict) else {}
+    ids = sorted(
+        {
+            str(row["antipattern_id"])
+            for row in observations
+            if isinstance(row, dict) and row.get("antipattern_id")
+        }
+    )
+    if obs.get("antipattern_id") and str(obs["antipattern_id"]) not in ids:
+        ids.append(str(obs["antipattern_id"]))
+        ids.sort()
+    assistant = str(turn.get("assistant") or "")
+    return {
+        "source": "stub-pages",
+        "verdict": obs.get("verdict"),
+        "antipattern_id": obs.get("antipattern_id"),
+        "case": turn.get("case") or obs.get("case"),
+        "cpu_llm_ok": last_run.get("cpu_llm_ok"),
+        "stub_ok": health.get("status") == 200,
+        "turn_http": last_run.get("turn_http"),
+        "showed_expected_fragment": "yokohama" in assistant.lower(),
+        "observation_n": len(observations),
+        "antipattern_ids": ids,
+    }
+
+
+def _load_json_object(path: Path | None) -> dict[str, Any]:
+    if not path or not path.is_file():
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def write_pages(
+    out_dir: Path,
+    *,
+    last_run: Path | None = None,
+    observations: Path | None = None,
+    corpus: Path | None = None,
+) -> Path:
+    """Write a static GitHub Pages tree. Raw MCP/debug logs stay off this tree."""
+    from mcp_toolcall_lab.mock.common import read_jsonl
+
     md = load_markdown()
     out_dir.mkdir(parents=True, exist_ok=True)
+    for name in PAGES_FORBIDDEN_NAMES:
+        leftover = out_dir / name
+        if leftover.exists():
+            leftover.unlink()
     sections = load_corpus(corpus)
     titles = [section.title for section in sections]
-    last_text = ""
-    if last_run and last_run.is_file():
-        last_text = last_run.read_text(encoding="utf-8")
+    summary = pages_summary(_load_json_object(last_run), read_jsonl(observations) if observations else [])
+    summary_text = json.dumps(summary, indent=2, ensure_ascii=False)
     if md is not None:
         body = md.section(
             "mcp-toolcall-lab stub",
             [
                 "Serverless try: GitHub Actions starts Docker (stub + MCP mock + CPU-class model) "
-                "on one compose network, records anti-patterns as JSONL, then publishes this page.",
+                "on one compose network, records anti-patterns as JSONL artifacts, then publishes "
+                "this allowlisted summary. Raw MCP logs are not on Pages.",
                 md.bullet_list(
                     [
                         "Local: `docker compose -f docker/stub-pages/docker-compose.yml up --build`",
@@ -373,13 +455,13 @@ def write_pages(out_dir: Path, *, last_run: Path | None = None, corpus: Path | N
                 ),
                 md.heading("Corpus headings", 2),
                 md.bullet_list(titles or ["(empty)"]),
-                md.heading("Last Actions run", 2),
-                md.code_block(last_text or "(no last-run.json yet)", lang="json"),
+                md.heading("Last Actions summary", 2),
+                md.code_block(summary_text, lang="json"),
             ],
         )
         inner = md.markdown_to_html(body)
     else:
-        inner = "<pre>" + html.escape("\n".join(titles) + "\n" + last_text) + "</pre>"
+        inner = "<pre>" + html.escape("\n".join(titles) + "\n" + summary_text) + "</pre>"
     html_page = (
         "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
         "<title>mcp-toolcall-lab stub</title>"
@@ -387,8 +469,7 @@ def write_pages(out_dir: Path, *, last_run: Path | None = None, corpus: Path | N
         f"</head><body>{inner}</body></html>\n"
     )
     (out_dir / "index.html").write_text(html_page, encoding="utf-8")
-    if last_run and last_run.is_file():
-        (out_dir / "last-run.json").write_text(last_text, encoding="utf-8")
+    (out_dir / "summary.json").write_text(summary_text + "\n", encoding="utf-8")
     return out_dir / "index.html"
 
 
@@ -522,6 +603,7 @@ def main(argv: list[str] | None = None) -> int:
     pages.add_argument("--out", default="_site")
     pages.add_argument("--corpus", default=str(DEFAULT_CORPUS))
     pages.add_argument("--last-run", default=os.environ.get("STUB_LAST_RUN", ""))
+    pages.add_argument("--observations", default=os.environ.get("ANTIPATTERN_LOG", ""))
     args = parser.parse_args(argv)
     if args.cmd is None:
         parser.print_help()
@@ -530,6 +612,7 @@ def main(argv: list[str] | None = None) -> int:
         path = write_pages(
             Path(args.out),
             last_run=Path(args.last_run) if args.last_run else None,
+            observations=Path(args.observations) if args.observations else None,
             corpus=Path(args.corpus),
         )
         print(path)

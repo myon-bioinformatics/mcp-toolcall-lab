@@ -7,12 +7,15 @@ missing, callers fall back to the stub's own ATX splitter.
 
 from __future__ import annotations
 
+import hashlib
 import importlib.util
+import json
 import os
 from pathlib import Path
 from types import ModuleType
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+PROVENANCE_PATH = REPO_ROOT / "vendor" / "markdown.provenance.json"
 
 
 def markdown_py_path() -> Path | None:
@@ -38,3 +41,28 @@ def load_markdown() -> ModuleType | None:
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+def git_blob_sha(path: Path) -> str:
+    data = path.read_bytes()
+    return hashlib.sha1(b"blob %d\0" % len(data) + data).hexdigest()
+
+
+def load_provenance() -> dict[str, str]:
+    return json.loads(PROVENANCE_PATH.read_text(encoding="utf-8"))
+
+
+def assert_markdown_provenance(path: Path | None = None) -> dict[str, str]:
+    """Fail if the vendored file drifted from the recorded commit/blob."""
+    recorded = load_provenance()
+    target = path or markdown_py_path()
+    if target is None:
+        raise FileNotFoundError("vendor/markdown.py is missing")
+    digest = hashlib.sha256(target.read_bytes()).hexdigest()
+    blob = git_blob_sha(target)
+    if blob != recorded["blob_sha"] or digest != recorded["sha256"]:
+        raise ValueError(
+            f"vendored markdown.py does not match {PROVENANCE_PATH.name}: "
+            f"blob={blob} sha256={digest} recorded={recorded}"
+        )
+    return recorded
