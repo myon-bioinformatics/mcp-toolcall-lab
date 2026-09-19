@@ -111,6 +111,28 @@
     };
   }
 
+  // Same chat_<hex24> shape as record.py's new_chat_id() (f"chat_{uuid4().hex[:24]}"),
+  // for display fidelity with the real stub -- not a spec-compliant UUIDv4
+  // (no version/variant bits set), never sent anywhere (no server here to send it to).
+  function randomHex(nChars) {
+    var bytes = new Uint8Array(Math.ceil(nChars / 2));
+    if (window.crypto && window.crypto.getRandomValues) {
+      window.crypto.getRandomValues(bytes);
+    } else {
+      for (var i = 0; i < bytes.length; i++) bytes[i] = Math.floor(Math.random() * 256);
+    }
+    var hex = Array.prototype.map
+      .call(bytes, function (b) {
+        return ("0" + b.toString(16)).slice(-2);
+      })
+      .join("");
+    return hex.slice(0, nChars);
+  }
+
+  function newChatId() {
+    return "chat_" + randomHex(24);
+  }
+
   function el(tag, attrs, text) {
     var node = document.createElement(tag);
     if (attrs) {
@@ -124,6 +146,12 @@
 
   function mount(root, corpusUrl, ids) {
     var sections = [];
+    var chatId = newChatId();
+    var chatIdLine = el(
+      "p",
+      { class: "stub-demo-chatid", "data-testid": "stub-demo-chat-id" },
+      "demo chat_id (client-side only, never sent anywhere): " + chatId
+    );
     var status = el("p", { class: "stub-demo-status" }, "Loading corpus…");
     var thread = el("div", { class: "stub-demo-thread" });
     var form = el("form", { class: "stub-demo-form" });
@@ -136,6 +164,7 @@
     var button = el("button", { id: ids.send, "data-testid": ids.sendTestId, type: "submit" }, "Send");
     form.appendChild(textarea);
     form.appendChild(button);
+    root.appendChild(chatIdLine);
     root.appendChild(status);
     root.appendChild(thread);
     root.appendChild(form);
@@ -174,5 +203,11 @@
       });
   }
 
-  window.mcpToolcallLabStubDemo = { mount: mount, classifyPrompt: classifyPrompt, lookupHeading: lookupHeading, slugify: slugify };
+  window.mcpToolcallLabStubDemo = {
+    mount: mount,
+    classifyPrompt: classifyPrompt,
+    lookupHeading: lookupHeading,
+    slugify: slugify,
+    newChatId: newChatId,
+  };
 })();

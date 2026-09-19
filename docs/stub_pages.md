@@ -92,13 +92,21 @@ and tool names, kept in sync by
 is **labelled, never faked** — this static page has no MCP server behind
 it, so it says so instead of fabricating a result. The real round-trip
 for that case is the "Last Actions summary" block, from the last
-`stub-pages` Actions run.
+`stub-pages` Actions run. A `chat_<hex24>` id (same shape as
+`record.py`'s `new_chat_id()`) is minted once per page load and shown
+above the composer — display fidelity only, never sent anywhere (no
+server here to send it to).
 
 Composer/response element ids reuse `frontends.py`'s LibreChat/Open WebUI
 locators (`#chat-input`, `#send-message-button`,
 `#response-content-container`) for consistency with the rest of this
-repo's dual-locator convention, though nothing here drives it with
-Playwright yet.
+repo's dual-locator convention. `tests/test_stub_demo_browser.py` drives
+a generated copy of this page with a real headless Chromium (same
+`pytest.importorskip("playwright.sync_api")` + `browser-test` extra
+pattern as `tests/test_browser_fetch_protocol.py`; skips cleanly in the
+default `test` CI job, which does not install that extra) — heading hit,
+MCP-pattern label, miss, and the chat_id being minted once and staying
+stable across turns.
 
 ## Role split
 
