@@ -170,7 +170,11 @@ def test_live_server_takes_x_chat_id_then_reuses_session() -> None:
             )
             session.client.post(
                 session.url,
-                headers={k: v for k, v in headers.items() if k.lower() != "x-chat-id"},
+                headers={
+                    k: v
+                    for k, v in headers.items()
+                    if k.lower() not in {"x-chat-id", "x-openwebui-message-id"}
+                },
                 json={
                     "jsonrpc": "2.0",
                     "id": 10,
