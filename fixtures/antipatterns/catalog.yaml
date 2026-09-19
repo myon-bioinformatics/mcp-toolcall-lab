@@ -1,0 +1,55 @@
+# Known LibreChat → mock-MCP anti-patterns.
+# IDs are stable. Runtime hits are appended as JSONL under test-results/
+# (CI artifact) — this file is the dictionary, not the live ledger.
+
+catalog_version: 1
+source: librechat-docker-playwright
+
+antipatterns:
+  - id: SELECTOR_MISS
+    when: Playwright cannot find data-testid=text-input (or the send button)
+    note: LibreChat client markup drifted, or the page never reached chat.
+
+  - id: AUTH_BLOCKED
+    when: register/login did not produce a chat session
+    note: ALLOW_REGISTRATION / ALLOW_EMAIL_LOGIN / first-run onboarding.
+
+  - id: SEND_NOT_CLICKED
+    when: the input was found but Send was not successfully pressed
+    note: disabled send button, overlay, or composer still empty.
+
+  - id: TIMEOUT
+    when: Send was clicked but no assistant bubble appeared in budget
+    note: LibreChat never reached the OpenAI mock, or the mock hung.
+
+  - id: MCP_PICKER_OFF
+    when: LibreChat POSTed /v1/chat/completions with no tools array
+    note: chat MCP picker did not attach mcpServers tools to the turn.
+
+  - id: MCP_NOT_CALLED
+    when: Send succeeded (and tools may have been advertised) but MCP_TOOLCALL_LOG is empty
+    note: model/mock did not issue a tool_call, or LibreChat dropped it.
+
+  - id: MCP_ERROR
+    when: MCP tools/call ran and record.py logged outcome=error
+    note: wrong tool name prefix (LibreChat uses name_mcp_server), bad args, timeout.
+
+  - id: UI_NO_RESULT
+    when: MCP returned success but the chat transcript lacks the expected fragment
+    note: LibreChat rendered an error/empty assistant message after a good MCP call.
+
+  - id: MCP_UNREACHABLE
+    when: the stub (or smoke) could not complete initialize/tools/call against /mcp
+    note: compose DNS, healthcheck, or the mock process died.
+
+  - id: CPU_LLM_UNREACHABLE
+    when: the cpu-llm service on the stub-pages network did not answer /health
+    note: lite stand-in or GGUF overlay failed to start. Accuracy is out of scope.
+
+  - id: CPU_LLM_COMPLETION_FAILED
+    when: cpu-llm answered /health but /v1/chat/completions errored or timed out
+    note: process is up but inference is not — real GGUF OOM/wrong args, or the lite stand-in regressed.
+
+  - id: CPU_LLM_GGUF_FETCH_FAILED
+    when: scripts/fetch_tiny_cpu_gguf.py could not discover, download, or verify a GGUF
+    note: HF API/CDN unreachable from the runner, repo has no .gguf, or CPU_LLM_GGUF_SHA256 mismatched.

@@ -1,16 +1,113 @@
-"""JSONL call log shared by the package server and the generated standalone file."""
+"""JSONL call log shared by the package server and the generated standalone file.
+
+Id mints, header lookup, and the JSONL writer live in ``mock.common`` so the
+OpenAI demo can use the same helpers without importing this MCP log schema.
+"""
 
 from __future__ import annotations
 
-import json
 import os
 from datetime import UTC, datetime
-from pathlib import Path
-from typing import Any
+from typing import Any, Callable
+
+from .mock.common import (
+    CHAT_ID_HEADER_KEYS,
+    MESSAGE_ID_HEADER_KEYS,
+    append_jsonl,
+    chat_id_from_headers,
+    id_from_headers,
+    new_call_id,
+    new_chat_id,
+    read_jsonl,
+)
 
 OUTCOME_SUCCESS = "success"
 OUTCOME_EMPTY = "empty"
 OUTCOME_ERROR = "error"
+
+EVENT_TOOLS_CALL = "tools/call"
+
+__all__ = [
+    "CHAT_ID_HEADER_KEYS",
+    "EVENT_TOOLS_CALL",
+    "MESSAGE_ID_HEADER_KEYS",
+    "OUTCOME_EMPTY",
+    "OUTCOME_ERROR",
+    "OUTCOME_SUCCESS",
+    "chat_id_from_headers",
+    "new_call_id",
+    "new_chat_id",
+    "read_jsonl",
+    "record_call",
+    "resolve_correlation",
+    "usable_session_id",
+]
+
+
+def usable_session_id(session_id: object | None) -> str | None:
+    """Keep a missing MCP session missing. ``str(None)`` is ``"None"``, not an id."""
+    if session_id is None:
+        return None
+    text = str(session_id).strip()
+    if not text or text == "None":
+        return None
+    return text
+
+
+def resolve_correlation(
+    *,
+    meta: dict[str, Any] | None,
+    headers: dict[str, str] | None = None,
+    session_id: str | None = None,
+    session_chats: dict[str, str] | None = None,
+    mint: Callable[[], str] | None = None,
+) -> dict[str, Any]:
+    """Resolve a chat_id without rewriting the caller's `_meta`.
+
+    Priority: ``meta.chat_id`` → well-known headers → this MCP session's
+    previously minted id → mint a new ``chat_*`` and remember it for the session.
+    """
+    meta = dict(meta or {})
+    minted = mint or new_chat_id
+    session_id = usable_session_id(session_id)
+    if meta.get("chat_id"):
+        chat_id = str(meta["chat_id"])
+        source = "meta"
+    else:
+        header_id = chat_id_from_headers(headers)
+        if header_id:
+            chat_id = header_id
+            source = "header"
+        elif session_id and session_chats is not None and session_id in session_chats:
+            chat_id = session_chats[session_id]
+            source = "session"
+        else:
+            chat_id = minted()
+            source = "minted"
+
+    if session_id and session_chats is not None:
+        session_chats.setdefault(session_id, chat_id)
+
+    debug: dict[str, Any] = {
+        "chat_id": chat_id,
+        "chat_id_source": source,
+    }
+    if session_id:
+        debug["session_id"] = session_id
+    message_id = id_from_headers(headers, MESSAGE_ID_HEADER_KEYS)
+    if message_id:
+        debug["message_id"] = message_id
+    if meta.get("call_id") is not None:
+        debug["call_id"] = meta["call_id"]
+        debug["call_id_source"] = "meta"
+    else:
+        debug["call_id"] = new_call_id()
+        debug["call_id_source"] = "minted"
+    if meta.get("trace_id") is not None:
+        debug["trace_id"] = meta["trace_id"]
+    if meta.get("source") is not None:
+        debug["source"] = meta["source"]
+    return debug
 
 
 def record_call(
@@ -21,6 +118,9 @@ def record_call(
     result: Any = None,
     error: str | None = None,
     meta: dict[str, Any] | None = None,
+    debug: dict[str, Any] | None = None,
+    duration_ms: float | None = None,
+    event: str = EVENT_TOOLS_CALL,
 ) -> None:
     """Append one call record when MCP_TOOLCALL_LOG is set.
 
@@ -33,21 +133,34 @@ def record_call(
     logged verbatim when present — so a trace can be reconstructed from this
     JSONL file regardless of which path (chat-simulated or direct) made the
     call.
+
+    `debug` is server-side correlation (resolved chat_id, source, session,
+    result_n). It is *not* merged into `meta`, so existing exact-meta tests
+    and callers keep a clean wire object.
     """
     log_path = os.environ.get("MCP_TOOLCALL_LOG")
     if not log_path:
         return
-    event: dict[str, Any] = {
+    row: dict[str, Any] = {
         "at": datetime.now(UTC).isoformat(),
+        "event": event,
         "tool": tool,
         "arguments": arguments,
         "outcome": outcome,
     }
+    if duration_ms is not None:
+        row["duration_ms"] = duration_ms
     if meta:
-        event["meta"] = meta
+        row["meta"] = meta
+    debug_row = dict(debug) if debug else {}
     if outcome == OUTCOME_ERROR:
-        event["error"] = error or "unknown error"
+        row["error"] = error or "unknown error"
     else:
-        event["result"] = result
-    with Path(log_path).open("a", encoding="utf-8") as log_file:
-        log_file.write(json.dumps(event, ensure_ascii=False, default=str) + "\n")
+        row["result"] = result
+        if isinstance(result, list):
+            debug_row["result_n"] = len(result)
+    if debug_row:
+        row["debug"] = debug_row
+        if debug_row.get("chat_id"):
+            row["chat_id"] = debug_row["chat_id"]
+    append_jsonl(log_path, row)

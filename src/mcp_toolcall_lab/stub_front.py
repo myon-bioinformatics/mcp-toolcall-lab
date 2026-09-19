@@ -1,0 +1,702 @@
+"""Ultra-light chat stub: markdown corpus + stdlib HTTP, almost no deps.
+
+LibreChat / Open WebUI stay the products under test. This module is a
+**reference front** you can run with ``python -m mcp_toolcall_lab.stub_front``:
+
+* Heading → body uses vendored ``markdown.py`` (``split_sections``) when
+  present, else the local ATX splitter. Not a CommonMark engine.
+* The same composer locators both products use (``data-testid=text-input`` /
+  ``send-button`` and ``#chat-input`` / ``#send-message-button`` /
+  ``#response-content-container``) so Playwright can point here without Docker.
+* ``/c/{chat_id}`` mints and keeps a lab chat id, then puts it on MCP
+  ``_meta`` *and* ``X-Chat-Id`` so the mock log is never an orphan row.
+* Prompts that look like the lab tools (Yokohama / stations / prices) take
+  the MCP path instead of heading lookup — the case split the real UIs hide.
+
+No FastMCP / Playwright import on the serve path. MCP is optional urllib
+JSON-RPC; without ``--mcp`` the catalog is called in-process and still logged.
+
+    python -m mcp_toolcall_lab.stub_front turn --heading "Yokohama"
+    python -m mcp_toolcall_lab.stub_front serve --port 8765
+    python -m mcp_toolcall_lab.stub_front serve --mcp http://127.0.0.1:8000/mcp
+"""
+
+from __future__ import annotations
+
+import argparse
+import html
+import json
+import os
+import re
+from dataclasses import asdict, dataclass, field
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from typing import Any
+from urllib.error import HTTPError, URLError
+from urllib.parse import parse_qs, urlparse
+
+from mcp_toolcall_lab.catalog import dispatch_tool
+from mcp_toolcall_lab.frontends import LIBRECHAT, OPENWEBUI, STUB
+from mcp_toolcall_lab.markdown_lib import load_markdown
+from mcp_toolcall_lab.mcp_http import McpStdlibSession
+from mcp_toolcall_lab.record import (
+    OUTCOME_EMPTY,
+    OUTCOME_ERROR,
+    OUTCOME_SUCCESS,
+    new_call_id,
+    new_chat_id,
+    record_call,
+)
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_CORPUS = REPO_ROOT / "fixtures" / "stub_front"
+
+HEADING_RE = re.compile(r"^(#{1,6})\s+(.+?)\s*#*\s*$")
+
+CASE_HEADING_HIT = "HEADING_HIT"
+CASE_HEADING_MISS = "HEADING_MISS"
+CASE_MCP_SUCCESS = "MCP_SUCCESS"
+CASE_MCP_EMPTY = "MCP_EMPTY"
+CASE_MCP_ERROR = "MCP_ERROR"
+CASE_MCP_UNREACHABLE = "MCP_UNREACHABLE"
+
+# Dual locators live in frontends.py — do not re-string them here.
+LIBRECHAT_INPUT = LIBRECHAT.composer.input.value
+LIBRECHAT_SEND = LIBRECHAT.composer.send.value
+OWUI_INPUT = OPENWEBUI.composer.input.value
+OWUI_SEND = OPENWEBUI.composer.send.value
+OWUI_RESPONSE = OPENWEBUI.response.container.value if OPENWEBUI.response.container else "response-content-container"
+
+
+@dataclass(frozen=True)
+class Section:
+    level: int
+    title: str
+    slug: str
+    body: str
+    line: int
+
+
+@dataclass
+class Turn:
+    chat_id: str
+    call_id: str
+    case: str
+    user: str
+    assistant: str
+    tool: str | None = None
+    arguments: dict[str, Any] | None = None
+    mcp_outcome: str | None = None
+    heading: str | None = None
+    notes: str = ""
+
+    def as_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+def slugify(title: str) -> str:
+    lowered = title.casefold().strip()
+    return re.sub(r"[^a-z0-9]+", "-", lowered).strip("-")
+
+
+def parse_sections(markdown: str) -> list[Section]:
+    """Heading → body. Prefer vendored ``markdown.py``; ATX regex is the fallback."""
+    md = load_markdown()
+    if md is not None and hasattr(md, "split_sections"):
+        sections: list[Section] = []
+        line = 1
+        for part in md.split_sections(markdown):
+            level = int(part.get("level") or 0)
+            title = str(part.get("title") or "")
+            raw = str(part.get("content") or "")
+            if level <= 0 or not title:
+                line += raw.count("\n") or 1
+                continue
+            body_lines = raw.splitlines()
+            body = "\n".join(body_lines[1:]).strip()
+            sections.append(Section(level, title, slugify(title), body, line))
+            line += raw.count("\n") or 1
+        return sections
+    lines = markdown.splitlines()
+    found: list[tuple[int, int, str]] = []
+    for index, line in enumerate(lines):
+        match = HEADING_RE.match(line)
+        if match:
+            found.append((index, len(match.group(1)), match.group(2).strip()))
+    sections = []
+    for idx, (start, level, title) in enumerate(found):
+        end = found[idx + 1][0] if idx + 1 < len(found) else len(lines)
+        body = "\n".join(lines[start + 1 : end]).strip()
+        sections.append(Section(level, title, slugify(title), body, start + 1))
+    return sections
+
+
+def load_corpus(root: Path | None = None) -> list[Section]:
+    directory = root or DEFAULT_CORPUS
+    sections: list[Section] = []
+    if not directory.is_dir():
+        return sections
+    for path in sorted(directory.glob("*.md")):
+        sections.extend(parse_sections(path.read_text(encoding="utf-8")))
+    return sections
+
+
+def lookup_heading(query: str, sections: list[Section], *, fuzzy: bool = True) -> Section | None:
+    needle = query.strip()
+    if needle.startswith("#"):
+        needle = needle.lstrip("#").strip()
+    if not needle:
+        return None
+    slug = slugify(needle)
+    folded = needle.casefold()
+    for section in sections:
+        if section.title == needle or section.title.casefold() == folded or section.slug == slug:
+            return section
+    if not fuzzy:
+        return None
+    for section in sections:
+        title = section.title.casefold()
+        if title.startswith(folded) or folded.startswith(title) or folded in title:
+            return section
+    return None
+
+
+def _municipality_query(text: str) -> str:
+    lowered = text.lower()
+    if "yokohama" in lowered or "横浜" in text:
+        return "Yokohama"
+    if "matsudo" in lowered:
+        return "Matsudo"
+    if "chiyoda" in lowered or "tokyo" in lowered:
+        return "Chiyoda"
+    return text.strip()
+
+
+def _station_args(text: str) -> dict[str, Any]:
+    lowered = text.casefold()
+    if "00000" in text or "unknown" in lowered:
+        code = "00000"
+    elif "yokohama" in lowered or "横浜" in text:
+        code = "14109"
+    elif "matsudo" in lowered:
+        code = "12207"
+    else:
+        code = "13101"
+    return {"municipality_code": code}
+
+
+MCP_PATTERNS: tuple[tuple[tuple[str, ...], str, Any], ...] = (
+    (("station", "駅", "find_stations"), "find_stations", _station_args),
+    (
+        ("price", "transaction", "価格", "find_transaction"),
+        "find_transaction_prices",
+        lambda _text: {"municipality_code": "14109", "year": 2025},
+    ),
+    (
+        ("yokohama", "横浜", "municipalit", "市区町村", "find_municipalities"),
+        "find_municipalities",
+        lambda text: {"query": _municipality_query(text)},
+    ),
+)
+
+
+def classify_prompt(prompt: str, sections: list[Section]) -> dict[str, Any]:
+    """Exact heading wins (見出し→本文). Else MCP keywords. ``# Title`` forces heading."""
+    text = prompt.strip()
+    forced_heading = text.startswith("#")
+    exact = lookup_heading(text, sections, fuzzy=False)
+    if exact is not None:
+        return {"kind": "heading", "section": exact}
+    lowered = text.casefold()
+    if not forced_heading:
+        for tokens, tool, args_fn in MCP_PATTERNS:
+            if any(token in lowered for token in tokens):
+                return {"kind": "mcp", "tool": tool, "arguments": args_fn(text)}
+    section = lookup_heading(text, sections, fuzzy=True)
+    if section:
+        return {"kind": "heading", "section": section}
+    return {"kind": "miss"}
+
+
+def render_rows(rows: list[dict[str, Any]]) -> str:
+    if not rows:
+        return "_empty list (valid call, no rows)_"
+    keys: list[str] = []
+    for row in rows:
+        for key in row:
+            if key not in keys:
+                keys.append(str(key))
+    table_rows = [[str(row.get(key, "")) for key in keys] for row in rows]
+    md = load_markdown()
+    if md is not None and hasattr(md, "table"):
+        return md.table(keys, table_rows)
+    header = "| " + " | ".join(keys) + " |"
+    sep = "| " + " | ".join("---" for _ in keys) + " |"
+    body = ["| " + " | ".join(str(row.get(key, "")) for key in keys) + " |" for row in rows]
+    return "\n".join([header, sep, *body])
+
+
+def _inprocess_tool(tool: str, arguments: dict[str, Any]) -> tuple[str, Any]:
+    try:
+        result = dispatch_tool(tool, arguments)
+    except KeyError:
+        return OUTCOME_ERROR, f"unknown tool {tool}"
+    return (OUTCOME_EMPTY if result == [] else OUTCOME_SUCCESS), result
+
+
+def _call_mcp(
+    *,
+    tool: str,
+    arguments: dict[str, Any],
+    chat_id: str,
+    call_id: str,
+    mcp_url: str | None,
+) -> tuple[str, Any, str]:
+    meta = {"chat_id": chat_id, "call_id": call_id, "source": "stub-front"}
+    if not mcp_url:
+        outcome, payload = _inprocess_tool(tool, arguments)
+        record_call(tool=tool, arguments=arguments, outcome=outcome, result=payload, meta=meta)
+        return outcome, payload, "inprocess"
+    try:
+        session = McpStdlibSession(mcp_url, client_name="stub-front")
+        session.initialize()
+        body = session.call_tool(tool, arguments, meta=meta, extra_headers={"X-Chat-Id": chat_id})
+        if isinstance(body, dict) and body.get("error"):
+            return OUTCOME_ERROR, body["error"], "mcp"
+        result = body.get("result") if isinstance(body, dict) else None
+        if not isinstance(result, dict):
+            return OUTCOME_ERROR, body, "mcp"
+        if result.get("isError"):
+            return OUTCOME_ERROR, result, "mcp"
+        structured = result.get("structuredContent") or {}
+        payload = structured.get("result", structured)
+        if payload == [] or payload == {}:
+            return OUTCOME_EMPTY, payload, "mcp"
+        return OUTCOME_SUCCESS, payload, "mcp"
+    except (HTTPError, URLError, TimeoutError, ValueError, json.JSONDecodeError) as exc:
+        return OUTCOME_ERROR, str(exc), "mcp"
+
+
+def reply(
+    prompt: str,
+    *,
+    chat_id: str | None = None,
+    sections: list[Section] | None = None,
+    mcp_url: str | None = None,
+    corpus: Path | None = None,
+) -> Turn:
+    chat_id = chat_id or new_chat_id()
+    call_id = new_call_id()
+    sections = sections if sections is not None else load_corpus(corpus)
+    classified = classify_prompt(prompt, sections)
+    if classified["kind"] == "heading":
+        section: Section = classified["section"]
+        return Turn(
+            chat_id=chat_id,
+            call_id=call_id,
+            case=CASE_HEADING_HIT,
+            user=prompt,
+            assistant=section.body or f"_(no body under {section.title})_",
+            heading=section.title,
+            notes=f"ATX heading L{section.line}",
+        )
+    if classified["kind"] == "miss":
+        titles = ", ".join(section.title for section in sections[:12]) or "(empty corpus)"
+        return Turn(
+            chat_id=chat_id,
+            call_id=call_id,
+            case=CASE_HEADING_MISS,
+            user=prompt,
+            assistant=f"No heading matched. Known: {titles}",
+            notes="heading lookup miss",
+        )
+
+    tool = str(classified["tool"])
+    arguments = dict(classified["arguments"])
+    outcome, payload, via = _call_mcp(
+        tool=tool, arguments=arguments, chat_id=chat_id, call_id=call_id, mcp_url=mcp_url
+    )
+    if via == "mcp" and outcome == OUTCOME_ERROR and isinstance(payload, str):
+        case = CASE_MCP_UNREACHABLE if "urlopen" in payload or "timed out" in payload else CASE_MCP_ERROR
+        assistant = f"MCP {case}: {payload}"
+    elif outcome == OUTCOME_ERROR:
+        case = CASE_MCP_ERROR
+        assistant = f"MCP error: {payload}"
+    elif outcome == OUTCOME_EMPTY:
+        case = CASE_MCP_EMPTY
+        assistant = render_rows([])
+    else:
+        case = CASE_MCP_SUCCESS
+        assistant = render_rows(payload) if isinstance(payload, list) else json.dumps(payload, ensure_ascii=False)
+    return Turn(
+        chat_id=chat_id,
+        call_id=call_id,
+        case=case,
+        user=prompt,
+        assistant=assistant,
+        tool=tool,
+        arguments=arguments,
+        mcp_outcome=outcome,
+        notes=via,
+    )
+
+
+def _assistant_html(text: str) -> str:
+    md = load_markdown()
+    if md is not None and hasattr(md, "markdown_to_html"):
+        return md.markdown_to_html(text)
+    return f"<pre>{html.escape(text)}</pre>"
+
+
+PAGES_FORBIDDEN_NAMES = frozenset(
+    {
+        "mcp-toolcalls.jsonl",
+        "openai-mock.jsonl",
+        "cpu-llm.jsonl",
+        "antipatterns.jsonl",
+        "last-run.json",
+    }
+)
+
+# Static, client-side demo: heading -> body lookup only, no MCP, no Docker.
+# Corpus content only (title/slug/body) -- same public data as the "Corpus
+# headings" list already on this page, never chat_id/_meta/arguments.
+STATIC_DIR = Path(__file__).resolve().parent / "static"
+STUB_DEMO_JS_SOURCE = STATIC_DIR / "stub_demo.js"
+STUB_DEMO_JS_NAME = "stub-demo.js"
+STUB_DEMO_DATA_NAME = "stub-demo-data.json"
+
+# Public Pages may only show these keys. Prompts, arguments, _meta, and ids stay off-site.
+PAGES_SUMMARY_KEYS = (
+    "source",
+    "verdict",
+    "antipattern_id",
+    "case",
+    "cpu_llm_ok",
+    "cpu_llm_backend",
+    "cpu_llm_completion_ok",
+    "stub_ok",
+    "turn_http",
+    "showed_expected_fragment",
+    "observation_n",
+    "antipattern_ids",
+)
+
+
+def pages_summary(
+    last_run: dict[str, Any] | None = None,
+    observations: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Allowlisted public summary. No prompts, arguments, `_meta`, or raw ids."""
+    last_run = last_run or {}
+    observations = observations or []
+    turn = last_run.get("turn") if isinstance(last_run.get("turn"), dict) else {}
+    obs = last_run.get("observation") if isinstance(last_run.get("observation"), dict) else {}
+    health = last_run.get("stub_health") if isinstance(last_run.get("stub_health"), dict) else {}
+    ids = sorted(
+        {
+            str(row["antipattern_id"])
+            for row in observations
+            if isinstance(row, dict) and row.get("antipattern_id")
+        }
+    )
+    if obs.get("antipattern_id") and str(obs["antipattern_id"]) not in ids:
+        ids.append(str(obs["antipattern_id"]))
+        ids.sort()
+    assistant = str(turn.get("assistant") or "")
+    return {
+        "source": "stub-pages",
+        "verdict": obs.get("verdict"),
+        "antipattern_id": obs.get("antipattern_id"),
+        "case": turn.get("case") or obs.get("case"),
+        "cpu_llm_ok": last_run.get("cpu_llm_ok"),
+        "cpu_llm_backend": last_run.get("cpu_llm_backend"),
+        "cpu_llm_completion_ok": last_run.get("cpu_llm_completion_ok"),
+        "stub_ok": health.get("status") == 200,
+        "turn_http": last_run.get("turn_http"),
+        "showed_expected_fragment": "yokohama" in assistant.lower(),
+        "observation_n": len(observations),
+        "antipattern_ids": ids,
+    }
+
+
+def _stub_demo_html() -> str:
+    """Raw HTML for the static, client-side heading-lookup demo.
+
+    Built outside the markdown pipeline (unlike the rest of this page) so a
+    <script>/<div> is never at risk of being escaped by a markdown-to-HTML
+    pass that treats raw HTML as plain text -- vendor/markdown.py is "stdlib
+    helpers, not a CommonMark engine" and makes no promise either way.
+    """
+    locator_ids = {
+        "input": OWUI_INPUT,
+        "inputTestId": LIBRECHAT_INPUT,
+        "send": OWUI_SEND,
+        "sendTestId": LIBRECHAT_SEND,
+        "response": OWUI_RESPONSE,
+    }
+    return (
+        '<h2 id="stub-demo-heading">Try it (static, no MCP)</h2>'
+        "<p>Heading → body lookup only, running entirely in your browser "
+        "(no server, no Docker, no MCP call) — same logic as "
+        "<code>stub_front.py</code>'s <code>classify_prompt()</code>, "
+        "re-implemented in vanilla JS. A prompt that would trigger a real MCP "
+        "tool call is labelled, never faked; the actual round-trip is the "
+        '"Last Actions summary" below.</p>'
+        '<div id="stub-demo" data-testid="stub-demo"></div>'
+        f'<script src="{STUB_DEMO_JS_NAME}"></script>'
+        "<script>\n"
+        "window.mcpToolcallLabStubDemo.mount(\n"
+        "  document.getElementById('stub-demo'),\n"
+        f"  {json.dumps(STUB_DEMO_DATA_NAME)},\n"
+        f"  {json.dumps(locator_ids)}\n"
+        ");\n"
+        "</script>"
+    )
+
+
+def _load_json_object(path: Path | None) -> dict[str, Any]:
+    if not path or not path.is_file():
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def write_pages(
+    out_dir: Path,
+    *,
+    last_run: Path | None = None,
+    observations: Path | None = None,
+    corpus: Path | None = None,
+) -> Path:
+    """Write a static GitHub Pages tree. Raw MCP/debug logs stay off this tree."""
+    from mcp_toolcall_lab.mock.common import read_jsonl
+
+    md = load_markdown()
+    out_dir.mkdir(parents=True, exist_ok=True)
+    for name in PAGES_FORBIDDEN_NAMES:
+        leftover = out_dir / name
+        if leftover.exists():
+            leftover.unlink()
+    sections = load_corpus(corpus)
+    titles = [section.title for section in sections]
+    summary = pages_summary(_load_json_object(last_run), read_jsonl(observations) if observations else [])
+    summary_text = json.dumps(summary, indent=2, ensure_ascii=False)
+    if md is not None:
+        body = md.section(
+            "mcp-toolcall-lab stub",
+            [
+                "Serverless try: GitHub Actions starts Docker (stub + MCP mock + CPU-class model) "
+                "on one compose network, records anti-patterns as JSONL artifacts, then publishes "
+                "this allowlisted summary. Raw MCP logs are not on Pages.",
+                md.bullet_list(
+                    [
+                        "Local: `docker compose -f docker/stub-pages/docker-compose.yml up --build`",
+                        "Actions: workflow `stub-pages` (`workflow_dispatch`)",
+                        "MCP: `http://mcp-mock:8000/mcp` · CPU model: `http://cpu-llm:8080/v1`",
+                        "This Pages host is static. It cannot keep Docker running.",
+                    ]
+                ),
+                md.heading("Corpus headings", 2),
+                md.bullet_list(titles or ["(empty)"]),
+                md.heading("Last Actions summary", 2),
+                md.code_block(summary_text, lang="json"),
+            ],
+        )
+        inner = md.markdown_to_html(body)
+    else:
+        inner = "<pre>" + html.escape("\n".join(titles) + "\n" + summary_text) + "</pre>"
+    demo_html = _stub_demo_html()
+    html_page = (
+        "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
+        "<title>mcp-toolcall-lab stub</title>"
+        "<style>body{font-family:sans-serif;max-width:52rem;margin:1.5rem auto}"
+        "#stub-demo .stub-demo-thread{max-height:20rem;overflow-y:auto;margin:.5rem 0}"
+        "#stub-demo .stub-demo-turn{margin:.5rem 0;padding:.4rem .6rem;border:1px solid #ccc;border-radius:.4rem}"
+        "#stub-demo .stub-demo-user{font-weight:bold}"
+        "#stub-demo .stub-demo-assistant{white-space:pre-wrap}"
+        "#stub-demo textarea{width:100%;font:inherit}</style>"
+        f"</head><body>{inner}{demo_html}</body></html>\n"
+    )
+    (out_dir / "index.html").write_text(html_page, encoding="utf-8")
+    (out_dir / "summary.json").write_text(summary_text + "\n", encoding="utf-8")
+    demo_data = [{"title": s.title, "slug": s.slug, "body": s.body} for s in sections]
+    (out_dir / STUB_DEMO_DATA_NAME).write_text(
+        json.dumps(demo_data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
+    (out_dir / STUB_DEMO_JS_NAME).write_text(STUB_DEMO_JS_SOURCE.read_text(encoding="utf-8"), encoding="utf-8")
+    return out_dir / "index.html"
+
+
+def _page(chat_id: str, turns: list[Turn], prompt: str = "", sections: list[Section] | None = None) -> str:
+    bubbles = []
+    for turn in turns:
+        bubbles.append(
+            f'<section class="turn" data-case="{html.escape(turn.case)}">'
+            f"<h3>user</h3><pre>{html.escape(turn.user)}</pre>"
+            f"<h3>assistant · {html.escape(turn.case)}</h3>"
+            f'<article id="{OWUI_RESPONSE}">{_assistant_html(turn.assistant)}</article>'
+            f"</section>"
+        )
+    thread = "\n".join(bubbles) or "<p>Send a heading (e.g. <code>Find municipalities</code>) or <code>Yokohama</code>.</p>"
+    options = ['<option value="">(heading)</option>']
+    for section in sections or []:
+        options.append(f'<option value="{html.escape(section.title)}">{html.escape(section.title)}</option>')
+    return f"""<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>stub-front {html.escape(chat_id)}</title>
+<style>
+ body {{ font-family: sans-serif; max-width: 52rem; margin: 1.5rem auto; }}
+ textarea {{ width: 100%; min-height: 4rem; }}
+ select {{ width: 100%; margin: .4rem 0; }}
+</style></head>
+<body>
+<p>lab chat_id <code data-testid="chat-id">{html.escape(chat_id)}</code> · stdlib stub</p>
+<form method="post" action="/c/{html.escape(chat_id)}">
+<label for="heading-select">Headings</label>
+<select id="heading-select" name="heading" data-testid="heading-select">{"".join(options)}</select>
+<textarea name="prompt" data-testid="{LIBRECHAT_INPUT}" id="{OWUI_INPUT}">{html.escape(prompt)}</textarea>
+<button type="submit" data-testid="{LIBRECHAT_SEND}" id="{OWUI_SEND}">Send</button>
+</form>
+{thread}
+</body></html>
+"""
+
+
+@dataclass
+class StubState:
+    sections: list[Section]
+    mcp_url: str | None
+    chats: dict[str, list[Turn]] = field(default_factory=dict)
+
+
+def make_handler(state: StubState) -> type[BaseHTTPRequestHandler]:
+    class Handler(BaseHTTPRequestHandler):
+        def log_message(self, format: str, *args: Any) -> None:  # noqa: A002
+            return
+
+        def _send(self, status: int, body: bytes, content_type: str) -> None:
+            self.send_response(status)
+            self.send_header("Content-Type", content_type)
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def _chat_id_from_path(self) -> str | None:
+            parts = [part for part in urlparse(self.path).path.split("/") if part]
+            if len(parts) >= 2 and parts[0] == "c" and parts[1] not in {"new"}:
+                return parts[1]
+            return None
+
+        def do_GET(self) -> None:  # noqa: N802
+            path = urlparse(self.path).path.rstrip("/") or "/"
+            if path == "/health":
+                self._send(200, b'{"ok":true}\n', "application/json")
+                return
+            if path in {"/", "/login", "/c", "/c/new"}:
+                chat_id = new_chat_id()
+                self.send_response(302)
+                self.send_header("Location", f"/c/{chat_id}")
+                self.end_headers()
+                return
+            chat_id = self._chat_id_from_path()
+            if chat_id:
+                state.chats.setdefault(chat_id, [])
+                page = _page(chat_id, state.chats[chat_id], sections=state.sections)
+                self._send(200, page.encode("utf-8"), "text/html; charset=utf-8")
+                return
+            self._send(404, b"not found\n", "text/plain")
+
+        def do_POST(self) -> None:  # noqa: N802
+            length = int(self.headers.get("Content-Length", "0") or 0)
+            raw = self.rfile.read(length) if length else b""
+            path = urlparse(self.path).path
+            prompt = ""
+            if self.headers.get("Content-Type", "").startswith("application/json"):
+                try:
+                    payload = json.loads(raw or b"{}")
+                except json.JSONDecodeError:
+                    self._send(400, b'{"error":"invalid json"}\n', "application/json")
+                    return
+                prompt = str(payload.get("prompt") or payload.get("heading") or "")
+                chat_id = str(payload.get("chat_id") or self._chat_id_from_path() or new_chat_id())
+            else:
+                form = parse_qs(raw.decode("utf-8"))
+                prompt = (form.get("prompt") or [""])[0] or (form.get("heading") or [""])[0]
+                chat_id = self._chat_id_from_path() or new_chat_id()
+            turn = reply(prompt, chat_id=chat_id, sections=state.sections, mcp_url=state.mcp_url)
+            state.chats.setdefault(chat_id, []).append(turn)
+            if path.startswith("/api/"):
+                self._send(
+                    200,
+                    (json.dumps(turn.as_dict(), ensure_ascii=False) + "\n").encode("utf-8"),
+                    "application/json",
+                )
+                return
+            self._send(
+                200,
+                _page(chat_id, state.chats[chat_id], sections=state.sections).encode("utf-8"),
+                "text/html; charset=utf-8",
+            )
+
+    return Handler
+
+
+def serve(host: str, port: int, *, corpus: Path, mcp_url: str | None) -> None:
+    state = StubState(sections=load_corpus(corpus), mcp_url=mcp_url)
+    server = ThreadingHTTPServer((host, port), make_handler(state))
+    print(f"stub-front http://{host}:{port}/  corpus={corpus} mcp={mcp_url or 'inprocess'}", flush=True)
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        server.shutdown()
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(prog="python -m mcp_toolcall_lab.stub_front")
+    sub = parser.add_subparsers(dest="cmd")
+    turn = sub.add_parser("turn", help="one heading/MCP turn as JSON (no server)")
+    turn.add_argument("--heading", "--prompt", dest="prompt", default="", required=True)
+    turn.add_argument("--chat-id", default="")
+    turn.add_argument("--corpus", default=str(DEFAULT_CORPUS))
+    turn.add_argument("--mcp", default=os.environ.get("STUB_MCP_URL", ""))
+    serve_p = sub.add_parser("serve", help="stdlib HTTP composer")
+    serve_p.add_argument("--host", default=os.environ.get("STUB_HOST", urlparse(STUB.default_url).hostname or "127.0.0.1"))
+    serve_p.add_argument("--port", type=int, default=int(os.environ.get("STUB_PORT", str(urlparse(STUB.default_url).port or 8765))))
+    serve_p.add_argument("--corpus", default=str(DEFAULT_CORPUS))
+    serve_p.add_argument("--mcp", default=os.environ.get("STUB_MCP_URL", ""))
+    pages = sub.add_parser("pages", help="write a static GitHub Pages tree")
+    pages.add_argument("--out", default="_site")
+    pages.add_argument("--corpus", default=str(DEFAULT_CORPUS))
+    pages.add_argument("--last-run", default=os.environ.get("STUB_LAST_RUN", ""))
+    pages.add_argument("--observations", default=os.environ.get("ANTIPATTERN_LOG", ""))
+    args = parser.parse_args(argv)
+    if args.cmd is None:
+        parser.print_help()
+        return 2
+    if args.cmd == "pages":
+        path = write_pages(
+            Path(args.out),
+            last_run=Path(args.last_run) if args.last_run else None,
+            observations=Path(args.observations) if args.observations else None,
+            corpus=Path(args.corpus),
+        )
+        print(path)
+        return 0
+    if args.cmd == "turn":
+        result = reply(
+            args.prompt,
+            chat_id=args.chat_id or None,
+            corpus=Path(args.corpus),
+            mcp_url=args.mcp or None,
+        )
+        print(json.dumps(result.as_dict(), indent=2, ensure_ascii=False))
+        return 0 if result.case != CASE_HEADING_MISS else 1
+    serve(args.host, args.port, corpus=Path(args.corpus), mcp_url=args.mcp or None)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

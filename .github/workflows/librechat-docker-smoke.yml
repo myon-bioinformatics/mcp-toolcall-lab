@@ -1,0 +1,91 @@
+name: librechat-docker-smoke
+
+# Real LibreChat + MCP mock + OpenAI mock on one Docker network, then Playwright.
+# Default `test` workflow stays `pytest -q` only (this module skips without
+# LIBRECHAT_BASE_URL). The MCP-classification test records anti-patterns
+# instead of failing the job when tools/call does not happen.
+on:
+  workflow_dispatch:
+    inputs:
+      message:
+        description: "Chat text to type before Send"
+        required: false
+        default: "Find municipalities named Yokohama"
+  pull_request:
+  push:
+    branches: [main]
+    paths:
+      - "docker/librechat-smoke/**"
+      - "demos/openai_toolcall_mock.py"
+      - "librechat_mcp_mock.py"
+      - "openwebui_mcp_mock.py"
+      - "src/mcp_toolcall_lab/**"
+      - "tests/real_chat_ui/**"
+      - ".github/workflows/librechat-docker-smoke.yml"
+
+jobs:
+  librechat-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install test + Playwright
+        run: |
+          pip install -e ".[test,browser-test]"
+          playwright install --with-deps chromium
+
+      - name: Start the lab network (LibreChat + both mocks)
+        run: |
+          mkdir -p test-results
+          docker compose -f docker/librechat-smoke/docker-compose.yml up --build -d
+
+      - name: Wait for LibreChat
+        run: |
+          for i in $(seq 1 90); do
+            curl -sf http://127.0.0.1:3080 > /dev/null && break
+            sleep 2
+          done
+          curl -sf http://127.0.0.1:3080 > /dev/null
+
+      - name: Playwright — input, Send, classify MCP
+        env:
+          LIBRECHAT_BASE_URL: http://127.0.0.1:3080
+          MCP_TOOLCALL_LOG: ${{ github.workspace }}/test-results/mcp-toolcalls.jsonl
+          OPENAI_MOCK_LOG: ${{ github.workspace }}/test-results/openai-mock.jsonl
+          ANTIPATTERN_LOG: ${{ github.workspace }}/test-results/antipatterns.jsonl
+          LIBRECHAT_CHAT_MESSAGE: ${{ github.event.inputs.message || 'Find municipalities named Yokohama' }}
+        run: pytest -q tests/real_chat_ui/test_librechat_docker.py -v
+
+      - name: Dump logs on failure
+        if: failure()
+        working-directory: docker/librechat-smoke
+        run: |
+          echo "::group::compose ps"
+          docker compose ps -a || true
+          echo "::endgroup::"
+          echo "::group::mcp-mock"
+          docker compose logs --no-color mcp-mock || true
+          echo "::endgroup::"
+          echo "::group::openai-mock"
+          docker compose logs --no-color openai-mock || true
+          echo "::endgroup::"
+          echo "::group::librechat"
+          docker compose logs --no-color librechat || true
+          echo "::endgroup::"
+
+      - name: Upload observations and screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: librechat-smoke-observations
+          path: |
+            test-results/
+          if-no-files-found: ignore
+
+      - name: Tear down
+        if: always()
+        working-directory: docker/librechat-smoke
+        run: docker compose down -v

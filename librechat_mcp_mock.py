@@ -12,6 +12,94 @@ another container or VM must connect.
 """
 from __future__ import annotations
 
+# --- mock/common.py ---
+"""Stdlib bits both lab mocks can import without taking on each other's protocol.
+
+Used by the MCP server (via ``record``) and the OpenAI-compatible demo.
+No FastMCP, no OpenAI ``tool_calls`` decision, no MCP ``_meta`` schema —
+those stay in the mock that owns that wire.
+"""
+
+
+import json
+import uuid
+from pathlib import Path
+from typing import Any
+
+CHAT_ID_HEADER_KEYS = (
+    "x-chat-id",
+    "x-lab-chat-id",
+    "x-conversation-id",
+    "x-owui-chat-id",
+    "x-openwebui-chat-id",  # OWUI ENABLE_FORWARD_USER_INFO_HEADERS
+)
+
+MESSAGE_ID_HEADER_KEYS = (
+    "x-openwebui-message-id",
+    "x-message-id",
+)
+
+
+def new_chat_id() -> str:
+    """Lab conversation pin. Not LibreChat's conversationId or OWUI chat.id."""
+    return f"chat_{uuid.uuid4().hex[:24]}"
+
+
+def new_call_id() -> str:
+    """OpenAI ``tool_calls[].id`` shape. Same mint for MCP debug and the OpenAI mock."""
+    return f"call_{uuid.uuid4().hex[:24]}"
+
+
+def id_from_headers(headers: Any, keys: tuple[str, ...]) -> str | None:
+    """Return the first non-empty value among ``keys`` (case-insensitive)."""
+    if not headers:
+        return None
+    items = headers.items() if hasattr(headers, "items") else []
+    lowered = {str(key).lower(): str(value).strip() for key, value in items}
+    for key in keys:
+        value = lowered.get(key)
+        if value:
+            return value
+    return None
+
+
+def chat_id_from_headers(headers: Any) -> str | None:
+    return id_from_headers(headers, CHAT_ID_HEADER_KEYS)
+
+
+def append_jsonl(path: str | Path, row: dict[str, Any]) -> None:
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    with target.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(row, ensure_ascii=False, default=str) + "\n")
+
+
+def read_jsonl(path: str | Path) -> list[dict[str, Any]]:
+    """Read a JSONL file; skip blank or broken lines (debug logs are append-only)."""
+    target = Path(path)
+    if not target.is_file():
+        return []
+    events: list[dict[str, Any]] = []
+    for line in target.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            events.append(json.loads(line))
+        except json.JSONDecodeError:
+            continue
+    return events
+
+
+def close_http11_sse(handler: Any) -> None:
+    """End an HTTP/1.1 SSE response. Keep-alive with no length hangs the next request.
+
+    Same class of bug as markdown ``demos/openai_compat_mock.py`` (c0dcd15).
+    JSON responses that already send ``Content-Length`` do not need this.
+    """
+    handler.send_header("Connection", "close")
+    handler.close_connection = True
+
 # --- catalog.py ---
 """Pure-Python mock data used by the FastMCP server and unit tests.
 
@@ -19,6 +107,8 @@ A valid call that matches nothing returns an empty list. That is not an error.
 Protocol problems (unknown tool, invalid arguments, timeout) are errors.
 """
 
+
+from typing import Any
 
 AVAILABLE_TOOLS = (
     "find_municipalities",
@@ -78,19 +168,120 @@ def search_stations(municipality_code: str) -> list[dict[str, str]]:
     """Return deterministic station-like records, or [] when the code is unknown."""
     return list(STATIONS.get(municipality_code, []))
 
+
+def dispatch_tool(name: str, arguments: dict[str, Any]) -> list[dict[str, Any]]:
+    """In-process tool body. FastMCP wrappers and the stub front share this."""
+    if name == "find_municipalities":
+        return search_municipalities(str(arguments.get("query", "")))
+    if name == "find_stations":
+        return search_stations(str(arguments.get("municipality_code", "")))
+    if name == "find_transaction_prices":
+        return search_transaction_prices(
+            str(arguments.get("municipality_code", "")),
+            int(arguments.get("year", 2025)),
+        )
+    raise KeyError(name)
+
 # --- record.py ---
-"""JSONL call log shared by the package server and the generated standalone file."""
+"""JSONL call log shared by the package server and the generated standalone file.
+
+Id mints, header lookup, and the JSONL writer live in ``mock.common`` so the
+OpenAI demo can use the same helpers without importing this MCP log schema.
+"""
 
 
-import json
 import os
 from datetime import UTC, datetime
-from pathlib import Path
-from typing import Any
+from typing import Any, Callable
+
 
 OUTCOME_SUCCESS = "success"
 OUTCOME_EMPTY = "empty"
 OUTCOME_ERROR = "error"
+
+EVENT_TOOLS_CALL = "tools/call"
+
+__all__ = [
+    "CHAT_ID_HEADER_KEYS",
+    "EVENT_TOOLS_CALL",
+    "MESSAGE_ID_HEADER_KEYS",
+    "OUTCOME_EMPTY",
+    "OUTCOME_ERROR",
+    "OUTCOME_SUCCESS",
+    "chat_id_from_headers",
+    "new_call_id",
+    "new_chat_id",
+    "read_jsonl",
+    "record_call",
+    "resolve_correlation",
+    "usable_session_id",
+]
+
+
+def usable_session_id(session_id: object | None) -> str | None:
+    """Keep a missing MCP session missing. ``str(None)`` is ``"None"``, not an id."""
+    if session_id is None:
+        return None
+    text = str(session_id).strip()
+    if not text or text == "None":
+        return None
+    return text
+
+
+def resolve_correlation(
+    *,
+    meta: dict[str, Any] | None,
+    headers: dict[str, str] | None = None,
+    session_id: str | None = None,
+    session_chats: dict[str, str] | None = None,
+    mint: Callable[[], str] | None = None,
+) -> dict[str, Any]:
+    """Resolve a chat_id without rewriting the caller's `_meta`.
+
+    Priority: ``meta.chat_id`` → well-known headers → this MCP session's
+    previously minted id → mint a new ``chat_*`` and remember it for the session.
+    """
+    meta = dict(meta or {})
+    minted = mint or new_chat_id
+    session_id = usable_session_id(session_id)
+    if meta.get("chat_id"):
+        chat_id = str(meta["chat_id"])
+        source = "meta"
+    else:
+        header_id = chat_id_from_headers(headers)
+        if header_id:
+            chat_id = header_id
+            source = "header"
+        elif session_id and session_chats is not None and session_id in session_chats:
+            chat_id = session_chats[session_id]
+            source = "session"
+        else:
+            chat_id = minted()
+            source = "minted"
+
+    if session_id and session_chats is not None:
+        session_chats.setdefault(session_id, chat_id)
+
+    debug: dict[str, Any] = {
+        "chat_id": chat_id,
+        "chat_id_source": source,
+    }
+    if session_id:
+        debug["session_id"] = session_id
+    message_id = id_from_headers(headers, MESSAGE_ID_HEADER_KEYS)
+    if message_id:
+        debug["message_id"] = message_id
+    if meta.get("call_id") is not None:
+        debug["call_id"] = meta["call_id"]
+        debug["call_id_source"] = "meta"
+    else:
+        debug["call_id"] = new_call_id()
+        debug["call_id_source"] = "minted"
+    if meta.get("trace_id") is not None:
+        debug["trace_id"] = meta["trace_id"]
+    if meta.get("source") is not None:
+        debug["source"] = meta["source"]
+    return debug
 
 
 def record_call(
@@ -101,6 +292,9 @@ def record_call(
     result: Any = None,
     error: str | None = None,
     meta: dict[str, Any] | None = None,
+    debug: dict[str, Any] | None = None,
+    duration_ms: float | None = None,
+    event: str = EVENT_TOOLS_CALL,
 ) -> None:
     """Append one call record when MCP_TOOLCALL_LOG is set.
 
@@ -113,24 +307,37 @@ def record_call(
     logged verbatim when present — so a trace can be reconstructed from this
     JSONL file regardless of which path (chat-simulated or direct) made the
     call.
+
+    `debug` is server-side correlation (resolved chat_id, source, session,
+    result_n). It is *not* merged into `meta`, so existing exact-meta tests
+    and callers keep a clean wire object.
     """
     log_path = os.environ.get("MCP_TOOLCALL_LOG")
     if not log_path:
         return
-    event: dict[str, Any] = {
+    row: dict[str, Any] = {
         "at": datetime.now(UTC).isoformat(),
+        "event": event,
         "tool": tool,
         "arguments": arguments,
         "outcome": outcome,
     }
+    if duration_ms is not None:
+        row["duration_ms"] = duration_ms
     if meta:
-        event["meta"] = meta
+        row["meta"] = meta
+    debug_row = dict(debug) if debug else {}
     if outcome == OUTCOME_ERROR:
-        event["error"] = error or "unknown error"
+        row["error"] = error or "unknown error"
     else:
-        event["result"] = result
-    with Path(log_path).open("a", encoding="utf-8") as log_file:
-        log_file.write(json.dumps(event, ensure_ascii=False, default=str) + "\n")
+        row["result"] = result
+        if isinstance(result, list):
+            debug_row["result_n"] = len(result)
+    if debug_row:
+        row["debug"] = debug_row
+        if debug_row.get("chat_id"):
+            row["chat_id"] = debug_row["chat_id"]
+    append_jsonl(log_path, row)
 
 # --- server.py ---
 """FastMCP server exposing a small, deterministic real-estate-style mock API."""
@@ -138,6 +345,7 @@ def record_call(
 
 import asyncio
 import os
+import time
 from typing import Any
 
 from fastmcp import FastMCP
@@ -198,28 +406,93 @@ def _request_meta(context: MiddlewareContext) -> dict[str, Any]:
     return {k: v for k, v in dict(meta).items() if k != "progressToken"}
 
 
+def _http_headers() -> dict[str, str]:
+    """Best-effort request headers. Empty when this is not an HTTP hop."""
+    try:
+        from fastmcp.server.dependencies import get_http_headers
+    except Exception:
+        return {}
+    try:
+        return dict(get_http_headers() or {})
+    except Exception:
+        return {}
+
+
+def _session_id(context: MiddlewareContext) -> str | None:
+    ctx = context.fastmcp_context
+    if ctx is None:
+        return None
+    try:
+        raw = ctx.session_id
+    except Exception:
+        return None
+    return usable_session_id(raw)
+
+
 class ObservabilityMiddleware(Middleware):
-    """Log every tools/call, including unknown names and validation failures."""
+    """Log every tools/call, including unknown names and validation failures.
+
+    Also resolves a ``chat_id`` for debugging: caller `_meta`, then
+    ``X-Chat-Id`` / ``X-Conversation-Id`` headers, then the id minted for
+    this MCP session on the first call.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._session_chats: dict[str, str] = {}
+
+    def _debug(self, context: MiddlewareContext, meta: dict[str, Any]) -> dict[str, Any]:
+        return resolve_correlation(
+            meta=meta,
+            headers=_http_headers(),
+            session_id=_session_id(context),
+            session_chats=self._session_chats,
+        )
 
     async def on_call_tool(self, context: MiddlewareContext, call_next):
         delay = _tool_delay_seconds()
-        if delay:
-            await asyncio.sleep(delay)
         name = context.message.name
         arguments = dict(context.message.arguments or {})
         meta = _request_meta(context)
+        debug = self._debug(context, meta)
+        started = time.perf_counter()
+        if delay:
+            await asyncio.sleep(delay)
         try:
             result = await call_next(context)
         except Exception as exc:
-            record_call(tool=name, arguments=arguments, outcome=OUTCOME_ERROR, error=str(exc), meta=meta)
+            self._emit(name, arguments, meta, debug, started, outcome=OUTCOME_ERROR, error=str(exc))
             raise
         payload = _result_payload(result)
         outcome = _outcome_for_result(result, payload)
         if outcome == OUTCOME_ERROR:
-            record_call(tool=name, arguments=arguments, outcome=outcome, error=str(payload), meta=meta)
+            self._emit(name, arguments, meta, debug, started, outcome=outcome, error=str(payload))
         else:
-            record_call(tool=name, arguments=arguments, outcome=outcome, result=payload, meta=meta)
+            self._emit(name, arguments, meta, debug, started, outcome=outcome, result=payload)
         return result
+
+    @staticmethod
+    def _emit(
+        name: str,
+        arguments: dict[str, Any],
+        meta: dict[str, Any],
+        debug: dict[str, Any],
+        started: float,
+        *,
+        outcome: str,
+        result: Any = None,
+        error: str | None = None,
+    ) -> None:
+        record_call(
+            tool=name,
+            arguments=arguments,
+            outcome=outcome,
+            result=result,
+            error=error,
+            meta=meta,
+            debug=debug,
+            duration_ms=round((time.perf_counter() - started) * 1000, 3),
+        )
 
 
 def create_mcp() -> FastMCP:
@@ -229,15 +502,15 @@ def create_mcp() -> FastMCP:
 
     @mcp.tool(description=TOOL_DESCRIPTIONS["find_municipalities"])
     def find_municipalities(query: str) -> list[dict[str, str]]:
-        return search_municipalities(query)
+        return dispatch_tool("find_municipalities", {"query": query})
 
     @mcp.tool(description=TOOL_DESCRIPTIONS["find_transaction_prices"])
     def find_transaction_prices(municipality_code: str, year: int) -> list[dict[str, int | str]]:
-        return search_transaction_prices(municipality_code, year)
+        return dispatch_tool("find_transaction_prices", {"municipality_code": municipality_code, "year": year})
 
     @mcp.tool(description=TOOL_DESCRIPTIONS["find_stations"])
     def find_stations(municipality_code: str) -> list[dict[str, str]]:
-        return search_stations(municipality_code)
+        return dispatch_tool("find_stations", {"municipality_code": municipality_code})
 
     return mcp
 

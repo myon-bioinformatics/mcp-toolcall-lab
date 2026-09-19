@@ -1,0 +1,39 @@
+# Real tiny GGUF behind the same service DNS ``cpu-llm``, in place of
+# demos/cpu_llm_lite.py. Opt-in only (needs internet to huggingface.co):
+# CI wires this in via stub-pages.yml's `use_real_gguf` workflow_dispatch
+# input, never on a plain push.
+#
+# Image is digest-pinned (see llama.cpp.image.provenance.json). The GGUF
+# checksum is pinned in scripts/fetch_tiny_cpu_gguf.py (DEFAULT_SHA256)
+# from Actions run 35433174462.
+#
+# ``build: !reset`` drops the lite Dockerfile from docker-compose.yml.
+# Without that, ``up --build`` tries to tag the built stand-in as
+# ``image@sha256:...`` and BuildKit fails:
+# ``refusing to create a tag with a digest reference``.
+#
+#   scripts/fetch_tiny_cpu_gguf.sh docker/stub-pages/models/model.gguf
+#   docker compose -f docker/stub-pages/docker-compose.yml \
+#     -f docker/stub-pages/docker-compose.gguf.yml up --build
+services:
+  cpu-llm:
+    build: !reset {}
+    image: ghcr.io/ggml-org/llama.cpp:server@sha256:9002e60256635720c05c50455fdebf992a98dc25466dc932758ecd7936244c1c
+    pull_policy: missing
+    command:
+      - -m
+      - /models/model.gguf
+      - --host
+      - "0.0.0.0"
+      - --port
+      - "8080"
+    volumes:
+      - ./models:/models
+    environment: !reset {}
+    healthcheck:
+      # Image-native check (Ubuntu 24.04 ships curl; /health is the server probe).
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:8080/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s

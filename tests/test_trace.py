@@ -54,6 +54,10 @@ async def test_chat_path_is_traceable_via_the_shared_log():
             "chat_id": trace.chat_id,
             "source": "chat",
         }
+        assert event["chat_id"] == trace.chat_id
+        assert event["debug"]["chat_id_source"] == "meta"
+        assert event["event"] == "tools/call"
+        assert "duration_ms" in event
 
 
 @pytest.mark.integration
@@ -74,6 +78,8 @@ async def test_direct_path_is_traceable_via_the_shared_log():
         event = events[0]
         assert event["tool"] == "find_stations"
         assert event["meta"] == {"source": "direct", "trace_id": "probe-1"}
+        assert event["debug"]["chat_id_source"] in {"minted", "session", "header"}
+        assert event["chat_id"]
 
 
 @pytest.mark.integration

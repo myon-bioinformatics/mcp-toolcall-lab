@@ -1,0 +1,243 @@
+"""Pages/Actions stub stack — no Docker in default pytest."""
+
+from __future__ import annotations
+
+import json
+import shutil
+import subprocess
+from pathlib import Path
+
+import pytest
+
+from mcp_toolcall_lab.antipatterns import (
+    CPU_LLM_UNREACHABLE,
+    MCP_UNREACHABLE,
+    classify_stub_turn,
+)
+from mcp_toolcall_lab.markdown_lib import (
+    assert_markdown_provenance,
+    load_markdown,
+    markdown_py_path,
+)
+from mcp_toolcall_lab.stub_front import (
+    MCP_PATTERNS,
+    PAGES_FORBIDDEN_NAMES,
+    PAGES_SUMMARY_KEYS,
+    STUB_DEMO_DATA_NAME,
+    STUB_DEMO_JS_NAME,
+    STUB_DEMO_JS_SOURCE,
+    load_corpus,
+    pages_summary,
+    parse_sections,
+    render_rows,
+    write_pages,
+)
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_vendored_markdown_py_is_loadable() -> None:
+    path = markdown_py_path()
+    assert path is not None
+    md = load_markdown()
+    assert md is not None
+    assert md.split_sections("# Yokohama\n\nbody\n")[0]["title"] == "Yokohama"
+    recorded = assert_markdown_provenance()
+    assert recorded["commit"] == "1c0f7b98c935457dca59b94b7c43af448431c40e"
+    assert recorded["blob_sha"] == "4e621652ab49ea3c677216354a20647c867a7a47"
+    readme = (ROOT / "vendor" / "README.md").read_text(encoding="utf-8")
+    assert "ref=${COMMIT}" in readme
+    assert "not `main`" in readme
+
+
+def test_parse_sections_uses_markdown_py_bodies() -> None:
+    sections = parse_sections("# Find municipalities\n\nUse the mock tool.\n")
+    assert sections[0].title == "Find municipalities"
+    assert "mock tool" in sections[0].body
+
+
+def test_render_rows_uses_markdown_table() -> None:
+    text = render_rows([{"name": "Yokohama", "code": "14109"}])
+    assert "Yokohama" in text
+    assert "14109" in text
+
+
+def test_write_pages_is_static(tmp_path: Path) -> None:
+    last = tmp_path / "last-run.json"
+    last.write_text('{"cpu_llm_ok": true, "stub_health": {"status": 200}}\n', encoding="utf-8")
+    index = write_pages(tmp_path / "site", last_run=last)
+    html = index.read_text(encoding="utf-8")
+    assert "mcp-toolcall-lab stub" in html
+    assert "mcp-mock:8000/mcp" in html
+    assert (tmp_path / "site" / "summary.json").is_file()
+    assert not (tmp_path / "site" / "last-run.json").exists()
+
+
+def test_pages_tree_excludes_raw_mcp_logs(tmp_path: Path) -> None:
+    last = tmp_path / "last-run.json"
+    last.write_text(
+        json.dumps(
+            {
+                "turn": {
+                    "case": "MCP_SUCCESS",
+                    "assistant": "Yokohama",
+                    "arguments": {"query": "secret-prompt"},
+                    "chat_id": "chat_secret",
+                    "meta": {"chat_id": "chat_secret"},
+                },
+                "observation": {"verdict": "PASS", "antipattern_id": None},
+                "cpu_llm_ok": True,
+                "cpu_llm_backend": "lite-stub",
+                "cpu_llm_completion_ok": True,
+                "stub_health": {"status": 200, "body": "ok"},
+                "turn_http": 200,
+            }
+        ),
+        encoding="utf-8",
+    )
+    anti = tmp_path / "antipatterns.jsonl"
+    anti.write_text(
+        '{"verdict":"PASS","detail":"reached MCP","chat_id":"chat_secret"}\n',
+        encoding="utf-8",
+    )
+    out = tmp_path / "site"
+    out.mkdir()
+    (out / "mcp-toolcalls.jsonl").write_text("{}\n", encoding="utf-8")
+    write_pages(out, last_run=last, observations=anti)
+    names = {path.name for path in out.iterdir()}
+    assert names.isdisjoint(PAGES_FORBIDDEN_NAMES)
+    public = (out / "index.html").read_text(encoding="utf-8") + (out / "summary.json").read_text(
+        encoding="utf-8"
+    )
+    assert "secret-prompt" not in public
+    assert "chat_secret" not in public
+    assert '"arguments"' not in public
+    summary = json.loads((out / "summary.json").read_text(encoding="utf-8"))
+    assert set(summary) == set(PAGES_SUMMARY_KEYS)
+    assert summary["verdict"] == "PASS"
+    assert summary["showed_expected_fragment"] is True
+    assert summary["cpu_llm_backend"] == "lite-stub"
+    assert summary["cpu_llm_completion_ok"] is True
+    assert pages_summary({"turn": {"case": "HEADING_MISS"}}, [])["case"] == "HEADING_MISS"
+
+
+def test_classify_stub_turn_pass_and_miss() -> None:
+    ok = classify_stub_turn(
+        {"case": "MCP_SUCCESS", "assistant": "Yokohama 14109"}, cpu_llm_ok=True
+    )
+    assert ok["verdict"] == "PASS"
+    assert ok["cpu_llm_ok"] is True
+    miss = classify_stub_turn({"case": "MCP_UNREACHABLE", "assistant": "timed out"})
+    assert miss["antipattern_id"] == MCP_UNREACHABLE
+    down = classify_stub_turn(
+        {"case": "MCP_SUCCESS", "assistant": "Yokohama"}, cpu_llm_ok=False
+    )
+    assert down["cpu_llm_ok"] is False
+    assert CPU_LLM_UNREACHABLE != down["antipattern_id"]
+
+
+def test_stub_pages_compose_uses_service_dns() -> None:
+    compose = (ROOT / "docker" / "stub-pages" / "docker-compose.yml").read_text(encoding="utf-8")
+    assert "name: mcp-toolcall-lab-pages" in compose
+    assert "STUB_MCP_URL: http://mcp-mock:8000/mcp" in compose
+    assert "STUB_CPU_LLM_URL: http://cpu-llm:8080/v1" in compose
+    assert "host.docker.internal" not in compose
+    stub_df = (ROOT / "docker" / "stub-pages" / "Dockerfile.stub").read_text(encoding="utf-8")
+    assert "pip install" not in stub_df
+    assert "vendor/markdown.py" in stub_df
+    workflow = (ROOT / ".github" / "workflows" / "stub-pages.yml").read_text(encoding="utf-8")
+    assert "actions/deploy-pages" in workflow
+    assert workflow.count("if: github.ref == 'refs/heads/main'") >= 2
+    assert "stub-pages-smoke.py" in workflow or "stub_pages_smoke.py" in workflow
+    assert "_site/mcp-toolcalls.jsonl" not in workflow
+    assert "_site/antipatterns.jsonl" not in workflow
+    assert "2e8040ceae7815abe0dcb3540b9995eaa1fa0d2ca9e797d0a635ae4433c68c2d" in workflow
+    assert "build: !reset" in (
+        ROOT / "docker" / "stub-pages" / "docker-compose.gguf.yml"
+    ).read_text(encoding="utf-8")
+
+
+def test_gguf_overlay_pins_image_digest_and_uses_curl_healthcheck() -> None:
+    overlay = (ROOT / "docker" / "stub-pages" / "docker-compose.gguf.yml").read_text(
+        encoding="utf-8"
+    )
+    provenance = json.loads(
+        (ROOT / "docker" / "stub-pages" / "llama.cpp.image.provenance.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    digest = provenance["digest"]
+    assert digest.startswith("sha256:")
+    assert f"ghcr.io/ggml-org/llama.cpp:server@{digest}" in overlay
+    assert "build: !reset" in overlay
+    assert "environment: !reset" in overlay
+    assert "/dev/tcp" not in overlay
+    assert 'test: ["CMD", "curl", "-f", "http://127.0.0.1:8080/health"]' in overlay
+    assert provenance["healthcheck"] == ["CMD", "curl", "-f", "http://127.0.0.1:8080/health"]
+    model_pin = json.loads(
+        (ROOT / "docker" / "stub-pages" / "models" / "model.gguf.provenance.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert model_pin["sha256_verified_against_pin"] is True
+    assert model_pin["sha256"] == "2e8040ceae7815abe0dcb3540b9995eaa1fa0d2ca9e797d0a635ae4433c68c2d"
+
+
+def test_write_pages_emits_the_static_client_side_demo(tmp_path: Path) -> None:
+    """Try it (static, no MCP): a client-side JS re-implementation of
+    classify_prompt()/lookup_heading(), so a visitor can send a heading
+    prompt and get a real body back with zero server behind Pages. It must
+    never fabricate an MCP result -- see test_stub_demo_js_never_fabricates."""
+    out = write_pages(tmp_path / "site").parent
+    data_path = out / STUB_DEMO_DATA_NAME
+    js_path = out / STUB_DEMO_JS_NAME
+    assert data_path.is_file()
+    assert js_path.is_file()
+
+    demo_data = json.loads(data_path.read_text(encoding="utf-8"))
+    expected = [{"title": s.title, "slug": s.slug, "body": s.body} for s in load_corpus()]
+    assert demo_data == expected
+    assert demo_data, "corpus must be non-empty or the demo has nothing to look up"
+
+    # Same content the package ships, not a stale copy drifted from it.
+    assert js_path.read_text(encoding="utf-8") == STUB_DEMO_JS_SOURCE.read_text(encoding="utf-8")
+
+    html = (out / "index.html").read_text(encoding="utf-8")
+    assert 'id="stub-demo"' in html
+    assert "heading-select" in (out / STUB_DEMO_JS_NAME).read_text(encoding="utf-8")
+    assert f'src="{STUB_DEMO_JS_NAME}"' in html
+    assert STUB_DEMO_DATA_NAME in html
+    # Only {title, slug, body} per section -- no room for a runtime chat_id,
+    # _meta, or argument to leak in even by accident (the fixture prose can
+    # legitimately *mention* the word "chat_id" as documentation, which is
+    # fine; a real per-run identifier is the thing that must never appear).
+    for row in demo_data:
+        assert set(row) == {"title", "slug", "body"}
+
+
+def test_stub_demo_js_mirrors_mcp_patterns_tools_and_tokens() -> None:
+    """Regression guard: the JS MCP_PATTERNS list is hand-mirrored from
+    stub_front.py's (no shared source, since the JS has no MCP client to
+    exercise) -- catch drift if one changes without the other."""
+    js_source = STUB_DEMO_JS_SOURCE.read_text(encoding="utf-8")
+    for tokens, tool, _args_fn in MCP_PATTERNS:
+        assert f'"{tool}"' in js_source, f"tool {tool!r} missing from stub_demo.js"
+        for token in tokens:
+            if token == tool:
+                continue  # the tool name itself is already asserted above
+            assert token in js_source, f"token {token!r} for {tool!r} missing from stub_demo.js"
+
+
+def test_stub_demo_js_never_fabricates_an_mcp_result() -> None:
+    js_source = STUB_DEMO_JS_SOURCE.read_text(encoding="utf-8")
+    # The one MCP-shaped branch must say it has no server, not return rows.
+    assert "no MCP server behind it" in js_source
+    assert "will not fabricate" in js_source
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node not installed in this environment")
+def test_stub_demo_js_is_valid_javascript() -> None:
+    result = subprocess.run(
+        ["node", "--check", str(STUB_DEMO_JS_SOURCE)], capture_output=True, text=True
+    )
+    assert result.returncode == 0, result.stderr

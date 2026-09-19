@@ -4,13 +4,21 @@ from __future__ import annotations
 
 import asyncio
 import os
+import time
 from typing import Any
 
 from fastmcp import FastMCP
 from fastmcp.server.middleware import Middleware, MiddlewareContext
 
-from .catalog import TOOL_DESCRIPTIONS, search_municipalities, search_stations, search_transaction_prices
-from .record import OUTCOME_EMPTY, OUTCOME_ERROR, OUTCOME_SUCCESS, record_call
+from .catalog import TOOL_DESCRIPTIONS, dispatch_tool
+from .record import (
+    OUTCOME_EMPTY,
+    OUTCOME_ERROR,
+    OUTCOME_SUCCESS,
+    record_call,
+    resolve_correlation,
+    usable_session_id,
+)
 
 
 def _tool_delay_seconds() -> float:
@@ -66,28 +74,93 @@ def _request_meta(context: MiddlewareContext) -> dict[str, Any]:
     return {k: v for k, v in dict(meta).items() if k != "progressToken"}
 
 
+def _http_headers() -> dict[str, str]:
+    """Best-effort request headers. Empty when this is not an HTTP hop."""
+    try:
+        from fastmcp.server.dependencies import get_http_headers
+    except Exception:
+        return {}
+    try:
+        return dict(get_http_headers() or {})
+    except Exception:
+        return {}
+
+
+def _session_id(context: MiddlewareContext) -> str | None:
+    ctx = context.fastmcp_context
+    if ctx is None:
+        return None
+    try:
+        raw = ctx.session_id
+    except Exception:
+        return None
+    return usable_session_id(raw)
+
+
 class ObservabilityMiddleware(Middleware):
-    """Log every tools/call, including unknown names and validation failures."""
+    """Log every tools/call, including unknown names and validation failures.
+
+    Also resolves a ``chat_id`` for debugging: caller `_meta`, then
+    ``X-Chat-Id`` / ``X-Conversation-Id`` headers, then the id minted for
+    this MCP session on the first call.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._session_chats: dict[str, str] = {}
+
+    def _debug(self, context: MiddlewareContext, meta: dict[str, Any]) -> dict[str, Any]:
+        return resolve_correlation(
+            meta=meta,
+            headers=_http_headers(),
+            session_id=_session_id(context),
+            session_chats=self._session_chats,
+        )
 
     async def on_call_tool(self, context: MiddlewareContext, call_next):
         delay = _tool_delay_seconds()
-        if delay:
-            await asyncio.sleep(delay)
         name = context.message.name
         arguments = dict(context.message.arguments or {})
         meta = _request_meta(context)
+        debug = self._debug(context, meta)
+        started = time.perf_counter()
+        if delay:
+            await asyncio.sleep(delay)
         try:
             result = await call_next(context)
         except Exception as exc:
-            record_call(tool=name, arguments=arguments, outcome=OUTCOME_ERROR, error=str(exc), meta=meta)
+            self._emit(name, arguments, meta, debug, started, outcome=OUTCOME_ERROR, error=str(exc))
             raise
         payload = _result_payload(result)
         outcome = _outcome_for_result(result, payload)
         if outcome == OUTCOME_ERROR:
-            record_call(tool=name, arguments=arguments, outcome=outcome, error=str(payload), meta=meta)
+            self._emit(name, arguments, meta, debug, started, outcome=outcome, error=str(payload))
         else:
-            record_call(tool=name, arguments=arguments, outcome=outcome, result=payload, meta=meta)
+            self._emit(name, arguments, meta, debug, started, outcome=outcome, result=payload)
         return result
+
+    @staticmethod
+    def _emit(
+        name: str,
+        arguments: dict[str, Any],
+        meta: dict[str, Any],
+        debug: dict[str, Any],
+        started: float,
+        *,
+        outcome: str,
+        result: Any = None,
+        error: str | None = None,
+    ) -> None:
+        record_call(
+            tool=name,
+            arguments=arguments,
+            outcome=outcome,
+            result=result,
+            error=error,
+            meta=meta,
+            debug=debug,
+            duration_ms=round((time.perf_counter() - started) * 1000, 3),
+        )
 
 
 def create_mcp() -> FastMCP:
@@ -97,15 +170,15 @@ def create_mcp() -> FastMCP:
 
     @mcp.tool(description=TOOL_DESCRIPTIONS["find_municipalities"])
     def find_municipalities(query: str) -> list[dict[str, str]]:
-        return search_municipalities(query)
+        return dispatch_tool("find_municipalities", {"query": query})
 
     @mcp.tool(description=TOOL_DESCRIPTIONS["find_transaction_prices"])
     def find_transaction_prices(municipality_code: str, year: int) -> list[dict[str, int | str]]:
-        return search_transaction_prices(municipality_code, year)
+        return dispatch_tool("find_transaction_prices", {"municipality_code": municipality_code, "year": year})
 
     @mcp.tool(description=TOOL_DESCRIPTIONS["find_stations"])
     def find_stations(municipality_code: str) -> list[dict[str, str]]:
-        return search_stations(municipality_code)
+        return dispatch_tool("find_stations", {"municipality_code": municipality_code})
 
     return mcp
 

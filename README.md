@@ -4,12 +4,12 @@ Reproducible experiments for reliable LLM-to-MCP tool discovery, initialization,
 
 This repository deliberately does **not** call the Ministry of Land, Infrastructure, Transport and Tourism (MLIT) Real Estate Information Library API. It is a safe mock target for checking whether a model calls only tools actually advertised by an MCP server.
 
-## What this first PR provides
+## What is in the tree
 
 - A FastMCP Streamable HTTP server with three deterministic real-estate-style mock tools.
 - A copyable standalone file generated from the package so tool names, schemas, and docstrings cannot drift.
-- A strict system-prompt example that limits the model to Open WebUI's advertised tool specs.
-- Protocol tests for the Open WebUI client flow plus unknown-tool, missing-argument, type-mismatch, empty-result, and timeout cases.
+- LibreChat / Open WebUI as clients under test; a stdlib markdown stub as a reference front.
+- Protocol tests (curl / httpx / SDK) plus chat/direct tracing through one JSONL log.
 
 ## Requirements
 
@@ -70,6 +70,77 @@ mcpServers:
 
 Details: [`docs/librechat_mcp_notes.md`](docs/librechat_mcp_notes.md).
 Prompt: [`system_prompts/strict_tool_selection_librechat.md`](system_prompts/strict_tool_selection_librechat.md).
+
+### LibreChat in Docker + Playwright (input → Send → MCP record)
+
+`docker/librechat-smoke/` starts published LibreChat, the MCP mock, and the
+OpenAI tool-call mock on **one Docker network** (`mcp-toolcall-lab`). LibreChat
+reaches them by service DNS (`http://mcp-mock:8000/mcp`,
+`http://openai-mock:8090/v1`) — not `host.docker.internal`. Playwright on the
+host types into the real composer and clicks Send. If MCP does not come back,
+the run appends an anti-pattern to `test-results/antipatterns.jsonl` (see
+`fixtures/antipatterns/catalog.yaml`) instead of treating that miss as “the
+click never happened.”
+
+```bash
+mkdir -p test-results
+docker compose -f docker/librechat-smoke/docker-compose.yml up --build -d
+LIBRECHAT_BASE_URL=http://127.0.0.1:3080 \
+  MCP_TOOLCALL_LOG=$PWD/test-results/mcp-toolcalls.jsonl \
+  OPENAI_MOCK_LOG=$PWD/test-results/openai-mock.jsonl \
+  pytest tests/real_chat_ui/test_librechat_docker.py -v
+```
+
+Skipped in default `pytest` (`LIBRECHAT_BASE_URL` unset). CI workflow:
+`.github/workflows/librechat-docker-smoke.yml`.
+
+### Serverless stub try (Actions + Pages)
+
+GitHub Pages is static:
+https://myon-bioinformatics.github.io/mcp-toolcall-lab/
+Actions (`stub-pages`) starts Docker — stub UI + MCP mock + CPU-class
+model on one network — then writes anti-pattern JSONL and publishes the
+report. That published page also embeds a client-side JS demo of the
+heading→body path ("Try it (static, no MCP)") that runs with zero
+backend — an MCP-shaped prompt there is labelled, never faked; see
+[`docs/stub_pages.md`](docs/stub_pages.md#static-client-side-demo-try-it-no-mcp).
+Local:
+
+```bash
+docker compose -f docker/stub-pages/docker-compose.yml up --build
+python scripts/stub_pages_smoke.py
+python -m mcp_toolcall_lab.stub_front pages --out _site --last-run test-results/last-run.json
+```
+
+The stub is `markdown.py` + the standard library. A real tiny GGUF behind
+the same `cpu-llm` DNS is an opt-in overlay (`docker-compose.gguf.yml`,
+`stub-pages.yml`'s `use_real_gguf` input) — off by default, since it
+needs internet to huggingface.co that a plain push should not depend on.
+Details: [`docs/stub_pages.md`](docs/stub_pages.md).
+
+### Frontend catalog + one-liners (LibreChat / Open WebUI)
+
+Playwright 用のセレクタ・認証・MCP の tool 名規則は
+[`src/mcp_toolcall_lab/frontends.py`](src/mcp_toolcall_lab/frontends.py)
+が単一ソースです（upstream の testid / id と provenance 付き）。
+`chat_ui.py` がその定義を共有して type + Send します。
+
+```bash
+python -m mcp_toolcall_lab.frontends                 # 両クライアントの JSON
+python -m mcp_toolcall_lab.frontends librechat
+python -m mcp_toolcall_lab.chat_ui describe
+python -m mcp_toolcall_lab.chat_ui describe openwebui
+# UI が上がっているとき（pip install -e '.[browser-test]' && playwright install chromium）
+python -m mcp_toolcall_lab.chat_ui send --client librechat --url http://127.0.0.1:3080
+python -m mcp_toolcall_lab.chat_ui send --client openwebui --url http://127.0.0.1:3000
+python -m mcp_toolcall_lab.chat_ui send --client librechat --chat-id chat_lab1
+# after `pip install -e .` the same entry points:
+mcp-frontends librechat
+mcp-chat-ui send --client librechat --url http://127.0.0.1:3080
+mcp-trace-probe --chat-id chat_lab1
+python -m mcp_toolcall_lab.stub_front turn --heading Yokohama
+python -m mcp_toolcall_lab.stub_front serve --port 8765
+```
 
 ## Test
 
@@ -168,7 +239,54 @@ asyncio.run(main())
 ```
 
 With `MCP_TOOLCALL_LOG` set, both calls above land in the same JSONL file with the same shape,
-distinguished only by `meta.source` — see `tests/test_trace.py`.
+distinguished only by `meta.source` — see `tests/test_trace.py`. Each row also has
+`event`, `duration_ms`, top-level `chat_id`, and `debug` (`chat_id_source` =
+`meta` | `header` | `session` | `minted`). Caller `_meta` is not rewritten: if a
+real UI omits `chat_id`, the server takes `X-Chat-Id` / `X-Conversation-Id` or
+mints one per MCP session so the probe always has a pin.
+
+JSONL I/O, `chat_*` / `call_*` mints, well-known chat headers, and the
+HTTP/1.1 SSE close live in [`src/mcp_toolcall_lab/mock/common.py`](src/mcp_toolcall_lab/mock/common.py)
+so the MCP server and `demos/openai_toolcall_mock.py` can share them. MCP
+`_meta` resolution and OpenAI `tool_calls` decision stay in their own
+files — overlapping helpers only, not a forced single mock.
+
+### Stdlib stub front (heading → chat body)
+
+LibreChat / Open WebUI stay the products under test. `stub_front` is a
+zero-extra-dep reference UI: ATX markdown headings are the deterministic
+model, the page reuses both products' composer locators, and `/c/{chat_id}`
+puts that id on MCP `_meta` and `X-Chat-Id`. Roadmap for later slices
+(Playwright-on-stub, `markdown` accuracy, CPU LLM in Docker — unnumbered):
+[`docs/stub_front_roadmap.md`](docs/stub_front_roadmap.md).
+
+```bash
+python -m mcp_toolcall_lab.stub_front turn --heading "Yokohama"
+python -m mcp_toolcall_lab.stub_front turn --heading "Find municipalities named Yokohama"
+python -m mcp_toolcall_lab.stub_front serve --port 8765
+```
+
+### Trace probe (the other ids)
+
+`chat_id` is the lab-owned pin. Reasoning / response / UI hops mint more ids we do
+**not** own: OpenAI `chatcmpl-*` / `call_*`, Responses `resp_` / `rs_` / `msg_` /
+`fc_`, LibreChat `conversationId` in `/c/{id}`, Open WebUI `chat.id` / `/s/{share}`.
+`mcp_toolcall_lab.trace_probe` harvests those from the MCP JSONL, the OpenAI mock
+log, an observation row, and the page URL, then clusters hops that share any id
+string (union-find). It is a probe, not a product database.
+
+```bash
+python -m mcp_toolcall_lab.trace_probe kinds
+python -m mcp_toolcall_lab.trace_probe --chat-id chat_lab1 \
+  --mcp-log test-results/mcp-toolcalls.jsonl \
+  --openai-log test-results/openai-mock.jsonl \
+  --url 'http://127.0.0.1:3080/c/66f012345678901234567890'
+# after send, the observation already joins lab chat_id ↔ page_url ↔ completion/call ids
+mcp-trace-probe --chat-id chat_lab1
+```
+
+`send --chat-id chat_*` only tags the observation. A product conversation id
+(not the `chat_` prefix) resumes `/c/{id}` after login.
 
 `tests/test_curl_protocol.py` gives the same raw-HTTP handshake pytest coverage (success, empty
 result, unknown tool, missing argument), alongside `tests/test_streamable_http_protocol.py`'s

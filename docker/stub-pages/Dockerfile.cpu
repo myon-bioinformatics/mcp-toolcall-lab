@@ -1,0 +1,9 @@
+# CPU-class model stand-in (stdlib). GPT overlay swaps this for llama.cpp + GGUF.
+FROM python:3.12-slim
+WORKDIR /app
+COPY src/mcp_toolcall_lab/mock/common.py /app/common.py
+COPY demos/cpu_llm_lite.py /app/cpu_llm_lite.py
+ENV HOST=0.0.0.0
+ENV PORT=8080
+EXPOSE 8080
+CMD ["python", "cpu_llm_lite.py"]

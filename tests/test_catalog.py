@@ -2,6 +2,7 @@ import unittest
 
 from mcp_toolcall_lab.catalog import (
     AVAILABLE_TOOLS,
+    dispatch_tool,
     search_municipalities,
     search_stations,
     search_transaction_prices,
@@ -37,3 +38,11 @@ class MockCatalogTest(unittest.TestCase):
 
     def test_station_search_for_unknown_municipality_is_empty(self):
         self.assertEqual(search_stations("00000"), [])
+
+    def test_dispatch_tool_matches_search_helpers(self):
+        self.assertEqual(
+            dispatch_tool("find_municipalities", {"query": "Yokohama"}),
+            search_municipalities("Yokohama"),
+        )
+        with self.assertRaises(KeyError):
+            dispatch_tool("find_transaction_price", {"municipality_code": "14109", "year": 2025})

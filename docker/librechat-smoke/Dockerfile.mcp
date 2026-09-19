@@ -1,0 +1,9 @@
+# Streamable HTTP MCP mock. Same compose network as LibreChat (service name: mcp-mock).
+FROM python:3.12-slim
+WORKDIR /app
+RUN pip install --no-cache-dir "fastmcp==3.4.7"
+COPY librechat_mcp_mock.py /app/librechat_mcp_mock.py
+ENV MCP_HOST=0.0.0.0
+ENV MCP_PORT=8000
+EXPOSE 8000
+CMD ["python", "librechat_mcp_mock.py"]

@@ -1,0 +1,156 @@
+name: stub-pages
+
+# Serverless try: Actions boots Docker (stub + MCP + CPU-class model),
+# records anti-patterns as JSONL, publishes a static report to GitHub Pages.
+# Default `test` workflow stays `pytest -q` (no Docker).
+on:
+  workflow_dispatch:
+    inputs:
+      message:
+        description: "Prompt to send through the stub /api/turn"
+        required: false
+        default: "Find municipalities named Yokohama"
+      use_real_gguf:
+        description: "Swap the lite cpu-llm stand-in for a real tiny GGUF (llama.cpp). Needs internet to huggingface.co."
+        type: boolean
+        required: false
+        default: false
+      cpu_llm_gguf_repo:
+        description: "HF repo to auto-discover a small .gguf in (only used when use_real_gguf is true)"
+        required: false
+        default: "bartowski/SmolLM2-135M-Instruct-GGUF"
+      cpu_llm_gguf_sha256:
+        description: "Expected sha256 of the fetched .gguf. Default is the digest from Actions run 35433174462. Clear it only when bootstrapping a different file."
+        required: false
+        default: "2e8040ceae7815abe0dcb3540b9995eaa1fa0d2ca9e797d0a635ae4433c68c2d"
+  push:
+    branches: [main]
+    paths:
+      - "docker/stub-pages/**"
+      - "demos/cpu_llm_lite.py"
+      - "vendor/markdown.py"
+      - "vendor/markdown.provenance.json"
+      - "src/mcp_toolcall_lab/stub_front.py"
+      - "src/mcp_toolcall_lab/markdown_lib.py"
+      - "scripts/stub_pages_smoke.py"
+      - "scripts/fetch_tiny_cpu_gguf.py"
+      - "scripts/fetch_tiny_cpu_gguf.sh"
+      - "src/mcp_toolcall_lab/antipatterns.py"
+      - "fixtures/antipatterns/catalog.yaml"
+      - ".github/workflows/stub-pages.yml"
+  pull_request:
+    paths:
+      - "docker/stub-pages/**"
+      - "demos/cpu_llm_lite.py"
+      - "vendor/markdown.py"
+      - "vendor/markdown.provenance.json"
+      - "src/mcp_toolcall_lab/stub_front.py"
+      - "src/mcp_toolcall_lab/markdown_lib.py"
+      - "scripts/stub_pages_smoke.py"
+      - "scripts/fetch_tiny_cpu_gguf.py"
+      - "scripts/fetch_tiny_cpu_gguf.sh"
+      - "src/mcp_toolcall_lab/antipatterns.py"
+      - "fixtures/antipatterns/catalog.yaml"
+      - ".github/workflows/stub-pages.yml"
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: stub-pages
+  cancel-in-progress: false
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Fetch a real tiny GGUF (opt-in)
+        if: github.event.inputs.use_real_gguf == 'true'
+        env:
+          CPU_LLM_GGUF_REPO: ${{ github.event.inputs.cpu_llm_gguf_repo }}
+          CPU_LLM_GGUF_SHA256: ${{ github.event.inputs.cpu_llm_gguf_sha256 }}
+        run: scripts/fetch_tiny_cpu_gguf.sh docker/stub-pages/models/model.gguf
+
+      - name: Start stub + MCP + CPU-class model
+        env:
+          COMPOSE_GGUF_OVERLAY: ${{ github.event.inputs.use_real_gguf == 'true' && '-f docker/stub-pages/docker-compose.gguf.yml' || '' }}
+        run: |
+          mkdir -p test-results
+          docker compose -f docker/stub-pages/docker-compose.yml $COMPOSE_GGUF_OVERLAY up --build -d
+
+      - name: Wait for stub and cpu-llm
+        run: |
+          for i in $(seq 1 60); do
+            curl -sf http://127.0.0.1:8765/health >/dev/null && \
+              curl -sf http://127.0.0.1:8080/health >/dev/null && break
+            sleep 2
+          done
+          curl -sf http://127.0.0.1:8765/health
+          curl -sf http://127.0.0.1:8080/health
+
+      - name: Smoke turn and append anti-patterns
+        env:
+          STUB_BASE_URL: http://127.0.0.1:8765
+          CPU_LLM_BASE_URL: http://127.0.0.1:8080
+          CPU_LLM_BACKEND: ${{ github.event.inputs.use_real_gguf == 'true' && 'real-gguf' || 'lite-stub' }}
+          STUB_CHAT_MESSAGE: ${{ github.event.inputs.message || 'Find municipalities named Yokohama' }}
+          STUB_LAST_RUN: ${{ github.workspace }}/test-results/last-run.json
+          ANTIPATTERN_LOG: ${{ github.workspace }}/test-results/antipatterns.jsonl
+          MCP_TOOLCALL_LOG: ${{ github.workspace }}/test-results/mcp-toolcalls.jsonl
+        run: python scripts/stub_pages_smoke.py
+
+      - name: Build static Pages tree
+        env:
+          STUB_LAST_RUN: ${{ github.workspace }}/test-results/last-run.json
+          PYTHONPATH: src
+        run: |
+          python -m mcp_toolcall_lab.stub_front pages --out _site \
+            --last-run test-results/last-run.json \
+            --observations test-results/antipatterns.jsonl
+
+      - name: Upload observations
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stub-pages-observations
+          path: |
+            test-results/
+            _site/
+            docker/stub-pages/models/*.provenance.json
+          if-no-files-found: ignore
+
+      - name: Upload Pages artifact
+        if: github.ref == 'refs/heads/main'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - name: Tear down
+        if: always()
+        env:
+          COMPOSE_GGUF_OVERLAY: ${{ github.event.inputs.use_real_gguf == 'true' && '-f docker/stub-pages/docker-compose.gguf.yml' || '' }}
+        run: docker compose -f docker/stub-pages/docker-compose.yml $COMPOSE_GGUF_OVERLAY down -v
+
+  deploy:
+    needs: smoke
+    # Pages is the merged main report only. Feature-branch
+    # workflow_dispatch (including use_real_gguf=true) must not
+    # enter the github-pages environment — that job fails with no
+    # steps when the environment is restricted to main.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - name: Deploy GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@v4
