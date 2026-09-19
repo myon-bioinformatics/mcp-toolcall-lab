@@ -765,8 +765,28 @@ def status_line(ok: bool, msg_ok: str, msg_ng: str) -> str:
 
 
 def section(title: str, blocks: Any, level: int = 2) -> str:
-    """Join a heading with a sequence of pre-rendered Markdown blocks."""
-    return heading(title, level=level) + "".join(blocks)
+    """Join a heading with a sequence of pre-rendered Markdown blocks.
+
+    Every builder in this module (``bullet_list``, ``table``, ``code_block``,
+    ...) already ends its output in a trailing newline, so back-to-back
+    blocks never need anything inserted between them. A plain string used
+    directly as a block -- typically hand-written prose with no trailing
+    newline of its own -- is the one case that doesn't: joined with nothing
+    in between, its text runs directly onto the next block's own leading
+    syntax (``- ``, ``# ``, a fence), so e.g. a following bullet list's
+    first item silently becomes part of the previous line's plain text
+    instead of a list. A newline is inserted only when the accumulated
+    output doesn't already end in one, so well-formed blocks are untouched.
+    """
+    body = heading(title, level=level)
+    for block in blocks:
+        block = str(block)
+        if not block:
+            continue
+        if not body.endswith("\n"):
+            body += "\n"
+        body += block
+    return body
 
 
 def wrap_section(name: str, content: str) -> str:
