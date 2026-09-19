@@ -105,7 +105,7 @@ def test_record_call_keeps_meta_and_adds_debug(tmp_path: Path, monkeypatch) -> N
         outcome="success",
         result=[{"name": "Yokohama"}],
         meta={"chat_id": "chat_wire", "source": "stub-front"},
-        debug={"chat_id": "chat_wire", "chat_id_source": "meta"},
+        debug={"chat_id": "chat_wire", "chat_id_source": "meta", "message_id": "owui-msg-row"},
         duration_ms=1.5,
     )
     row = json.loads(log.read_text(encoding="utf-8").splitlines()[0])
@@ -113,6 +113,8 @@ def test_record_call_keeps_meta_and_adds_debug(tmp_path: Path, monkeypatch) -> N
     assert row["chat_id"] == "chat_wire"
     assert row["meta"] == {"chat_id": "chat_wire", "source": "stub-front"}
     assert row["debug"]["chat_id_source"] == "meta"
+    assert row["debug"]["message_id"] == "owui-msg-row"
+    assert row["message_id"] == "owui-msg-row"
     assert row["debug"]["result_n"] == 1
     assert row["duration_ms"] == 1.5
     monkeypatch.delenv("MCP_TOOLCALL_LOG", raising=False)
@@ -151,6 +153,7 @@ def test_live_server_takes_x_chat_id_then_reuses_session() -> None:
                 "Accept": ACCEPT,
                 "Mcp-Session-Id": session.session_id or "",
                 "X-Chat-Id": "chat_from_ui",
+                "X-OpenWebUI-Message-Id": "owui-msg-live",
             }
             session.client.post(
                 session.url,
@@ -184,7 +187,11 @@ def test_live_server_takes_x_chat_id_then_reuses_session() -> None:
         calls = mcp_tool_calls(events)
         assert calls[0]["debug"]["chat_id_source"] == "header"
         assert calls[0]["chat_id"] == "chat_from_ui"
+        assert calls[0]["debug"]["message_id"] == "owui-msg-live"
+        assert calls[0]["message_id"] == "owui-msg-live"
         assert calls[1]["chat_id"] == "chat_from_ui"
         assert calls[1]["debug"]["chat_id_source"] == "session"
+        assert "message_id" not in calls[1]["debug"]
+        assert "message_id" not in calls[1]
         assert calls[0]["debug"].get("request_id")
         assert calls[0]["debug"].get("session_id")

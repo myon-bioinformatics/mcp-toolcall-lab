@@ -44,7 +44,7 @@ services:
           "CMD",
           "python",
           "-c",
-          "import urllib.error,urllib.request; req=urllib.request.Request('http://127.0.0.1:8000/mcp',data=b'{}',headers={'Accept':'application/json, text/event-stream','Content-Type':'application/json'},method='POST');\ntry:\n urllib.request.urlopen(req,timeout=2)\nexcept urllib.error.HTTPError as e:\n raise SystemExit(0 if e.code in (400,406,415) else e.code)",
+          "import urllib.error,urllib.request; req=urllib.request.Request('http://127.0.0.1:8000/mcp',data=b'{}',headers={'Accept':'application/json, text/event-stream','Content-Type':'application/json','MCP-Protocol-Version':'2025-03-26'},method='POST');\ntry:\n urllib.request.urlopen(req,timeout=2)\nexcept urllib.error.HTTPError as e:\n raise SystemExit(0 if e.code in (400,406,415) else e.code)",
         ]
       interval: 2s
       timeout: 3s

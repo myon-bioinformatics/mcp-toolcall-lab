@@ -659,9 +659,7 @@ def record_call(
         if isinstance(result, list):
             debug_row["result_n"] = len(result)
     if debug_row:
-        row["debug"] = debug_row
-        if debug_row.get("chat_id"):
-            row["chat_id"] = debug_row["chat_id"]
+        _attach_debug_ids(row, debug_row)
     append_jsonl(log_path, row)
 
 
@@ -683,10 +681,17 @@ def record_protocol_event(
     }
     debug_row = dict(debug) if debug else {}
     if debug_row:
-        row["debug"] = debug_row
-        if debug_row.get("chat_id"):
-            row["chat_id"] = debug_row["chat_id"]
+        _attach_debug_ids(row, debug_row)
     append_jsonl(log_path, row)
+
+
+def _attach_debug_ids(row: dict[str, Any], debug_row: dict[str, Any]) -> None:
+    """Copy correlation ids onto the JSONL row. Message id is harvested, never minted."""
+    row["debug"] = debug_row
+    if debug_row.get("chat_id"):
+        row["chat_id"] = debug_row["chat_id"]
+    if debug_row.get("message_id"):
+        row["message_id"] = debug_row["message_id"]
 
 
 def mcp_tool_calls(events: list[dict[str, Any]]) -> list[dict[str, Any]]:

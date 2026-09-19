@@ -67,6 +67,47 @@ def redact(text: str) -> str:
     return out
 
 
+def digests_from_inspect(inspect: dict[str, Any] | None) -> list[str]:
+    """RepoDigests from one ``docker inspect`` / ``docker image inspect`` blob."""
+    found: list[str] = []
+    if not inspect:
+        return found
+    for digest in inspect.get("RepoDigests") or []:
+        text = str(digest).strip()
+        if text and text != "<none>" and "@sha256:" in text and text not in found:
+            found.append(text)
+    return found
+
+
+def parse_docker_images_digests(
+    listing: str,
+    *,
+    image_name: str | None = None,
+    image_id: str | None = None,
+) -> list[str]:
+    """Parse ``docker images --digests --no-trunc`` tab rows into repo@sha256."""
+    found: list[str] = []
+    repo_hint = (image_name or "").split(":")[0]
+    id_hint = (image_id or "").replace("sha256:", "")[:12]
+    for line in listing.splitlines():
+        parts = line.split("\t")
+        if len(parts) < 2:
+            continue
+        repo_tag, digest = parts[0].strip(), parts[1].strip()
+        image_ref = parts[2].strip() if len(parts) > 2 else ""
+        if not digest.startswith("sha256:"):
+            continue
+        matches_name = bool(repo_hint) and repo_hint in repo_tag
+        matches_id = bool(id_hint) and id_hint in image_ref.replace("sha256:", "")
+        if not (matches_name or matches_id):
+            continue
+        repo = repo_tag.rsplit(":", 1)[0] if ":" in repo_tag and "@" not in repo_tag else repo_tag
+        composed = digest if "@" in digest else f"{repo}@{digest}"
+        if composed not in found:
+            found.append(composed)
+    return found
+
+
 def normalize_level(token: str | None) -> str | None:
     if not token:
         return None
@@ -138,7 +179,11 @@ def write_jsonl(path: Path, rows: list[dict[str, Any]]) -> None:
 
 
 def record_compose_image(compose_file: Path, service: str, out_path: Path) -> dict[str, Any]:
-    """Write docker inspect of one compose service (digest / image id)."""
+    """Write docker inspect of one compose service (digest / image id).
+
+    Floating tags like ``:main`` often omit ``RepoDigests`` on the container;
+    we also inspect the image id and ``docker images --digests``.
+    """
     cid = subprocess.check_output(
         ["docker", "compose", "-f", str(compose_file), "ps", "-q", service],
         text=True,
@@ -149,25 +194,52 @@ def record_compose_image(compose_file: Path, service: str, out_path: Path) -> di
         subprocess.check_output(["docker", "inspect", cid[0]], text=True)
     )[0]
     image_name = (inspect.get("Config") or {}).get("Image")
-    repo_digests = list(inspect.get("RepoDigests") or [])
     image_id = inspect.get("Image")
-    if image_name:
+    repo_digests = digests_from_inspect(inspect)
+
+    def _merge_image(ref: str) -> None:
+        nonlocal image_id, repo_digests
         try:
             img = json.loads(
-                subprocess.check_output(["docker", "image", "inspect", image_name], text=True)
+                subprocess.check_output(["docker", "image", "inspect", ref], text=True)
             )[0]
-            image_id = img.get("Id") or image_id
-            for digest in img.get("RepoDigests") or []:
-                if digest not in repo_digests:
-                    repo_digests.append(digest)
         except Exception:
-            pass
+            return
+        image_id = img.get("Id") or image_id
+        for digest in digests_from_inspect(img):
+            if digest not in repo_digests:
+                repo_digests.append(digest)
+
+    if image_name:
+        _merge_image(image_name)
+    if image_id:
+        _merge_image(image_id)
+    try:
+        listing = subprocess.check_output(
+            [
+                "docker",
+                "images",
+                "--digests",
+                "--no-trunc",
+                "--format",
+                "{{.Repository}}:{{.Tag}}\t{{.Digest}}\t{{.ID}}",
+            ],
+            text=True,
+        )
+        for digest in parse_docker_images_digests(
+            listing, image_name=image_name, image_id=image_id
+        ):
+            if digest not in repo_digests:
+                repo_digests.append(digest)
+    except Exception:
+        pass
     row = {
         "service": service,
         "image": image_name,
         "id": inspect.get("Id"),
         "image_id": image_id,
         "repo_digests": repo_digests,
+        "digest": repo_digests[0] if repo_digests else None,
         "created": inspect.get("Created"),
     }
     out_path.parent.mkdir(parents=True, exist_ok=True)

@@ -41,6 +41,7 @@ def test_openwebui_smoke_compose_uses_shared_docker_network() -> None:
     assert compose.count("8090:8090") == 0
     assert "HTTPError as e" in compose
     assert "e.code in (400,406,415)" in compose
+    assert "MCP-Protocol-Version" in compose
 
 
 def test_openwebui_docs_and_workflow_track_the_owui_named_mock() -> None:
@@ -54,6 +55,11 @@ def test_openwebui_docs_and_workflow_track_the_owui_named_mock() -> None:
     default_ci = (ROOT / ".github" / "workflows" / "test.yml").read_text(encoding="utf-8")
     assert "src/mcp_toolcall_lab/chat_ui.py" in workflow
     assert "src/mcp_toolcall_lab/frontends.py" in workflow
+    assert "src/mcp_toolcall_lab/mcp_http.py" in workflow
+    assert "src/mcp_toolcall_lab/catalog.py" in workflow
+    assert "src/mcp_toolcall_lab/antipatterns.py" in workflow
+    assert "src/mcp_toolcall_lab/trace_probe.py" in workflow
+    assert "tests/real_chat_ui/conftest.py" in workflow
     assert "openwebui_mcp_mock.py" in workflow
     assert "demos/openai_toolcall_mock.py" in workflow
     assert "workflow_dispatch:" in workflow

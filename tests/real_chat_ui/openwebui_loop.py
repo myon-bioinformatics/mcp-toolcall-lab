@@ -24,11 +24,15 @@ def is_background_task(event: dict[str, Any]) -> bool:
 
 
 def summarize_openai_tool_loop(events: list[dict[str, Any]]) -> dict[str, Any]:
-    """Pick the last *complete* tool_calls → role:tool pair.
+    """Select the last *complete* tool_calls → role:tool pair.
 
-    Two Playwright Sends share one JSONL. Last-wins on a bare tool_calls row
-    can latch onto a turn that never got a follow-up; first-wins can keep the
-    earlier Send. A complete pair is the unit we assert.
+    Selection is last-complete, not first-wins and not last-row-wins.
+    Two Playwright Sends share one JSONL: first-wins would keep an earlier
+    Send, and last-wins on a bare tool_calls row can latch onto a turn that
+    never got a follow-up. A complete pair (assistant ``tool_calls[]`` whose
+    ``call_ids`` are covered by a later ``role:tool`` follow-up) is the unit
+    we assert. ``first_completion_id`` is the *lead* hop of that selected
+    pair, not the first tool-bearing row in the log.
     """
     rows = [event for event in openai_completions(events) if not is_background_task(event)]
     pairs: list[tuple[dict[str, Any], dict[str, Any]]] = []
@@ -44,27 +48,27 @@ def summarize_openai_tool_loop(events: list[dict[str, Any]]) -> dict[str, Any]:
                 break
         if follow:
             pairs.append((row, follow))
-    first, follow = pairs[-1] if pairs else ({}, {})
-    call_ids = [str(item) for item in (first.get("call_ids") or [])]
+    lead, follow = pairs[-1] if pairs else ({}, {})
+    call_ids = [str(item) for item in (lead.get("call_ids") or [])]
     inbound = [str(item) for item in (follow.get("inbound_call_ids") or [])]
     follow_tool_ids = []
     for message in follow.get("wire_messages") or []:
         if message.get("role") == "tool" and message.get("tool_call_id"):
             follow_tool_ids.append(str(message["tool_call_id"]))
-    loop_rows = [row for row in (first, follow) if row]
+    loop_rows = [row for row in (lead, follow) if row]
     return {
         "completion_n": len(loop_rows),
-        "first_completion_id": first.get("completion_id"),
+        "first_completion_id": lead.get("completion_id"),
         "follow_completion_id": follow.get("completion_id"),
-        "tool_names": list(first.get("tool_names") or []),
+        "tool_names": list(lead.get("tool_names") or []),
         "call_ids": call_ids,
         "follow_inbound_call_ids": inbound,
         "follow_tool_message_ids": follow_tool_ids,
         "has_tool_result_followup": bool(follow),
         "final_is_assistant": (follow.get("wire_assistant") or {}).get("role") == "assistant"
         and not (follow.get("wire_assistant") or {}).get("tool_calls"),
-        "chat_id": first.get("chat_id") or follow.get("chat_id"),
-        "message_id": first.get("message_id") or follow.get("message_id"),
+        "chat_id": lead.get("chat_id") or follow.get("chat_id"),
+        "message_id": lead.get("message_id") or follow.get("message_id"),
     }
 
 
@@ -140,7 +144,7 @@ _LAB_SHAPED = (
 def is_product_ui_message_id(value: str | None) -> bool:
     """True for an OWUI uuid-like message id. Empty / templates / lab prefixes fail."""
     text = str(value or "").strip()
-    if len(text) < 8:
+    if not text or len(text) < 8:
         return False
     if "{{" in text or "}}" in text or "MESSAGE_ID" in text:
         return False
@@ -148,30 +152,39 @@ def is_product_ui_message_id(value: str | None) -> bool:
     return kind not in _LAB_SHAPED
 
 
+def event_message_id(event: dict[str, Any]) -> tuple[bool, str]:
+    """Return ``(header_present, value)`` for ``X-OpenWebUI-Message-Id``.
+
+    ``header_present`` is False when neither ``debug`` nor the row recorded
+    the key. Empty string means the product sent a blank value. The mock
+    never mints a message id.
+    """
+    debug = event.get("debug") if isinstance(event.get("debug"), dict) else {}
+    if "message_id" in debug:
+        return True, str(debug.get("message_id") or "").strip()
+    if "message_id" in event:
+        return True, str(event.get("message_id") or "").strip()
+    return False, ""
+
+
 def mcp_header_message_ids(events: list[dict[str, Any]]) -> list[str]:
     """``debug.message_id`` from ``X-OpenWebUI-Message-Id`` (not minted)."""
     found: list[str] = []
     for event in events:
-        debug = event.get("debug") if isinstance(event.get("debug"), dict) else {}
-        value = debug.get("message_id") or event.get("message_id")
-        if not value:
+        present, text = event_message_id(event)
+        if not present or not text or text in found:
             continue
-        text = str(value)
-        if text not in found:
-            found.append(text)
+        found.append(text)
     return found
 
 
 def mcp_tools_call_message_ids(events: list[dict[str, Any]]) -> list[str]:
     found: list[str] = []
     for event in mcp_tool_calls(events):
-        debug = event.get("debug") if isinstance(event.get("debug"), dict) else {}
-        value = debug.get("message_id") or event.get("message_id")
-        if not value:
+        present, text = event_message_id(event)
+        if not present or not text or text in found:
             continue
-        text = str(value)
-        if text not in found:
-            found.append(text)
+        found.append(text)
     return found
 
 
@@ -299,8 +312,11 @@ def assert_openwebui_tool_loop(
         openai_log=None,
         mcp_log=None,
     )
-    header_message_ids = mcp_tools_call_message_ids(mcp_events)
     harvested_ui_ids = [str(item) for item in (ui_message_ids or []) if str(item).strip()]
+    call_rows = mcp_tool_calls(mcp_events)
+    last_call = call_rows[-1] if call_rows else {}
+    header_present, header_message_id = event_message_id(last_call) if last_call else (False, "")
+    header_message_ids = mcp_tools_call_message_ids(mcp_events)
 
     assert openai_loop["completion_n"] >= 2, openai_loop
     assert any(mcp_tool in name for name in openai_loop["tool_names"]), openai_loop["tool_names"]
@@ -339,28 +355,38 @@ def assert_openwebui_tool_loop(
         assert lab_id != conversation_id
         assert lab_id.startswith("chat_")
 
-    assert header_message_ids, (
+    assert last_call, "MCP tools/call row missing — cannot harvest a UI message id"
+    assert header_present, (
         "Open WebUI did not send X-OpenWebUI-Message-Id on tools/call — "
         "cannot PASS without a product UI message id"
     )
+    assert header_message_id, (
+        "tools/call X-OpenWebUI-Message-Id is empty — cannot PASS"
+    )
+    assert is_product_ui_message_id(header_message_id), (
+        "tools/call message_id is not a product UI id "
+        f"(lab-generated chat_*/call_* or unsubstituted template): {header_message_id!r}"
+    )
     for message_id in header_message_ids:
         assert is_product_ui_message_id(message_id), (
-            f"tools/call message_id is not a product UI id: {message_id!r}"
+            "tools/call message_id is not a product UI id "
+            f"(lab-generated chat_*/call_* or unsubstituted template): {message_id!r}"
         )
     assert harvested_ui_ids, (
         "could not harvest Open WebUI user message id from GET /api/v1/chats "
         "or the send-hop chat API — cannot PASS"
     )
     assert any(is_product_ui_message_id(item) for item in harvested_ui_ids), harvested_ui_ids
-    assert header_message_ids[-1] in harvested_ui_ids, (
-        header_message_ids[-1],
+    assert header_message_id in harvested_ui_ids, (
+        header_message_id,
         harvested_ui_ids,
     )
     openai_message_id = openai_loop.get("message_id")
     if openai_message_id:
-        assert str(openai_message_id) == header_message_ids[-1], (
+        assert str(openai_message_id) == header_message_id, (
+            "OpenAI-side message_id does not match MCP tools/call X-OpenWebUI-Message-Id",
             openai_message_id,
-            header_message_ids[-1],
+            header_message_id,
         )
 
     assert expected_fragment.lower() in ui_text.lower(), ui_text[-500:]
@@ -369,7 +395,7 @@ def assert_openwebui_tool_loop(
         "openai": openai_loop,
         "mcp": mcp_loop,
         "conversation_id": conversation_id,
-        "ui_message_id": header_message_ids[-1],
+        "ui_message_id": header_message_id,
         "ui_message_ids": harvested_ui_ids,
         "ids": ids,
         "trace": trace,

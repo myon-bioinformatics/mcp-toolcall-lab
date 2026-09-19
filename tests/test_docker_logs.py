@@ -5,8 +5,10 @@ from __future__ import annotations
 from pathlib import Path
 
 from mcp_toolcall_lab.docker_logs import (
+    digests_from_inspect,
     parse_compose_line,
     parse_compose_text,
+    parse_docker_images_digests,
     redact,
     timeline_rows,
 )
@@ -73,3 +75,28 @@ def test_timeline_orders_mcp_jsonl_with_compose_lines(tmp_path: Path) -> None:
         "tools/list",
     ]
     assert rows[1]["stream"] == "mcp"
+
+
+def test_floating_tag_digest_is_collected_from_inspect_and_images_listing() -> None:
+    inspect = {
+        "RepoDigests": [],
+        "Config": {"Image": "ghcr.io/open-webui/open-webui:main"},
+        "Image": "sha256:deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+    }
+    assert digests_from_inspect(inspect) == []
+    inspect["RepoDigests"] = ["ghcr.io/open-webui/open-webui@sha256:" + "a" * 64]
+    assert digests_from_inspect(inspect) == [
+        "ghcr.io/open-webui/open-webui@sha256:" + "a" * 64
+    ]
+    listing = (
+        "ghcr.io/open-webui/open-webui:main\tsha256:" + "b" * 64
+        + "\tsha256:deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef\n"
+        "unrelated/image:latest\tsha256:" + "c" * 64 + "\tsha256:ffff\n"
+        "ghcr.io/open-webui/open-webui:main\t<none>\tsha256:deadbeef\n"
+    )
+    found = parse_docker_images_digests(
+        listing,
+        image_name="ghcr.io/open-webui/open-webui:main",
+        image_id="sha256:deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+    )
+    assert found == ["ghcr.io/open-webui/open-webui@sha256:" + "b" * 64]

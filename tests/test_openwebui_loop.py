@@ -6,6 +6,7 @@ import pytest
 
 from tests.real_chat_ui.openwebui_loop import (
     assert_openwebui_tool_loop,
+    event_message_id,
     is_background_task,
     is_product_ui_message_id,
     lab_vs_product_chat_ids,
@@ -63,6 +64,8 @@ def test_openai_loop_joins_tool_call_id_across_the_followup() -> None:
 
 
 def test_summarize_picks_the_last_complete_tool_loop() -> None:
+    """Last complete pair wins. First-wins would keep call_old; last-row-wins
+    would keep the orphan tool_calls row that never got a follow-up."""
     call_old = "call_" + "c" * 24
     call_new = CALL
     events = [
@@ -313,7 +316,9 @@ def test_mcp_message_id_must_be_the_product_ui_message() -> None:
     }
     assert OWUI_MSG in message_ids_from_owui_chat(payload)
     assert mcp_tools_call_message_ids(mcp) == [OWUI_MSG]
+    assert event_message_id(mcp[-1]) == (True, OWUI_MSG)
     assert is_product_ui_message_id(OWUI_MSG) is True
+    assert is_product_ui_message_id("") is False
     assert is_product_ui_message_id("{{MESSAGE_ID}}") is False
     assert is_product_ui_message_id("chat_" + "f" * 24) is False
     assert is_product_ui_message_id(CALL) is False
@@ -341,4 +346,99 @@ def test_mcp_message_id_must_be_the_product_ui_message() -> None:
             page_url=f"http://127.0.0.1:3000/c/{OWUI_CHAT}",
             ui_text="Yokohama",
             ui_message_ids=["cccccccccccccccc-dddd-eeee-ffff-000000000000"],
+        )
+
+
+def _mcp_with_tools_call_message_id(message_id: str | None) -> list[dict]:
+    rows = _mcp_handshake_rows()
+    debug = dict(rows[-1]["debug"])
+    if message_id is None:
+        debug.pop("message_id", None)
+    else:
+        debug["message_id"] = message_id
+    rows[-1] = {**rows[-1], "debug": debug}
+    if message_id is None:
+        rows[-1].pop("message_id", None)
+    return rows
+
+
+def test_assert_rejects_missing_tools_call_message_id() -> None:
+    with pytest.raises(AssertionError, match="X-OpenWebUI-Message-Id"):
+        assert_openwebui_tool_loop(
+            openai_events=_openai_tool_loop_rows(),
+            mcp_events=_mcp_with_tools_call_message_id(None),
+            page_url=f"http://127.0.0.1:3000/c/{OWUI_CHAT}",
+            ui_text="Yokohama",
+            ui_message_ids=[OWUI_MSG],
+        )
+
+
+def test_assert_rejects_empty_tools_call_message_id() -> None:
+    with pytest.raises(AssertionError, match="empty"):
+        assert_openwebui_tool_loop(
+            openai_events=_openai_tool_loop_rows(),
+            mcp_events=_mcp_with_tools_call_message_id(""),
+            page_url=f"http://127.0.0.1:3000/c/{OWUI_CHAT}",
+            ui_text="Yokohama",
+            ui_message_ids=[OWUI_MSG],
+        )
+
+
+def test_assert_rejects_lab_generated_tools_call_message_id() -> None:
+    with pytest.raises(AssertionError, match="lab-generated"):
+        assert_openwebui_tool_loop(
+            openai_events=_openai_tool_loop_rows(),
+            mcp_events=_mcp_with_tools_call_message_id("chat_" + "f" * 24),
+            page_url=f"http://127.0.0.1:3000/c/{OWUI_CHAT}",
+            ui_text="Yokohama",
+            ui_message_ids=[OWUI_MSG],
+        )
+    with pytest.raises(AssertionError, match="lab-generated"):
+        assert_openwebui_tool_loop(
+            openai_events=_openai_tool_loop_rows(),
+            mcp_events=_mcp_with_tools_call_message_id("{{MESSAGE_ID}}"),
+            page_url=f"http://127.0.0.1:3000/c/{OWUI_CHAT}",
+            ui_text="Yokohama",
+            ui_message_ids=[OWUI_MSG],
+        )
+    with pytest.raises(AssertionError, match="lab-generated"):
+        assert_openwebui_tool_loop(
+            openai_events=_openai_tool_loop_rows(),
+            mcp_events=_mcp_with_tools_call_message_id(CALL),
+            page_url=f"http://127.0.0.1:3000/c/{OWUI_CHAT}",
+            ui_text="Yokohama",
+            ui_message_ids=[OWUI_MSG],
+        )
+
+
+def test_assert_accepts_product_ui_message_id() -> None:
+    result = assert_openwebui_tool_loop(
+        openai_events=_openai_tool_loop_rows(),
+        mcp_events=_mcp_handshake_rows(),
+        page_url=f"http://127.0.0.1:3000/c/{OWUI_CHAT}",
+        ui_text="Yokohama (code 14109) is in Kanagawa.",
+        ui_message_ids=[OWUI_MSG],
+    )
+    assert result["ui_message_id"] == OWUI_MSG
+
+
+def test_openai_message_id_must_match_mcp_when_present() -> None:
+    openai = _openai_tool_loop_rows()
+    openai[0]["message_id"] = OWUI_MSG
+    result = assert_openwebui_tool_loop(
+        openai_events=openai,
+        mcp_events=_mcp_handshake_rows(),
+        page_url=f"http://127.0.0.1:3000/c/{OWUI_CHAT}",
+        ui_text="Yokohama (code 14109) is in Kanagawa.",
+        ui_message_ids=[OWUI_MSG],
+    )
+    assert result["ui_message_id"] == OWUI_MSG
+    openai[0]["message_id"] = "cccccccccccccccc-dddd-eeee-ffff-000000000000"
+    with pytest.raises(AssertionError, match="OpenAI-side message_id"):
+        assert_openwebui_tool_loop(
+            openai_events=openai,
+            mcp_events=_mcp_handshake_rows(),
+            page_url=f"http://127.0.0.1:3000/c/{OWUI_CHAT}",
+            ui_text="Yokohama",
+            ui_message_ids=[OWUI_MSG],
         )

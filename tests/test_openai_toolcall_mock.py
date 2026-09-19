@@ -125,3 +125,14 @@ def test_openai_log_copies_chat_id_header(tmp_path: Path, monkeypatch) -> None:
     row = json.loads(log.read_text(encoding="utf-8").splitlines()[0])
     assert row["kind"] == "chat.completions"
     assert row["chat_id"] == "chat_from_ui"
+
+
+def test_openai_log_copies_message_id_header(tmp_path: Path, monkeypatch) -> None:
+    log = tmp_path / "openai.jsonl"
+    monkeypatch.setattr(mock, "LOG_PATH", str(log))
+    mock._log(
+        {"kind": "chat.completions"},
+        headers={"X-OpenWebUI-Message-Id": "owui-msg-row"},
+    )
+    row = json.loads(log.read_text(encoding="utf-8").splitlines()[0])
+    assert row["message_id"] == "owui-msg-row"
