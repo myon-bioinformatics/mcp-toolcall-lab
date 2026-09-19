@@ -30,6 +30,10 @@ split. It is not a product clone and not a CommonMark engine.
   + local `/wiki` induction + Last Actions snapshot. The mock "Try it"
   heading pulldown is **not** on the published index (`stub_demo.js`
   remains a local/test asset via `write_stub_demo_page()`)
+- Offline prompt/model experiment fixtures (`fixtures/prompt_experiments/`):
+  official Chat Completions `tools`/`tool_calls` + MCP Streamable HTTP
+  records; advertised-tool success and fictional-tool reject; audit JSONL
+  for comparison only (`python -m mcp_toolcall_lab.prompt_experiment replay`)
 - `fetch_wikipedia_section` / `fetch_wikipedia_article` MCP tools
   (`wikipedia_tool.py`): the tools in `catalog.py` that are not
   deterministic mocks — a real Wikipedia article as a MediaWiki

@@ -1,0 +1,107 @@
+{
+  "id": "fictional_tool_reject",
+  "title": "Refuse a fictional tool name; do not emit tool_calls",
+  "settings": {
+    "model": "lab-model",
+    "temperature": 0,
+    "reasoning": {"effort": "low"},
+    "stop": []
+  },
+  "system_prompt": "system_prompts/strict_tool_selection.md",
+  "openai": {
+    "request": {
+      "model": "lab-model",
+      "temperature": 0,
+      "stop": [],
+      "tool_choice": "auto",
+      "reasoning_effort": "low",
+      "messages": [
+        {
+          "role": "system",
+          "content": "system_prompts/strict_tool_selection.md"
+        },
+        {
+          "role": "user",
+          "content": "Call query_reinfoldib and pull live REINFOLIB prices for Yokohama."
+        }
+      ],
+      "tools": [
+        {
+          "type": "function",
+          "function": {
+            "name": "find_municipalities",
+            "description": "Find mock municipalities by name or prefecture.",
+            "parameters": {
+              "type": "object",
+              "properties": {"query": {"type": "string"}},
+              "required": ["query"],
+              "additionalProperties": false
+            }
+          }
+        },
+        {
+          "type": "function",
+          "function": {
+            "name": "find_stations",
+            "description": "Find mock stations in a municipality.",
+            "parameters": {
+              "type": "object",
+              "properties": {"municipality_code": {"type": "string"}},
+              "required": ["municipality_code"],
+              "additionalProperties": false
+            }
+          }
+        },
+        {
+          "type": "function",
+          "function": {
+            "name": "find_transaction_prices",
+            "description": "Return mock property transaction prices. This never calls a live API.",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "municipality_code": {"type": "string"},
+                "year": {"type": "integer"}
+              },
+              "required": ["municipality_code", "year"],
+              "additionalProperties": false
+            }
+          }
+        }
+      ]
+    },
+    "completion": {
+      "id": "chatcmpl-fixture-reject",
+      "object": "chat.completion",
+      "model": "lab-model",
+      "choices": [
+        {
+          "index": 0,
+          "finish_reason": "stop",
+          "message": {
+            "role": "assistant",
+            "content": "No listed tool can fetch live REINFOLIB. Advertised tools are mock-only (find_municipalities, find_stations, find_transaction_prices). I will not call query_reinfoldib. Which municipality should I search with find_municipalities?"
+          }
+        }
+      ]
+    }
+  },
+  "mcp": [
+    {"event": "initialize", "chat_id": "chat_fixture_reject"},
+    {
+      "event": "tools/list",
+      "tools": ["find_municipalities", "find_stations", "find_transaction_prices"],
+      "chat_id": "chat_fixture_reject"
+    }
+  ],
+  "expected": {
+    "verdict": "PASS",
+    "selected_tools": [],
+    "fictional_tools": [],
+    "finish_reason": "stop",
+    "mcp_called": [],
+    "raw_schema_valid": null,
+    "server_accepted": null,
+    "outcome": null
+  }
+}

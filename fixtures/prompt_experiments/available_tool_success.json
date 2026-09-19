@@ -1,0 +1,125 @@
+{
+  "id": "available_tool_success",
+  "title": "Select only an advertised MCP tool",
+  "settings": {
+    "model": "lab-model",
+    "temperature": 0,
+    "reasoning": {"effort": "low"},
+    "stop": []
+  },
+  "system_prompt": "system_prompts/strict_tool_selection.md",
+  "openai": {
+    "request": {
+      "model": "lab-model",
+      "temperature": 0,
+      "stop": [],
+      "tool_choice": "auto",
+      "reasoning_effort": "low",
+      "messages": [
+        {
+          "role": "system",
+          "content": "system_prompts/strict_tool_selection.md"
+        },
+        {
+          "role": "user",
+          "content": "Find municipalities named Yokohama."
+        }
+      ],
+      "tools": [
+        {
+          "type": "function",
+          "function": {
+            "name": "find_municipalities",
+            "description": "Find mock municipalities by name or prefecture.",
+            "parameters": {
+              "type": "object",
+              "properties": {"query": {"type": "string"}},
+              "required": ["query"],
+              "additionalProperties": false
+            }
+          }
+        },
+        {
+          "type": "function",
+          "function": {
+            "name": "find_stations",
+            "description": "Find mock stations in a municipality.",
+            "parameters": {
+              "type": "object",
+              "properties": {"municipality_code": {"type": "string"}},
+              "required": ["municipality_code"],
+              "additionalProperties": false
+            }
+          }
+        },
+        {
+          "type": "function",
+          "function": {
+            "name": "find_transaction_prices",
+            "description": "Return mock property transaction prices. This never calls a live API.",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "municipality_code": {"type": "string"},
+                "year": {"type": "integer"}
+              },
+              "required": ["municipality_code", "year"],
+              "additionalProperties": false
+            }
+          }
+        }
+      ]
+    },
+    "completion": {
+      "id": "chatcmpl-fixture-available",
+      "object": "chat.completion",
+      "model": "lab-model",
+      "choices": [
+        {
+          "index": 0,
+          "finish_reason": "tool_calls",
+          "message": {
+            "role": "assistant",
+            "content": null,
+            "tool_calls": [
+              {
+                "id": "call_fixture_available012345678901",
+                "type": "function",
+                "function": {
+                  "name": "find_municipalities",
+                  "arguments": "{\"query\":\"Yokohama\"}"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "mcp": [
+    {"event": "initialize", "chat_id": "chat_fixture_available"},
+    {
+      "event": "tools/list",
+      "tools": ["find_municipalities", "find_stations", "find_transaction_prices"],
+      "chat_id": "chat_fixture_available"
+    },
+    {
+      "event": "tools/call",
+      "tool": "find_municipalities",
+      "arguments": {"query": "Yokohama"},
+      "outcome": "success",
+      "result": [{"code": "14109", "name": "Yokohama", "prefecture": "Kanagawa"}],
+      "chat_id": "chat_fixture_available"
+    }
+  ],
+  "expected": {
+    "verdict": "PASS",
+    "selected_tools": ["find_municipalities"],
+    "fictional_tools": [],
+    "finish_reason": "tool_calls",
+    "mcp_called": ["find_municipalities"],
+    "raw_schema_valid": true,
+    "server_accepted": true,
+    "outcome": "success"
+  }
+}
