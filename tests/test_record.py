@@ -13,6 +13,7 @@ from mcp_toolcall_lab.record import (
     chat_id_from_headers,
     record_call,
     resolve_correlation,
+    usable_session_id,
 )
 from tests.test_httpx_protocol import ACCEPT, McpHttpxSession
 from tests.test_streamable_http_protocol import running_mcp_server
@@ -83,6 +84,14 @@ def test_resolve_prefers_meta_then_header_then_session_then_mint() -> None:
     assert minted["call_id_source"] == "minted"
     assert str(minted["call_id"]).startswith("call_")
     assert sessions["sess-3"] == "chat_minted"
+
+
+def test_usable_session_id_keeps_missingness() -> None:
+    assert usable_session_id(None) is None
+    assert usable_session_id("") is None
+    assert usable_session_id("   ") is None
+    assert usable_session_id("None") is None
+    assert usable_session_id("sess-real") == "sess-real"
 
 
 def test_record_call_keeps_meta_and_adds_debug(tmp_path: Path, monkeypatch) -> None:

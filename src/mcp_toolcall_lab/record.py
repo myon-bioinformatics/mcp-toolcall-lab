@@ -40,7 +40,18 @@ __all__ = [
     "read_jsonl",
     "record_call",
     "resolve_correlation",
+    "usable_session_id",
 ]
+
+
+def usable_session_id(session_id: object | None) -> str | None:
+    """Keep a missing MCP session missing. ``str(None)`` is ``"None"``, not an id."""
+    if session_id is None:
+        return None
+    text = str(session_id).strip()
+    if not text or text == "None":
+        return None
+    return text
 
 
 def resolve_correlation(
@@ -58,6 +69,7 @@ def resolve_correlation(
     """
     meta = dict(meta or {})
     minted = mint or new_chat_id
+    session_id = usable_session_id(session_id)
     if meta.get("chat_id"):
         chat_id = str(meta["chat_id"])
         source = "meta"

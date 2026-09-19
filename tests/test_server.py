@@ -24,6 +24,11 @@ def test_session_id_stringifies_a_real_session_id() -> None:
     assert _session_id(_context("sess-real")) == "sess-real"
 
 
+def test_session_id_is_none_when_stringified_none_leaks_in() -> None:
+    assert _session_id(_context("None")) is None
+    assert _session_id(_context("")) is None
+
+
 def test_two_no_session_calls_are_not_correlated() -> None:
     sessions: dict[str, str] = {}
     ctx = _context(None)
@@ -50,3 +55,23 @@ def test_two_no_session_calls_are_not_correlated() -> None:
     assert "session_id" not in first
     assert "session_id" not in second
     assert sessions == {}
+    assert "None" not in sessions
+
+    leaked = resolve_correlation(
+        meta={},
+        headers={},
+        session_id="None",
+        session_chats=sessions,
+        mint=lambda: "chat_leaked",
+    )
+    leaked_again = resolve_correlation(
+        meta={},
+        headers={},
+        session_id="None",
+        session_chats=sessions,
+        mint=lambda: "chat_leaked_again",
+    )
+    assert leaked["chat_id"] == "chat_leaked"
+    assert leaked_again["chat_id"] == "chat_leaked_again"
+    assert leaked["chat_id_source"] == "minted"
+    assert "None" not in sessions

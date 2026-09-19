@@ -17,6 +17,7 @@ from .record import (
     OUTCOME_SUCCESS,
     record_call,
     resolve_correlation,
+    usable_session_id,
 )
 
 
@@ -93,9 +94,7 @@ def _session_id(context: MiddlewareContext) -> str | None:
         raw = ctx.session_id
     except Exception:
         return None
-    if not raw:
-        return None
-    return str(raw)
+    return usable_session_id(raw)
 
 
 class ObservabilityMiddleware(Middleware):
