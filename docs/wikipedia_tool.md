@@ -98,11 +98,10 @@ in-process):
   are unit-tested in `tests/test_wikipedia_cache.py`
 
 The copy-paste MCP mocks (`openwebui_mcp_mock.py`, `librechat_mcp_mock.py`)
-inline this module. After changing it, regenerate both with
-`python -m mcp_toolcall_lab.export` rather than editing the copies by
-hand. Other open PRs that touch those same two files must not merge in
-parallel with this one — land `#20` first, then rebase `#19` or `#21`
-one at a time.
+inline this module (and the rest of the FastMCP server, including #19's
+protocol-event JSONL and UI `message_id` harvest). After changing the
+package, regenerate both with `python -m mcp_toolcall_lab.export` rather
+than editing the copies by hand.
 
 ## Stdlib stub UI (`GET /wiki`)
 
