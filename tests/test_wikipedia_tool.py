@@ -122,7 +122,24 @@ def test_fetch_wikipedia_section_returns_the_matched_body(monkeypatch: pytest.Mo
     _mock_extract_response(monkeypatch, title="Yokohama", extract=extract)
 
     rows = fetch_wikipedia_section("Yokohama", "Geography")
-    assert rows == [{"heading": "Geography", "body": "Kanagawa Prefecture, south of Tokyo."}]
+    assert rows == [
+        {
+            "heading": "Geography",
+            "heading_markdown": "## Geography",
+            "body": "Kanagawa Prefecture, south of Tokyo.",
+        }
+    ]
+
+
+def test_fetch_wikipedia_section_heading_markdown_reflects_the_real_level(monkeypatch: pytest.MonkeyPatch) -> None:
+    # "== Geography ==" (wiki level 2) -> ATX "##"; "=== Climate ===" (wiki
+    # level 3, nested under it) -> ATX "###" -- heading_markdown must use
+    # the section's own level, not a hardcoded "##".
+    extract = "Intro.\n\n== Geography ==\nBody.\n\n=== Climate ===\nMild.\n"
+    _mock_extract_response(monkeypatch, title="Yokohama", extract=extract)
+
+    assert fetch_wikipedia_section("Yokohama", "Geography")[0]["heading_markdown"] == "## Geography"
+    assert fetch_wikipedia_section("Yokohama", "Climate")[0]["heading_markdown"] == "### Climate"
 
 
 def test_fetch_wikipedia_section_fuzzy_matches_a_partial_heading(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -130,7 +147,9 @@ def test_fetch_wikipedia_section_fuzzy_matches_a_partial_heading(monkeypatch: py
     _mock_extract_response(monkeypatch, title="Yokohama", extract=extract)
 
     rows = fetch_wikipedia_section("Yokohama", "geography")
-    assert rows == [{"heading": "Geography and climate", "body": "Body."}]
+    assert rows == [
+        {"heading": "Geography and climate", "heading_markdown": "## Geography and climate", "body": "Body."}
+    ]
 
 
 def test_fetch_wikipedia_section_unmatched_heading_is_empty_not_error(monkeypatch: pytest.MonkeyPatch) -> None:

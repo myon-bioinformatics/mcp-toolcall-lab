@@ -361,7 +361,10 @@ def fetch_wikipedia_section(title: str, heading: str = "", *, lang: str = DEFAUL
     the "pulldown" list, deliberately without body text so a caller lists
     options before committing to a possibly-large fetch's body payload.
     A ``heading`` that matches (see ``lookup_heading()`` -- exact first,
-    then fuzzy): that one section's title + body. A ``heading`` that
+    then fuzzy): that one section's title, its ATX form (``heading_markdown``,
+    e.g. ``"## Geography"`` -- the section's own level, not hardcoded),
+    and its body (everything after that heading up to the next one at any
+    level, same as every other ``Section`` in this repo). A ``heading`` that
     matches nothing is a normal empty result, not an error -- same
     "valid call, no rows" contract catalog.py's other tools use. A fetch
     that fails outright (network, no such article) raises
@@ -374,7 +377,8 @@ def fetch_wikipedia_section(title: str, heading: str = "", *, lang: str = DEFAUL
     match = lookup_heading(heading, sections, fuzzy=True)
     if match is None:
         return []
-    return [{"heading": match.title, "body": match.body}]
+    heading_markdown = f"{'#' * match.level} {match.title}"
+    return [{"heading": match.title, "heading_markdown": heading_markdown, "body": match.body}]
 
 # --- catalog.py ---
 """Pure-Python mock data used by the FastMCP server and unit tests.

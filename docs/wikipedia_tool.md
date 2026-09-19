@@ -40,8 +40,11 @@ reason to extend it.
 - `fetch_wikipedia_section(title)` (no `heading`, or a blank one): every
   section's title only — the pulldown list. Deliberately no body text,
   so listing options doesn't force a possibly-large body payload.
-- `fetch_wikipedia_section(title, heading)`: that one section's title +
-  body (`lookup_heading()` — exact match first, then fuzzy).
+- `fetch_wikipedia_section(title, heading)`: that one section's title,
+  its ATX form (`heading_markdown`, e.g. `"## Geography"` — the section's
+  own level, not hardcoded), and its body — everything after that
+  heading up to the next one at any level (`lookup_heading()` — exact
+  match first, then fuzzy).
 - No match for `heading`: an empty result. Same "valid call, no rows is
   not an error" contract as every other tool in `catalog.py`.
 - No such article, or the fetch fails outright (network, timeout): raises
