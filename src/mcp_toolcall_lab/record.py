@@ -23,6 +23,12 @@ CHAT_ID_HEADER_KEYS = (
     "x-lab-chat-id",
     "x-conversation-id",
     "x-owui-chat-id",
+    "x-openwebui-chat-id",  # OWUI ENABLE_FORWARD_USER_INFO_HEADERS
+)
+
+MESSAGE_ID_HEADER_KEYS = (
+    "x-openwebui-message-id",
+    "x-message-id",
 )
 
 
@@ -36,15 +42,19 @@ def new_call_id() -> str:
     return f"call_{uuid.uuid4().hex[:24]}"
 
 
-def chat_id_from_headers(headers: dict[str, str] | None) -> str | None:
+def _id_from_headers(headers: dict[str, str] | None, keys: tuple[str, ...]) -> str | None:
     if not headers:
         return None
     lowered = {str(key).lower(): str(value).strip() for key, value in headers.items()}
-    for key in CHAT_ID_HEADER_KEYS:
+    for key in keys:
         value = lowered.get(key)
         if value:
             return value
     return None
+
+
+def chat_id_from_headers(headers: dict[str, str] | None) -> str | None:
+    return _id_from_headers(headers, CHAT_ID_HEADER_KEYS)
 
 
 def resolve_correlation(
@@ -86,6 +96,9 @@ def resolve_correlation(
     }
     if session_id:
         debug["session_id"] = session_id
+    message_id = _id_from_headers(headers, MESSAGE_ID_HEADER_KEYS)
+    if message_id:
+        debug["message_id"] = message_id
     if meta.get("call_id") is not None:
         debug["call_id"] = meta["call_id"]
         debug["call_id_source"] = "meta"
@@ -152,7 +165,9 @@ def record_call(
         row["debug"] = debug_row
         if debug_row.get("chat_id"):
             row["chat_id"] = debug_row["chat_id"]
-    with Path(log_path).open("a", encoding="utf-8") as log_file:
+    path = Path(log_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as log_file:
         log_file.write(json.dumps(row, ensure_ascii=False, default=str) + "\n")
 
 

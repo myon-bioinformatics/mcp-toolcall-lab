@@ -2,8 +2,8 @@
 FROM python:3.12-slim
 WORKDIR /app
 RUN pip install --no-cache-dir "fastmcp==3.4.7"
-COPY openwebui_mcp_mock.py /app/openwebui_mcp_mock.py
+COPY librechat_mcp_mock.py /app/librechat_mcp_mock.py
 ENV MCP_HOST=0.0.0.0
 ENV MCP_PORT=8000
 EXPOSE 8000
-CMD ["python", "openwebui_mcp_mock.py"]
+CMD ["python", "librechat_mcp_mock.py"]

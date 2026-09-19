@@ -18,7 +18,7 @@ This repository deliberately does **not** call the Ministry of Land, Infrastruct
 
 ## Run locally
 
-`openwebui_mcp_mock.py` is generated from `src/mcp_toolcall_lab/` and is the file you copy onto another machine. Do not copy only one function. After changing tools, regenerate with `python -m mcp_toolcall_lab.export`.
+`openwebui_mcp_mock.py` and `librechat_mcp_mock.py` are both generated from `src/mcp_toolcall_lab/` — the exact same mock server, copied twice under product-matched names so each README/doc can point at a file named for what you're actually running, not a name from a different product. Copy whichever one matches your client onto another machine; do not copy only one function. After changing tools, regenerate both with `python -m mcp_toolcall_lab.export`.
 
 ```bash
 python -m venv .venv
@@ -48,10 +48,16 @@ The mock process must bind `MCP_HOST=0.0.0.0` whenever the client is not on the 
 
 ### LibreChat (second chat client, same mock)
 
-LibreChat is the next first-class UI target. Point it at the **same** `/mcp` URL via
-`librechat.yaml` — do not stand up a second mock. Copy
-[`examples/librechat.mcp.example.yaml`](examples/librechat.mcp.example.yaml) into your
-LibreChat config, then use the chat MCP picker (Agents are a follow-up axis).
+LibreChat is the next first-class UI target. Point it at the **same** `/mcp` server via
+`librechat.yaml` — do not stand up a second mock. Run the LibreChat-named copy of the exact
+same generated server:
+
+```bash
+python librechat_mcp_mock.py
+```
+
+Then copy [`examples/librechat.mcp.example.yaml`](examples/librechat.mcp.example.yaml) into
+your LibreChat config and use the chat MCP picker (Agents are a follow-up axis).
 
 ```yaml
 mcpServers:

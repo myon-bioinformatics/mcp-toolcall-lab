@@ -21,6 +21,22 @@ Fetched / cross-checked 2026-09-18.
 
 Keep one mock process; point both UIs at it. That is the experiment.
 
+## `librechat_mcp_mock.py`
+
+`python -m mcp_toolcall_lab.export` now writes two standalone files,
+[`openwebui_mcp_mock.py`](../openwebui_mcp_mock.py) and
+[`librechat_mcp_mock.py`](../librechat_mcp_mock.py), both generated from the exact same
+`src/mcp_toolcall_lab/` source. They differ only in their own header docstring (which file
+to copy, what to run) -- there is still one mock implementation, not two; regenerating one
+regenerates both, and `tests/test_schema.py` asserts everything past that header is
+byte-identical between them. Run whichever one matches the product you're pointing at, for
+the same reason a README is easier to follow when the file it tells you to run is named
+after the thing you're actually using:
+
+```bash
+python librechat_mcp_mock.py
+```
+
 ## Minimal `librechat.yaml` fragment
 
 See [`examples/librechat.mcp.example.yaml`](../examples/librechat.mcp.example.yaml).
@@ -121,8 +137,10 @@ and `pull_request`; default `pytest -q` stays lean and skips this module).
 ## What this lab does / does not do
 
 **Does:** document LibreChat as a second client, ship a copy-paste YAML example, add a
-strict prompt twin, run an optional real-LibreChat Docker + Playwright smoke that
-finishes chat input/Send and records MCP misses as anti-patterns.
+strict prompt twin, a same-purpose `librechat_mcp_mock.py` standalone file (generated, not
+forked), an optional real-LibreChat Docker + Playwright smoke that finishes chat
+input/Send and records MCP misses as anti-patterns, and pytest guards for the
+example shape plus standalone byte-for-byte parity.
 
 **Does not:** vendor LibreChat's source, claim a full product mock of its DB /
 Agents marketplace, or gate every default `pytest` on a container pull. Protocol

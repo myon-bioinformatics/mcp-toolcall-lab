@@ -1,7 +1,7 @@
 # Real LibreChat + MCP mock + OpenAI tool-call mock on one Docker network.
 #
 # Service DNS (reproducible; no host.docker.internal):
-#   mcp-mock:8000/mcp     → openwebui_mcp_mock.py
+#   mcp-mock:8000/mcp     → librechat_mcp_mock.py
 #   openai-mock:8090/v1   → demos/openai_toolcall_mock.py
 #   mongodb:27017
 #   librechat:3080        (published to the host for Playwright)

@@ -31,6 +31,7 @@ def test_id_mints_live_in_one_place() -> None:
 
 def test_header_keys_are_case_insensitive() -> None:
     assert chat_id_from_headers({"X-Chat-Id": "chat_from_header"}) == "chat_from_header"
+    assert chat_id_from_headers({"X-OpenWebUI-Chat-Id": "owui-real-chat"}) == "owui-real-chat"
     assert chat_id_from_headers({"x-conversation-id": "66f012345678901234567890"}) == "66f012345678901234567890"
     assert chat_id_from_headers({"accept": "application/json"}) is None
 
@@ -58,6 +59,18 @@ def test_resolve_prefers_meta_then_header_then_session_then_mint() -> None:
     )
     assert header_hit["chat_id_source"] == "header"
     assert header_hit["chat_id"] == "chat_header"
+
+    owui = resolve_correlation(
+        meta={},
+        headers={
+            "X-OpenWebUI-Chat-Id": "owui-chat-row",
+            "X-OpenWebUI-Message-Id": "owui-msg-row",
+        },
+        mint=lambda: "chat_minted",
+    )
+    assert owui["chat_id"] == "owui-chat-row"
+    assert owui["chat_id_source"] == "header"
+    assert owui["message_id"] == "owui-msg-row"
 
     session_hit = resolve_correlation(
         meta={},

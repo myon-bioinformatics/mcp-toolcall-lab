@@ -32,6 +32,9 @@ def test_librechat_smoke_compose_uses_shared_docker_network() -> None:
     assert "url: http://mcp-mock:8000/mcp" in yaml
     assert 'baseURL: "http://openai-mock:8090/v1"' in yaml
     assert "host.docker.internal" not in yaml
+    dockerfile = (ROOT / "docker" / "librechat-smoke" / "Dockerfile.mcp").read_text(encoding="utf-8")
+    assert "librechat_mcp_mock.py" in dockerfile
+    assert "openwebui_mcp_mock.py" not in dockerfile
 
 
 def test_librechat_docs_and_prompt_are_present() -> None:

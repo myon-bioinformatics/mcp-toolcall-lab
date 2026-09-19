@@ -69,3 +69,10 @@ def test_completion_and_call_ids_are_prefixed() -> None:
         ]
     )
     assert inbound == ["call_inbound"]
+
+
+def test_stream_branch_closes_http11_connection() -> None:
+    """Keep-alive SSE never ends; LibreChat would hang on the next reuse."""
+    source = Path(mock.__file__).read_text(encoding="utf-8")
+    assert 'self.send_header("Connection", "close")' in source
+    assert "self.close_connection = True" in source

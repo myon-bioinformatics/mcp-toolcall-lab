@@ -117,13 +117,13 @@ class ObservabilityMiddleware(Middleware):
 
     async def on_call_tool(self, context: MiddlewareContext, call_next):
         delay = _tool_delay_seconds()
-        if delay:
-            await asyncio.sleep(delay)
         name = context.message.name
         arguments = dict(context.message.arguments or {})
         meta = _request_meta(context)
         debug = self._debug(context, meta)
         started = time.perf_counter()
+        if delay:
+            await asyncio.sleep(delay)
         try:
             result = await call_next(context)
         except Exception as exc:
