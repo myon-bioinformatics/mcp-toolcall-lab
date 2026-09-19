@@ -107,6 +107,18 @@ jobs:
           MCP_TOOLCALL_LOG: ${{ github.workspace }}/test-results/mcp-toolcalls.jsonl
         run: python scripts/stub_pages_smoke.py
 
+      - name: Capture Docker logs (time, level, content)
+        if: always()
+        env:
+          PYTHONPATH: src
+        run: |
+          python -m mcp_toolcall_lab.docker_logs capture \
+            --compose docker/stub-pages/docker-compose.yml \
+            --out test-results/docker-logs
+          python -m mcp_toolcall_lab.docker_logs timeline \
+            --dir test-results \
+            --out test-results/timeline.jsonl
+
       - name: Build static Pages tree
         env:
           STUB_LAST_RUN: ${{ github.workspace }}/test-results/last-run.json

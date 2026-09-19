@@ -172,14 +172,20 @@
     root.appendChild(thread);
     root.appendChild(form);
 
+    // <strong>/<pre> carry the user/assistant distinction and the
+    // body's line breaks natively -- no CSS class does that work here,
+    // matching this page's no-authored-CSS design (see write_pages()).
+    // Auto-scroll was dropped because overflow CSS is gone (thread grows with the page).
     function addTurn(prompt, result) {
       var turn = el("div", { class: "stub-demo-turn", "data-case": result.case });
-      turn.appendChild(el("div", { class: "stub-demo-user" }, "you: " + prompt));
-      var assistant = el("div", { id: ids.response, class: "stub-demo-assistant" });
+      var userLine = el("p", { class: "stub-demo-user" });
+      userLine.appendChild(el("strong", null, "you:"));
+      userLine.appendChild(document.createTextNode(" " + prompt));
+      turn.appendChild(userLine);
+      var assistant = el("pre", { id: ids.response, class: "stub-demo-assistant" });
       assistant.textContent = "stub (" + result.case + "): " + result.text;
       turn.appendChild(assistant);
       thread.appendChild(turn);
-      thread.scrollTop = thread.scrollHeight;
     }
 
     form.addEventListener("submit", function (event) {

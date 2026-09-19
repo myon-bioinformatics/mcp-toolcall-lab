@@ -14,7 +14,9 @@ LibreChat / Open WebUI stay the products under test. This module is a
   the MCP path instead of heading lookup — the case split the real UIs hide.
 
 No FastMCP / Playwright import on the serve path. MCP is optional urllib
-JSON-RPC; without ``--mcp`` the catalog is called in-process and still logged.
+JSON-RPC (``initialize`` → ``tools/list`` → ``tools/call``, the same
+handshake Open WebUI and LibreChat use); without ``--mcp`` the catalog is
+called in-process and still logged.
 
     python -m mcp_toolcall_lab.stub_front turn --heading "Yokohama"
     python -m mcp_toolcall_lab.stub_front serve --port 8765
@@ -211,6 +213,7 @@ def _call_mcp(
     try:
         session = McpStdlibSession(mcp_url, client_name="stub-front")
         session.initialize()
+        session.list_tools()
         body = session.call_tool(tool, arguments, meta=meta, extra_headers={"X-Chat-Id": chat_id})
         if isinstance(body, dict) and body.get("error"):
             return OUTCOME_ERROR, body["error"], "mcp"
@@ -466,16 +469,16 @@ def write_pages(
         inner = md.markdown_to_html(body)
     else:
         inner = "<pre>" + html.escape("\n".join(titles) + "\n" + summary_text) + "</pre>"
+    # No authored CSS: headings/lists/tables/code blocks from markdown.py and
+    # <strong>/<pre> in stub_demo.js already read fine under the browser's
+    # own default stylesheet -- the same bet https://abehiroshi.la.coocan.jp/
+    # makes, minimum effort for a technical report page nobody needs to be
+    # styled.
     demo_html = _stub_demo_html()
     html_page = (
         "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
+        "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
         "<title>mcp-toolcall-lab stub</title>"
-        "<style>body{font-family:sans-serif;max-width:52rem;margin:1.5rem auto}"
-        "#stub-demo .stub-demo-thread{max-height:20rem;overflow-y:auto;margin:.5rem 0}"
-        "#stub-demo .stub-demo-turn{margin:.5rem 0;padding:.4rem .6rem;border:1px solid #ccc;border-radius:.4rem}"
-        "#stub-demo .stub-demo-user{font-weight:bold}"
-        "#stub-demo .stub-demo-assistant{white-space:pre-wrap}"
-        "#stub-demo textarea{width:100%;font:inherit}</style>"
         f"</head><body>{inner}{demo_html}</body></html>\n"
     )
     (out_dir / "index.html").write_text(html_page, encoding="utf-8")
