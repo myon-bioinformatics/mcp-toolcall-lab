@@ -1,0 +1,39 @@
+# Known LibreChat → mock-MCP anti-patterns.
+# IDs are stable. Runtime hits are appended as JSONL under test-results/
+# (CI artifact) — this file is the dictionary, not the live ledger.
+
+catalog_version: 1
+source: librechat-docker-playwright
+
+antipatterns:
+  - id: SELECTOR_MISS
+    when: Playwright cannot find data-testid=text-input (or the send button)
+    note: LibreChat client markup drifted, or the page never reached chat.
+
+  - id: AUTH_BLOCKED
+    when: register/login did not produce a chat session
+    note: ALLOW_REGISTRATION / ALLOW_EMAIL_LOGIN / first-run onboarding.
+
+  - id: SEND_NOT_CLICKED
+    when: the input was found but Send was not successfully pressed
+    note: disabled send button, overlay, or composer still empty.
+
+  - id: TIMEOUT
+    when: Send was clicked but no assistant bubble appeared in budget
+    note: LibreChat never reached the OpenAI mock, or the mock hung.
+
+  - id: MCP_PICKER_OFF
+    when: LibreChat POSTed /v1/chat/completions with no tools array
+    note: chat MCP picker did not attach mcpServers tools to the turn.
+
+  - id: MCP_NOT_CALLED
+    when: Send succeeded (and tools may have been advertised) but MCP_TOOLCALL_LOG is empty
+    note: model/mock did not issue a tool_call, or LibreChat dropped it.
+
+  - id: MCP_ERROR
+    when: MCP tools/call ran and record.py logged outcome=error
+    note: wrong tool name prefix (LibreChat uses name_mcp_server), bad args, timeout.
+
+  - id: UI_NO_RESULT
+    when: MCP returned success but the chat transcript lacks the expected fragment
+    note: LibreChat rendered an error/empty assistant message after a good MCP call.

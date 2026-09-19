@@ -5,3 +5,4 @@ __pycache__/
 .env
 *.egg-info
 toolcalls.jsonl
+test-results/

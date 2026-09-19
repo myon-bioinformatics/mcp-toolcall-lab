@@ -65,6 +65,27 @@ mcpServers:
 Details: [`docs/librechat_mcp_notes.md`](docs/librechat_mcp_notes.md).
 Prompt: [`system_prompts/strict_tool_selection_librechat.md`](system_prompts/strict_tool_selection_librechat.md).
 
+### LibreChat in Docker + Playwright (input → Send → MCP record)
+
+`docker/librechat-smoke/` starts published LibreChat. The two mocks stay on the host
+and **must** listen on `0.0.0.0` (Linux Docker cannot reach `127.0.0.1` through
+`host.docker.internal`). Playwright types into the real composer and clicks Send.
+If MCP does not come back, the run appends an anti-pattern to
+`test-results/antipatterns.jsonl` (see `fixtures/antipatterns/catalog.yaml`) instead
+of treating that miss as “the click never happened.”
+
+```bash
+HOST=0.0.0.0 MCP_HOST=0.0.0.0 MCP_TOOLCALL_LOG=/tmp/mcp-toolcalls.jsonl \
+  python openwebui_mcp_mock.py &
+HOST=0.0.0.0 PORT=8090 OPENAI_MOCK_LOG=/tmp/openai-mock.jsonl \
+  python demos/openai_toolcall_mock.py &
+docker compose -f docker/librechat-smoke/docker-compose.yml up -d
+LIBRECHAT_BASE_URL=http://127.0.0.1:3080 pytest tests/real_chat_ui/test_librechat_docker.py -v
+```
+
+Skipped in default `pytest` (`LIBRECHAT_BASE_URL` unset). CI workflow:
+`.github/workflows/librechat-docker-smoke.yml`.
+
 ## Test
 
 ```bash

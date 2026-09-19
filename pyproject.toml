@@ -31,4 +31,5 @@ filterwarnings = [
 ]
 markers = [
     "integration: starts a local Streamable HTTP MCP server",
+    "real_chat_ui: needs LibreChat Docker + Playwright (skipped unless LIBRECHAT_BASE_URL is set)",
 ]

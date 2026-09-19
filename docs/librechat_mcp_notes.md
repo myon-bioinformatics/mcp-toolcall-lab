@@ -67,11 +67,58 @@ the same way as the Open WebUI strict prompt: after LibreChat has completed `ini
 Mock must listen with `MCP_HOST=0.0.0.0` when the client is not in the same network namespace.
 Auth: none unless you add a token yourself (then mirror it in `headers:`).
 
-## What this PR does / does not do
+## Docker + Playwright smoke (chat input → Send → MCP)
+
+`docker/librechat-smoke/` runs **real LibreChat** (published image) against:
+
+1. this repo's Streamable HTTP MCP mock (`MCP_HOST=0.0.0.0 python openwebui_mcp_mock.py`)
+2. `demos/openai_toolcall_mock.py` — a stdlib OpenAI-compatible server that emits
+   `tool_calls` for Yokohama / municipalities (LibreChat prefixes MCP tools as
+   `find_municipalities_mcp_<server>`)
+
+Playwright then types into `[data-testid=text-input]` and clicks
+`[data-testid=send-button]`. That UI contract is a hard assertion.
+
+Whether MCP actually ran is classified afterwards
+(`src/mcp_toolcall_lab/antipatterns.py` + `fixtures/antipatterns/catalog.yaml`):
+
+| Verdict | Meaning |
+| --- | --- |
+| PASS | Send reached MCP and the chat showed Yokohama |
+| ANTIPATTERN / `MCP_PICKER_OFF` | `/v1/chat/completions` had no `tools` |
+| ANTIPATTERN / `MCP_NOT_CALLED` | Send worked; `MCP_TOOLCALL_LOG` is empty |
+| ANTIPATTERN / `UI_NO_RESULT` | MCP succeeded; the transcript did not |
+
+Hits are appended to `test-results/antipatterns.jsonl` (CI artifact). The catalog
+is the dictionary; the JSONL is the accumulating ledger. A miss does **not** fail
+the MCP-classification test — it is the record. The send-click test still fails
+if the composer itself is broken.
+
+```bash
+HOST=0.0.0.0 MCP_HOST=0.0.0.0 MCP_TOOLCALL_LOG=/tmp/mcp-toolcalls.jsonl \
+  python openwebui_mcp_mock.py &
+HOST=0.0.0.0 PORT=8090 OPENAI_MOCK_LOG=/tmp/openai-mock.jsonl \
+  python demos/openai_toolcall_mock.py &
+docker compose -f docker/librechat-smoke/docker-compose.yml up -d
+# wait for http://127.0.0.1:3080
+LIBRECHAT_BASE_URL=http://127.0.0.1:3080 \
+  MCP_TOOLCALL_LOG=/tmp/mcp-toolcalls.jsonl \
+  OPENAI_MOCK_LOG=/tmp/openai-mock.jsonl \
+  pytest tests/real_chat_ui/test_librechat_docker.py -v
+```
+
+GitHub Actions: `.github/workflows/librechat-docker-smoke.yml` (`workflow_dispatch`
+and `pull_request`; default `pytest -q` stays lean and skips this module).
+
+Mocks on the host **must** bind `0.0.0.0`. A `127.0.0.1` listen is not reachable
+from the LibreChat container on Linux via `host.docker.internal`.
+
+## What this lab does / does not do
 
 **Does:** document LibreChat as a second client, ship a copy-paste YAML example, add a
-strict prompt twin, and lock the example shape with a pytest guard.
+strict prompt twin, run an optional real-LibreChat Docker + Playwright smoke that
+finishes chat input/Send and records MCP misses as anti-patterns.
 
-**Does not:** vendor LibreChat, run LibreChat in CI, or claim a full product mock of
-LibreChat's DB / Agents marketplace. Protocol truth remains curl / httpx / `mcp` SDK /
-FastMCP CLI against the shared mock.
+**Does not:** vendor LibreChat's source, claim a full product mock of its DB /
+Agents marketplace, or gate every default `pytest` on a container pull. Protocol
+truth remains curl / httpx / `mcp` SDK / FastMCP CLI against the shared mock.

@@ -1,0 +1,141 @@
+"""Classify and record LibreChat → MCP smoke observations.
+
+The Docker + Playwright job finishes chat input and Send first. Whether MCP
+then returns is recorded separately: a miss is an anti-pattern to accumulate,
+not a reason to pretend the UI click never happened.
+"""
+
+from __future__ import annotations
+
+import json
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Any
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+CATALOG_PATH = REPO_ROOT / "fixtures" / "antipatterns" / "catalog.yaml"
+
+VERDICT_PASS = "PASS"
+VERDICT_ANTIPATTERN = "ANTIPATTERN"
+
+# Stable IDs — keep in sync with fixtures/antipatterns/catalog.yaml
+SELECTOR_MISS = "SELECTOR_MISS"
+AUTH_BLOCKED = "AUTH_BLOCKED"
+SEND_NOT_CLICKED = "SEND_NOT_CLICKED"
+TIMEOUT = "TIMEOUT"
+MCP_PICKER_OFF = "MCP_PICKER_OFF"
+MCP_NOT_CALLED = "MCP_NOT_CALLED"
+MCP_ERROR = "MCP_ERROR"
+UI_NO_RESULT = "UI_NO_RESULT"
+
+KNOWN_IDS = frozenset(
+    {
+        SELECTOR_MISS,
+        AUTH_BLOCKED,
+        SEND_NOT_CLICKED,
+        TIMEOUT,
+        MCP_PICKER_OFF,
+        MCP_NOT_CALLED,
+        MCP_ERROR,
+        UI_NO_RESULT,
+    }
+)
+
+
+def classify_observation(
+    *,
+    input_found: bool,
+    send_clicked: bool,
+    logged_in: bool,
+    assistant_visible: bool,
+    openai_saw_tools: bool | None,
+    mcp_calls: list[dict[str, Any]],
+    ui_text: str,
+    expected_ui_fragment: str = "Yokohama",
+) -> dict[str, Any]:
+    """Return a verdict plus antipattern_id (None on PASS)."""
+    if not logged_in:
+        return _anti(AUTH_BLOCKED, "register/login did not reach a chat session")
+    if not input_found:
+        return _anti(SELECTOR_MISS, "data-testid=text-input was not found")
+    if not send_clicked:
+        return _anti(SEND_NOT_CLICKED, "data-testid=send-button was not clicked")
+    if not assistant_visible:
+        return _anti(TIMEOUT, "send clicked but no assistant message appeared")
+    if openai_saw_tools is False:
+        return _anti(
+            MCP_PICKER_OFF,
+            "LibreChat POSTed chat/completions without tools — MCP picker likely off",
+        )
+    if not mcp_calls:
+        return _anti(MCP_NOT_CALLED, "send succeeded but MCP_TOOLCALL_LOG has no tools/call")
+    if any(call.get("outcome") == "error" for call in mcp_calls):
+        return _anti(MCP_ERROR, "MCP tools/call ran and recorded outcome=error")
+    if expected_ui_fragment.lower() not in ui_text.lower():
+        return _anti(
+            UI_NO_RESULT,
+            f"MCP returned but the chat UI did not show {expected_ui_fragment!r}",
+        )
+    return {
+        "verdict": VERDICT_PASS,
+        "antipattern_id": None,
+        "detail": "chat send reached MCP and the UI showed the mock result",
+    }
+
+
+def _anti(antipattern_id: str, detail: str) -> dict[str, Any]:
+    return {
+        "verdict": VERDICT_ANTIPATTERN,
+        "antipattern_id": antipattern_id,
+        "detail": detail,
+    }
+
+
+def write_observation(
+    path: Path,
+    *,
+    observation: dict[str, Any],
+    source: str = "librechat-docker-playwright",
+) -> dict[str, Any]:
+    """Append one JSONL observation. Does not rewrite history."""
+    record = {
+        "at": datetime.now(UTC).isoformat(),
+        "source": source,
+        **observation,
+    }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(record, ensure_ascii=False) + "\n")
+    return record
+
+
+def load_mcp_log(path: Path) -> list[dict[str, Any]]:
+    if not path.is_file():
+        return []
+    events: list[dict[str, Any]] = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        events.append(json.loads(line))
+    return events
+
+
+def openai_request_had_tools(path: Path) -> bool | None:
+    """True/False if the mock logged a completions request; None if no log."""
+    if not path.is_file():
+        return None
+    saw_request = False
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        event = json.loads(line)
+        if event.get("kind") != "chat.completions":
+            continue
+        saw_request = True
+        if event.get("tool_names"):
+            return True
+    if saw_request:
+        return False
+    return None

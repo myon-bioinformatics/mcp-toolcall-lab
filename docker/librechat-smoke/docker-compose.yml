@@ -1,0 +1,44 @@
+# Real LibreChat + this lab's mock MCP (and a mock OpenAI that emits tool_calls).
+#
+# The two mocks run on the *host* (CI job or your laptop) so we do not rebuild
+# a Python image. They MUST bind 0.0.0.0 — Linux Docker cannot reach 127.0.0.1
+# via host-gateway.
+#
+#   HOST=0.0.0.0 MCP_HOST=0.0.0.0 MCP_TOOLCALL_LOG=/tmp/mcp-toolcalls.jsonl \
+#     python openwebui_mcp_mock.py &
+#   HOST=0.0.0.0 PORT=8090 OPENAI_MOCK_LOG=/tmp/openai-mock.jsonl \
+#     python demos/openai_toolcall_mock.py &
+#   docker compose -f docker/librechat-smoke/docker-compose.yml up -d
+#   # wait for http://127.0.0.1:3080
+#   LIBRECHAT_BASE_URL=http://127.0.0.1:3080 \
+#     MCP_TOOLCALL_LOG=/tmp/mcp-toolcalls.jsonl \
+#     OPENAI_MOCK_LOG=/tmp/openai-mock.jsonl \
+#     pytest tests/real_chat_ui/test_librechat_docker.py -v
+#
+# Image is LibreChat's published registry tag (not a fork). Unpinning `:latest`
+# is intentional for "does the current product still wire MCP?" — pin a digest
+# if a run needs to be replayed exactly.
+services:
+  mongodb:
+    image: mongo:7.0
+    command: mongod --noauth
+    restart: "no"
+
+  librechat:
+    image: registry.librechat.ai/danny-avila/librechat-dev:latest
+    ports:
+      - "3080:3080"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      HOST: "0.0.0.0"
+      PORT: "3080"
+      MONGO_URI: mongodb://mongodb:27017/LibreChat
+    env_file:
+      - env.smoke
+    volumes:
+      - ./librechat.yaml:/app/librechat.yaml:ro
+      - ./env.smoke:/app/.env:ro
+    depends_on:
+      - mongodb
+    restart: "no"
