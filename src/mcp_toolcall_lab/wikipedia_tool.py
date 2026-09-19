@@ -131,6 +131,11 @@ class WikipediaExtractCache:
     Size is the number of canonical articles, not the number of title
     aliases. A redirect adds the requested title onto the canonical
     entry instead of allocating a second slot.
+
+    ``get_or_load`` never holds ``_lock`` while ``loader`` runs (that
+    path is Wikipedia HTTP or fixture I/O). Same-key misses single-flight
+    via ``_inflight``; a hit on a different warm key is not blocked by
+    an in-flight miss. The stub's ``ThreadingHTTPServer`` depends on that.
     """
 
     def __init__(
@@ -148,6 +153,7 @@ class WikipediaExtractCache:
         self._lock = threading.RLock()
         self._order: OrderedDict[tuple[str, str], _CacheEntry] = OrderedDict()
         self._alias: dict[tuple[str, str], tuple[str, str]] = {}
+        self._inflight: dict[tuple[str, str], threading.Event] = {}
         self.hits = 0
         self.misses = 0
 
@@ -234,15 +240,52 @@ class WikipediaExtractCache:
         lang: str,
         loader: Callable[[str, str], tuple[WikipediaArticle, tuple[str, ...]]],
     ) -> tuple[WikipediaArticle, CacheLookup]:
-        with self._lock:
-            cached = self._get_unlocked(title, lang)
-            if cached is not None:
-                self.hits += 1
-                return cached, "hit"
-            self.misses += 1
-            article, extra_aliases = loader(title, lang)
-            stored = self._put_unlocked(article, (title, article.canonical_title, *extra_aliases))
-            return stored, "miss"
+        """Return a cached extract, loading on miss without holding the lock.
+
+        Under the lock we only decide hit / join an in-flight miss / become
+        the owner. ``loader`` (HTTP or fixture I/O) always runs outside it.
+        Waiters re-check the cache after the owner finishes so a successful
+        single-flight is one load; a failed load is not cached and waiters
+        may become the next owner.
+        """
+
+        key = self._key(title, lang)
+        while True:
+            wait_for: threading.Event | None = None
+            load_event: threading.Event | None = None
+            with self._lock:
+                cached = self._get_unlocked(title, lang)
+                if cached is not None:
+                    self.hits += 1
+                    return cached, "hit"
+                existing = self._inflight.get(key)
+                if existing is not None:
+                    wait_for = existing
+                else:
+                    load_event = threading.Event()
+                    self._inflight[key] = load_event
+                    self.misses += 1
+            if wait_for is not None:
+                wait_for.wait()
+                continue
+            assert load_event is not None
+            try:
+                article, extra_aliases = loader(title, lang)
+            except BaseException:
+                with self._lock:
+                    if self._inflight.get(key) is load_event:
+                        del self._inflight[key]
+                raise
+            else:
+                with self._lock:
+                    stored = self._put_unlocked(
+                        article, (title, article.canonical_title, *extra_aliases)
+                    )
+                    if self._inflight.get(key) is load_event:
+                        del self._inflight[key]
+                    return stored, "miss"
+            finally:
+                load_event.set()
 
     def __len__(self) -> int:
         with self._lock:
@@ -254,6 +297,10 @@ class WikipediaExtractCache:
             self._alias.clear()
             self.hits = 0
             self.misses = 0
+            pending = list(self._inflight.values())
+            self._inflight.clear()
+        for event in pending:
+            event.set()
 
 
 _CACHE: WikipediaExtractCache | None = None

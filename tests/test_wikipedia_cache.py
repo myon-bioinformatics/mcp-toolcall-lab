@@ -10,6 +10,7 @@ from urllib.error import URLError
 import pytest
 
 from mcp_toolcall_lab.wikipedia_tool import (
+    WikipediaArticle,
     WikipediaExtractCache,
     WikipediaFetchError,
     fetch_wikipedia_article,
@@ -186,6 +187,106 @@ def test_fetch_wikipedia_article_shape(monkeypatch: pytest.MonkeyPatch) -> None:
     assert result["headings"][0] == {"heading": "Yokohama", "level": 1}
     assert {"heading": "Geography", "level": 2} in result["headings"]
     assert "body" not in result
+
+
+def test_slow_miss_does_not_block_hit_on_a_warm_key() -> None:
+    """A miss must not hold the cache lock while its loader runs.
+
+    The stub uses ThreadingHTTPServer; a slow Wikipedia/fixture load of
+    one title must not stall a concurrent hit on a different warm title.
+    """
+
+    cache = WikipediaExtractCache(maxsize=8, ttl_seconds=60.0)
+    cache.put(WikipediaArticle(canonical_title="Yokohama", lang="en", extract="warm lead."))
+
+    started_load = threading.Event()
+    release_load = threading.Event()
+    hit_finished = threading.Event()
+    errors: list[BaseException] = []
+
+    def slow_loader(title: str, lang: str) -> tuple[WikipediaArticle, tuple[str, ...]]:
+        started_load.set()
+        if not release_load.wait(timeout=5):
+            raise TimeoutError("slow loader was never released")
+        return WikipediaArticle(canonical_title=title, lang=lang, extract="slow lead."), ()
+
+    def forbidden_loader(title: str, lang: str) -> tuple[WikipediaArticle, tuple[str, ...]]:
+        raise AssertionError(f"loader should not run for warm key {title!r} ({lang})")
+
+    def miss_worker() -> None:
+        try:
+            article, lookup = cache.get_or_load("Tokyo", "en", slow_loader)
+            assert lookup == "miss"
+            assert article.canonical_title == "Tokyo"
+        except BaseException as exc:  # noqa: BLE001
+            errors.append(exc)
+
+    def hit_worker() -> None:
+        try:
+            if not started_load.wait(timeout=5):
+                raise TimeoutError("slow miss never entered the loader")
+            article, lookup = cache.get_or_load("Yokohama", "en", forbidden_loader)
+            assert lookup == "hit"
+            assert article.canonical_title == "Yokohama"
+            assert article.extract == "warm lead."
+        except BaseException as exc:  # noqa: BLE001
+            errors.append(exc)
+        finally:
+            hit_finished.set()
+
+    miss_thread = threading.Thread(target=miss_worker)
+    hit_thread = threading.Thread(target=hit_worker)
+    miss_thread.start()
+    hit_thread.start()
+    assert hit_finished.wait(timeout=1.0), "hit on a warm key was blocked by an in-flight miss"
+    release_load.set()
+    miss_thread.join(timeout=5)
+    hit_thread.join(timeout=5)
+    assert errors == []
+    assert cache.get("Tokyo") is not None
+    assert cache.misses == 1
+    assert cache.hits >= 1
+
+
+def test_distinct_misses_overlap_instead_of_serializing_loaders() -> None:
+    """Two different titles must be allowed to load at the same time."""
+
+    cache = WikipediaExtractCache(maxsize=8, ttl_seconds=60.0)
+    both_in_loader = threading.Barrier(3)
+    release_load = threading.Event()
+    errors: list[BaseException] = []
+
+    def overlapping_loader(title: str, lang: str) -> tuple[WikipediaArticle, tuple[str, ...]]:
+        both_in_loader.wait(timeout=5)
+        if not release_load.wait(timeout=5):
+            raise TimeoutError("overlapping loader was never released")
+        return WikipediaArticle(canonical_title=title, lang=lang, extract=f"{title} lead."), ()
+
+    def worker(title: str) -> None:
+        try:
+            article, lookup = cache.get_or_load(title, "en", overlapping_loader)
+            assert lookup == "miss"
+            assert article.canonical_title == title
+        except BaseException as exc:  # noqa: BLE001
+            errors.append(exc)
+
+    threads = [threading.Thread(target=worker, args=(name,)) for name in ("Tokyo", "Osaka")]
+    for thread in threads:
+        thread.start()
+    try:
+        both_in_loader.wait(timeout=1.0)
+    except threading.BrokenBarrierError as exc:
+        release_load.set()
+        for thread in threads:
+            thread.join(timeout=5)
+        raise AssertionError("distinct misses serialized; both loaders should have been running") from exc
+    release_load.set()
+    for thread in threads:
+        thread.join(timeout=5)
+    assert errors == []
+    assert cache.misses == 2
+    assert cache.get("Tokyo") is not None
+    assert cache.get("Osaka") is not None
 
 
 def test_cache_survives_concurrent_heading_reads(monkeypatch: pytest.MonkeyPatch) -> None:

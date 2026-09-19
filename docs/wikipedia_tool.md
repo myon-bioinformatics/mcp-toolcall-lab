@@ -91,8 +91,18 @@ in-process):
 - default size 16 canonical articles (`MCP_TOOLCALL_LAB_WIKI_CACHE_MAXSIZE`)
 - a MediaWiki redirect stores the requested title and the canonical
   title on the **same** entry; heading switches reuse it
-- cache hit/miss, TTL expiry, and the size cap are unit-tested in
-  `tests/test_wikipedia_cache.py`
+- the cache lock is **not** held during loader/HTTP; same-title misses
+  single-flight, and a hit on a warm title is not blocked by another
+  title's in-flight fetch (the stub is a `ThreadingHTTPServer`)
+- cache hit/miss, TTL expiry, the size cap, and that lock/load split
+  are unit-tested in `tests/test_wikipedia_cache.py`
+
+The copy-paste MCP mocks (`openwebui_mcp_mock.py`, `librechat_mcp_mock.py`)
+inline this module. After changing it, regenerate both with
+`python -m mcp_toolcall_lab.export` rather than editing the copies by
+hand. Other open PRs that touch those same two files must not merge in
+parallel with this one — land `#20` first, then rebase `#19` or `#21`
+one at a time.
 
 ## Stdlib stub UI (`GET /wiki`)
 
@@ -105,7 +115,9 @@ screenshot it without filling widgets):
   selected section body
 
 Displayed text is `html.escape`d into `<pre>`. GitHub Pages does not
-host this form.
+host this form. Local `/wiki` may include a small authored `<style>`
+block for the form; the published Pages report is a different host
+(no Wikipedia-form CSS, and no live Wikipedia backend) on purpose.
 
 ```bash
 python -m mcp_toolcall_lab.stub_front serve --port 8765
