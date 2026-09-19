@@ -226,6 +226,7 @@ LIBRECHAT = ChatFrontend(
         "python -m mcp_toolcall_lab.frontends librechat",
         "python -m mcp_toolcall_lab.chat_ui describe librechat",
         "python -m mcp_toolcall_lab.chat_ui send --client librechat --url http://127.0.0.1:3080",
+        "python -m mcp_toolcall_lab.trace_probe --chat-id chat_lab1 --url http://127.0.0.1:3080/c/CONVERSATION",
     ),
 )
 
@@ -288,6 +289,7 @@ OPENWEBUI = ChatFrontend(
         "python -m mcp_toolcall_lab.frontends openwebui",
         "python -m mcp_toolcall_lab.chat_ui describe openwebui",
         "python -m mcp_toolcall_lab.chat_ui send --client openwebui --url http://127.0.0.1:3000",
+        "python -m mcp_toolcall_lab.trace_probe --chat-id chat_lab1 --url http://127.0.0.1:3000/c/CHAT",
     ),
 )
 
@@ -318,8 +320,10 @@ def catalog() -> dict[str, Any]:
         "one_liners": {
             "dump": "python -m mcp_toolcall_lab.frontends",
             "describe": "python -m mcp_toolcall_lab.chat_ui describe",
-            "send_librechat": LIBRECHAT.one_liners[-1],
-            "send_openwebui": OPENWEBUI.one_liners[-1],
+            "send_librechat": LIBRECHAT.one_liners[-2],
+            "send_openwebui": OPENWEBUI.one_liners[-2],
+            "trace_probe": "python -m mcp_toolcall_lab.trace_probe --chat-id chat_lab1",
+            "trace_kinds": "python -m mcp_toolcall_lab.trace_probe kinds",
         },
     }
 

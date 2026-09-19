@@ -22,6 +22,7 @@ from mcp_toolcall_lab.chat_ui import (
     wait_for_assistant,
 )
 from mcp_toolcall_lab.frontends import LIBRECHAT
+from mcp_toolcall_lab.trace_probe import snapshot_trace
 
 pytest.importorskip("playwright.sync_api")
 from playwright.sync_api import sync_playwright  # noqa: E402
@@ -90,12 +91,20 @@ def test_mcp_return_or_record_antipattern(page) -> None:
         except Exception:
             flags["assistant_visible"] = False
         ui_text = page.locator("body").inner_text()
+        flags["page_url"] = page.url
     flags["ui_text_tail"] = ui_text
     classified = classify_send_result(
         frontend=LIBRECHAT,
         flags=flags,
         mcp_log=MCP_LOG,
         openai_log=OPENAI_LOG,
+    )
+    page_url = flags.get("page_url") or LIBRECHAT_BASE_URL
+    trace = snapshot_trace(
+        mcp_log=MCP_LOG,
+        openai_log=OPENAI_LOG,
+        page_url=page_url,
+        text=ui_text,
     )
     record = write_observation(
         OBSERVED,
@@ -104,6 +113,8 @@ def test_mcp_return_or_record_antipattern(page) -> None:
             "chat_message": CHAT_MESSAGE,
             "client": LIBRECHAT.id,
             "url": LIBRECHAT_BASE_URL,
+            "page_url": page_url,
+            "trace": trace,
         },
         source="librechat-docker-playwright",
     )

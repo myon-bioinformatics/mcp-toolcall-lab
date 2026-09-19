@@ -103,9 +103,11 @@ python -m mcp_toolcall_lab.chat_ui describe openwebui
 # UI が上がっているとき（pip install -e '.[browser-test]' && playwright install chromium）
 python -m mcp_toolcall_lab.chat_ui send --client librechat --url http://127.0.0.1:3080
 python -m mcp_toolcall_lab.chat_ui send --client openwebui --url http://127.0.0.1:3000
+python -m mcp_toolcall_lab.chat_ui send --client librechat --chat-id chat_lab1
 # after `pip install -e .` the same entry points:
 mcp-frontends librechat
 mcp-chat-ui send --client librechat --url http://127.0.0.1:3080
+mcp-trace-probe --chat-id chat_lab1
 ```
 
 ## Test
@@ -206,6 +208,28 @@ asyncio.run(main())
 
 With `MCP_TOOLCALL_LOG` set, both calls above land in the same JSONL file with the same shape,
 distinguished only by `meta.source` — see `tests/test_trace.py`.
+
+### Trace probe (the other ids)
+
+`chat_id` is the lab-owned pin. Reasoning / response / UI hops mint more ids we do
+**not** own: OpenAI `chatcmpl-*` / `call_*`, Responses `resp_` / `rs_` / `msg_` /
+`fc_`, LibreChat `conversationId` in `/c/{id}`, Open WebUI `chat.id` / `/s/{share}`.
+`mcp_toolcall_lab.trace_probe` harvests those from the MCP JSONL, the OpenAI mock
+log, an observation row, and the page URL, then clusters hops that share any id
+string (union-find). It is a probe, not a product database.
+
+```bash
+python -m mcp_toolcall_lab.trace_probe kinds
+python -m mcp_toolcall_lab.trace_probe --chat-id chat_lab1 \
+  --mcp-log test-results/mcp-toolcalls.jsonl \
+  --openai-log test-results/openai-mock.jsonl \
+  --url 'http://127.0.0.1:3080/c/66f012345678901234567890'
+# after send, the observation already joins lab chat_id ↔ page_url ↔ completion/call ids
+mcp-trace-probe --chat-id chat_lab1
+```
+
+`send --chat-id chat_*` only tags the observation. A product conversation id
+(not the `chat_` prefix) resumes `/c/{id}` after login.
 
 `tests/test_curl_protocol.py` gives the same raw-HTTP handshake pytest coverage (success, empty
 result, unknown tool, missing argument), alongside `tests/test_streamable_http_protocol.py`'s

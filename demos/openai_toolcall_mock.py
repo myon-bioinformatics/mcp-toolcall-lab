@@ -11,7 +11,9 @@ mock result.
 If the request has **no** tools, it replies in plain text saying so — that is
 how the Playwright job distinguishes MCP_PICKER_OFF from MCP_NOT_CALLED.
 
-Request bodies are appended to ``OPENAI_MOCK_LOG`` (JSONL) when set.
+Request bodies are appended to ``OPENAI_MOCK_LOG`` (JSONL) when set. Each
+row includes ``completion_id`` (``chatcmpl-*``) and ``call_ids`` /
+``inbound_call_ids`` so ``trace_probe`` can join them to a lab ``chat_id``.
 
 Run: ``HOST=0.0.0.0 PORT=8090 python demos/openai_toolcall_mock.py``
 """
@@ -96,6 +98,31 @@ def _user_wants_municipality(text: str) -> bool:
     return "yokohama" in lowered or "municipalit" in lowered or "市区町村" in lowered
 
 
+def tool_call_ids_from_message(message: dict[str, Any]) -> list[str]:
+    ids: list[str] = []
+    for tool in message.get("tool_calls") or []:
+        if isinstance(tool, dict) and tool.get("id"):
+            ids.append(str(tool["id"]))
+    return ids
+
+
+def inbound_call_ids_from_messages(messages: list[dict[str, Any]]) -> list[str]:
+    ids: list[str] = []
+    seen: set[str] = set()
+    for message in messages:
+        if not isinstance(message, dict):
+            continue
+        candidates = list(tool_call_ids_from_message(message))
+        if message.get("role") == "tool" and message.get("tool_call_id"):
+            candidates.append(str(message["tool_call_id"]))
+        for item in candidates:
+            if item in seen:
+                continue
+            seen.add(item)
+            ids.append(item)
+    return ids
+
+
 def _tool_call_message(tool_name: str, query: str = "Yokohama") -> dict[str, Any]:
     call_id = f"call_{uuid.uuid4().hex[:24]}"
     return {
@@ -154,10 +181,10 @@ def decide_assistant_message(body: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _completion(message: dict[str, Any]) -> dict[str, Any]:
+def _completion(message: dict[str, Any], completion_id: str | None = None) -> dict[str, Any]:
     finish = "tool_calls" if message.get("tool_calls") else "stop"
     return {
-        "id": f"chatcmpl-{uuid.uuid4().hex}",
+        "id": completion_id or f"chatcmpl-{uuid.uuid4().hex}",
         "object": "chat.completion",
         "created": int(time.time()),
         "model": MODEL_ID,
@@ -168,8 +195,8 @@ def _completion(message: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _stream_chunks(message: dict[str, Any]) -> list[str]:
-    chunk_id = f"chatcmpl-{uuid.uuid4().hex}"
+def _stream_chunks(message: dict[str, Any], chunk_id: str | None = None) -> list[str]:
+    chunk_id = chunk_id or f"chatcmpl-{uuid.uuid4().hex}"
     created = int(time.time())
 
     def chunk(delta: dict[str, Any], finish_reason: str | None) -> str:
@@ -260,27 +287,32 @@ class Handler(BaseHTTPRequestHandler):
             return
 
         names = _tool_names(body)
+        messages = list(body.get("messages") or [])
+        message = decide_assistant_message(body)
+        completion_id = f"chatcmpl-{uuid.uuid4().hex}"
         _log(
             {
                 "kind": "chat.completions",
                 "stream": bool(body.get("stream")),
                 "tool_names": names,
-                "user": _last_user_text(list(body.get("messages") or [])),
-                "has_tool_result": _has_tool_result(list(body.get("messages") or [])),
+                "user": _last_user_text(messages),
+                "has_tool_result": _has_tool_result(messages),
+                "completion_id": completion_id,
+                "call_ids": tool_call_ids_from_message(message),
+                "inbound_call_ids": inbound_call_ids_from_messages(messages),
             }
         )
-        message = decide_assistant_message(body)
         if body.get("stream"):
             self.send_response(200)
             self.send_header("Content-Type", "text/event-stream")
             self.send_header("Cache-Control", "no-cache")
             self._cors()
             self.end_headers()
-            for piece in _stream_chunks(message):
+            for piece in _stream_chunks(message, chunk_id=completion_id):
                 self.wfile.write(piece.encode("utf-8"))
                 self.wfile.flush()
             return
-        self._send_json(_completion(message))
+        self._send_json(_completion(message, completion_id=completion_id))
 
     def log_message(self, format: str, *args) -> None:  # noqa: A002
         sys.stderr.write("openai_toolcall_mock: " + (format % args) + "\n")

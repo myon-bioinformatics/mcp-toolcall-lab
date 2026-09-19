@@ -45,9 +45,11 @@ def test_catalog_and_describe_are_json() -> None:
     assert "librechat" in dumped["clients"]
     assert "openwebui" in dumped["clients"]
     assert "send_librechat" in dumped["one_liners"]
+    assert "trace_probe" in dumped["one_liners"]
     summary = describe("librechat")
     assert summary["composer_input"] == '[data-testid="text-input"]'
-    assert "python -m mcp_toolcall_lab.chat_ui send" in summary["one_liners"][-1]
+    assert any("chat_ui send" in line for line in summary["one_liners"])
+    assert any("trace_probe" in line for line in summary["one_liners"])
 
 
 def test_frontends_module_one_liner() -> None:

@@ -12,6 +12,7 @@ dependencies = ["fastmcp==3.4.7"]
 [project.scripts]
 mcp-chat-ui = "mcp_toolcall_lab.chat_ui:main"
 mcp-frontends = "mcp_toolcall_lab.frontends:main"
+mcp-trace-probe = "mcp_toolcall_lab.trace_probe:main"
 
 [project.optional-dependencies]
 test = [

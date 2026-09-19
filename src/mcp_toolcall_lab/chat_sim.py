@@ -22,7 +22,8 @@ generic until that's scoped.
 
 This is deliberately not part of ``INLINE_MODULES`` in export.py: it is a
 test/harness-side stand-in for *a caller* of the mock MCP server, not part of
-the server itself.
+the server itself. Other minted ids (completion / reasoning / UI conversation)
+are harvested by ``trace_probe.py``, not invented here.
 
 No LLM is called — matching the rest of this repo, everything here is
 deterministic and offline. ``tool_name``/``arguments`` stand in for "the model
@@ -73,6 +74,7 @@ async def send_via_chat(
     arguments: dict[str, Any],
     chat_id: str | None = None,
     call_id: str | None = None,
+    trace_id: str | None = None,
 ) -> ChatTrace:
     """Run one simulated chat turn that decides to call ``tool_name``.
 
@@ -85,6 +87,9 @@ async def send_via_chat(
     """
     chat_id = chat_id or new_chat_id()
     call_id = call_id or new_call_id()
+    meta = {"call_id": call_id, "chat_id": chat_id, "source": "chat"}
+    if trace_id is not None:
+        meta["trace_id"] = trace_id
 
     user_message = {"role": "user", "content": user_text}
     assistant_tool_call_message = {
@@ -105,7 +110,7 @@ async def send_via_chat(
             result = await session.call_tool(
                 tool_name,
                 arguments,
-                meta={"call_id": call_id, "chat_id": chat_id, "source": "chat"},
+                meta=meta,
             )
 
     content_text = result.content[0].text if result.content else "[]"

@@ -49,3 +49,23 @@ def test_tool_result_turn_returns_yokohama() -> None:
     )
     assert "Yokohama" in message["content"]
     assert message.get("tool_calls") is None
+
+
+def test_completion_and_call_ids_are_prefixed() -> None:
+    body = {
+        "messages": [{"role": "user", "content": "Find municipalities named Yokohama"}],
+        "tools": [{"type": "function", "function": {"name": "find_municipalities_mcp_lab"}}],
+    }
+    message = mock.decide_assistant_message(body)
+    completion = mock._completion(message, completion_id="chatcmpl-fixed")
+    assert completion["id"] == "chatcmpl-fixed"
+    call_ids = mock.tool_call_ids_from_message(message)
+    assert len(call_ids) == 1
+    assert call_ids[0].startswith("call_")
+    inbound = mock.inbound_call_ids_from_messages(
+        [
+            {"role": "assistant", "tool_calls": [{"id": "call_inbound"}]},
+            {"role": "tool", "tool_call_id": "call_inbound"},
+        ]
+    )
+    assert inbound == ["call_inbound"]
