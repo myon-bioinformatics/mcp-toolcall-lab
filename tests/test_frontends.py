@@ -46,6 +46,7 @@ def test_catalog_and_describe_are_json() -> None:
     assert "openwebui" in dumped["clients"]
     assert "send_librechat" in dumped["one_liners"]
     assert "trace_probe" in dumped["one_liners"]
+    assert "stub_front_turn" in dumped["one_liners"]
     summary = describe("librechat")
     assert summary["composer_input"] == '[data-testid="text-input"]'
     assert any("chat_ui send" in line for line in summary["one_liners"])

@@ -324,6 +324,8 @@ def catalog() -> dict[str, Any]:
             "send_openwebui": OPENWEBUI.one_liners[-2],
             "trace_probe": "python -m mcp_toolcall_lab.trace_probe --chat-id chat_lab1",
             "trace_kinds": "python -m mcp_toolcall_lab.trace_probe kinds",
+            "stub_front_turn": "python -m mcp_toolcall_lab.stub_front turn --heading Yokohama",
+            "stub_front_serve": "python -m mcp_toolcall_lab.stub_front serve --port 8765",
         },
     }
 

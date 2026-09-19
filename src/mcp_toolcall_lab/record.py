@@ -4,13 +4,90 @@ from __future__ import annotations
 
 import json
 import os
+import uuid
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 OUTCOME_SUCCESS = "success"
 OUTCOME_EMPTY = "empty"
 OUTCOME_ERROR = "error"
+
+EVENT_TOOLS_CALL = "tools/call"
+
+# Real chat UIs rarely put lab chat_id in MCP `_meta`. They *can* forward a
+# conversation id on the HTTP hop; we also mint one per MCP session so a
+# tools/call is never an orphan row.
+CHAT_ID_HEADER_KEYS = (
+    "x-chat-id",
+    "x-lab-chat-id",
+    "x-conversation-id",
+    "x-owui-chat-id",
+)
+
+
+def new_chat_id() -> str:
+    """Same shape as ``chat_sim.new_chat_id`` — kept here so INLINE_MODULES stay closed."""
+    return f"chat_{uuid.uuid4().hex[:24]}"
+
+
+def chat_id_from_headers(headers: dict[str, str] | None) -> str | None:
+    if not headers:
+        return None
+    lowered = {str(key).lower(): str(value).strip() for key, value in headers.items()}
+    for key in CHAT_ID_HEADER_KEYS:
+        value = lowered.get(key)
+        if value:
+            return value
+    return None
+
+
+def resolve_correlation(
+    *,
+    meta: dict[str, Any] | None,
+    headers: dict[str, str] | None = None,
+    session_id: str | None = None,
+    session_chats: dict[str, str] | None = None,
+    mint: Callable[[], str] | None = None,
+) -> dict[str, Any]:
+    """Resolve a chat_id without rewriting the caller's `_meta`.
+
+    Priority: ``meta.chat_id`` → well-known headers → this MCP session's
+    previously minted id → mint a new ``chat_*`` and remember it for the session.
+    """
+    meta = dict(meta or {})
+    minted = mint or new_chat_id
+    if meta.get("chat_id"):
+        chat_id = str(meta["chat_id"])
+        source = "meta"
+    else:
+        header_id = chat_id_from_headers(headers)
+        if header_id:
+            chat_id = header_id
+            source = "header"
+        elif session_id and session_chats is not None and session_id in session_chats:
+            chat_id = session_chats[session_id]
+            source = "session"
+        else:
+            chat_id = minted()
+            source = "minted"
+
+    if session_id and session_chats is not None:
+        session_chats.setdefault(session_id, chat_id)
+
+    debug: dict[str, Any] = {
+        "chat_id": chat_id,
+        "chat_id_source": source,
+    }
+    if session_id:
+        debug["session_id"] = session_id
+    if meta.get("call_id") is not None:
+        debug["call_id"] = meta["call_id"]
+    if meta.get("trace_id") is not None:
+        debug["trace_id"] = meta["trace_id"]
+    if meta.get("source") is not None:
+        debug["source"] = meta["source"]
+    return debug
 
 
 def record_call(
@@ -21,6 +98,9 @@ def record_call(
     result: Any = None,
     error: str | None = None,
     meta: dict[str, Any] | None = None,
+    debug: dict[str, Any] | None = None,
+    duration_ms: float | None = None,
+    event: str = EVENT_TOOLS_CALL,
 ) -> None:
     """Append one call record when MCP_TOOLCALL_LOG is set.
 
@@ -33,21 +113,35 @@ def record_call(
     logged verbatim when present — so a trace can be reconstructed from this
     JSONL file regardless of which path (chat-simulated or direct) made the
     call.
+
+    `debug` is server-side correlation (resolved chat_id, source, session,
+    result_n). It is *not* merged into `meta`, so existing exact-meta tests
+    and callers keep a clean wire object.
     """
     log_path = os.environ.get("MCP_TOOLCALL_LOG")
     if not log_path:
         return
-    event: dict[str, Any] = {
+    row: dict[str, Any] = {
         "at": datetime.now(UTC).isoformat(),
+        "event": event,
         "tool": tool,
         "arguments": arguments,
         "outcome": outcome,
     }
+    if duration_ms is not None:
+        row["duration_ms"] = duration_ms
     if meta:
-        event["meta"] = meta
+        row["meta"] = meta
+    if debug:
+        row["debug"] = debug
+        if debug.get("chat_id"):
+            row["chat_id"] = debug["chat_id"]
     if outcome == OUTCOME_ERROR:
-        event["error"] = error or "unknown error"
+        row["error"] = error or "unknown error"
     else:
-        event["result"] = result
+        row["result"] = result
+        if isinstance(result, list):
+            row.setdefault("debug", {})
+            row["debug"]["result_n"] = len(result)
     with Path(log_path).open("a", encoding="utf-8") as log_file:
-        log_file.write(json.dumps(event, ensure_ascii=False, default=str) + "\n")
+        log_file.write(json.dumps(row, ensure_ascii=False, default=str) + "\n")

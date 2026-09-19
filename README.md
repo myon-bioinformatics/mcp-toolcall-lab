@@ -108,6 +108,8 @@ python -m mcp_toolcall_lab.chat_ui send --client librechat --chat-id chat_lab1
 mcp-frontends librechat
 mcp-chat-ui send --client librechat --url http://127.0.0.1:3080
 mcp-trace-probe --chat-id chat_lab1
+python -m mcp_toolcall_lab.stub_front turn --heading Yokohama
+python -m mcp_toolcall_lab.stub_front serve --port 8765
 ```
 
 ## Test
@@ -207,7 +209,26 @@ asyncio.run(main())
 ```
 
 With `MCP_TOOLCALL_LOG` set, both calls above land in the same JSONL file with the same shape,
-distinguished only by `meta.source` — see `tests/test_trace.py`.
+distinguished only by `meta.source` — see `tests/test_trace.py`. Each row also has
+`event`, `duration_ms`, top-level `chat_id`, and `debug` (`chat_id_source` =
+`meta` | `header` | `session` | `minted`). Caller `_meta` is not rewritten: if a
+real UI omits `chat_id`, the server takes `X-Chat-Id` / `X-Conversation-Id` or
+mints one per MCP session so the probe always has a pin.
+
+### Stdlib stub front (heading → chat body)
+
+LibreChat / Open WebUI stay the products under test. `stub_front` is a
+zero-extra-dep reference UI: ATX markdown headings are the deterministic
+model, the page reuses both products' composer locators, and `/c/{chat_id}`
+puts that id on MCP `_meta` and `X-Chat-Id`. Roadmap for later slices
+(Playwright-on-stub, `markdown` accuracy, CPU LLM in Docker):
+[`docs/stub_front_roadmap.md`](docs/stub_front_roadmap.md).
+
+```bash
+python -m mcp_toolcall_lab.stub_front turn --heading "Yokohama"
+python -m mcp_toolcall_lab.stub_front turn --heading "Find municipalities named Yokohama"
+python -m mcp_toolcall_lab.stub_front serve --port 8765
+```
 
 ### Trace probe (the other ids)
 

@@ -4,13 +4,20 @@ from __future__ import annotations
 
 import asyncio
 import os
+import time
 from typing import Any
 
 from fastmcp import FastMCP
 from fastmcp.server.middleware import Middleware, MiddlewareContext
 
 from .catalog import TOOL_DESCRIPTIONS, search_municipalities, search_stations, search_transaction_prices
-from .record import OUTCOME_EMPTY, OUTCOME_ERROR, OUTCOME_SUCCESS, record_call
+from .record import (
+    OUTCOME_EMPTY,
+    OUTCOME_ERROR,
+    OUTCOME_SUCCESS,
+    record_call,
+    resolve_correlation,
+)
 
 
 def _tool_delay_seconds() -> float:
@@ -66,8 +73,47 @@ def _request_meta(context: MiddlewareContext) -> dict[str, Any]:
     return {k: v for k, v in dict(meta).items() if k != "progressToken"}
 
 
+def _http_headers() -> dict[str, str]:
+    """Best-effort request headers. Empty when this is not an HTTP hop."""
+    try:
+        from fastmcp.server.dependencies import get_http_headers
+    except Exception:
+        return {}
+    try:
+        return dict(get_http_headers() or {})
+    except Exception:
+        return {}
+
+
+def _session_id(context: MiddlewareContext) -> str | None:
+    ctx = context.fastmcp_context
+    if ctx is None:
+        return None
+    try:
+        return str(ctx.session_id)
+    except Exception:
+        return None
+
+
 class ObservabilityMiddleware(Middleware):
-    """Log every tools/call, including unknown names and validation failures."""
+    """Log every tools/call, including unknown names and validation failures.
+
+    Also resolves a ``chat_id`` for debugging: caller `_meta`, then
+    ``X-Chat-Id`` / ``X-Conversation-Id`` headers, then the id minted for
+    this MCP session on the first call.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._session_chats: dict[str, str] = {}
+
+    def _debug(self, context: MiddlewareContext, meta: dict[str, Any]) -> dict[str, Any]:
+        return resolve_correlation(
+            meta=meta,
+            headers=_http_headers(),
+            session_id=_session_id(context),
+            session_chats=self._session_chats,
+        )
 
     async def on_call_tool(self, context: MiddlewareContext, call_next):
         delay = _tool_delay_seconds()
@@ -76,17 +122,44 @@ class ObservabilityMiddleware(Middleware):
         name = context.message.name
         arguments = dict(context.message.arguments or {})
         meta = _request_meta(context)
+        debug = self._debug(context, meta)
+        started = time.perf_counter()
         try:
             result = await call_next(context)
         except Exception as exc:
-            record_call(tool=name, arguments=arguments, outcome=OUTCOME_ERROR, error=str(exc), meta=meta)
+            record_call(
+                tool=name,
+                arguments=arguments,
+                outcome=OUTCOME_ERROR,
+                error=str(exc),
+                meta=meta,
+                debug=debug,
+                duration_ms=round((time.perf_counter() - started) * 1000, 3),
+            )
             raise
         payload = _result_payload(result)
         outcome = _outcome_for_result(result, payload)
+        duration_ms = round((time.perf_counter() - started) * 1000, 3)
         if outcome == OUTCOME_ERROR:
-            record_call(tool=name, arguments=arguments, outcome=outcome, error=str(payload), meta=meta)
+            record_call(
+                tool=name,
+                arguments=arguments,
+                outcome=outcome,
+                error=str(payload),
+                meta=meta,
+                debug=debug,
+                duration_ms=duration_ms,
+            )
         else:
-            record_call(tool=name, arguments=arguments, outcome=outcome, result=payload, meta=meta)
+            record_call(
+                tool=name,
+                arguments=arguments,
+                outcome=outcome,
+                result=payload,
+                meta=meta,
+                debug=debug,
+                duration_ms=duration_ms,
+            )
         return result
 
 
