@@ -27,8 +27,13 @@ CHAT_ID_HEADER_KEYS = (
 
 
 def new_chat_id() -> str:
-    """Same shape as ``chat_sim.new_chat_id`` — kept here so INLINE_MODULES stay closed."""
+    """Lab conversation pin. INLINE so the standalone mock can mint one too."""
     return f"chat_{uuid.uuid4().hex[:24]}"
+
+
+def new_call_id() -> str:
+    """OpenAI ``tool_calls[].id`` shape. One mint, used by chat_sim and the stub."""
+    return f"call_{uuid.uuid4().hex[:24]}"
 
 
 def chat_id_from_headers(headers: dict[str, str] | None) -> str | None:
@@ -83,6 +88,10 @@ def resolve_correlation(
         debug["session_id"] = session_id
     if meta.get("call_id") is not None:
         debug["call_id"] = meta["call_id"]
+        debug["call_id_source"] = "meta"
+    else:
+        debug["call_id"] = new_call_id()
+        debug["call_id_source"] = "minted"
     if meta.get("trace_id") is not None:
         debug["trace_id"] = meta["trace_id"]
     if meta.get("source") is not None:
@@ -132,16 +141,32 @@ def record_call(
         row["duration_ms"] = duration_ms
     if meta:
         row["meta"] = meta
-    if debug:
-        row["debug"] = debug
-        if debug.get("chat_id"):
-            row["chat_id"] = debug["chat_id"]
+    debug_row = dict(debug) if debug else {}
     if outcome == OUTCOME_ERROR:
         row["error"] = error or "unknown error"
     else:
         row["result"] = result
         if isinstance(result, list):
-            row.setdefault("debug", {})
-            row["debug"]["result_n"] = len(result)
+            debug_row["result_n"] = len(result)
+    if debug_row:
+        row["debug"] = debug_row
+        if debug_row.get("chat_id"):
+            row["chat_id"] = debug_row["chat_id"]
     with Path(log_path).open("a", encoding="utf-8") as log_file:
         log_file.write(json.dumps(row, ensure_ascii=False, default=str) + "\n")
+
+
+def read_jsonl(path: Path) -> list[dict[str, Any]]:
+    """Read a JSONL file; skip blank or broken lines (debug logs are append-only)."""
+    if not path.is_file():
+        return []
+    events: list[dict[str, Any]] = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            events.append(json.loads(line))
+        except json.JSONDecodeError:
+            continue
+    return events

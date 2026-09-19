@@ -4,12 +4,12 @@ Reproducible experiments for reliable LLM-to-MCP tool discovery, initialization,
 
 This repository deliberately does **not** call the Ministry of Land, Infrastructure, Transport and Tourism (MLIT) Real Estate Information Library API. It is a safe mock target for checking whether a model calls only tools actually advertised by an MCP server.
 
-## What this first PR provides
+## What is in the tree
 
 - A FastMCP Streamable HTTP server with three deterministic real-estate-style mock tools.
 - A copyable standalone file generated from the package so tool names, schemas, and docstrings cannot drift.
-- A strict system-prompt example that limits the model to Open WebUI's advertised tool specs.
-- Protocol tests for the Open WebUI client flow plus unknown-tool, missing-argument, type-mismatch, empty-result, and timeout cases.
+- LibreChat / Open WebUI as clients under test; a stdlib markdown stub as a reference front.
+- Protocol tests (curl / httpx / SDK) plus chat/direct tracing through one JSONL log.
 
 ## Requirements
 
@@ -221,7 +221,7 @@ LibreChat / Open WebUI stay the products under test. `stub_front` is a
 zero-extra-dep reference UI: ATX markdown headings are the deterministic
 model, the page reuses both products' composer locators, and `/c/{chat_id}`
 puts that id on MCP `_meta` and `X-Chat-Id`. Roadmap for later slices
-(Playwright-on-stub, `markdown` accuracy, CPU LLM in Docker):
+(Playwright-on-stub, `markdown` accuracy, CPU LLM in Docker — unnumbered):
 [`docs/stub_front_roadmap.md`](docs/stub_front_roadmap.md).
 
 ```bash

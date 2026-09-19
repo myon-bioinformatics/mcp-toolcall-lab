@@ -36,22 +36,21 @@ delivery paths can be compared and traced through the same JSONL log (see
 
 from __future__ import annotations
 
-import uuid
 from dataclasses import dataclass
 from typing import Any
 
 from mcp import ClientSession
 from mcp.client.streamable_http import streamablehttp_client
 
+from mcp_toolcall_lab.record import new_call_id, new_chat_id
 
-def new_call_id() -> str:
-    """Match the OpenAI tool_calls id shape: "call_" + an opaque token."""
-    return f"call_{uuid.uuid4().hex[:24]}"
-
-
-def new_chat_id() -> str:
-    """A chat/conversation id, in the same spirit as any chat UI's own."""
-    return f"chat_{uuid.uuid4().hex[:24]}"
+__all__ = [
+    "ChatTrace",
+    "new_call_id",
+    "new_chat_id",
+    "send_direct",
+    "send_via_chat",
+]
 
 
 @dataclass

@@ -35,18 +35,16 @@ from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qs, urlparse
-from urllib.request import Request, urlopen
 
-from mcp_toolcall_lab.catalog import (
-    search_municipalities,
-    search_stations,
-    search_transaction_prices,
-)
-from mcp_toolcall_lab.chat_sim import new_call_id, new_chat_id
+from mcp_toolcall_lab.catalog import dispatch_tool
+from mcp_toolcall_lab.frontends import LIBRECHAT, OPENWEBUI, STUB
+from mcp_toolcall_lab.mcp_http import McpStdlibSession
 from mcp_toolcall_lab.record import (
     OUTCOME_EMPTY,
     OUTCOME_ERROR,
     OUTCOME_SUCCESS,
+    new_call_id,
+    new_chat_id,
     record_call,
 )
 
@@ -62,12 +60,12 @@ CASE_MCP_EMPTY = "MCP_EMPTY"
 CASE_MCP_ERROR = "MCP_ERROR"
 CASE_MCP_UNREACHABLE = "MCP_UNREACHABLE"
 
-# Dual locators: LibreChat testids + Open WebUI ids (see frontends.py).
-LIBRECHAT_INPUT = "text-input"
-LIBRECHAT_SEND = "send-button"
-OWUI_INPUT = "chat-input"
-OWUI_SEND = "send-message-button"
-OWUI_RESPONSE = "response-content-container"
+# Dual locators live in frontends.py — do not re-string them here.
+LIBRECHAT_INPUT = LIBRECHAT.composer.input.value
+LIBRECHAT_SEND = LIBRECHAT.composer.send.value
+OWUI_INPUT = OPENWEBUI.composer.input.value
+OWUI_SEND = OPENWEBUI.composer.send.value
+OWUI_RESPONSE = OPENWEBUI.response.container.value if OPENWEBUI.response.container else "response-content-container"
 
 
 @dataclass(frozen=True)
@@ -158,6 +156,34 @@ def _municipality_query(text: str) -> str:
     return text.strip()
 
 
+def _station_args(text: str) -> dict[str, Any]:
+    lowered = text.casefold()
+    if "00000" in text or "unknown" in lowered:
+        code = "00000"
+    elif "yokohama" in lowered or "横浜" in text:
+        code = "14109"
+    elif "matsudo" in lowered:
+        code = "12207"
+    else:
+        code = "13101"
+    return {"municipality_code": code}
+
+
+MCP_PATTERNS: tuple[tuple[tuple[str, ...], str, Any], ...] = (
+    (("station", "駅", "find_stations"), "find_stations", _station_args),
+    (
+        ("price", "transaction", "価格", "find_transaction"),
+        "find_transaction_prices",
+        lambda _text: {"municipality_code": "14109", "year": 2025},
+    ),
+    (
+        ("yokohama", "横浜", "municipalit", "市区町村", "find_municipalities"),
+        "find_municipalities",
+        lambda text: {"query": _municipality_query(text)},
+    ),
+)
+
+
 def classify_prompt(prompt: str, sections: list[Section]) -> dict[str, Any]:
     """Exact heading wins (見出し→本文). Else MCP keywords. ``# Title`` forces heading."""
     text = prompt.strip()
@@ -167,28 +193,9 @@ def classify_prompt(prompt: str, sections: list[Section]) -> dict[str, Any]:
         return {"kind": "heading", "section": exact}
     lowered = text.casefold()
     if not forced_heading:
-        if any(token in lowered for token in ("station", "駅", "find_stations")):
-            if "00000" in text or "unknown" in lowered:
-                code = "00000"
-            elif "yokohama" in lowered or "横浜" in text:
-                code = "14109"
-            elif "matsudo" in lowered:
-                code = "12207"
-            else:
-                code = "13101"
-            return {"kind": "mcp", "tool": "find_stations", "arguments": {"municipality_code": code}}
-        if any(token in lowered for token in ("price", "transaction", "価格", "find_transaction")):
-            return {
-                "kind": "mcp",
-                "tool": "find_transaction_prices",
-                "arguments": {"municipality_code": "14109", "year": 2025},
-            }
-        if any(token in lowered for token in ("yokohama", "横浜", "municipalit", "市区町村", "find_municipalities")):
-            return {
-                "kind": "mcp",
-                "tool": "find_municipalities",
-                "arguments": {"query": _municipality_query(text)},
-            }
+        for tokens, tool, args_fn in MCP_PATTERNS:
+            if any(token in lowered for token in tokens):
+                return {"kind": "mcp", "tool": tool, "arguments": args_fn(text)}
     section = lookup_heading(text, sections, fuzzy=True)
     if section:
         return {"kind": "heading", "section": section}
@@ -210,91 +217,11 @@ def render_rows(rows: list[dict[str, Any]]) -> str:
 
 
 def _inprocess_tool(tool: str, arguments: dict[str, Any]) -> tuple[str, Any]:
-    if tool == "find_municipalities":
-        result = search_municipalities(str(arguments.get("query", "")))
-    elif tool == "find_stations":
-        result = search_stations(str(arguments.get("municipality_code", "")))
-    elif tool == "find_transaction_prices":
-        result = search_transaction_prices(
-            str(arguments.get("municipality_code", "")),
-            int(arguments.get("year", 2025)),
-        )
-    else:
+    try:
+        result = dispatch_tool(tool, arguments)
+    except KeyError:
         return OUTCOME_ERROR, f"unknown tool {tool}"
     return (OUTCOME_EMPTY if result == [] else OUTCOME_SUCCESS), result
-
-
-class McpStdlibSession:
-    """Streamable HTTP client with urllib only — same handshake as the curl tests."""
-
-    def __init__(self, url: str, timeout: float = 15.0) -> None:
-        self.url = url
-        self.timeout = timeout
-        self.session_id: str | None = None
-        self._next_id = 1
-
-    def _post(self, payload: dict[str, Any], extra_headers: dict[str, str] | None = None) -> str:
-        headers = {
-            "Content-Type": "application/json",
-            "Accept": "application/json, text/event-stream",
-        }
-        if self.session_id:
-            headers["Mcp-Session-Id"] = self.session_id
-        if extra_headers:
-            headers.update(extra_headers)
-        request = Request(self.url, data=json.dumps(payload).encode("utf-8"), headers=headers, method="POST")
-        with urlopen(request, timeout=self.timeout) as response:
-            session = response.headers.get("mcp-session-id")
-            if session:
-                self.session_id = session
-            return response.read().decode("utf-8")
-
-    def initialize(self) -> None:
-        raw = self._post(
-            {
-                "jsonrpc": "2.0",
-                "id": self._next_id,
-                "method": "initialize",
-                "params": {
-                    "protocolVersion": "2025-06-18",
-                    "capabilities": {},
-                    "clientInfo": {"name": "stub-front", "version": "0.0.1"},
-                },
-            }
-        )
-        self._next_id += 1
-        self._post({"jsonrpc": "2.0", "method": "notifications/initialized"})
-        _extract_sse_data(raw)
-
-    def call_tool(
-        self,
-        name: str,
-        arguments: dict[str, Any],
-        *,
-        meta: dict[str, Any],
-        chat_id: str,
-    ) -> dict[str, Any]:
-        raw = self._post(
-            {
-                "jsonrpc": "2.0",
-                "id": self._next_id,
-                "method": "tools/call",
-                "params": {"name": name, "arguments": arguments, "_meta": meta},
-            },
-            extra_headers={"X-Chat-Id": chat_id},
-        )
-        self._next_id += 1
-        return _extract_sse_data(raw)
-
-
-def _extract_sse_data(text: str) -> dict[str, Any]:
-    for line in text.splitlines():
-        if line.startswith("data:"):
-            return json.loads(line[len("data:") :].strip())
-    try:
-        return json.loads(text)
-    except json.JSONDecodeError as exc:
-        raise ValueError(f"no SSE/JSON body: {text[:200]!r}") from exc
 
 
 def _call_mcp(
@@ -311,9 +238,9 @@ def _call_mcp(
         record_call(tool=tool, arguments=arguments, outcome=outcome, result=payload, meta=meta)
         return outcome, payload, "inprocess"
     try:
-        session = McpStdlibSession(mcp_url)
+        session = McpStdlibSession(mcp_url, client_name="stub-front")
         session.initialize()
-        body = session.call_tool(tool, arguments, meta=meta, chat_id=chat_id)
+        body = session.call_tool(tool, arguments, meta=meta, extra_headers={"X-Chat-Id": chat_id})
         result = body.get("result") or body
         if result.get("isError"):
             return OUTCOME_ERROR, result, "mcp"
@@ -512,8 +439,8 @@ def main(argv: list[str] | None = None) -> int:
     turn.add_argument("--corpus", default=str(DEFAULT_CORPUS))
     turn.add_argument("--mcp", default=os.environ.get("STUB_MCP_URL", ""))
     serve_p = sub.add_parser("serve", help="stdlib HTTP composer")
-    serve_p.add_argument("--host", default=os.environ.get("STUB_HOST", "127.0.0.1"))
-    serve_p.add_argument("--port", type=int, default=int(os.environ.get("STUB_PORT", "8765")))
+    serve_p.add_argument("--host", default=os.environ.get("STUB_HOST", urlparse(STUB.default_url).hostname or "127.0.0.1"))
+    serve_p.add_argument("--port", type=int, default=int(os.environ.get("STUB_PORT", str(urlparse(STUB.default_url).port or 8765))))
     serve_p.add_argument("--corpus", default=str(DEFAULT_CORPUS))
     serve_p.add_argument("--mcp", default=os.environ.get("STUB_MCP_URL", ""))
     args = parser.parse_args(argv)

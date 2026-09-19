@@ -35,7 +35,8 @@ from typing import Any, Literal
 
 from mcp_toolcall_lab.catalog import AVAILABLE_TOOLS
 
-ClientId = Literal["librechat", "openwebui"]
+ClientId = Literal["librechat", "openwebui", "stub"]
+ClientRole = Literal["under_test", "reference"]
 LocatorKind = Literal["css", "testid", "id", "label", "role"]
 
 LIBRECHAT_MCP_DELIMITER = "_mcp_"
@@ -137,6 +138,7 @@ class ChatFrontend:
     composer: ComposerContract
     response: ResponseContract
     mcp: McpWireContract
+    role: ClientRole = "under_test"
     sample_prompt: str = SAMPLE_PROMPT
     sample_result_fragment: str = SAMPLE_RESULT_FRAGMENT
     advertised_tools: tuple[str, ...] = AVAILABLE_TOOLS
@@ -293,15 +295,74 @@ OPENWEBUI = ChatFrontend(
     ),
 )
 
+# Reference front: same locators as the products, no auth, stdlib server.
+STUB = ChatFrontend(
+    id="stub",
+    product="lab stub front (stdlib ATX markdown, not a product clone)",
+    default_url="http://127.0.0.1:8765",
+    health_path="/health",
+    compose_file=None,
+    role="reference",
+    auth=AuthContract(
+        mode="webuiauth_off",
+        login_path="/",
+        register_api=None,
+        register_fields=(),
+        email=None,
+        password=None,
+        submit=None,
+        notes="No login. GET / and /login redirect to /c/{chat_id}.",
+    ),
+    composer=ComposerContract(
+        input=LIBRECHAT.composer.input,
+        send=LIBRECHAT.composer.send,
+        enter_sends=True,
+        mcp_picker=None,
+        default_mcp_server=None,
+        notes="HTML also carries OWUI #chat-input / #send-message-button.",
+    ),
+    response=ResponseContract(
+        container=OPENWEBUI.response.container,
+        ready_substrings=(SAMPLE_RESULT_FRAGMENT, "Kanagawa", "empty list"),
+        notes="OWUI #response-content-container plus LibreChat testids on the composer.",
+    ),
+    mcp=McpWireContract(
+        compose_service="stub-front",
+        compose_mcp_url="http://mcp-mock:8000/mcp",
+        compose_openai_url=None,
+        tool_key_style="bare",
+        default_server="",
+        notes="Passes chat_id in MCP _meta and X-Chat-Id. In-process catalog if --mcp omitted.",
+    ),
+    one_liners=(
+        "python -m mcp_toolcall_lab.frontends stub",
+        "python -m mcp_toolcall_lab.stub_front turn --heading Yokohama",
+        "python -m mcp_toolcall_lab.stub_front serve --port 8765",
+        "python -m mcp_toolcall_lab.chat_ui send --client stub --url http://127.0.0.1:8765",
+    ),
+)
+
 FRONTENDS: dict[ClientId, ChatFrontend] = {
     "librechat": LIBRECHAT,
     "openwebui": OPENWEBUI,
+    "stub": STUB,
 }
+
+PRODUCT_CLIENTS = frozenset(name for name, frontend in FRONTENDS.items() if frontend.role == "under_test")
+REFERENCE_CLIENTS = frozenset(name for name, frontend in FRONTENDS.items() if frontend.role == "reference")
 
 
 def get_frontend(client: str) -> ChatFrontend:
     key = client.strip().lower().replace("_", "").replace("-", "")
-    aliases = {"owui": "openwebui", "openwebui": "openwebui", "librechat": "librechat", "lc": "librechat"}
+    aliases = {
+        "owui": "openwebui",
+        "openwebui": "openwebui",
+        "librechat": "librechat",
+        "lc": "librechat",
+        "stub": "stub",
+        "stubfront": "stub",
+        "mdfront": "stub",
+    }
     resolved = aliases.get(key)
     if resolved is None:
         known = ", ".join(FRONTENDS)
@@ -317,6 +378,10 @@ def catalog() -> dict[str, Any]:
         "mcp_delimiter_librechat": LIBRECHAT_MCP_DELIMITER,
         "advertised_tools": list(AVAILABLE_TOOLS),
         "clients": {name: frontend.to_dict() for name, frontend in FRONTENDS.items()},
+        "roles": {
+            "under_test": sorted(PRODUCT_CLIENTS),
+            "reference": sorted(REFERENCE_CLIENTS),
+        },
         "one_liners": {
             "dump": "python -m mcp_toolcall_lab.frontends",
             "describe": "python -m mcp_toolcall_lab.chat_ui describe",
@@ -338,7 +403,7 @@ def main(argv: list[str] | None = None) -> int:
     else:
         if args and args[0] in {"-h", "--help"}:
             print(__doc__)
-            print("usage: python -m mcp_toolcall_lab.frontends [librechat|openwebui]")
+            print("usage: python -m mcp_toolcall_lab.frontends [librechat|openwebui|stub]")
             return 0
         payload = catalog()
     print(json.dumps(payload, indent=2, ensure_ascii=False))

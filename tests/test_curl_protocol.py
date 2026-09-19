@@ -17,11 +17,11 @@ import subprocess
 
 import pytest
 
+from mcp_toolcall_lab.mcp_http import ACCEPT, extract_sse_data
 from tests.test_schema import EXPECTED_TOOL_SPECS
 from tests.test_streamable_http_protocol import running_mcp_server
 
 CURL = shutil.which("curl")
-ACCEPT = "application/json, text/event-stream"
 
 pytestmark = [
     pytest.mark.integration,
@@ -30,10 +30,7 @@ pytestmark = [
 
 
 def _extract_sse_data(text: str) -> dict:
-    for line in text.splitlines():
-        if line.startswith("data:"):
-            return json.loads(line[len("data:"):].strip())
-    raise AssertionError(f"no SSE data line in response: {text!r}")
+    return extract_sse_data(text)
 
 
 class McpCurlSession:

@@ -12,6 +12,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from mcp_toolcall_lab.record import read_jsonl
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CATALOG_PATH = REPO_ROOT / "fixtures" / "antipatterns" / "catalog.yaml"
 
@@ -110,27 +112,16 @@ def write_observation(
 
 
 def load_mcp_log(path: Path) -> list[dict[str, Any]]:
-    if not path.is_file():
-        return []
-    events: list[dict[str, Any]] = []
-    for line in path.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        events.append(json.loads(line))
-    return events
+    return read_jsonl(path)
 
 
 def openai_request_had_tools(path: Path) -> bool | None:
     """True/False if the mock logged a completions request; None if no log."""
-    if not path.is_file():
+    events = read_jsonl(path)
+    if not events:
         return None
     saw_request = False
-    for line in path.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        event = json.loads(line)
+    for event in events:
         if event.get("kind") != "chat.completions":
             continue
         saw_request = True

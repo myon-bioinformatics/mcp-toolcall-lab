@@ -35,6 +35,8 @@ from pathlib import Path
 from typing import Any, Iterable
 from urllib.parse import parse_qs, urlparse
 
+from mcp_toolcall_lab.record import read_jsonl
+
 # Prefix / shape table. Longer prefixes first so chatcmpl- wins over chat_.
 # owner=lab means we mint it; everything else is harvested only.
 
@@ -272,18 +274,7 @@ def _dedupe(ids: Iterable[FoundId]) -> list[FoundId]:
 
 
 def _read_jsonl(path: Path) -> list[dict[str, Any]]:
-    if not path.is_file():
-        return []
-    events: list[dict[str, Any]] = []
-    for line in path.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            events.append(json.loads(line))
-        except json.JSONDecodeError:
-            continue
-    return events
+    return read_jsonl(path)
 
 
 def hops_from_mcp_log(path: Path) -> list[Hop]:

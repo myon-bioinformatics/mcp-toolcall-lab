@@ -9,13 +9,24 @@ from pathlib import Path
 
 import pytest
 
+from mcp_toolcall_lab.chat_sim import new_call_id as sim_call_id
+from mcp_toolcall_lab.chat_sim import new_chat_id as sim_chat_id
 from mcp_toolcall_lab.record import (
     chat_id_from_headers,
+    new_call_id,
+    new_chat_id,
     record_call,
     resolve_correlation,
 )
 from tests.test_httpx_protocol import ACCEPT, McpHttpxSession
 from tests.test_streamable_http_protocol import running_mcp_server
+
+
+def test_id_mints_live_in_one_place() -> None:
+    assert sim_chat_id is new_chat_id
+    assert sim_call_id is new_call_id
+    assert new_chat_id().startswith("chat_")
+    assert new_call_id().startswith("call_")
 
 
 def test_header_keys_are_case_insensitive() -> None:
@@ -67,6 +78,8 @@ def test_resolve_prefers_meta_then_header_then_session_then_mint() -> None:
     )
     assert minted["chat_id_source"] == "minted"
     assert minted["chat_id"] == "chat_minted"
+    assert minted["call_id_source"] == "minted"
+    assert str(minted["call_id"]).startswith("call_")
     assert sessions["sess-3"] == "chat_minted"
 
 

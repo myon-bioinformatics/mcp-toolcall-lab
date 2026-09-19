@@ -11,6 +11,9 @@ from mcp_toolcall_lab.frontends import (
     FRONTENDS,
     LIBRECHAT,
     OPENWEBUI,
+    PRODUCT_CLIENTS,
+    REFERENCE_CLIENTS,
+    STUB,
     catalog,
     get_frontend,
 )
@@ -19,7 +22,9 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_both_clients_are_documented() -> None:
-    assert set(FRONTENDS) == {"librechat", "openwebui"}
+    assert set(PRODUCT_CLIENTS) == {"librechat", "openwebui"}
+    assert set(REFERENCE_CLIENTS) == {"stub"}
+    assert set(FRONTENDS) == PRODUCT_CLIENTS | REFERENCE_CLIENTS
     assert LIBRECHAT.composer.input.css() == '[data-testid="text-input"]'
     assert LIBRECHAT.composer.send.css() == '[data-testid="send-button"]'
     assert OPENWEBUI.composer.input.css() == "#chat-input"
@@ -38,6 +43,9 @@ def test_librechat_mcp_tool_key_and_compose_dns() -> None:
 def test_aliases() -> None:
     assert get_frontend("owui").id == "openwebui"
     assert get_frontend("lc").id == "librechat"
+    assert get_frontend("stubfront").id == "stub"
+    assert STUB.role == "reference"
+    assert STUB.composer.input.css() == LIBRECHAT.composer.input.css()
 
 
 def test_catalog_and_describe_are_json() -> None:
@@ -47,6 +55,7 @@ def test_catalog_and_describe_are_json() -> None:
     assert "send_librechat" in dumped["one_liners"]
     assert "trace_probe" in dumped["one_liners"]
     assert "stub_front_turn" in dumped["one_liners"]
+    assert dumped["roles"]["reference"] == ["stub"]
     summary = describe("librechat")
     assert summary["composer_input"] == '[data-testid="text-input"]'
     assert any("chat_ui send" in line for line in summary["one_liners"])

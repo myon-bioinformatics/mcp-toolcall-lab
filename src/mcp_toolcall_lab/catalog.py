@@ -6,6 +6,8 @@ Protocol problems (unknown tool, invalid arguments, timeout) are errors.
 
 from __future__ import annotations
 
+from typing import Any
+
 AVAILABLE_TOOLS = (
     "find_municipalities",
     "find_transaction_prices",
@@ -63,3 +65,17 @@ def search_transaction_prices(municipality_code: str, year: int) -> list[dict[st
 def search_stations(municipality_code: str) -> list[dict[str, str]]:
     """Return deterministic station-like records, or [] when the code is unknown."""
     return list(STATIONS.get(municipality_code, []))
+
+
+def dispatch_tool(name: str, arguments: dict[str, Any]) -> list[dict[str, Any]]:
+    """In-process tool body. FastMCP wrappers and the stub front share this."""
+    if name == "find_municipalities":
+        return search_municipalities(str(arguments.get("query", "")))
+    if name == "find_stations":
+        return search_stations(str(arguments.get("municipality_code", "")))
+    if name == "find_transaction_prices":
+        return search_transaction_prices(
+            str(arguments.get("municipality_code", "")),
+            int(arguments.get("year", 2025)),
+        )
+    raise KeyError(name)

@@ -10,7 +10,7 @@ from typing import Any
 from fastmcp import FastMCP
 from fastmcp.server.middleware import Middleware, MiddlewareContext
 
-from .catalog import TOOL_DESCRIPTIONS, search_municipalities, search_stations, search_transaction_prices
+from .catalog import TOOL_DESCRIPTIONS, dispatch_tool
 from .record import (
     OUTCOME_EMPTY,
     OUTCOME_ERROR,
@@ -127,40 +127,38 @@ class ObservabilityMiddleware(Middleware):
         try:
             result = await call_next(context)
         except Exception as exc:
-            record_call(
-                tool=name,
-                arguments=arguments,
-                outcome=OUTCOME_ERROR,
-                error=str(exc),
-                meta=meta,
-                debug=debug,
-                duration_ms=round((time.perf_counter() - started) * 1000, 3),
-            )
+            self._emit(name, arguments, meta, debug, started, outcome=OUTCOME_ERROR, error=str(exc))
             raise
         payload = _result_payload(result)
         outcome = _outcome_for_result(result, payload)
-        duration_ms = round((time.perf_counter() - started) * 1000, 3)
         if outcome == OUTCOME_ERROR:
-            record_call(
-                tool=name,
-                arguments=arguments,
-                outcome=outcome,
-                error=str(payload),
-                meta=meta,
-                debug=debug,
-                duration_ms=duration_ms,
-            )
+            self._emit(name, arguments, meta, debug, started, outcome=outcome, error=str(payload))
         else:
-            record_call(
-                tool=name,
-                arguments=arguments,
-                outcome=outcome,
-                result=payload,
-                meta=meta,
-                debug=debug,
-                duration_ms=duration_ms,
-            )
+            self._emit(name, arguments, meta, debug, started, outcome=outcome, result=payload)
         return result
+
+    @staticmethod
+    def _emit(
+        name: str,
+        arguments: dict[str, Any],
+        meta: dict[str, Any],
+        debug: dict[str, Any],
+        started: float,
+        *,
+        outcome: str,
+        result: Any = None,
+        error: str | None = None,
+    ) -> None:
+        record_call(
+            tool=name,
+            arguments=arguments,
+            outcome=outcome,
+            result=result,
+            error=error,
+            meta=meta,
+            debug=debug,
+            duration_ms=round((time.perf_counter() - started) * 1000, 3),
+        )
 
 
 def create_mcp() -> FastMCP:
@@ -170,15 +168,15 @@ def create_mcp() -> FastMCP:
 
     @mcp.tool(description=TOOL_DESCRIPTIONS["find_municipalities"])
     def find_municipalities(query: str) -> list[dict[str, str]]:
-        return search_municipalities(query)
+        return dispatch_tool("find_municipalities", {"query": query})
 
     @mcp.tool(description=TOOL_DESCRIPTIONS["find_transaction_prices"])
     def find_transaction_prices(municipality_code: str, year: int) -> list[dict[str, int | str]]:
-        return search_transaction_prices(municipality_code, year)
+        return dispatch_tool("find_transaction_prices", {"municipality_code": municipality_code, "year": year})
 
     @mcp.tool(description=TOOL_DESCRIPTIONS["find_stations"])
     def find_stations(municipality_code: str) -> list[dict[str, str]]:
-        return search_stations(municipality_code)
+        return dispatch_tool("find_stations", {"municipality_code": municipality_code})
 
     return mcp
 
