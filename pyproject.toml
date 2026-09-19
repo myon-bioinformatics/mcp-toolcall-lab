@@ -16,10 +16,15 @@ test = [
     "pytest>=8,<9",
     "pytest-asyncio>=0.24,<1",
 ]
-# Optional: real-browser fetch() coverage of the HTTP API (tests/test_browser_fetch_protocol.py).
-# Not part of `test` — CI and `pip install -e '.[test]'` stay lean; this file's tests
+# Optional: real-browser fetch() coverage of the HTTP API (tests/test_browser_fetch_protocol.py),
+# and the same Playwright dependency drives the chat-e2e / browser-smoke lanes under tests/e2e/.
+# Not part of `test` — CI and `pip install -e '.[test]'` stay lean; every module using this
 # pytest.importorskip when playwright isn't installed. Needs `playwright install chromium` too.
 browser-test = ["playwright>=1.40"]
+# Optional: the Gradio/Streamlit reference-client UIs (apps/). Not part of `test` — CI and
+# `pip install -e '.[test]'` stay lean; tests/test_reference_apps.py pytest.importorskips
+# each one independently.
+reference-ui = ["gradio>=4,<6", "streamlit>=1.30,<2"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/mcp_toolcall_lab"]

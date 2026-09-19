@@ -1,0 +1,59 @@
+# E2E foundation for issue #14: mcp-mock plus every UI client pointed at the same
+# mock MCP endpoint over Docker service DNS (http://mcp-mock:8000/mcp), never a
+# container IP or localhost. See docs/e2e_foundation.md for the full network model,
+# client-role distinctions, and how this file is meant to compose with #13's
+# LibreChat service (owned there, deliberately not duplicated here).
+#
+# No explicit network is declared: every service below joins this project's default
+# Compose network, which is sufficient per issue #14 ("The default Compose network is
+# sufficient unless there is a concrete need for an explicitly named network").
+services:
+  mcp-mock:
+    build:
+      context: .
+      dockerfile: docker/mcp-mock.Dockerfile
+    ports:
+      - "8000:8000"
+
+  gradio:
+    build:
+      context: .
+      dockerfile: docker/gradio.Dockerfile
+    environment:
+      MCP_URL: http://mcp-mock:8000/mcp
+    ports:
+      - "7860:7860"
+    depends_on:
+      - mcp-mock
+
+  streamlit:
+    build:
+      context: .
+      dockerfile: docker/streamlit.Dockerfile
+    environment:
+      MCP_URL: http://mcp-mock:8000/mcp
+    ports:
+      - "8501:8501"
+    depends_on:
+      - mcp-mock
+
+  # Open WebUI is a real product under test (see docs/e2e_foundation.md's "Client
+  # roles"), not a wrapper around reference_client.py. Registering mcp-mock as a
+  # tool server is a stored-in-DB admin action with no env var today — see the
+  # chat-e2e known-limitations note in that doc — so this only wires the network
+  # path; tool registration is a manual/follow-up step.
+  openwebui:
+    image: ghcr.io/open-webui/open-webui:main
+    environment:
+      WEBUI_AUTH: "false"
+    ports:
+      - "3000:8080"
+    depends_on:
+      - mcp-mock
+
+# LibreChat's own service is intentionally not defined here — it is owned by #13.
+# To exercise LibreChat against this same mcp-mock, run #13's compose file
+# alongside this one (`docker compose -f docker-compose.yml -f <path-to-13's-file>
+# up`) rather than forking mcp-mock: both files must resolve the mock at the
+# literal service DNS name `mcp-mock:8000/mcp` on the default network for the
+# two to combine cleanly.

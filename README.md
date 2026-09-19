@@ -218,6 +218,29 @@ Use `system_prompts/strict_tool_selection.md` as the starting system prompt. Ope
 
 Success means the model copies an exact name from the advertised specs. A fictional tool name is a failure even if the intended action sounds correct. Record **raw schema valid** (arguments match `inputSchema` before coercion) separately from **server accepted** (the mock did not return `isError`). Pydantic may coerce `year: "2025"` and accept the call even when the raw JSON is not schema-valid. `outcome` is `success`, `empty`, or `error`.
 
+## E2E foundation: Gradio / Streamlit reference clients, Open WebUI chat-e2e, Docker Compose
+
+Issue #14 adds a shared E2E foundation across four UI clients pointed at this
+same mock MCP endpoint. Full details, the network model, and the three test
+lanes (normal-PR, `chat-e2e`, browser-smoke) are in
+[`docs/e2e_foundation.md`](docs/e2e_foundation.md); the short version:
+
+- **Reference / diagnostic clients** — Gradio (`apps/gradio_app.py`) and
+  Streamlit (`apps/streamlit_app.py`) are thin UI adapters over one shared
+  MCP layer, `src/mcp_toolcall_lab/reference_client.py`. Install with
+  `pip install -e ".[reference-ui]"`.
+- **Clients under test** — Open WebUI and LibreChat remain real external
+  products, not wrappers around that shared layer. LibreChat's
+  Docker/Playwright coverage is owned by #13; Open WebUI's is in
+  `tests/e2e/test_openwebui_chat_e2e.py`.
+- **`docker-compose.yml`** puts `mcp-mock`, `gradio`, `streamlit`, and
+  `openwebui` on one Compose network, resolved via Docker service DNS
+  (`http://mcp-mock:8000/mcp`) — never a container IP or `localhost`.
+- `tests/test_reference_client.py` and `tests/test_reference_apps.py` are
+  browserless and run in the normal `pytest -q` lane; `tests/e2e/` holds
+  Playwright specs for the `chat-e2e` and browser-smoke lanes, self-skipping
+  when Playwright isn't installed or the target UI isn't reachable.
+
 ## Next increments
 
 1. Add a versioned mock catalogue modeled on public REINFOLIB documentation, without API keys.
