@@ -14,7 +14,9 @@ LibreChat / Open WebUI stay the products under test. This module is a
   the MCP path instead of heading lookup — the case split the real UIs hide.
 
 No FastMCP / Playwright import on the serve path. MCP is optional urllib
-JSON-RPC; without ``--mcp`` the catalog is called in-process and still logged.
+JSON-RPC (``initialize`` → ``tools/list`` → ``tools/call``, the same
+handshake Open WebUI and LibreChat use); without ``--mcp`` the catalog is
+called in-process and still logged.
 
     python -m mcp_toolcall_lab.stub_front turn --heading "Yokohama"
     python -m mcp_toolcall_lab.stub_front serve --port 8765
@@ -197,6 +199,7 @@ def _call_mcp(
     try:
         session = McpStdlibSession(mcp_url, client_name="stub-front")
         session.initialize()
+        session.list_tools()
         body = session.call_tool(tool, arguments, meta=meta, extra_headers={"X-Chat-Id": chat_id})
         if isinstance(body, dict) and body.get("error"):
             return OUTCOME_ERROR, body["error"], "mcp"

@@ -149,6 +149,8 @@ def test_stub_pages_compose_uses_service_dns() -> None:
     assert "actions/deploy-pages" in workflow
     assert workflow.count("if: github.ref == 'refs/heads/main'") >= 2
     assert "stub-pages-smoke.py" in workflow or "stub_pages_smoke.py" in workflow
+    assert "mcp_toolcall_lab.docker_logs" in workflow
+    assert "test-results/docker-logs" in workflow
     assert "_site/mcp-toolcalls.jsonl" not in workflow
     assert "_site/antipatterns.jsonl" not in workflow
     assert "2e8040ceae7815abe0dcb3540b9995eaa1fa0d2ca9e797d0a635ae4433c68c2d" in workflow

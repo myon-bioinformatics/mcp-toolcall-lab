@@ -17,6 +17,7 @@ on:
       - "tests/real_chat_ui/test_openwebui_docker.py"
       - "tests/real_chat_ui/openwebui_loop.py"
       - "tests/test_openwebui_example.py"
+      - "src/mcp_toolcall_lab/docker_logs.py"
       - ".github/workflows/openwebui-docker-smoke.yml"
 
 jobs:
@@ -54,6 +55,16 @@ jobs:
           ANTIPATTERN_LOG: ${{ github.workspace }}/test-results/antipatterns.jsonl
           OPENWEBUI_CHAT_MESSAGE: ${{ github.event.inputs.message || 'Find municipalities named Yokohama' }}
         run: pytest tests/real_chat_ui/test_openwebui_docker.py -v
+
+      - name: Capture Docker logs (time, level, content)
+        if: always()
+        run: |
+          python -m mcp_toolcall_lab.docker_logs capture \
+            --compose docker/openwebui-smoke/docker-compose.yml \
+            --out test-results/docker-logs
+          python -m mcp_toolcall_lab.docker_logs timeline \
+            --dir test-results \
+            --out test-results/timeline.jsonl
 
       - name: Dump logs on failure
         if: failure()

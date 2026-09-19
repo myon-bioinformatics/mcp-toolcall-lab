@@ -57,6 +57,7 @@ def test_catalog_and_describe_are_json() -> None:
     assert "send_librechat" in dumped["one_liners"]
     assert "trace_probe" in dumped["one_liners"]
     assert "stub_front_turn" in dumped["one_liners"]
+    assert "docker_logs" in dumped["one_liners"]
     assert dumped["roles"]["reference"] == ["stub"]
     summary = describe("librechat")
     assert summary["composer_input"] == '[data-testid="text-input"]'

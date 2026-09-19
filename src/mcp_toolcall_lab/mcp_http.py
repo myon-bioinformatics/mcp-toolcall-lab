@@ -2,7 +2,8 @@
 
 Not part of ``INLINE_MODULES``: this is a *caller* of ``/mcp``, the same
 handshake ``tests/test_curl_protocol.py`` demonstrates with curl. The stub
-front uses this so it does not grow a second copy of initialize / SSE parse.
+front uses this so it does not grow a second copy of initialize / tools/list
+/ SSE parse.
 """
 
 from __future__ import annotations
@@ -25,7 +26,12 @@ def extract_sse_data(text: str) -> dict[str, Any]:
 
 
 class McpStdlibSession:
-    """urllib-only Streamable HTTP session (initialize + tools/call)."""
+    """urllib-only Streamable HTTP session.
+
+    Open WebUI and LibreChat both do ``initialize`` (then
+    ``notifications/initialized``) → ``tools/list`` → ``tools/call``.
+    This client follows that product handshake rather than skipping list.
+    """
 
     def __init__(self, url: str, *, timeout: float = 15.0, client_name: str = "mcp-toolcall-lab") -> None:
         self.url = url
@@ -66,6 +72,13 @@ class McpStdlibSession:
         )
         self._next_id += 1
         self.post({"jsonrpc": "2.0", "method": "notifications/initialized"})
+        return extract_sse_data(raw)
+
+    def list_tools(self) -> dict[str, Any]:
+        raw = self.post(
+            {"jsonrpc": "2.0", "id": self._next_id, "method": "tools/list", "params": {}}
+        )
+        self._next_id += 1
         return extract_sse_data(raw)
 
     def call_tool(

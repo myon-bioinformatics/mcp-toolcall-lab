@@ -414,6 +414,7 @@ def catalog() -> dict[str, Any]:
             "trace_kinds": "python -m mcp_toolcall_lab.trace_probe kinds",
             "stub_front_turn": "python -m mcp_toolcall_lab.stub_front turn --heading Yokohama",
             "stub_front_serve": "python -m mcp_toolcall_lab.stub_front serve --port 8765",
+            "docker_logs": "python -m mcp_toolcall_lab.docker_logs capture -f docker/openwebui-smoke/docker-compose.yml -o test-results/docker-logs",
         },
     }
 

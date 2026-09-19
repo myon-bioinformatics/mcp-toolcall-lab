@@ -79,6 +79,22 @@ not from a lab `chat_*` pin.
 JSONL artifacts are projections of that wire (OpenAI mock request/response
 IDs, MCP method rows). They do not replace the wire.
 
+Smoke workflows always capture ``docker compose logs --timestamps`` into
+`test-results/docker-logs/` (raw `compose.log` plus JSONL with `at` /
+`level` / `message` / `service`) and merge them with MCP + OpenAI JSONL
+into `test-results/timeline.jsonl`. That is how to read OWUI's own log
+text next to `initialize` / `tools/list` / `tools/call`. The MCP mock
+also prints the same events on stderr so they show up in the compose
+capture. Pages still does not host this stack.
+
+```bash
+python -m mcp_toolcall_lab.docker_logs capture \
+  -f docker/openwebui-smoke/docker-compose.yml \
+  -o test-results/docker-logs
+python -m mcp_toolcall_lab.docker_logs timeline \
+  --dir test-results -o test-results/timeline.jsonl
+```
+
 ```bash
 mkdir -p test-results
 docker compose -f docker/openwebui-smoke/docker-compose.yml up --build -d

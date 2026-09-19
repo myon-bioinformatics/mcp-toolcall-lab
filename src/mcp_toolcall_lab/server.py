@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import asyncio
 import os
+import sys
 import time
+from datetime import UTC, datetime
 from typing import Any
 
 from fastmcp import FastMCP
@@ -14,6 +16,7 @@ from .catalog import TOOL_DESCRIPTIONS, dispatch_tool
 from .record import (
     EVENT_INITIALIZE,
     EVENT_INITIALIZED,
+    EVENT_TOOLS_CALL,
     EVENT_TOOLS_LIST,
     MESSAGE_ID_HEADER_KEYS,
     OUTCOME_EMPTY,
@@ -119,6 +122,12 @@ def _request_id(context: MiddlewareContext) -> str | None:
     return text
 
 
+def _trace_stderr(message: str, *, level: str = "INFO") -> None:
+    """Mirror JSONL protocol rows onto container stderr (time + level + text)."""
+    stamp = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+    print(f"{stamp} {level} {message}", file=sys.stderr, flush=True)
+
+
 class ObservabilityMiddleware(Middleware):
     """Log every tools/call, including unknown names and validation failures.
 
@@ -164,6 +173,10 @@ class ObservabilityMiddleware(Middleware):
             if message_id:
                 debug["message_id"] = message_id
         record_protocol_event(event=event, debug=debug or None)
+        _trace_stderr(
+            f"event={event} session_id={debug.get('session_id') or '-'} "
+            f"request_id={debug.get('request_id') or '-'} chat_id={debug.get('chat_id') or '-'}"
+        )
 
     async def on_initialize(self, context: MiddlewareContext, call_next):
         result = await call_next(context)
@@ -225,6 +238,13 @@ class ObservabilityMiddleware(Middleware):
             meta=meta,
             debug=debug,
             duration_ms=round((time.perf_counter() - started) * 1000, 3),
+        )
+        level = "ERROR" if outcome == OUTCOME_ERROR else "INFO"
+        _trace_stderr(
+            f"event={EVENT_TOOLS_CALL} tool={name} outcome={outcome} "
+            f"session_id={debug.get('session_id') or '-'} "
+            f"request_id={debug.get('request_id') or '-'} chat_id={debug.get('chat_id') or '-'}",
+            level=level,
         )
 
 

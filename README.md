@@ -92,7 +92,8 @@ LIBRECHAT_BASE_URL=http://127.0.0.1:3080 \
 ```
 
 Skipped in default `pytest` (`LIBRECHAT_BASE_URL` unset). CI workflow:
-`.github/workflows/librechat-docker-smoke.yml`.
+`.github/workflows/librechat-docker-smoke.yml`. Docker logs (time / level /
+message) land in `test-results/docker-logs/` on every smoke.
 
 ### Open WebUI in Docker + Playwright (input → Send → OpenAI + MCP wire)
 
@@ -120,6 +121,15 @@ OPEN_WEBUI_BASE_URL=http://127.0.0.1:3000 \
 Skipped in default `pytest` (`OPEN_WEBUI_BASE_URL` unset). Dedicated CI:
 `.github/workflows/openwebui-docker-smoke.yml` (`workflow_dispatch`).
 Details: [`docs/openwebui_mcp_notes.md`](docs/openwebui_mcp_notes.md).
+After a smoke, container logs (time / level / message) are in
+`test-results/docker-logs/` plus a merged `test-results/timeline.jsonl`:
+
+```bash
+python -m mcp_toolcall_lab.docker_logs capture \
+  -f docker/openwebui-smoke/docker-compose.yml -o test-results/docker-logs
+python -m mcp_toolcall_lab.docker_logs timeline \
+  --dir test-results -o test-results/timeline.jsonl
+```
 
 ### Serverless stub try (Actions + Pages)
 

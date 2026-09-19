@@ -52,6 +52,8 @@ def test_openwebui_docs_and_workflow_track_the_owui_named_mock() -> None:
     assert "openwebui_mcp_mock.py" in workflow
     assert "workflow_dispatch:" in workflow
     assert "tests/real_chat_ui/test_openwebui_docker.py" in workflow
+    assert "mcp_toolcall_lab.docker_logs" in workflow
+    assert "test-results/docker-logs" in workflow
     assert "run: pytest -q" in default_ci
     assert "test_openwebui_docker.py" not in default_ci
 

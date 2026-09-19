@@ -117,6 +117,13 @@ is the dictionary; the JSONL is the accumulating ledger. A miss does **not** fai
 the MCP-classification test — it is the record. The send-click test still fails
 if the composer itself is broken.
 
+The same job always writes Docker container logs (timestamp, level, message)
+to `test-results/docker-logs/` and a time-ordered merge with MCP/OpenAI JSONL
+at `test-results/timeline.jsonl`. LibreChat's own log lines sit next to the
+mock's `event=initialize` / `tools/list` / `tools/call` stderr. The stdlib
+stub (`McpStdlibSession`) follows that handshake rather than skipping
+`tools/list`.
+
 ```bash
 mkdir -p test-results
 docker compose -f docker/librechat-smoke/docker-compose.yml up --build -d
