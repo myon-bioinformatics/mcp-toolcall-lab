@@ -20,17 +20,22 @@ from mcp_toolcall_lab.markdown_lib import (
     markdown_py_path,
 )
 from mcp_toolcall_lab.stub_front import (
+    BUILD_META_KEYS,
+    BUILD_META_NAME,
     MCP_PATTERNS,
     PAGES_FORBIDDEN_NAMES,
     PAGES_SUMMARY_KEYS,
     STUB_DEMO_DATA_NAME,
     STUB_DEMO_JS_NAME,
     STUB_DEMO_JS_SOURCE,
+    _status_is_dirty,
+    collect_revision,
     load_corpus,
     pages_summary,
     parse_sections,
     render_rows,
     write_pages,
+    write_stub_demo_page,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -62,6 +67,18 @@ def test_render_rows_uses_markdown_table() -> None:
     assert "14109" in text
 
 
+_FAKE_REVISION = {
+    "version": None,
+    "sha": "abcdef1234567890abcdef1234567890abcdef12",
+    "shortSha": "abcdef12",
+    "ref": "main",
+    "committedAt": "2026-09-19T16:50:27Z",
+    "subject": "Simplify Pages report",
+    "commitUrl": "https://github.com/myon-bioinformatics/mcp-toolcall-lab/commit/abcdef1234567890abcdef1234567890abcdef12",
+    "dirty": False,
+}
+
+
 def test_write_pages_is_static(tmp_path: Path) -> None:
     last = tmp_path / "last-run.json"
     last.write_text('{"cpu_llm_ok": true, "stub_health": {"status": 200}}\n', encoding="utf-8")
@@ -69,7 +86,10 @@ def test_write_pages_is_static(tmp_path: Path) -> None:
     html = index.read_text(encoding="utf-8")
     assert "mcp-toolcall-lab stub" in html
     assert "mcp-mock:8000/mcp" in html
+    assert "Commit " in html
+    assert 'id="build-meta"' in html
     assert (tmp_path / "site" / "summary.json").is_file()
+    assert (tmp_path / "site" / BUILD_META_NAME).is_file()
     assert not (tmp_path / "site" / "last-run.json").exists()
 
 
@@ -185,34 +205,228 @@ def test_gguf_overlay_pins_image_digest_and_uses_curl_healthcheck() -> None:
     assert model_pin["sha256"] == "2e8040ceae7815abe0dcb3540b9995eaa1fa0d2ca9e797d0a635ae4433c68c2d"
 
 
-def test_write_pages_emits_the_static_client_side_demo(tmp_path: Path) -> None:
-    """Try it (static, no MCP): a client-side JS re-implementation of
-    classify_prompt()/lookup_heading(), so a visitor can send a heading
-    prompt and get a real body back with zero server behind Pages. It must
-    never fabricate an MCP result -- see test_stub_demo_js_never_fabricates."""
-    out = write_pages(tmp_path / "site").parent
+def test_write_pages_does_not_embed_the_static_try_it_demo(tmp_path: Path) -> None:
+    """Published Pages is generation + /wiki induction + CI summary.
+
+    The mock heading-pulldown demo is a local asset (write_stub_demo_page),
+    not the github.io index — that pulldown was a fixtures/stub_front corpus,
+    not Wikipedia, and read as a stub Wiki UI.
+    """
+    out = write_pages(tmp_path / "site", revision=_FAKE_REVISION).parent
+    html = (out / "index.html").read_text(encoding="utf-8")
+    names = {path.name for path in out.iterdir()}
+    assert STUB_DEMO_JS_NAME not in names
+    assert STUB_DEMO_DATA_NAME not in names
+    assert 'id="stub-demo"' not in html
+    assert "Try it (static, no MCP)" not in html
+    assert f'src="{STUB_DEMO_JS_NAME}"' not in html
+    assert STUB_DEMO_DATA_NAME not in html
+    assert "Corpus headings" not in html
+    assert "mcpToolcallLabStubDemo" not in html
+
+
+def test_write_pages_emits_build_meta_and_commit(tmp_path: Path) -> None:
+    out = write_pages(tmp_path / "site", revision=_FAKE_REVISION).parent
+    html = (out / "index.html").read_text(encoding="utf-8")
+    assert 'id="build-meta"' in html
+    assert "Commit abcdef12" in html
+    assert "Version " not in html
+    assert _FAKE_REVISION["commitUrl"] in html
+    assert _FAKE_REVISION["committedAt"] in html
+    assert _FAKE_REVISION["subject"] in html
+    assert _FAKE_REVISION["sha"] in html
+    assert "python -m mcp_toolcall_lab.stub_front serve --port 8765" in html
+    assert "/wiki" in html
+    assert "<h2>Last Actions summary</h2>" in html
+    assert "not live Wikipedia.## Last Actions" not in html
+    meta_path = out / BUILD_META_NAME
+    assert meta_path.is_file()
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    assert set(meta) == set(BUILD_META_KEYS)
+    assert meta["shortSha"] == "abcdef12"
+    assert meta["sha"] == _FAKE_REVISION["sha"]
+    assert meta["commitUrl"] == _FAKE_REVISION["commitUrl"]
+    assert meta["version"] is None
+
+
+def test_write_pages_shows_version_only_when_present(tmp_path: Path) -> None:
+    revision = {**_FAKE_REVISION, "version": "9.9.9"}
+    html = write_pages(tmp_path / "site", revision=revision).read_text(encoding="utf-8")
+    assert "Version 9.9.9" in html
+    assert "Commit abcdef12" in html
+
+
+def _stub_git_status(monkeypatch, porcelain: str) -> None:
+    def fake_git(args: list[str]) -> str | None:
+        table = {
+            ("rev-parse", "HEAD"): "deadbeefcafebabe000000000000000000000000",
+            ("rev-parse", "--short=8", "HEAD"): "deadbeef",
+            ("branch", "--show-current"): "main",
+            ("show", "-s", "--format=%cI", "HEAD"): "2026-09-19T12:00:00+00:00",
+            ("show", "-s", "--format=%s", "HEAD"): "subject",
+            ("status", "--porcelain"): porcelain,
+        }
+        return table.get(tuple(args))
+
+    monkeypatch.setattr("mcp_toolcall_lab.stub_front._git_output", fake_git)
+
+
+def test_collect_revision_prefers_github_actions_env(monkeypatch) -> None:
+    def fake_git(args: list[str]) -> str | None:
+        table = {
+            ("rev-parse", "HEAD"): "gitsha0000000000000000000000000000000000",
+            ("rev-parse", "--short=8", "HEAD"): "gitsha00",
+            ("branch", "--show-current"): "local-branch",
+            ("show", "-s", "--format=%cI", "HEAD"): "2026-01-01T00:00:00+00:00",
+            ("show", "-s", "--format=%s", "HEAD"): "local subject",
+            ("status", "--porcelain"): " M stub_front.py",
+        }
+        return table.get(tuple(args))
+
+    monkeypatch.setattr("mcp_toolcall_lab.stub_front._git_output", fake_git)
+    meta = collect_revision(
+        {
+            "GITHUB_SHA": "actions1234567890abcdef1234567890abcdef12",
+            "GITHUB_REF_NAME": "main",
+            "GITHUB_REPOSITORY": "myon-bioinformatics/mcp-toolcall-lab",
+            "GITHUB_SERVER_URL": "https://github.com",
+        }
+    )
+    assert meta["sha"] == "actions1234567890abcdef1234567890abcdef12"
+    assert meta["shortSha"] == "actions1"
+    assert meta["ref"] == "main"
+    assert meta["commitUrl"] == (
+        "https://github.com/myon-bioinformatics/mcp-toolcall-lab/commit/"
+        "actions1234567890abcdef1234567890abcdef12"
+    )
+    assert meta["committedAt"] == "2026-01-01T00:00:00+00:00"
+    assert meta["subject"] == "local subject"
+    assert meta["dirty"] is True
+    assert meta["version"] is None
+    assert set(meta) == set(BUILD_META_KEYS)
+
+
+def test_collect_revision_falls_back_to_git_when_actions_env_absent(monkeypatch) -> None:
+    def fake_git(args: list[str]) -> str | None:
+        table = {
+            ("rev-parse", "HEAD"): "deadbeefcafebabe000000000000000000000000",
+            ("rev-parse", "--short=8", "HEAD"): "deadbeef",
+            ("branch", "--show-current"): "cursor/pages-generation-wiki-induction",
+            ("show", "-s", "--format=%cI", "HEAD"): "2026-09-19T12:00:00+00:00",
+            ("show", "-s", "--format=%s", "HEAD"): "Add Pages revision identity",
+            ("status", "--porcelain"): "",
+        }
+        return table.get(tuple(args))
+
+    monkeypatch.setattr("mcp_toolcall_lab.stub_front._git_output", fake_git)
+    meta = collect_revision({})
+    assert meta["sha"] == "deadbeefcafebabe000000000000000000000000"
+    assert meta["shortSha"] == "deadbeef"
+    assert meta["ref"] == "cursor/pages-generation-wiki-induction"
+    assert meta["commitUrl"] is None
+    assert meta["dirty"] is False
+    assert meta["subject"] == "Add Pages revision identity"
+    assert meta["version"] is None
+
+
+def test_collect_revision_git_unavailable(monkeypatch) -> None:
+    monkeypatch.setattr("mcp_toolcall_lab.stub_front._git_output", lambda args: None)
+    meta = collect_revision({})
+    assert meta["sha"] is None
+    assert meta["shortSha"] is None
+    assert meta["ref"] is None
+    assert meta["committedAt"] is None
+    assert meta["subject"] is None
+    assert meta["commitUrl"] is None
+    assert meta["dirty"] is False
+    assert meta["version"] is None
+
+
+def test_collect_revision_reads_package_version_when_present(monkeypatch) -> None:
+    monkeypatch.setattr("mcp_toolcall_lab.stub_front._git_output", lambda args: None)
+    monkeypatch.setattr("mcp_toolcall_lab.__version__", "9.9.9", raising=False)
+    meta = collect_revision({})
+    assert meta["version"] == "9.9.9"
+
+
+def test_collect_revision_ignores_default_site_output(monkeypatch) -> None:
+    _stub_git_status(
+        monkeypatch,
+        "?? _site/index.html\n?? _site/build_meta.json\n?? _site/\n",
+    )
+    meta = collect_revision({})
+    assert meta["dirty"] is False
+
+
+def test_collect_revision_ignores_custom_out_dir(monkeypatch) -> None:
+    _stub_git_status(monkeypatch, "?? tmp-pages/index.html\n?? tmp-pages/summary.json\n")
+    meta = collect_revision({}, ignore_paths=(Path("tmp-pages"),))
+    assert meta["dirty"] is False
+
+
+def test_collect_revision_dirty_when_source_changes_alongside_site(monkeypatch) -> None:
+    _stub_git_status(
+        monkeypatch,
+        "?? _site/index.html\n M README.md\n",
+    )
+    meta = collect_revision({})
+    assert meta["dirty"] is True
+
+
+def test_write_pages_dirty_matches_source_tree_not_its_output() -> None:
+    """Regenerating Pages under the real worktree must not flip dirty by itself."""
+    out = ROOT / "_site_revision_probe"
+    try:
+        write_pages(out)
+        first = json.loads((out / BUILD_META_NAME).read_text(encoding="utf-8"))
+        write_pages(out)
+        meta = json.loads((out / BUILD_META_NAME).read_text(encoding="utf-8"))
+        assert meta["dirty"] is first["dirty"]
+        porcelain = subprocess.run(
+            ["git", "status", "--porcelain"],
+            cwd=ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout
+        assert meta["dirty"] is _status_is_dirty(porcelain, (out,))
+        html = (out / "index.html").read_text(encoding="utf-8")
+        if meta["dirty"]:
+            assert "(dirty)" in html
+        else:
+            assert "(dirty)" not in html
+    finally:
+        shutil.rmtree(out, ignore_errors=True)
+
+
+def test_write_pages_dirty_when_untracked_source_exists() -> None:
+    out = ROOT / "_site_revision_probe"
+    probe = ROOT / "_revision_source_probe.txt"
+    try:
+        probe.write_text("untracked source change\n", encoding="utf-8")
+        write_pages(out)
+        meta = json.loads((out / BUILD_META_NAME).read_text(encoding="utf-8"))
+        assert meta["dirty"] is True
+        html = (out / "index.html").read_text(encoding="utf-8")
+        assert "(dirty)" in html
+    finally:
+        probe.unlink(missing_ok=True)
+        shutil.rmtree(out, ignore_errors=True)
+
+
+def test_write_stub_demo_page_is_local_only(tmp_path: Path) -> None:
+    out = write_stub_demo_page(tmp_path / "demo").parent
     data_path = out / STUB_DEMO_DATA_NAME
     js_path = out / STUB_DEMO_JS_NAME
     assert data_path.is_file()
     assert js_path.is_file()
-
     demo_data = json.loads(data_path.read_text(encoding="utf-8"))
     expected = [{"title": s.title, "slug": s.slug, "body": s.body} for s in load_corpus()]
     assert demo_data == expected
-    assert demo_data, "corpus must be non-empty or the demo has nothing to look up"
-
-    # Same content the package ships, not a stale copy drifted from it.
     assert js_path.read_text(encoding="utf-8") == STUB_DEMO_JS_SOURCE.read_text(encoding="utf-8")
-
     html = (out / "index.html").read_text(encoding="utf-8")
     assert 'id="stub-demo"' in html
-    assert "heading-select" in (out / STUB_DEMO_JS_NAME).read_text(encoding="utf-8")
     assert f'src="{STUB_DEMO_JS_NAME}"' in html
-    assert STUB_DEMO_DATA_NAME in html
-    # Only {title, slug, body} per section -- no room for a runtime chat_id,
-    # _meta, or argument to leak in even by accident (the fixture prose can
-    # legitimately *mention* the word "chat_id" as documentation, which is
-    # fine; a real per-run identifier is the thing that must never appear).
     for row in demo_data:
         assert set(row) == {"title", "slug", "body"}
 

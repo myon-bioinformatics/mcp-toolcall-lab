@@ -1,12 +1,13 @@
 /*
- * Static, client-side re-implementation of stub_front.py's heading -> body
- * lookup (parse_sections / slugify / lookup_heading / classify_prompt).
- * No server, no MCP: this is what GitHub Pages *can* run by itself.
+ * Local-only, client-side re-implementation of stub_front.py's heading ->
+ * body lookup (parse_sections / slugify / lookup_heading / classify_prompt).
+ * No server, no MCP. Not embedded on the published GitHub Pages index
+ * (that report is generation identity + /wiki induction).
  *
  * Corpus data (title/slug/body only -- no chat_id, no MCP arguments, no
- * logs) is fetched from stub-demo-data.json, generated at Pages-build time
- * from the same fixtures/stub_front/*.md the real stub server reads, so
- * there is one source of truth for corpus content.
+ * logs) is fetched from stub-demo-data.json, written by
+ * write_stub_demo_page() from the same fixtures/stub_front/*.md the real
+ * stub server reads, so there is one source of truth for corpus content.
  *
  * MCP_PATTERNS below mirrors stub_front.py's MCP_PATTERNS *tokens and tool
  * names only* -- there is no MCP client here, so a matching prompt is
@@ -97,7 +98,7 @@
         text:
           "This looks like an MCP tool-call prompt for `" +
           classified.tool +
-          "`. This static Pages demo has no MCP server behind it, so it will not fabricate a result " +
+          "`. This static demo has no MCP server behind it, so it will not fabricate a result " +
           "-- run the real round-trip via `docker compose -f docker/stub-pages/docker-compose.yml up --build`, " +
           "or trigger the `stub-pages` GitHub Actions workflow (see the last verified run below).",
       };
@@ -174,7 +175,7 @@
 
     // <strong>/<pre> carry the user/assistant distinction and the
     // body's line breaks natively -- no CSS class does that work here,
-    // matching this page's no-authored-CSS design (see write_pages()).
+    // matching this page's no-authored-CSS design.
     // Auto-scroll was dropped because overflow CSS is gone (thread grows with the page).
     function addTurn(prompt, result) {
       var turn = el("div", { class: "stub-demo-turn", "data-case": result.case });

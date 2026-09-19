@@ -1,15 +1,16 @@
 # Serverless stub try (GitHub Actions + Pages)
 
-GitHub Pages hosts a **static** report. It cannot keep Docker running.
-GitHub Actions is the compute: it starts one compose network, sends a
-turn through the stub, appends anti-patterns as JSONL, then publishes
-`_site/` to https://myon-bioinformatics.github.io/mcp-toolcall-lab/.
+GitHub Pages hosts a **static** report. It cannot keep Docker running
+and it is not a Wikipedia UI. GitHub Actions is the compute: it starts
+one compose network, sends a turn through the stub, appends
+anti-patterns as JSONL, then publishes `_site/` to
+https://myon-bioinformatics.github.io/mcp-toolcall-lab/.
 
-That published page also embeds a **client-side, JS-only demo** of the
-heading → body path ("Try it (static, no MCP)") — see
-[Static client-side demo](#static-client-side-demo-try-it-no-mcp) below.
-It is a separate thing from the Actions summary: one runs in the
-visitor's browser right now, the other is a snapshot of the last CI run.
+The published `index.html` is generation identity (Commit / optional
+Version, plus `_site/build_meta.json`) plus a clear pointer to local
+`/wiki`, then a concise Last Actions snapshot. It does **not** embed
+the mock heading-pulldown "Try it" demo — that pulldown read
+`fixtures/stub_front`, not Wikipedia, and looked like a stub Wiki UI.
 
 `usable_session_id()` stays on the MCP mock: a missing session is
 missing, never the string `"None"`.
@@ -34,9 +35,9 @@ does not start this stack.
 Ledger: `test-results/antipatterns.jsonl` (dictionary:
 `fixtures/antipatterns/catalog.yaml`). A miss does not pretend Send failed.
 Raw MCP / cpu-llm / last-run files stay Actions artifacts. Pages only gets
-`index.html` + allowlisted `summary.json`. Docker container logs are captured
-into `test-results/docker-logs/` on the smoke job; they are artifacts, not
-Pages content.
+`index.html`, allowlisted `summary.json`, and `build_meta.json`. Docker
+container logs are captured into `test-results/docker-logs/` on the smoke
+job; they are artifacts, not Pages content.
 
 ## Real tiny GGUF (opt-in)
 
@@ -76,41 +77,48 @@ there is logged as `CPU_LLM_COMPLETION_FAILED`, distinct from
 `CPU_LLM_UNREACHABLE`. `cpu_llm_backend` (`lite-stub` / `real-gguf`) is
 in the published summary so the Pages report says honestly which one ran.
 
-## Static client-side demo ("Try it", no MCP)
+## What the published page is
 
-Everything above needs Actions to actually run something. This is the
-one piece that runs for a visitor with no CI, no Docker, nothing but the
-static page: `src/mcp_toolcall_lab/static/stub_demo.js` re-implements
-`stub_front.py`'s `slugify()` / `lookup_heading()` / `classify_prompt()`
-in vanilla JS (no build step, no dependency), and `write_pages()` writes
-its corpus (`{title, slug, body}` only — same public content as the
-"Corpus headings" list, never `chat_id`/`_meta`/arguments) to
-`stub-demo-data.json` alongside a copy of the script.
+Near the top: a plain-HTML generation block (`Commit <shortSha>`, linked
+when `commitUrl` is known; Version only if `mcp_toolcall_lab.__version__`
+exists — this package does not invent one). Schema:
+`write_pages()` → `_site/build_meta.json` (`version`, `sha`, `shortSha`,
+`ref`, `committedAt`, `subject`, `commitUrl`, `dirty`). Prefers
+`GITHUB_SHA` / `GITHUB_REF_NAME` / `GITHUB_REPOSITORY` /
+`GITHUB_SERVER_URL` when Actions sets them. `dirty` is source-tree dirty:
+it ignores default `_site/` and the chosen `--out` directory so generating
+(or regenerating) the Pages tree cannot mark a clean checkout dirty.
 
-A heading `<select>` lists the same titles; picking one prints that
-section body. No URL/source picker — the corpus is the vendored
-fixtures, split by `markdown.py`. A heading prompt also still works. A prompt
-that would trigger a real MCP tool call (mirrors `MCP_PATTERNS`' tokens
-and tool names, kept in sync by
+Then `/wiki` induction: the live Wikipedia title form + heading select
+is the local stub, not github.io.
+
+```bash
+python -m mcp_toolcall_lab.stub_front serve --port 8765
+# open http://127.0.0.1:8765/wiki
+```
+
+GitHub Pages cannot fetch MediaWiki or keep that backend. The "Last
+Actions summary" JSON below that is the last `stub-pages` smoke
+snapshot — the actual value of this host — kept thinner than generation
++ `/wiki` guidance.
+
+## Local heading-lookup JS (not on Pages)
+
+`src/mcp_toolcall_lab/static/stub_demo.js` still re-implements
+`slugify()` / `lookup_heading()` / `classify_prompt()` in vanilla JS for
+local tests. `write_stub_demo_page()` writes that script plus
+`{title, slug, body}` corpus JSON. `write_pages()` does **not** copy
+those files into `_site/` and does not mount `#stub-demo` on the
+published index.
+
+A prompt that would trigger a real MCP tool call (mirrors
+`MCP_PATTERNS`' tokens and tool names, kept in sync by
 `tests/test_stub_pages.py::test_stub_demo_js_mirrors_mcp_patterns_tools_and_tokens`)
-is **labelled, never faked** — this static page has no MCP server behind
-it, so it says so instead of fabricating a result. The real round-trip
-for that case is the "Last Actions summary" block, from the last
-`stub-pages` Actions run. A `chat_<hex24>` id (same shape as
-`record.py`'s `new_chat_id()`) is minted once per page load and shown
-above the composer — display fidelity only, never sent anywhere (no
-server here to send it to).
-
-Composer/response element ids reuse `frontends.py`'s LibreChat/Open WebUI
-locators (`#chat-input`, `#send-message-button`,
-`#response-content-container`) for consistency with the rest of this
-repo's dual-locator convention. `tests/test_stub_demo_browser.py` drives
-a generated copy of this page with a real headless Chromium (same
+is **labelled, never faked**. `tests/test_stub_demo_browser.py` drives
+`write_stub_demo_page()` with headless Chromium (same
 `pytest.importorskip("playwright.sync_api")` + `browser-test` extra
-pattern as `tests/test_browser_fetch_protocol.py`; skips cleanly in the
-default `test` CI job, which does not install that extra) — heading hit,
-MCP-pattern label, miss, and the chat_id being minted once and staying
-stable across turns.
+pattern as `tests/test_browser_fetch_protocol.py`; skips in default
+`pytest -q`).
 
 ## Role split
 
@@ -120,6 +128,6 @@ Actions → Pages, anti-pattern JSONL, `usable_session_id` kept, lite
 
 **Claude:** real tiny GGUF overlay + auto-discovery/checksum fetch
 script, opt-in workflow_dispatch wiring, a real `/v1/chat/completions`
-smoke check (not just `/health`) for both backends, `cpu_llm_backend` in
-the published summary, and the static client-side "Try it" demo above.
-Accuracy still does not matter. No second log schema was added.
+smoke check (not just `/health`) for both backends, and
+`cpu_llm_backend` in the published summary. Accuracy still does not
+matter. No second log schema was added.

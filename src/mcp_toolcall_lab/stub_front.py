@@ -29,6 +29,8 @@ import argparse
 import html
 import json
 import os
+import subprocess
+from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass, field
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -312,13 +314,23 @@ PAGES_FORBIDDEN_NAMES = frozenset(
     }
 )
 
-# Static, client-side demo: heading -> body lookup only, no MCP, no Docker.
-# Corpus content only (title/slug/body) -- same public data as the "Corpus
-# headings" list already on this page, never chat_id/_meta/arguments.
+# Local-only heading → body demo (tests / write_stub_demo_page). Not published
+# on GitHub Pages — that report is generation identity + /wiki induction.
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 STUB_DEMO_JS_SOURCE = STATIC_DIR / "stub_demo.js"
 STUB_DEMO_JS_NAME = "stub-demo.js"
 STUB_DEMO_DATA_NAME = "stub-demo-data.json"
+BUILD_META_NAME = "build_meta.json"
+BUILD_META_KEYS = (
+    "version",
+    "sha",
+    "shortSha",
+    "ref",
+    "committedAt",
+    "subject",
+    "commitUrl",
+    "dirty",
+)
 
 # Public Pages may only show these keys. Prompts, arguments, _meta, and ids stay off-site.
 PAGES_SUMMARY_KEYS = (
@@ -374,6 +386,180 @@ def pages_summary(
     }
 
 
+PAGES_OUTPUT_NAME = "_site"
+
+
+def _git_output(args: list[str]) -> str | None:
+    """Run a git command in the repo root. None if git is missing or the command fails."""
+    try:
+        result = subprocess.run(
+            ["git", *args],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            cwd=REPO_ROOT,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if result.returncode != 0:
+        return None
+    value = result.stdout.strip()
+    return value or None
+
+
+def _porcelain_relpath(line: str) -> str | None:
+    """Return the worktree-relative path from one ``git status --porcelain`` line."""
+    if len(line) < 4:
+        return None
+    rest = line[3:]
+    if " -> " in rest:
+        rest = rest.split(" -> ", 1)[1]
+    rest = rest.strip()
+    if len(rest) >= 2 and rest[0] == rest[-1] == '"':
+        rest = rest[1:-1]
+    rest = rest.replace("\\", "/").rstrip("/")
+    return rest or None
+
+
+def _ignore_roots(ignore_paths: Sequence[Path | str] = ()) -> list[Path]:
+    roots = [REPO_ROOT / PAGES_OUTPUT_NAME]
+    for path in ignore_paths:
+        candidate = Path(path)
+        roots.append(candidate if candidate.is_absolute() else REPO_ROOT / candidate)
+    unique: list[Path] = []
+    seen: set[Path] = set()
+    for root in roots:
+        try:
+            key = root.resolve()
+        except OSError:
+            key = root
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(root)
+    return unique
+
+
+def _relpath_is_ignored(rel: str, roots: Sequence[Path]) -> bool:
+    repo = REPO_ROOT.resolve()
+    for root in roots:
+        try:
+            rel_root = os.path.relpath(root.resolve(), repo).replace("\\", "/")
+        except (OSError, ValueError):
+            continue
+        if rel_root.startswith("..") or rel_root in {".", ""}:
+            continue
+        rel_root = rel_root.rstrip("/")
+        if rel == rel_root or rel.startswith(rel_root + "/"):
+            return True
+    return False
+
+
+def _status_is_dirty(status: str | None, ignore_paths: Sequence[Path | str] = ()) -> bool:
+    """True when porcelain reports a change outside ``_site/`` and ``ignore_paths``."""
+    if not status:
+        return False
+    roots = _ignore_roots(ignore_paths)
+    for line in status.splitlines():
+        rel = _porcelain_relpath(line)
+        if rel is None:
+            continue
+        if _relpath_is_ignored(rel, roots):
+            continue
+        return True
+    return False
+
+
+def collect_revision(
+    env: Mapping[str, str] | None = None,
+    *,
+    ignore_paths: Sequence[Path | str] = (),
+) -> dict[str, Any]:
+    """Collect a small revision/generation block for the Pages report.
+
+    Schema written to ``_site/build_meta.json`` (same idea as
+    ``myon-bioinformatics/markdown``'s Pages report / flutter_navigation_basic's
+    ``build_meta``, flat — this report has no pubspec / artifact-size fields):
+
+    - ``version``: ``mcp_toolcall_lab.__version__`` if that attribute exists,
+      else null. Do not invent a version string from ``pyproject.toml``.
+    - ``sha`` / ``shortSha`` (8): ``GITHUB_SHA`` when set, else ``git rev-parse``.
+    - ``ref``: ``GITHUB_REF_NAME`` when set, else ``git branch --show-current``.
+    - ``committedAt`` / ``subject`` / ``dirty``: git (``%cI``, ``%s``, porcelain).
+      ``dirty`` ignores the default ``_site/`` tree and ``ignore_paths`` so the
+      generated Pages output cannot mark a clean source tree dirty.
+    - ``commitUrl``: ``{server}/{repo}/commit/{sha}`` when sha and
+      ``GITHUB_REPOSITORY`` are known (``GITHUB_SERVER_URL`` or https://github.com).
+    """
+    import mcp_toolcall_lab as lab
+
+    environ = os.environ if env is None else env
+
+    def _env(name: str) -> str | None:
+        value = (environ.get(name) or "").strip()
+        return value or None
+
+    github_sha = _env("GITHUB_SHA")
+    sha = github_sha or _git_output(["rev-parse", "HEAD"])
+    if sha:
+        short_sha = sha[:8]
+    else:
+        short_sha = _git_output(["rev-parse", "--short=8", "HEAD"])
+
+    ref = _env("GITHUB_REF_NAME") or _git_output(["branch", "--show-current"])
+    committed_at = _git_output(["show", "-s", "--format=%cI", "HEAD"])
+    subject = _git_output(["show", "-s", "--format=%s", "HEAD"])
+    status = _git_output(["status", "--porcelain"])
+    dirty = _status_is_dirty(status, ignore_paths)
+
+    repo = _env("GITHUB_REPOSITORY")
+    server = (_env("GITHUB_SERVER_URL") or "https://github.com").rstrip("/")
+    commit_url = f"{server}/{repo}/commit/{sha}" if sha and repo else None
+
+    version = getattr(lab, "__version__", None)
+    if version is not None:
+        version = str(version)
+
+    return {
+        "version": version,
+        "sha": sha,
+        "shortSha": short_sha,
+        "ref": ref,
+        "committedAt": committed_at,
+        "subject": subject,
+        "commitUrl": commit_url,
+        "dirty": dirty,
+    }
+
+
+def _revision_html(revision: Mapping[str, Any]) -> str:
+    parts: list[str] = []
+    version = revision.get("version")
+    if version:
+        parts.append(f"Version {html.escape(str(version))}")
+
+    short = revision.get("shortSha") or "unknown"
+    sha = revision.get("sha")
+    title = f' title="{html.escape(str(sha))}"' if sha else ""
+    commit_url = revision.get("commitUrl")
+    label = f"Commit {html.escape(str(short))}"
+    if commit_url:
+        parts.append(f'<a href="{html.escape(str(commit_url))}"{title}>{label}</a>')
+    else:
+        parts.append(f"<span{title}>{label}</span>")
+
+    if revision.get("ref"):
+        parts.append(html.escape(str(revision["ref"])))
+    if revision.get("committedAt"):
+        parts.append(html.escape(str(revision["committedAt"])))
+    if revision.get("subject"):
+        parts.append(html.escape(str(revision["subject"])))
+    if revision.get("dirty"):
+        parts.append("(dirty)")
+
+    return f'<p id="build-meta">{" · ".join(parts)}</p>'
+
+
 def _stub_demo_html() -> str:
     """Raw HTML for the static, client-side heading-lookup demo.
 
@@ -419,75 +605,107 @@ def _load_json_object(path: Path | None) -> dict[str, Any]:
     return payload if isinstance(payload, dict) else {}
 
 
+def write_stub_demo_page(
+    out_dir: Path,
+    *,
+    corpus: Path | None = None,
+) -> Path:
+    """Write the local heading-lookup demo. Not used by the published Pages tree."""
+    out_dir.mkdir(parents=True, exist_ok=True)
+    sections = load_corpus(corpus)
+    demo_data = [{"title": s.title, "slug": s.slug, "body": s.body} for s in sections]
+    (out_dir / STUB_DEMO_DATA_NAME).write_text(
+        json.dumps(demo_data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
+    (out_dir / STUB_DEMO_JS_NAME).write_text(STUB_DEMO_JS_SOURCE.read_text(encoding="utf-8"), encoding="utf-8")
+    html_page = (
+        "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
+        "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
+        "<title>stub-front local heading demo</title>"
+        f"</head><body>{_stub_demo_html()}</body></html>\n"
+    )
+    index = out_dir / "index.html"
+    index.write_text(html_page, encoding="utf-8")
+    return index
+
+
 def write_pages(
     out_dir: Path,
     *,
     last_run: Path | None = None,
     observations: Path | None = None,
     corpus: Path | None = None,
+    revision: Mapping[str, Any] | None = None,
 ) -> Path:
-    """Write a static GitHub Pages tree. Raw MCP/debug logs stay off this tree."""
+    """Write a static GitHub Pages tree. Raw MCP/debug logs stay off this tree.
+
+    ``corpus`` is accepted so ``pages --corpus`` still parses; mock headings are
+    not listed on the published index (they read as a Wiki TOC).
+    """
     from mcp_toolcall_lab.mock.common import read_jsonl
 
+    # Snapshot revision before mkdir/write so first generation does not create
+    # untracked files first. Ignore ``_site/`` and this out_dir so a leftover
+    # or regenerated tree cannot mark a clean source checkout dirty.
+    meta = dict(revision) if revision is not None else collect_revision(ignore_paths=(out_dir,))
     md = load_markdown()
     out_dir.mkdir(parents=True, exist_ok=True)
     for name in PAGES_FORBIDDEN_NAMES:
         leftover = out_dir / name
         if leftover.exists():
             leftover.unlink()
-    sections = load_corpus(corpus)
-    titles = [section.title for section in sections]
     summary = pages_summary(_load_json_object(last_run), read_jsonl(observations) if observations else [])
     summary_text = json.dumps(summary, indent=2, ensure_ascii=False)
     if md is not None:
         body = md.section(
-            "mcp-toolcall-lab stub",
+            "Live Wikipedia form (`/wiki`, not on this host)",
             [
-                "Serverless try: GitHub Actions starts Docker (stub + MCP mock + CPU-class model) "
-                "on one compose network, records anti-patterns as JSONL artifacts, then publishes "
-                "this allowlisted summary. Raw MCP logs are not on Pages.",
+                "The live Wikipedia title form + heading select is on the local stdlib stub "
+                "(`GET /wiki`), not this static GitHub Pages host. Reproduce locally:",
+                md.code_block(
+                    "python -m mcp_toolcall_lab.stub_front serve --port 8765\n"
+                    "# then open /wiki  (http://127.0.0.1:8765/wiki)",
+                    lang="bash",
+                ),
+                "GitHub Pages is static and cannot keep that backend, so this page does not "
+                "include the live form. CI screenshots use "
+                "`fixtures/wikipedia/yokohama_extract.json`, not live Wikipedia.",
+                md.heading("Last Actions summary", 2),
+                "Allowlisted snapshot from the last `stub-pages` GitHub Actions run "
+                "(stub + MCP mock + CPU-class model on one compose network). "
+                "Raw MCP logs are not on Pages. This host cannot keep Docker running.",
+                md.code_block(summary_text, lang="json"),
                 md.bullet_list(
                     [
                         "Local: `docker compose -f docker/stub-pages/docker-compose.yml up --build`",
                         "Actions: workflow `stub-pages` (`workflow_dispatch`)",
                         "MCP: `http://mcp-mock:8000/mcp` · CPU model: `http://cpu-llm:8080/v1`",
-                        "This Pages host is static. It cannot keep Docker running.",
                     ]
                 ),
-                md.heading("Corpus headings", 2),
-                md.bullet_list(titles or ["(empty)"]),
-                md.heading("Last Actions summary", 2),
-                md.code_block(summary_text, lang="json"),
-                md.heading("Wikipedia article fetch (not on this host)", 2),
-                "The stdlib stub serves GET /wiki as a title form plus a server-rendered heading "
-                "select against a MediaWiki plaintext extract. GitHub Pages is static and cannot "
-                "keep that backend, so this page does not include the live form. Reproduce locally: "
-                "`python -m mcp_toolcall_lab.stub_front serve --port 8765` then open `/wiki`. "
-                "CI screenshots use `fixtures/wikipedia/yokohama_extract.json`, not live Wikipedia.",
             ],
         )
         inner = md.markdown_to_html(body)
     else:
-        inner = "<pre>" + html.escape("\n".join(titles) + "\n" + summary_text) + "</pre>"
-    # No authored CSS: headings/lists/tables/code blocks from markdown.py and
-    # <strong>/<pre> in stub_demo.js already read fine under the browser's
-    # own default stylesheet -- the same bet https://abehiroshi.la.coocan.jp/
-    # makes, minimum effort for a technical report page nobody needs to be
-    # styled.
-    demo_html = _stub_demo_html()
+        inner = "<pre>" + html.escape(summary_text) + "</pre>"
+    # No authored CSS: headings/lists/tables/code blocks from markdown.py
+    # already read fine under the browser's own default stylesheet -- the
+    # same bet https://abehiroshi.la.coocan.jp/ makes, minimum effort for a
+    # technical report page nobody needs to be styled.
     html_page = (
         "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
         "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
         "<title>mcp-toolcall-lab stub</title>"
-        f"</head><body>{inner}{demo_html}</body></html>\n"
+        "</head><body>"
+        "<h1>mcp-toolcall-lab stub</h1>"
+        f"{_revision_html(meta)}"
+        f"{inner}"
+        "</body></html>\n"
     )
     (out_dir / "index.html").write_text(html_page, encoding="utf-8")
     (out_dir / "summary.json").write_text(summary_text + "\n", encoding="utf-8")
-    demo_data = [{"title": s.title, "slug": s.slug, "body": s.body} for s in sections]
-    (out_dir / STUB_DEMO_DATA_NAME).write_text(
-        json.dumps(demo_data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    (out_dir / BUILD_META_NAME).write_text(
+        json.dumps(meta, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
     )
-    (out_dir / STUB_DEMO_JS_NAME).write_text(STUB_DEMO_JS_SOURCE.read_text(encoding="utf-8"), encoding="utf-8")
     return out_dir / "index.html"
 
 

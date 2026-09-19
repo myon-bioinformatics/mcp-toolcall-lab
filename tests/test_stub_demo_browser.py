@@ -1,14 +1,15 @@
-"""Drive the static, client-side "Try it" demo with a real browser.
+"""Drive the local, client-side heading-lookup demo with a real browser.
 
 Reusable, reproducible version of the manual Playwright check used while
-developing stub_demo.js: generate the Pages tree with write_pages(), serve
-it on a free local port (never hardcoded -- ports collide across CI runs
-and local runs alike), and click through the same cases hand-verified
-before this file existed -- heading hit, an MCP-shaped prompt labelled
-(never faked), a miss listing known headings, and the demo chat_id being
-minted once, not per turn. Locator/asset ids come from stub_front.py's own
-constants, not re-strung here, so a rename there cannot silently desync
-this test the way a hardcoded "#chat-input" would.
+developing stub_demo.js: write_stub_demo_page() (not the published Pages
+index — that report no longer embeds this mock), serve it on a free local
+port (never hardcoded -- ports collide across CI runs and local runs alike),
+and click through the same cases hand-verified before this file existed --
+heading hit, an MCP-shaped prompt labelled (never faked), a miss listing
+known headings, and the demo chat_id being minted once, not per turn.
+Locator/asset ids come from stub_front.py's own constants, not re-strung
+here, so a rename there cannot silently desync this test the way a
+hardcoded "#chat-input" would.
 """
 
 from __future__ import annotations
@@ -24,7 +25,7 @@ from pathlib import Path
 
 import pytest
 
-from mcp_toolcall_lab.stub_front import OWUI_INPUT, OWUI_SEND, write_pages
+from mcp_toolcall_lab.stub_front import OWUI_INPUT, OWUI_SEND, write_stub_demo_page
 
 sync_playwright = pytest.importorskip("playwright.sync_api").sync_playwright
 
@@ -64,7 +65,7 @@ def browser():
 @pytest.fixture()
 def demo_page(tmp_path_factory: pytest.TempPathFactory, browser):
     out_dir = tmp_path_factory.mktemp("stub-pages-site")
-    write_pages(out_dir)
+    write_stub_demo_page(out_dir)
     with running_static_site(out_dir) as url:
         page = browser.new_page()
         errors: list[str] = []

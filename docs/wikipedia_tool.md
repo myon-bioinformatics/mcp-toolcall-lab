@@ -13,14 +13,13 @@ list derived from that extract.
 
 ## Why an MCP tool, not client-side JS
 
-The static "Try it" demo on GitHub Pages (`stub_demo.js`) deliberately
-has no live-fetch capability — it is meant to run with zero backend. A
-tool that fetches an arbitrary external URL belongs in the MCP catalog,
+A tool that fetches an arbitrary external URL belongs in the MCP catalog,
 where a real client (LibreChat, Open WebUI, the stub) makes an actual
-network call through the MCP server process, not in a static page that
-should keep working with no server at all.
+network call through the MCP server process. GitHub Pages is a static
+host: it cannot fetch Wikipedia. The published report is generation
+identity + induction to local `/wiki`, not a mock heading pulldown.
 
-The stdlib stub also serves a **local** `GET /wiki` form (title input +
+The stdlib stub serves a **local** `GET /wiki` form (title input +
 server-rendered heading `<select>`). That form is not published as a live
 backend on Pages. The Pages report says so explicitly.
 
