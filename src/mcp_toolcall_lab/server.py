@@ -90,9 +90,12 @@ def _session_id(context: MiddlewareContext) -> str | None:
     if ctx is None:
         return None
     try:
-        return str(ctx.session_id)
+        raw = ctx.session_id
     except Exception:
         return None
+    if not raw:
+        return None
+    return str(raw)
 
 
 class ObservabilityMiddleware(Middleware):
