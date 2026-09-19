@@ -71,13 +71,20 @@ class ObservabilityMiddleware(Middleware):
     """Log every tools/call, including unknown names and validation failures."""
 
     async def on_call_tool(self, context: MiddlewareContext, call_next):
+        # Measured around the artificial delay too, not just call_next():
+        # a caller (a test, a real chat product's own timeout budget) waits
+        # for the whole thing, and MCP_TOOL_DELAY_SECONDS exists specifically
+        # to simulate a slow call, so starting the clock after it would
+        # under-report exactly the case that setting exists to create.
+        # Confirmed live before this fix: MCP_TOOL_DELAY_SECONDS=0.5 logged
+        # duration_ms=3.296, not ~500.
+        started = time.perf_counter()
         delay = _tool_delay_seconds()
         if delay:
             await asyncio.sleep(delay)
         name = context.message.name
         arguments = dict(context.message.arguments or {})
         meta = _request_meta(context)
-        started = time.perf_counter()
         try:
             result = await call_next(context)
         except Exception as exc:

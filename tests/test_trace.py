@@ -119,3 +119,19 @@ async def test_chat_path_unknown_tool_is_traceable_as_an_error():
         events = _read_events(log_path)
         assert events[0]["outcome"] == "error"
         assert events[0]["meta"]["call_id"] == trace.call_id
+
+
+@pytest.mark.integration
+async def test_duration_ms_includes_the_artificial_tool_delay():
+    """duration_ms is wall-clock time for the whole call as the caller
+    experienced it. MCP_TOOL_DELAY_SECONDS exists specifically to simulate a
+    slow call, so a duration that started its clock after that delay would
+    under-report exactly the case the setting exists to create -- confirmed
+    live before this fix: a 0.5s delay logged duration_ms=3.296, not ~500."""
+    with tempfile.TemporaryDirectory() as tmp:
+        log_path = Path(tmp) / "toolcalls.jsonl"
+        with running_mcp_server(MCP_TOOLCALL_LOG=str(log_path), MCP_TOOL_DELAY_SECONDS="0.3") as server:
+            await send_direct(server.url, tool_name="find_stations", arguments={"municipality_code": "14109"})
+
+        event = _read_events(log_path)[0]
+        assert event["duration_ms"] >= 300
