@@ -12,7 +12,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from mcp_toolcall_lab.record import read_jsonl
+from mcp_toolcall_lab.mock.common import read_jsonl
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CATALOG_PATH = REPO_ROOT / "fixtures" / "antipatterns" / "catalog.yaml"

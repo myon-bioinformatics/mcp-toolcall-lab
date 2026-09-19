@@ -6,7 +6,12 @@ same protocol to the same tools. render()'s ``run_command``/``audience``
 only change the file's own docstring (which file to copy, what to run) so
 each product's README/docs can point at a same-named, same-purpose file
 instead of one visibly branded for a different product. There is still
-exactly one mock implementation; this does not fork it.
+exactly one MCP mock implementation; this does not fork it.
+
+``mock/common.py`` is the stdlib layer the OpenAI demo also imports (JSONL,
+id mints, chat headers, SSE close). It is inlined here so the standalone
+MCP file stays copy-pasteable. OpenAI ``tool_calls`` decision logic is
+*not* inlined — that mock stays its own file.
 """
 
 from __future__ import annotations
@@ -17,7 +22,9 @@ PACKAGE_DIR = Path(__file__).resolve().parent
 REPO_ROOT = PACKAGE_DIR.parents[1]
 STANDALONE_PATH = REPO_ROOT / "openwebui_mcp_mock.py"
 LIBRECHAT_STANDALONE_PATH = REPO_ROOT / "librechat_mcp_mock.py"
-INLINE_MODULES = ("catalog.py", "record.py", "server.py")
+# mock/common.py first so record.py's `from .mock.common import ...` can be
+# stripped and still resolve to the inlined helpers in the standalone file.
+INLINE_MODULES = ("mock/common.py", "catalog.py", "record.py", "server.py")
 
 
 def _header(run_command: str, audience: str) -> str:

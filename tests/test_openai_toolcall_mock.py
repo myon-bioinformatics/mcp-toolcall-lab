@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
+
+from mcp_toolcall_lab.mock.common import close_http11_sse, new_call_id
 
 ROOT = Path(__file__).resolve().parents[1]
 DEMOS = ROOT / "demos"
@@ -74,5 +77,23 @@ def test_completion_and_call_ids_are_prefixed() -> None:
 def test_stream_branch_closes_http11_connection() -> None:
     """Keep-alive SSE never ends; LibreChat would hang on the next reuse."""
     source = Path(mock.__file__).read_text(encoding="utf-8")
-    assert 'self.send_header("Connection", "close")' in source
-    assert "self.close_connection = True" in source
+    assert "close_http11_sse" in source
+    common = (ROOT / "src" / "mcp_toolcall_lab" / "mock" / "common.py").read_text(
+        encoding="utf-8"
+    )
+    assert 'send_header("Connection", "close")' in common
+    assert "close_connection = True" in common
+    assert mock.close_http11_sse is close_http11_sse
+
+
+def test_openai_mock_uses_shared_call_id_mint() -> None:
+    assert mock.new_call_id is new_call_id
+
+
+def test_openai_log_copies_chat_id_header(tmp_path: Path, monkeypatch) -> None:
+    log = tmp_path / "nested" / "openai.jsonl"
+    monkeypatch.setattr(mock, "LOG_PATH", str(log))
+    mock._log({"kind": "chat.completions"}, headers={"X-Chat-Id": "chat_from_ui"})
+    row = json.loads(log.read_text(encoding="utf-8").splitlines()[0])
+    assert row["kind"] == "chat.completions"
+    assert row["chat_id"] == "chat_from_ui"

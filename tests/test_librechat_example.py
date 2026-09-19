@@ -37,6 +37,12 @@ def test_librechat_smoke_compose_uses_shared_docker_network() -> None:
     dockerfile = (ROOT / "docker" / "librechat-smoke" / "Dockerfile.mcp").read_text(encoding="utf-8")
     assert "librechat_mcp_mock.py" in dockerfile
     assert "openwebui_mcp_mock.py" not in dockerfile
+    openai_df = (ROOT / "docker" / "librechat-smoke" / "Dockerfile.openai").read_text(
+        encoding="utf-8"
+    )
+    assert "src/mcp_toolcall_lab/mock/common.py" in openai_df
+    assert "openai_toolcall_mock.py" in openai_df
+    assert "server.py" not in openai_df
 
 
 def test_librechat_docs_and_prompt_are_present() -> None:

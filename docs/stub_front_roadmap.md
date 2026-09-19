@@ -15,8 +15,10 @@ split. It is not a product clone and not a CommonMark engine.
 - MCP pattern table (`SUCCESS` / `EMPTY` / `ERROR` / `UNREACHABLE` vs heading)
 - `chat_id` on URL, form, `_meta`, and `X-Chat-Id`
 - README-shaped + Wikipedia-shaped ATX fixtures
-- Shared mints (`record.new_chat_id` / `new_call_id`), `dispatch_tool`,
-  stdlib `McpStdlibSession`, JSONL reader
+- Shared mock helpers (`mcp_toolcall_lab.mock.common`: JSONL, id mints,
+  chat headers, SSE close). MCP log schema and OpenAI `tool_calls`
+  decision stay in their own files
+- `dispatch_tool`, stdlib `McpStdlibSession`
 
 ## Later (unnumbered)
 

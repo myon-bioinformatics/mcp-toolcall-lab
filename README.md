@@ -221,6 +221,12 @@ distinguished only by `meta.source` — see `tests/test_trace.py`. Each row also
 real UI omits `chat_id`, the server takes `X-Chat-Id` / `X-Conversation-Id` or
 mints one per MCP session so the probe always has a pin.
 
+JSONL I/O, `chat_*` / `call_*` mints, well-known chat headers, and the
+HTTP/1.1 SSE close live in [`src/mcp_toolcall_lab/mock/common.py`](src/mcp_toolcall_lab/mock/common.py)
+so the MCP server and `demos/openai_toolcall_mock.py` can share them. MCP
+`_meta` resolution and OpenAI `tool_calls` decision stay in their own
+files — overlapping helpers only, not a forced single mock.
+
 ### Stdlib stub front (heading → chat body)
 
 LibreChat / Open WebUI stay the products under test. `stub_front` is a

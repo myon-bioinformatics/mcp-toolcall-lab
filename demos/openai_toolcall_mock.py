@@ -26,21 +26,38 @@ import sys
 import time
 import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
+
+try:
+    from mcp_toolcall_lab.mock.common import (
+        CHAT_ID_HEADER_KEYS,
+        append_jsonl,
+        close_http11_sse,
+        id_from_headers,
+        new_call_id,
+    )
+except ImportError:  # Docker smoke copies mock/common.py next to this file
+    from common import (  # type: ignore[no-redef]
+        CHAT_ID_HEADER_KEYS,
+        append_jsonl,
+        close_http11_sse,
+        id_from_headers,
+        new_call_id,
+    )
 
 MODEL_ID = os.environ.get("OPENAI_MOCK_MODEL", "lab-model")
 LOG_PATH = os.environ.get("OPENAI_MOCK_LOG", "")
 
 
-def _log(event: dict[str, Any]) -> None:
+def _log(event: dict[str, Any], headers: Any = None) -> None:
     if not LOG_PATH:
         return
-    path = Path(LOG_PATH)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps(event, ensure_ascii=False) + "\n")
+    row = dict(event)
+    chat_id = id_from_headers(headers, CHAT_ID_HEADER_KEYS)
+    if chat_id:
+        row["chat_id"] = chat_id
+    append_jsonl(LOG_PATH, row)
 
 
 def _models_payload() -> dict[str, Any]:
@@ -124,7 +141,7 @@ def inbound_call_ids_from_messages(messages: list[dict[str, Any]]) -> list[str]:
 
 
 def _tool_call_message(tool_name: str, query: str = "Yokohama") -> dict[str, Any]:
-    call_id = f"call_{uuid.uuid4().hex[:24]}"
+    call_id = new_call_id()
     return {
         "role": "assistant",
         "content": None,
@@ -300,16 +317,16 @@ class Handler(BaseHTTPRequestHandler):
                 "completion_id": completion_id,
                 "call_ids": tool_call_ids_from_message(message),
                 "inbound_call_ids": inbound_call_ids_from_messages(messages),
-            }
+            },
+            headers=self.headers,
         )
         if body.get("stream"):
             self.send_response(200)
             self.send_header("Content-Type", "text/event-stream")
             self.send_header("Cache-Control", "no-cache")
-            self.send_header("Connection", "close")
+            close_http11_sse(self)
             self._cors()
             self.end_headers()
-            self.close_connection = True
             for piece in _stream_chunks(message, chunk_id=completion_id):
                 self.wfile.write(piece.encode("utf-8"))
                 self.wfile.flush()

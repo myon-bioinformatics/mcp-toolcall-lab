@@ -35,7 +35,7 @@ from pathlib import Path
 from typing import Any, Iterable
 from urllib.parse import parse_qs, urlparse
 
-from mcp_toolcall_lab.record import read_jsonl
+from mcp_toolcall_lab.mock.common import read_jsonl
 
 # Prefix / shape table. Longer prefixes first so chatcmpl- wins over chat_.
 # owner=lab means we mint it; everything else is harvested only.

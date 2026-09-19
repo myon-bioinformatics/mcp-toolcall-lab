@@ -84,6 +84,8 @@ def _load_standalone(filename: str = "openwebui_mcp_mock.py"):
 def test_standalone_file_is_generated_from_package():
     standalone = (ROOT / "openwebui_mcp_mock.py").read_text(encoding="utf-8")
     assert standalone == render()
+    assert "# --- mock/common.py ---" in standalone
+    assert "from .mock.common" not in standalone
 
 
 def test_librechat_standalone_file_is_generated_from_package():
