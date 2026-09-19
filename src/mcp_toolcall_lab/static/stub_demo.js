@@ -175,6 +175,7 @@
     // <strong>/<pre> carry the user/assistant distinction and the
     // body's line breaks natively -- no CSS class does that work here,
     // matching this page's no-authored-CSS design (see write_pages()).
+    // Auto-scroll was dropped because overflow CSS is gone (thread grows with the page).
     function addTurn(prompt, result) {
       var turn = el("div", { class: "stub-demo-turn", "data-case": result.case });
       var userLine = el("p", { class: "stub-demo-user" });
