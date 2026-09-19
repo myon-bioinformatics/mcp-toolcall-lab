@@ -84,6 +84,18 @@ ID_KINDS: tuple[dict[str, str], ...] = (
         "notes": "tool_calls[].id / tool_call_id. chat_sim matches this shape on purpose.",
     },
     {
+        "kind": "mcp_session_id",
+        "owner": "mcp-wire",
+        "prefix": "",
+        "notes": "MCP Streamable HTTP Mcp-Session-Id / FastMCP session_id. Harvested from log keys.",
+    },
+    {
+        "kind": "mcp_request_id",
+        "owner": "mcp-wire",
+        "prefix": "",
+        "notes": "JSON-RPC / FastMCP request_id on initialize, tools/list, tools/call.",
+    },
+    {
         "kind": "trace_id",
         "owner": "lab",
         "prefix": "",
@@ -140,6 +152,10 @@ _KEY_KIND: dict[str, str] = {
     "parent_message_id": "parent_message_id",
     "share_id": "share_id",
     "shareid": "share_id",
+    "session_id": "mcp_session_id",
+    "mcp_session_id": "mcp_session_id",
+    "request_id": "mcp_request_id",
+    "mcp_request_id": "mcp_request_id",
 }
 
 _SKIP_PATHS = frozenset({"new", "c", "s", "login", "register", "auth"})

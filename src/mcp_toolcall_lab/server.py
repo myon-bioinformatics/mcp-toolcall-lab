@@ -12,10 +12,17 @@ from fastmcp.server.middleware import Middleware, MiddlewareContext
 
 from .catalog import TOOL_DESCRIPTIONS, dispatch_tool
 from .record import (
+    EVENT_INITIALIZE,
+    EVENT_INITIALIZED,
+    EVENT_TOOLS_LIST,
+    MESSAGE_ID_HEADER_KEYS,
     OUTCOME_EMPTY,
     OUTCOME_ERROR,
     OUTCOME_SUCCESS,
+    chat_id_from_headers,
+    id_from_headers,
     record_call,
+    record_protocol_event,
     resolve_correlation,
     usable_session_id,
 )
@@ -97,12 +104,30 @@ def _session_id(context: MiddlewareContext) -> str | None:
     return usable_session_id(raw)
 
 
+def _request_id(context: MiddlewareContext) -> str | None:
+    """JSON-RPC / MCP request id. Missing stays missing."""
+    ctx = context.fastmcp_context
+    if ctx is None:
+        return None
+    try:
+        raw = ctx.request_id
+    except Exception:
+        return None
+    text = str(raw).strip()
+    if not text or text == "None":
+        return None
+    return text
+
+
 class ObservabilityMiddleware(Middleware):
     """Log every tools/call, including unknown names and validation failures.
 
     Also resolves a ``chat_id`` for debugging: caller `_meta`, then
     ``X-Chat-Id`` / ``X-Conversation-Id`` headers, then the id minted for
     this MCP session on the first call.
+
+    ``initialize`` / ``notifications/initialized`` / ``tools/list`` are the
+    same MCP methods on the wire, written to the same JSONL as ``event``.
     """
 
     def __init__(self) -> None:
@@ -110,12 +135,52 @@ class ObservabilityMiddleware(Middleware):
         self._session_chats: dict[str, str] = {}
 
     def _debug(self, context: MiddlewareContext, meta: dict[str, Any]) -> dict[str, Any]:
-        return resolve_correlation(
+        debug = resolve_correlation(
             meta=meta,
             headers=_http_headers(),
             session_id=_session_id(context),
             session_chats=self._session_chats,
         )
+        request_id = _request_id(context)
+        if request_id:
+            debug["request_id"] = request_id
+        return debug
+
+    def _emit_protocol(self, event: str, context: MiddlewareContext) -> None:
+        """Log the MCP method. Do not mint a lab ``chat_*`` on handshake."""
+        debug: dict[str, Any] = {}
+        session_id = _session_id(context)
+        if session_id:
+            debug["session_id"] = session_id
+        request_id = _request_id(context)
+        if request_id:
+            debug["request_id"] = request_id
+        headers = _http_headers()
+        header_id = chat_id_from_headers(headers)
+        if header_id:
+            debug["chat_id"] = header_id
+            debug["chat_id_source"] = "header"
+            message_id = id_from_headers(headers, MESSAGE_ID_HEADER_KEYS)
+            if message_id:
+                debug["message_id"] = message_id
+        record_protocol_event(event=event, debug=debug or None)
+
+    async def on_initialize(self, context: MiddlewareContext, call_next):
+        result = await call_next(context)
+        self._emit_protocol(EVENT_INITIALIZE, context)
+        return result
+
+    async def on_list_tools(self, context: MiddlewareContext, call_next):
+        result = await call_next(context)
+        self._emit_protocol(EVENT_TOOLS_LIST, context)
+        return result
+
+    async def on_notification(self, context: MiddlewareContext, call_next):
+        result = await call_next(context)
+        method = context.method or ""
+        if method == EVENT_INITIALIZED or method.endswith("initialized"):
+            self._emit_protocol(EVENT_INITIALIZED, context)
+        return result
 
     async def on_call_tool(self, context: MiddlewareContext, call_next):
         delay = _tool_delay_seconds()

@@ -37,6 +37,8 @@ def test_kinds_cover_reasoning_and_response_prefixes() -> None:
     assert classify_value("fc_abc123") == "function_call_item_id"
     assert classify_value("66f012345678901234567890", key="chat_id") == "conversation_id"
     assert classify_value("chat_" + "d" * 24, key="chat_id") == "lab_chat_id"
+    assert classify_value("sess-abcd-efgh", key="session_id") == "mcp_session_id"
+    assert classify_value("req-initialize-1", key="request_id") == "mcp_request_id"
 
 
 def test_resume_path_only_for_product_ids() -> None:

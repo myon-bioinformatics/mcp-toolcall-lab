@@ -36,7 +36,9 @@ def test_both_clients_are_documented() -> None:
 def test_librechat_mcp_tool_key_and_compose_dns() -> None:
     assert LIBRECHAT.mcp.tool_key("find_municipalities") == "find_municipalities_mcp_lab"
     assert LIBRECHAT.mcp.compose_mcp_url == "http://mcp-mock:8000/mcp"
-    assert OPENWEBUI.mcp.tool_key("find_municipalities") == "find_municipalities"
+    assert OPENWEBUI.mcp.tool_key("find_municipalities") == "lab_find_municipalities"
+    assert OPENWEBUI.mcp.compose_openai_url == "http://openai-mock:8090/v1"
+    assert OPENWEBUI.compose_file == "docker/openwebui-smoke/docker-compose.yml"
     assert set(LIBRECHAT.advertised_tools) == set(AVAILABLE_TOOLS)
 
 

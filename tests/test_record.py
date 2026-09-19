@@ -11,7 +11,9 @@ import pytest
 
 from mcp_toolcall_lab.record import (
     chat_id_from_headers,
+    mcp_tool_calls,
     record_call,
+    record_protocol_event,
     resolve_correlation,
     usable_session_id,
 )
@@ -117,6 +119,26 @@ def test_record_call_keeps_meta_and_adds_debug(tmp_path: Path, monkeypatch) -> N
     assert os.environ.get("MCP_TOOLCALL_LOG") is None
 
 
+def test_protocol_events_are_not_tool_calls(tmp_path: Path, monkeypatch) -> None:
+    log = tmp_path / "toolcalls.jsonl"
+    monkeypatch.setenv("MCP_TOOLCALL_LOG", str(log))
+    record_protocol_event(
+        event="initialize",
+        debug={"session_id": "sess-1", "request_id": "req-1"},
+    )
+    record_call(
+        tool="find_municipalities",
+        arguments={"query": "Yokohama"},
+        outcome="success",
+        result=[{"name": "Yokohama"}],
+        debug={"session_id": "sess-1", "request_id": "req-2"},
+    )
+    events = [json.loads(line) for line in log.read_text(encoding="utf-8").splitlines()]
+    assert events[0]["event"] == "initialize"
+    assert "tool" not in events[0]
+    assert mcp_tool_calls(events) == [events[1]]
+
+
 @pytest.mark.integration
 def test_live_server_takes_x_chat_id_then_reuses_session() -> None:
     with tempfile.TemporaryDirectory() as tmp:
@@ -158,7 +180,11 @@ def test_live_server_takes_x_chat_id_then_reuses_session() -> None:
             )
             session.close()
         events = [json.loads(line) for line in log_path.read_text(encoding="utf-8").splitlines()]
-        assert events[0]["debug"]["chat_id_source"] == "header"
-        assert events[0]["chat_id"] == "chat_from_ui"
-        assert events[1]["chat_id"] == "chat_from_ui"
-        assert events[1]["debug"]["chat_id_source"] == "session"
+        assert "initialize" in [event.get("event") for event in events]
+        calls = mcp_tool_calls(events)
+        assert calls[0]["debug"]["chat_id_source"] == "header"
+        assert calls[0]["chat_id"] == "chat_from_ui"
+        assert calls[1]["chat_id"] == "chat_from_ui"
+        assert calls[1]["debug"]["chat_id_source"] == "session"
+        assert calls[0]["debug"].get("request_id")
+        assert calls[0]["debug"].get("session_id")

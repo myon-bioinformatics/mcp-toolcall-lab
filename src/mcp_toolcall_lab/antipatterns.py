@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from mcp_toolcall_lab.mock.common import read_jsonl
+from mcp_toolcall_lab.record import mcp_tool_calls
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CATALOG_PATH = REPO_ROOT / "fixtures" / "antipatterns" / "catalog.yaml"
@@ -67,15 +68,15 @@ def classify_observation(
     if not logged_in:
         return _anti(AUTH_BLOCKED, "register/login did not reach a chat session")
     if not input_found:
-        return _anti(SELECTOR_MISS, "data-testid=text-input was not found")
+        return _anti(SELECTOR_MISS, "composer input was not found")
     if not send_clicked:
-        return _anti(SEND_NOT_CLICKED, "data-testid=send-button was not clicked")
+        return _anti(SEND_NOT_CLICKED, "composer Send was not clicked")
     if not assistant_visible:
         return _anti(TIMEOUT, "send clicked but no assistant message appeared")
     if openai_saw_tools is False:
         return _anti(
             MCP_PICKER_OFF,
-            "LibreChat POSTed chat/completions without tools — MCP picker likely off",
+            "chat POSTed /v1/chat/completions without tools — MCP tools were not attached",
         )
     if not mcp_calls:
         return _anti(MCP_NOT_CALLED, "send succeeded but MCP_TOOLCALL_LOG has no tools/call")

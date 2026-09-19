@@ -21,6 +21,7 @@ import pytest
 from mcp import ClientSession
 from mcp.client.streamable_http import streamablehttp_client
 
+from mcp_toolcall_lab.record import mcp_tool_calls
 from tests.test_schema import EXPECTED_TOOL_SPECS, advertised_specs_from_list_tools
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -215,7 +216,9 @@ async def test_jsonl_log_records_success_empty_and_error():
                 err = await session.call_tool("find_transaction_price", {})
                 assert err.isError
 
-        events = [json.loads(line) for line in Path(log_path).read_text(encoding="utf-8").splitlines()]
+        events = mcp_tool_calls(
+            [json.loads(line) for line in Path(log_path).read_text(encoding="utf-8").splitlines()]
+        )
         outcomes = {event["outcome"] for event in events}
         assert {"success", "empty", "error"} <= outcomes
         error_event = next(event for event in events if event["outcome"] == "error")

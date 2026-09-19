@@ -114,7 +114,7 @@ class McpWireContract:
     compose_service: str
     compose_mcp_url: str
     compose_openai_url: str | None
-    tool_key_style: Literal["bare", "name_mcp_server"]
+    tool_key_style: Literal["bare", "name_mcp_server", "server_underscore_name"]
     default_server: str
     notes: str = ""
 
@@ -122,6 +122,8 @@ class McpWireContract:
         server = server or self.default_server
         if self.tool_key_style == "bare":
             return tool_name
+        if self.tool_key_style == "server_underscore_name":
+            return f"{server}_{tool_name}" if server else tool_name
         return f"{tool_name}{LIBRECHAT_MCP_DELIMITER}{server}"
 
 
@@ -237,7 +239,7 @@ OPENWEBUI = ChatFrontend(
     product="Open WebUI (open-webui/open-webui)",
     default_url="http://127.0.0.1:3000",
     health_path="/health",
-    compose_file=None,
+    compose_file="docker/openwebui-smoke/docker-compose.yml",
     auth=AuthContract(
         mode="webuiauth_off",
         login_path="/",
@@ -265,9 +267,25 @@ OPENWEBUI = ChatFrontend(
             notes="Enter without Shift also submits (unless ctrlEnterToSend).",
         ),
         enter_sends=True,
-        mcp_picker=None,
-        default_mcp_server=None,
-        notes="Admin UI: add MCP (Streamable HTTP) connection, not OpenAPI.",
+        mcp_picker=Locator(
+            "css",
+            'button[aria-label*="Integrations" i], button[aria-label*="Tools" i]',
+            fallbacks=(
+                'button[title*="Integrations" i]',
+                'button[aria-label*="Add" i]',
+            ),
+            provenance=(
+                "src/lib/components/chat/MessageInput/IntegrationsMenu.svelte — "
+                "Tools tab then the MCP server display name"
+            ),
+            notes=(
+                "Open Integrations, click Tools, enable `mcp-toolcall-lab` "
+                "(tool id server:mcp:lab). DEFAULT_MODEL_METADATA.toolIds may "
+                "already select it."
+            ),
+        ),
+        default_mcp_server="mcp-toolcall-lab",
+        notes="Admin/env: MCP (Streamable HTTP) connection, not OpenAPI.",
     ),
     response=ResponseContract(
         container=Locator(
@@ -282,10 +300,15 @@ OPENWEBUI = ChatFrontend(
     mcp=McpWireContract(
         compose_service="open-webui",
         compose_mcp_url="http://mcp-mock:8000/mcp",
-        compose_openai_url=None,
-        tool_key_style="bare",
-        default_server="",
-        notes="Native Streamable HTTP MCP. Tool names stay find_municipalities (no _mcp_ suffix).",
+        compose_openai_url="http://openai-mock:8090/v1",
+        tool_key_style="server_underscore_name",
+        default_server="lab",
+        notes=(
+            "Native Streamable HTTP MCP. OpenAI tools[].function.name is "
+            "lab_find_municipalities when info.id is `lab`; the MCP tools/call "
+            "name stays find_municipalities. openai-mock matches names containing "
+            "find_municipalities."
+        ),
     ),
     one_liners=(
         "python -m mcp_toolcall_lab.frontends openwebui",

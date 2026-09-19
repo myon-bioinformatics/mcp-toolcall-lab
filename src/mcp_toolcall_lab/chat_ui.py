@@ -32,6 +32,7 @@ from mcp_toolcall_lab.antipatterns import (
     openai_request_had_tools,
     write_observation,
 )
+from mcp_toolcall_lab.record import mcp_tool_calls
 from mcp_toolcall_lab.frontends import (
     SAMPLE_PROMPT,
     ChatFrontend,
@@ -78,6 +79,24 @@ def _register(frontend: ChatFrontend, base_url: str, email: str, password: str, 
         return
 
 
+def _dismiss_overlays(page: Any) -> None:
+    """Close first-run / changelog modals so the composer is reachable."""
+    for selector in (
+        'button:has-text("Okay")',
+        'button:has-text("OK")',
+        'button:has-text("Close")',
+        'button[aria-label="Close"]',
+        'button:has-text("Get Started")',
+        'button:has-text("Skip")',
+    ):
+        try:
+            loc = page.locator(selector)
+            if loc.count():
+                loc.first.click(timeout=1_000)
+        except Exception:
+            continue
+
+
 def login(
     page: Any,
     frontend: ChatFrontend,
@@ -91,8 +110,10 @@ def login(
     target = f"{base_url}{resume_path}" if resume_path else base_url
     if frontend.auth.mode == "webuiauth_off":
         page.goto(target, wait_until="domcontentloaded")
+        _dismiss_overlays(page)
         try:
             page.wait_for_selector(input_css, timeout=45_000)
+            _dismiss_overlays(page)
             return True
         except Exception:
             return False
@@ -135,6 +156,13 @@ def enable_mcp_picker(page: Any, frontend: ChatFrontend) -> None:
         return
     try:
         trigger.first.click(timeout=5_000)
+        if frontend.id == "openwebui":
+            tools_tab = page.get_by_text("Tools", exact=True)
+            if tools_tab.count():
+                try:
+                    tools_tab.first.click(timeout=3_000)
+                except Exception:
+                    pass
         if server:
             row = page.get_by_text(server, exact=True)
             if row.count():
@@ -236,7 +264,7 @@ def classify_send_result(
         logged_in=bool(flags.get("logged_in")),
         assistant_visible=bool(flags.get("assistant_visible")),
         openai_saw_tools=openai_request_had_tools(openai_log),
-        mcp_calls=load_mcp_log(mcp_log),
+        mcp_calls=mcp_tool_calls(load_mcp_log(mcp_log)),
         ui_text=str(flags.get("ui_text_tail") or ""),
         expected_ui_fragment=frontend.sample_result_fragment,
     )

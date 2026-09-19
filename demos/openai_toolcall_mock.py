@@ -140,6 +140,38 @@ def inbound_call_ids_from_messages(messages: list[dict[str, Any]]) -> list[str]:
     return ids
 
 
+def wire_message_projection(message: dict[str, Any]) -> dict[str, Any]:
+    """OpenAI chat message, IDs only — lossless enough to replay the tool loop."""
+    row: dict[str, Any] = {"role": message.get("role")}
+    if message.get("tool_call_id"):
+        row["tool_call_id"] = str(message["tool_call_id"])
+    calls = []
+    for tool in message.get("tool_calls") or []:
+        if not isinstance(tool, dict):
+            continue
+        item: dict[str, Any] = {}
+        if tool.get("id"):
+            item["id"] = str(tool["id"])
+        if tool.get("type"):
+            item["type"] = tool["type"]
+        function = tool.get("function") or {}
+        if isinstance(function, dict) and function.get("name"):
+            item["name"] = function["name"]
+        if item:
+            calls.append(item)
+    if calls:
+        row["tool_calls"] = calls
+    return row
+
+
+def wire_messages_projection(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        wire_message_projection(message)
+        for message in messages
+        if isinstance(message, dict)
+    ]
+
+
 def _tool_call_message(tool_name: str, query: str = "Yokohama") -> dict[str, Any]:
     call_id = new_call_id()
     return {
@@ -173,7 +205,7 @@ def _no_tools_message() -> dict[str, Any]:
         "role": "assistant",
         "content": (
             "No MCP tools were attached to this turn "
-            "(LibreChat chat picker / mcpServers not applied)."
+            "(chat MCP picker / tool_ids not applied)."
         ),
     }
 
@@ -317,6 +349,8 @@ class Handler(BaseHTTPRequestHandler):
                 "completion_id": completion_id,
                 "call_ids": tool_call_ids_from_message(message),
                 "inbound_call_ids": inbound_call_ids_from_messages(messages),
+                "wire_messages": wire_messages_projection(messages),
+                "wire_assistant": wire_message_projection(message),
             },
             headers=self.headers,
         )
