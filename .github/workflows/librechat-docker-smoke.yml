@@ -1,10 +1,9 @@
 name: librechat-docker-smoke
 
-# Real LibreChat container + host mocks + Playwright.
+# Real LibreChat + MCP mock + OpenAI mock on one Docker network, then Playwright.
 # Default `test` workflow stays `pytest -q` only (this module skips without
-# LIBRECHAT_BASE_URL). pull_request is on so we actually run the composer
-# path in CI; the MCP-classification test records anti-patterns instead of
-# failing the job when tools/call does not happen.
+# LIBRECHAT_BASE_URL). The MCP-classification test records anti-patterns
+# instead of failing the job when tools/call does not happen.
 on:
   workflow_dispatch:
     inputs:
@@ -18,6 +17,7 @@ on:
     paths:
       - "docker/librechat-smoke/**"
       - "demos/openai_toolcall_mock.py"
+      - "openwebui_mcp_mock.py"
       - "src/mcp_toolcall_lab/antipatterns.py"
       - "tests/real_chat_ui/**"
       - ".github/workflows/librechat-docker-smoke.yml"
@@ -36,30 +36,10 @@ jobs:
           pip install -e ".[test,browser-test]"
           playwright install --with-deps chromium
 
-      - name: Start mock MCP (must bind 0.0.0.0)
+      - name: Start the lab network (LibreChat + both mocks)
         run: |
           mkdir -p test-results
-          MCP_HOST=0.0.0.0 MCP_PORT=8000 MCP_TOOLCALL_LOG="$PWD/test-results/mcp-toolcalls.jsonl" \
-            python openwebui_mcp_mock.py > test-results/mcp-mock.log 2>&1 &
-          for i in $(seq 1 30); do
-            curl -sf -o /dev/null -X POST http://127.0.0.1:8000/mcp --data '{}' && break
-            sleep 1
-          done
-          curl -sf -o /dev/null -X POST http://127.0.0.1:8000/mcp --data '{}'
-
-      - name: Start OpenAI tool-call mock (must bind 0.0.0.0)
-        run: |
-          HOST=0.0.0.0 PORT=8090 OPENAI_MOCK_LOG="$PWD/test-results/openai-mock.jsonl" \
-            python demos/openai_toolcall_mock.py > test-results/openai-mock.log 2>&1 &
-          for i in $(seq 1 30); do
-            curl -sf http://127.0.0.1:8090/v1/models > /dev/null && break
-            sleep 1
-          done
-          curl -sf http://127.0.0.1:8090/v1/models
-
-      - name: Start LibreChat
-        working-directory: docker/librechat-smoke
-        run: docker compose up -d
+          docker compose -f docker/librechat-smoke/docker-compose.yml up --build -d
 
       - name: Wait for LibreChat
         run: |
@@ -82,14 +62,17 @@ jobs:
         if: failure()
         working-directory: docker/librechat-smoke
         run: |
-          echo "::group::mcp mock"
-          cat ../../test-results/mcp-mock.log || true
+          echo "::group::compose ps"
+          docker compose ps -a || true
           echo "::endgroup::"
-          echo "::group::openai mock"
-          cat ../../test-results/openai-mock.log || true
+          echo "::group::mcp-mock"
+          docker compose logs --no-color mcp-mock || true
+          echo "::endgroup::"
+          echo "::group::openai-mock"
+          docker compose logs --no-color openai-mock || true
           echo "::endgroup::"
           echo "::group::librechat"
-          docker compose logs --no-color || true
+          docker compose logs --no-color librechat || true
           echo "::endgroup::"
 
       - name: Upload observations and screenshots

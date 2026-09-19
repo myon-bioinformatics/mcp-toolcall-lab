@@ -1,35 +1,91 @@
-# Real LibreChat + this lab's mock MCP (and a mock OpenAI that emits tool_calls).
+# Real LibreChat + MCP mock + OpenAI tool-call mock on one Docker network.
 #
-# The two mocks run on the *host* (CI job or your laptop) so we do not rebuild
-# a Python image. They MUST bind 0.0.0.0 — Linux Docker cannot reach 127.0.0.1
-# via host-gateway.
+# Service DNS (reproducible; no host.docker.internal):
+#   mcp-mock:8000/mcp     → openwebui_mcp_mock.py
+#   openai-mock:8090/v1   → demos/openai_toolcall_mock.py
+#   mongodb:27017
+#   librechat:3080        (published to the host for Playwright)
 #
-#   HOST=0.0.0.0 MCP_HOST=0.0.0.0 MCP_TOOLCALL_LOG=/tmp/mcp-toolcalls.jsonl \
-#     python openwebui_mcp_mock.py &
-#   HOST=0.0.0.0 PORT=8090 OPENAI_MOCK_LOG=/tmp/openai-mock.jsonl \
-#     python demos/openai_toolcall_mock.py &
-#   docker compose -f docker/librechat-smoke/docker-compose.yml up -d
+#   mkdir -p test-results
+#   docker compose -f docker/librechat-smoke/docker-compose.yml up --build -d
 #   # wait for http://127.0.0.1:3080
 #   LIBRECHAT_BASE_URL=http://127.0.0.1:3080 \
-#     MCP_TOOLCALL_LOG=/tmp/mcp-toolcalls.jsonl \
-#     OPENAI_MOCK_LOG=/tmp/openai-mock.jsonl \
+#     MCP_TOOLCALL_LOG=$PWD/test-results/mcp-toolcalls.jsonl \
+#     OPENAI_MOCK_LOG=$PWD/test-results/openai-mock.jsonl \
 #     pytest tests/real_chat_ui/test_librechat_docker.py -v
 #
-# Image is LibreChat's published registry tag (not a fork). Unpinning `:latest`
-# is intentional for "does the current product still wire MCP?" — pin a digest
-# if a run needs to be replayed exactly.
+# LibreChat image is the published registry tag. `:latest` is intentional for
+# "does the current product still wire MCP?" — pin a digest to replay a run.
+networks:
+  lab:
+    name: mcp-toolcall-lab
+    driver: bridge
+
 services:
+  mcp-mock:
+    build:
+      context: ../..
+      dockerfile: docker/librechat-smoke/Dockerfile.mcp
+    environment:
+      MCP_HOST: "0.0.0.0"
+      MCP_PORT: "8000"
+      MCP_TOOLCALL_LOG: /logs/mcp-toolcalls.jsonl
+    volumes:
+      - ../../test-results:/logs
+    networks: [lab]
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.error,urllib.request; req=urllib.request.Request('http://127.0.0.1:8000/mcp',data=b'{}',method='POST');\ntry:\n urllib.request.urlopen(req,timeout=2)\nexcept urllib.error.HTTPError:\n pass",
+        ]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+    restart: "no"
+
+  openai-mock:
+    build:
+      context: ../..
+      dockerfile: docker/librechat-smoke/Dockerfile.openai
+    environment:
+      HOST: "0.0.0.0"
+      PORT: "8090"
+      OPENAI_MOCK_LOG: /logs/openai-mock.jsonl
+    volumes:
+      - ../../test-results:/logs
+    networks: [lab]
+    ports:
+      - "8090:8090"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8090/v1/models', timeout=2)",
+        ]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+    restart: "no"
+
   mongodb:
     image: mongo:7.0
     command: mongod --noauth
+    networks: [lab]
     restart: "no"
 
   librechat:
     image: registry.librechat.ai/danny-avila/librechat-dev:latest
     ports:
       - "3080:3080"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     environment:
       HOST: "0.0.0.0"
       PORT: "3080"
@@ -40,5 +96,11 @@ services:
       - ./librechat.yaml:/app/librechat.yaml:ro
       - ./env.smoke:/app/.env:ro
     depends_on:
-      - mongodb
+      mongodb:
+        condition: service_started
+      mcp-mock:
+        condition: service_healthy
+      openai-mock:
+        condition: service_healthy
+    networks: [lab]
     restart: "no"

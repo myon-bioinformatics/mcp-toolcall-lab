@@ -30,7 +30,7 @@ do not replace unrelated keys).
 Important fields for this mock:
 
 - `type: streamable-http` — matches FastMCP's `/mcp` endpoint (do **not** use OpenAPI).
-- `url` — same host rules as Open WebUI (`127.0.0.1`, `host.docker.internal`, or service DNS).
+- `url` — same host rules as Open WebUI (`127.0.0.1`, `host.docker.internal`, or compose service DNS such as `http://mcp-mock:8000/mcp`).
 - `requiresOAuth: false` — this mock has no OAuth; without it LibreChat may probe OAuth first.
 - `startup: true` — optional; shared server initialized at startup for all users (LibreChat's
   meaning of "startup", not "run a subprocess").
@@ -69,15 +69,19 @@ Auth: none unless you add a token yourself (then mirror it in `headers:`).
 
 ## Docker + Playwright smoke (chat input → Send → MCP)
 
-`docker/librechat-smoke/` runs **real LibreChat** (published image) against:
+`docker/librechat-smoke/` runs **real LibreChat** (published image) on the same
+compose network (`mcp-toolcall-lab`) as:
 
-1. this repo's Streamable HTTP MCP mock (`MCP_HOST=0.0.0.0 python openwebui_mcp_mock.py`)
-2. `demos/openai_toolcall_mock.py` — a stdlib OpenAI-compatible server that emits
-   `tool_calls` for Yokohama / municipalities (LibreChat prefixes MCP tools as
-   `find_municipalities_mcp_<server>`)
+1. `mcp-mock` — this repo's Streamable HTTP MCP server (`openwebui_mcp_mock.py`)
+2. `openai-mock` — `demos/openai_toolcall_mock.py`, a stdlib OpenAI-compatible
+   server that emits `tool_calls` for Yokohama / municipalities (LibreChat
+   prefixes MCP tools as `find_municipalities_mcp_<server>`)
 
-Playwright then types into `[data-testid=text-input]` and clicks
-`[data-testid=send-button]`. That UI contract is a hard assertion.
+LibreChat talks to them by service DNS (`http://mcp-mock:8000/mcp`,
+`http://openai-mock:8090/v1`). That is more reproducible than host-network
+mocks plus `host.docker.internal`. Playwright on the host still types into
+`[data-testid=text-input]` and clicks `[data-testid=send-button]`. That UI
+contract is a hard assertion.
 
 Whether MCP actually ran is classified afterwards
 (`src/mcp_toolcall_lab/antipatterns.py` + `fixtures/antipatterns/catalog.yaml`):
@@ -95,23 +99,21 @@ the MCP-classification test — it is the record. The send-click test still fail
 if the composer itself is broken.
 
 ```bash
-HOST=0.0.0.0 MCP_HOST=0.0.0.0 MCP_TOOLCALL_LOG=/tmp/mcp-toolcalls.jsonl \
-  python openwebui_mcp_mock.py &
-HOST=0.0.0.0 PORT=8090 OPENAI_MOCK_LOG=/tmp/openai-mock.jsonl \
-  python demos/openai_toolcall_mock.py &
-docker compose -f docker/librechat-smoke/docker-compose.yml up -d
+mkdir -p test-results
+docker compose -f docker/librechat-smoke/docker-compose.yml up --build -d
 # wait for http://127.0.0.1:3080
 LIBRECHAT_BASE_URL=http://127.0.0.1:3080 \
-  MCP_TOOLCALL_LOG=/tmp/mcp-toolcalls.jsonl \
-  OPENAI_MOCK_LOG=/tmp/openai-mock.jsonl \
+  MCP_TOOLCALL_LOG=$PWD/test-results/mcp-toolcalls.jsonl \
+  OPENAI_MOCK_LOG=$PWD/test-results/openai-mock.jsonl \
   pytest tests/real_chat_ui/test_librechat_docker.py -v
 ```
 
 GitHub Actions: `.github/workflows/librechat-docker-smoke.yml` (`workflow_dispatch`
 and `pull_request`; default `pytest -q` stays lean and skips this module).
 
-Mocks on the host **must** bind `0.0.0.0`. A `127.0.0.1` listen is not reachable
-from the LibreChat container on Linux via `host.docker.internal`.
+`librechat.yaml` for this smoke uses service names. The copy-paste fragment in
+`examples/librechat.mcp.example.yaml` still documents `127.0.0.1` /
+`host.docker.internal` for a mock that is *not* in the same compose file.
 
 ## What this lab does / does not do
 

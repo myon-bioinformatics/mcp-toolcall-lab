@@ -21,6 +21,19 @@ def test_librechat_example_yaml_exists_and_targets_streamable_http() -> None:
     assert "args:" not in text
 
 
+def test_librechat_smoke_compose_uses_shared_docker_network() -> None:
+    compose = (ROOT / "docker" / "librechat-smoke" / "docker-compose.yml").read_text(
+        encoding="utf-8"
+    )
+    yaml = (ROOT / "docker" / "librechat-smoke" / "librechat.yaml").read_text(encoding="utf-8")
+    assert "name: mcp-toolcall-lab" in compose
+    assert "mcp-mock:" in compose
+    assert "openai-mock:" in compose
+    assert "url: http://mcp-mock:8000/mcp" in yaml
+    assert 'baseURL: "http://openai-mock:8090/v1"' in yaml
+    assert "host.docker.internal" not in yaml
+
+
 def test_librechat_docs_and_prompt_are_present() -> None:
     assert (ROOT / "docs" / "librechat_mcp_notes.md").is_file()
     prompt = (ROOT / "system_prompts" / "strict_tool_selection_librechat.md").read_text(

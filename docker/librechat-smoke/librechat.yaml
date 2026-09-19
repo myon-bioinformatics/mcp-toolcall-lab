@@ -1,6 +1,6 @@
 # Minimal LibreChat config for the lab smoke: one custom OpenAI-compatible
-# endpoint (demos/openai_toolcall_mock.py) and this repo's Streamable HTTP MCP
-# mock. Merge nothing else — this file is only for docker/librechat-smoke.
+# endpoint and this repo's Streamable HTTP MCP mock, both on the compose
+# network `mcp-toolcall-lab` (compose service DNS, not the host gateway).
 #
 # Docs: https://www.librechat.ai/docs/configuration/librechat_yaml/object_structure/mcp_servers
 version: 1.3.16
@@ -11,14 +11,10 @@ interface:
   mcpServers:
     placeholder: "MCP"
 
-# Both mocks listen on the CI/host network. LibreChat in Docker reaches them
-# via host.docker.internal (see docker-compose extra_hosts). Bind those
-# processes with HOST=0.0.0.0 / MCP_HOST=0.0.0.0 — 127.0.0.1 is not visible
-# from the container on Linux.
 mcpServers:
   lab:
     type: streamable-http
-    url: http://host.docker.internal:8000/mcp
+    url: http://mcp-mock:8000/mcp
     requiresOAuth: false
     startup: true
     timeout: 60000
@@ -29,7 +25,7 @@ endpoints:
   custom:
     - name: "Lab Mock"
       apiKey: "sk-mcp-toolcall-lab"
-      baseURL: "http://host.docker.internal:8090/v1"
+      baseURL: "http://openai-mock:8090/v1"
       models:
         default:
           - "lab-model"
