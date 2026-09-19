@@ -5,6 +5,12 @@ GitHub Actions is the compute: it starts one compose network, sends a
 turn through the stub, appends anti-patterns as JSONL, then publishes
 `_site/` to https://myon-bioinformatics.github.io/mcp-toolcall-lab/.
 
+That published page also embeds a **client-side, JS-only demo** of the
+heading → body path ("Try it (static, no MCP)") — see
+[Static client-side demo](#static-client-side-demo-try-it-no-mcp) below.
+It is a separate thing from the Actions summary: one runs in the
+visitor's browser right now, the other is a snapshot of the last CI run.
+
 `usable_session_id()` stays on the MCP mock: a missing session is
 missing, never the string `"None"`.
 
@@ -68,14 +74,40 @@ there is logged as `CPU_LLM_COMPLETION_FAILED`, distinct from
 `CPU_LLM_UNREACHABLE`. `cpu_llm_backend` (`lite-stub` / `real-gguf`) is
 in the published summary so the Pages report says honestly which one ran.
 
+## Static client-side demo ("Try it", no MCP)
+
+Everything above needs Actions to actually run something. This is the
+one piece that runs for a visitor with no CI, no Docker, nothing but the
+static page: `src/mcp_toolcall_lab/static/stub_demo.js` re-implements
+`stub_front.py`'s `slugify()` / `lookup_heading()` / `classify_prompt()`
+in vanilla JS (no build step, no dependency), and `write_pages()` writes
+its corpus (`{title, slug, body}` only — same public content as the
+"Corpus headings" list, never `chat_id`/`_meta`/arguments) to
+`stub-demo-data.json` alongside a copy of the script.
+
+A heading prompt gets a real body back, entirely client-side. A prompt
+that would trigger a real MCP tool call (mirrors `MCP_PATTERNS`' tokens
+and tool names, kept in sync by
+`tests/test_stub_pages.py::test_stub_demo_js_mirrors_mcp_patterns_tools_and_tokens`)
+is **labelled, never faked** — this static page has no MCP server behind
+it, so it says so instead of fabricating a result. The real round-trip
+for that case is the "Last Actions summary" block, from the last
+`stub-pages` Actions run.
+
+Composer/response element ids reuse `frontends.py`'s LibreChat/Open WebUI
+locators (`#chat-input`, `#send-message-button`,
+`#response-content-container`) for consistency with the rest of this
+repo's dual-locator convention, though nothing here drives it with
+Playwright yet.
+
 ## Role split
 
 **Cursor:** compose network, stdlib stub + vendored `markdown.py`,
 Actions → Pages, anti-pattern JSONL, `usable_session_id` kept, lite
 `cpu-llm` so the stack always starts.
 
-**Claude (this slice):** real tiny GGUF overlay + auto-discovery/checksum
-fetch script, opt-in workflow_dispatch wiring, a real `/v1/chat/completions`
+**Claude:** real tiny GGUF overlay + auto-discovery/checksum fetch
+script, opt-in workflow_dispatch wiring, a real `/v1/chat/completions`
 smoke check (not just `/health`) for both backends, `cpu_llm_backend` in
-the published summary. Accuracy still does not matter. No second log
-schema was added.
+the published summary, and the static client-side "Try it" demo above.
+Accuracy still does not matter. No second log schema was added.

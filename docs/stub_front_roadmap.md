@@ -26,6 +26,10 @@ split. It is not a product clone and not a CommonMark engine.
   `stub-pages.yml`'s `use_real_gguf` input): auto-discovered + checksummed
   fetch script, `/v1/chat/completions` smoke check distinct from `/health`,
   `cpu_llm_backend` in the published summary
+- Static client-side "Try it" demo on the published page itself:
+  `stub_demo.js` re-implements heading→body lookup in vanilla JS (corpus
+  from `stub-demo-data.json`); an MCP-shaped prompt is labelled, never
+  faked, since this page has no server behind it
 
 ## Later (unnumbered)
 

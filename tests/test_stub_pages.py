@@ -3,7 +3,11 @@
 from __future__ import annotations
 
 import json
+import shutil
+import subprocess
 from pathlib import Path
+
+import pytest
 
 from mcp_toolcall_lab.antipatterns import (
     CPU_LLM_UNREACHABLE,
@@ -16,8 +20,13 @@ from mcp_toolcall_lab.markdown_lib import (
     markdown_py_path,
 )
 from mcp_toolcall_lab.stub_front import (
+    MCP_PATTERNS,
     PAGES_FORBIDDEN_NAMES,
     PAGES_SUMMARY_KEYS,
+    STUB_DEMO_DATA_NAME,
+    STUB_DEMO_JS_NAME,
+    STUB_DEMO_JS_SOURCE,
+    load_corpus,
     pages_summary,
     parse_sections,
     render_rows,
@@ -172,3 +181,62 @@ def test_gguf_overlay_pins_image_digest_and_uses_curl_healthcheck() -> None:
     )
     assert model_pin["sha256_verified_against_pin"] is True
     assert model_pin["sha256"] == "2e8040ceae7815abe0dcb3540b9995eaa1fa0d2ca9e797d0a635ae4433c68c2d"
+
+
+def test_write_pages_emits_the_static_client_side_demo(tmp_path: Path) -> None:
+    """Try it (static, no MCP): a client-side JS re-implementation of
+    classify_prompt()/lookup_heading(), so a visitor can send a heading
+    prompt and get a real body back with zero server behind Pages. It must
+    never fabricate an MCP result -- see test_stub_demo_js_never_fabricates."""
+    out = write_pages(tmp_path / "site").parent
+    data_path = out / STUB_DEMO_DATA_NAME
+    js_path = out / STUB_DEMO_JS_NAME
+    assert data_path.is_file()
+    assert js_path.is_file()
+
+    demo_data = json.loads(data_path.read_text(encoding="utf-8"))
+    expected = [{"title": s.title, "slug": s.slug, "body": s.body} for s in load_corpus()]
+    assert demo_data == expected
+    assert demo_data, "corpus must be non-empty or the demo has nothing to look up"
+
+    # Same content the package ships, not a stale copy drifted from it.
+    assert js_path.read_text(encoding="utf-8") == STUB_DEMO_JS_SOURCE.read_text(encoding="utf-8")
+
+    html = (out / "index.html").read_text(encoding="utf-8")
+    assert 'id="stub-demo"' in html
+    assert f'src="{STUB_DEMO_JS_NAME}"' in html
+    assert STUB_DEMO_DATA_NAME in html
+    # Only {title, slug, body} per section -- no room for a runtime chat_id,
+    # _meta, or argument to leak in even by accident (the fixture prose can
+    # legitimately *mention* the word "chat_id" as documentation, which is
+    # fine; a real per-run identifier is the thing that must never appear).
+    for row in demo_data:
+        assert set(row) == {"title", "slug", "body"}
+
+
+def test_stub_demo_js_mirrors_mcp_patterns_tools_and_tokens() -> None:
+    """Regression guard: the JS MCP_PATTERNS list is hand-mirrored from
+    stub_front.py's (no shared source, since the JS has no MCP client to
+    exercise) -- catch drift if one changes without the other."""
+    js_source = STUB_DEMO_JS_SOURCE.read_text(encoding="utf-8")
+    for tokens, tool, _args_fn in MCP_PATTERNS:
+        assert f'"{tool}"' in js_source, f"tool {tool!r} missing from stub_demo.js"
+        for token in tokens:
+            if token == tool:
+                continue  # the tool name itself is already asserted above
+            assert token in js_source, f"token {token!r} for {tool!r} missing from stub_demo.js"
+
+
+def test_stub_demo_js_never_fabricates_an_mcp_result() -> None:
+    js_source = STUB_DEMO_JS_SOURCE.read_text(encoding="utf-8")
+    # The one MCP-shaped branch must say it has no server, not return rows.
+    assert "no MCP server behind it" in js_source
+    assert "will not fabricate" in js_source
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node not installed in this environment")
+def test_stub_demo_js_is_valid_javascript() -> None:
+    result = subprocess.run(
+        ["node", "--check", str(STUB_DEMO_JS_SOURCE)], capture_output=True, text=True
+    )
+    assert result.returncode == 0, result.stderr

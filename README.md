@@ -100,7 +100,11 @@ GitHub Pages is static:
 https://myon-bioinformatics.github.io/mcp-toolcall-lab/
 Actions (`stub-pages`) starts Docker — stub UI + MCP mock + CPU-class
 model on one network — then writes anti-pattern JSONL and publishes the
-report. Local:
+report. That published page also embeds a client-side JS demo of the
+heading→body path ("Try it (static, no MCP)") that runs with zero
+backend — an MCP-shaped prompt there is labelled, never faked; see
+[`docs/stub_pages.md`](docs/stub_pages.md#static-client-side-demo-try-it-no-mcp).
+Local:
 
 ```bash
 docker compose -f docker/stub-pages/docker-compose.yml up --build

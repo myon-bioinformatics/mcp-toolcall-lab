@@ -358,6 +358,14 @@ PAGES_FORBIDDEN_NAMES = frozenset(
     }
 )
 
+# Static, client-side demo: heading -> body lookup only, no MCP, no Docker.
+# Corpus content only (title/slug/body) -- same public data as the "Corpus
+# headings" list already on this page, never chat_id/_meta/arguments.
+STATIC_DIR = Path(__file__).resolve().parent / "static"
+STUB_DEMO_JS_SOURCE = STATIC_DIR / "stub_demo.js"
+STUB_DEMO_JS_NAME = "stub-demo.js"
+STUB_DEMO_DATA_NAME = "stub-demo-data.json"
+
 # Public Pages may only show these keys. Prompts, arguments, _meta, and ids stay off-site.
 PAGES_SUMMARY_KEYS = (
     "source",
@@ -410,6 +418,41 @@ def pages_summary(
         "observation_n": len(observations),
         "antipattern_ids": ids,
     }
+
+
+def _stub_demo_html() -> str:
+    """Raw HTML for the static, client-side heading-lookup demo.
+
+    Built outside the markdown pipeline (unlike the rest of this page) so a
+    <script>/<div> is never at risk of being escaped by a markdown-to-HTML
+    pass that treats raw HTML as plain text -- vendor/markdown.py is "stdlib
+    helpers, not a CommonMark engine" and makes no promise either way.
+    """
+    locator_ids = {
+        "input": OWUI_INPUT,
+        "inputTestId": LIBRECHAT_INPUT,
+        "send": OWUI_SEND,
+        "sendTestId": LIBRECHAT_SEND,
+        "response": OWUI_RESPONSE,
+    }
+    return (
+        '<h2 id="stub-demo-heading">Try it (static, no MCP)</h2>'
+        "<p>Heading → body lookup only, running entirely in your browser "
+        "(no server, no Docker, no MCP call) — same logic as "
+        "<code>stub_front.py</code>'s <code>classify_prompt()</code>, "
+        "re-implemented in vanilla JS. A prompt that would trigger a real MCP "
+        "tool call is labelled, never faked; the actual round-trip is the "
+        '"Last Actions summary" below.</p>'
+        '<div id="stub-demo" data-testid="stub-demo"></div>'
+        f'<script src="{STUB_DEMO_JS_NAME}"></script>'
+        "<script>\n"
+        "window.mcpToolcallLabStubDemo.mount(\n"
+        "  document.getElementById('stub-demo'),\n"
+        f"  {json.dumps(STUB_DEMO_DATA_NAME)},\n"
+        f"  {json.dumps(locator_ids)}\n"
+        ");\n"
+        "</script>"
+    )
 
 
 def _load_json_object(path: Path | None) -> dict[str, Any]:
@@ -466,14 +509,25 @@ def write_pages(
         inner = md.markdown_to_html(body)
     else:
         inner = "<pre>" + html.escape("\n".join(titles) + "\n" + summary_text) + "</pre>"
+    demo_html = _stub_demo_html()
     html_page = (
         "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
         "<title>mcp-toolcall-lab stub</title>"
-        "<style>body{font-family:sans-serif;max-width:52rem;margin:1.5rem auto}</style>"
-        f"</head><body>{inner}</body></html>\n"
+        "<style>body{font-family:sans-serif;max-width:52rem;margin:1.5rem auto}"
+        "#stub-demo .stub-demo-thread{max-height:20rem;overflow-y:auto;margin:.5rem 0}"
+        "#stub-demo .stub-demo-turn{margin:.5rem 0;padding:.4rem .6rem;border:1px solid #ccc;border-radius:.4rem}"
+        "#stub-demo .stub-demo-user{font-weight:bold}"
+        "#stub-demo .stub-demo-assistant{white-space:pre-wrap}"
+        "#stub-demo textarea{width:100%;font:inherit}</style>"
+        f"</head><body>{inner}{demo_html}</body></html>\n"
     )
     (out_dir / "index.html").write_text(html_page, encoding="utf-8")
     (out_dir / "summary.json").write_text(summary_text + "\n", encoding="utf-8")
+    demo_data = [{"title": s.title, "slug": s.slug, "body": s.body} for s in sections]
+    (out_dir / STUB_DEMO_DATA_NAME).write_text(
+        json.dumps(demo_data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
+    (out_dir / STUB_DEMO_JS_NAME).write_text(STUB_DEMO_JS_SOURCE.read_text(encoding="utf-8"), encoding="utf-8")
     return out_dir / "index.html"
 
 
