@@ -44,15 +44,20 @@ docker compose -f docker/stub-pages/docker-compose.yml \
 ```
 
 `scripts/fetch_tiny_cpu_gguf.py` auto-discovers the smallest `*.gguf` in a
-small Apache-2.0 repo (default `HuggingFaceTB/SmolLM2-135M-Instruct-GGUF`)
-via the Hugging Face API and resolves it against that repo's current
-commit, or downloads `CPU_LLM_GGUF_URL` directly if you set one. Either
-way the downloaded bytes are always hashed after the fact; that digest
-is the ground truth. **No `CPU_LLM_GGUF_SHA256` is pinned into this repo
-yet** — this dev sandbox's egress proxy denies the CONNECT to
-`huggingface.co` (403), so nothing here could verify a checksum out of
-band before committing it. First real CI run (which does have internet)
-prints the computed sha256 and writes it to
+small Apache-2.0 repo (default `bartowski/SmolLM2-135M-Instruct-GGUF` — a
+GGUF quantization of `HuggingFaceTB/SmolLM2-135M-Instruct`, verified to
+actually exist via the Hugging Face Hub connector; an earlier default,
+`HuggingFaceTB/SmolLM2-135M-Instruct-GGUF`, did not) via the Hugging Face
+API and resolves it against that repo's current commit, or downloads
+`CPU_LLM_GGUF_URL` directly if you set one. Either way the downloaded
+bytes are always hashed after the fact; that digest is the ground truth.
+**No `CPU_LLM_GGUF_SHA256` is pinned into this repo yet** — this dev
+sandbox's egress proxy denies the CONNECT to `huggingface.co` itself
+(403; the separate Hugging Face Hub *connector* is a different, allowed
+path, but it surfaces file names/sizes, not an LFS blob's bytes or
+sha256), so nothing here could verify a checksum out of band before
+committing it. First real CI run (which does have internet) prints the
+computed sha256 and writes it to
 `docker/stub-pages/models/model.gguf.provenance.json` (uploaded as part
 of the `stub-pages-observations` artifact) — promote that value into
 `CPU_LLM_GGUF_SHA256` (repo variable or workflow env) once you've seen it

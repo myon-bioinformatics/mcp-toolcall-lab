@@ -18,7 +18,7 @@ on:
       cpu_llm_gguf_repo:
         description: "HF repo to auto-discover a small .gguf in (only used when use_real_gguf is true)"
         required: false
-        default: "HuggingFaceTB/SmolLM2-135M-Instruct-GGUF"
+        default: "bartowski/SmolLM2-135M-Instruct-GGUF"
   push:
     branches: [main]
     paths:

@@ -17,6 +17,15 @@ if str(SCRIPTS) not in sys.path:
 import fetch_tiny_cpu_gguf as fetch  # noqa: E402
 
 
+def test_default_repo_is_the_verified_one() -> None:
+    # HuggingFaceTB/SmolLM2-135M-Instruct-GGUF (an earlier guess) does not
+    # exist -- confirmed live via the Hugging Face Hub connector, which
+    # also confirmed this one does (apache-2.0, a quantization of
+    # HuggingFaceTB/SmolLM2-135M-Instruct). Regression guard against
+    # reintroducing an unverified repo name as the default.
+    assert fetch.DEFAULT_REPO == "bartowski/SmolLM2-135M-Instruct-GGUF"
+
+
 def test_pick_file_prefers_smallest_pattern() -> None:
     siblings = [
         {"rfilename": "model-f16.gguf"},

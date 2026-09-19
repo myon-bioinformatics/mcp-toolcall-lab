@@ -34,7 +34,14 @@ from pathlib import Path
 from typing import Any
 
 HF_API = "https://huggingface.co/api/models"
-DEFAULT_REPO = "HuggingFaceTB/SmolLM2-135M-Instruct-GGUF"
+# Verified to exist via the Hugging Face Hub connector (this sandbox's own
+# HTTPS proxy denies huggingface.co directly, but that connector is a
+# separate, allowed path) -- a bartowski GGUF quantization of the official
+# HuggingFaceTB/SmolLM2-135M-Instruct base model, apache-2.0, 170k+
+# downloads. An earlier version of this default pointed at
+# "HuggingFaceTB/SmolLM2-135M-Instruct-GGUF", which does not exist and
+# would have 404'd on the very first real run.
+DEFAULT_REPO = "bartowski/SmolLM2-135M-Instruct-GGUF"
 # Smallest-first preference. Accuracy is out of scope; startup time is not.
 PATTERN_PREFERENCE = ("*q4_k_m*.gguf", "*q4_0*.gguf", "*q8_0*.gguf", "*.gguf")
 RETRIES = 4
