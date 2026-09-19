@@ -155,6 +155,8 @@
     var status = el("p", { class: "stub-demo-status" }, "Loading corpus…");
     var thread = el("div", { class: "stub-demo-thread" });
     var form = el("form", { class: "stub-demo-form" });
+    var select = el("select", { id: "heading-select", "data-testid": "heading-select" });
+    select.appendChild(el("option", { value: "" }, "(heading)"));
     var textarea = el("textarea", {
       id: ids.input,
       "data-testid": ids.inputTestId,
@@ -162,6 +164,7 @@
       placeholder: 'Try "Yokohama", "Find municipalities", or "# Tracing"',
     });
     var button = el("button", { id: ids.send, "data-testid": ids.sendTestId, type: "submit" }, "Send");
+    form.appendChild(select);
     form.appendChild(textarea);
     form.appendChild(button);
     root.appendChild(chatIdLine);
@@ -181,10 +184,15 @@
 
     form.addEventListener("submit", function (event) {
       event.preventDefault();
-      var prompt = textarea.value.trim();
+      var prompt = textarea.value.trim() || select.value;
       if (!prompt) return;
       addTurn(prompt, reply(prompt, sections));
       textarea.value = "";
+    });
+    select.addEventListener("change", function () {
+      if (!select.value) return;
+      textarea.value = select.value;
+      addTurn(select.value, reply(select.value, sections));
     });
 
     fetch(corpusUrl)
@@ -194,8 +202,11 @@
       })
       .then(function (data) {
         sections = Array.isArray(data) ? data : [];
+        sections.forEach(function (section) {
+          select.appendChild(el("option", { value: section.title }, section.title));
+        });
         status.textContent = sections.length
-          ? "Corpus loaded (" + sections.length + " headings). No MCP or Docker running here — heading lookup only."
+          ? "Pick a heading to see its body. This page is static — no MCP."
           : "Corpus is empty.";
       })
       .catch(function (err) {

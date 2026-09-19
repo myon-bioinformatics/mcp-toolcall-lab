@@ -531,7 +531,7 @@ def write_pages(
     return out_dir / "index.html"
 
 
-def _page(chat_id: str, turns: list[Turn], prompt: str = "") -> str:
+def _page(chat_id: str, turns: list[Turn], prompt: str = "", sections: list[Section] | None = None) -> str:
     bubbles = []
     for turn in turns:
         bubbles.append(
@@ -542,15 +542,21 @@ def _page(chat_id: str, turns: list[Turn], prompt: str = "") -> str:
             f"</section>"
         )
     thread = "\n".join(bubbles) or "<p>Send a heading (e.g. <code>Find municipalities</code>) or <code>Yokohama</code>.</p>"
+    options = ['<option value="">(heading)</option>']
+    for section in sections or []:
+        options.append(f'<option value="{html.escape(section.title)}">{html.escape(section.title)}</option>')
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><title>stub-front {html.escape(chat_id)}</title>
 <style>
  body {{ font-family: sans-serif; max-width: 52rem; margin: 1.5rem auto; }}
  textarea {{ width: 100%; min-height: 4rem; }}
+ select {{ width: 100%; margin: .4rem 0; }}
 </style></head>
 <body>
 <p>lab chat_id <code data-testid="chat-id">{html.escape(chat_id)}</code> · stdlib stub</p>
 <form method="post" action="/c/{html.escape(chat_id)}">
+<label for="heading-select">Headings</label>
+<select id="heading-select" name="heading" data-testid="heading-select">{"".join(options)}</select>
 <textarea name="prompt" data-testid="{LIBRECHAT_INPUT}" id="{OWUI_INPUT}">{html.escape(prompt)}</textarea>
 <button type="submit" data-testid="{LIBRECHAT_SEND}" id="{OWUI_SEND}">Send</button>
 </form>
@@ -598,7 +604,7 @@ def make_handler(state: StubState) -> type[BaseHTTPRequestHandler]:
             chat_id = self._chat_id_from_path()
             if chat_id:
                 state.chats.setdefault(chat_id, [])
-                page = _page(chat_id, state.chats[chat_id])
+                page = _page(chat_id, state.chats[chat_id], sections=state.sections)
                 self._send(200, page.encode("utf-8"), "text/html; charset=utf-8")
                 return
             self._send(404, b"not found\n", "text/plain")
@@ -618,7 +624,7 @@ def make_handler(state: StubState) -> type[BaseHTTPRequestHandler]:
                 chat_id = str(payload.get("chat_id") or self._chat_id_from_path() or new_chat_id())
             else:
                 form = parse_qs(raw.decode("utf-8"))
-                prompt = (form.get("prompt") or [""])[0]
+                prompt = (form.get("prompt") or [""])[0] or (form.get("heading") or [""])[0]
                 chat_id = self._chat_id_from_path() or new_chat_id()
             turn = reply(prompt, chat_id=chat_id, sections=state.sections, mcp_url=state.mcp_url)
             state.chats.setdefault(chat_id, []).append(turn)
@@ -629,7 +635,11 @@ def make_handler(state: StubState) -> type[BaseHTTPRequestHandler]:
                     "application/json",
                 )
                 return
-            self._send(200, _page(chat_id, state.chats[chat_id]).encode("utf-8"), "text/html; charset=utf-8")
+            self._send(
+                200,
+                _page(chat_id, state.chats[chat_id], sections=state.sections).encode("utf-8"),
+                "text/html; charset=utf-8",
+            )
 
     return Handler
 

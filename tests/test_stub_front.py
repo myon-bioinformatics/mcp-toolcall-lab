@@ -52,6 +52,17 @@ def test_exact_heading_wins_over_mcp_keyword() -> None:
     assert classified["section"].body == "From the corpus."
 
 
+def test_heading_select_is_on_the_composer_page() -> None:
+    sections = load_corpus(DEFAULT_CORPUS)
+    from mcp_toolcall_lab.stub_front import _page
+
+    html = _page("chat_" + "c" * 24, [], sections=sections)
+    assert 'data-testid="heading-select"' in html
+    assert "Geography" in html
+    assert "wikipedia.org" not in html
+    assert "source-url" not in html
+
+
 def test_sentence_with_yokohama_takes_mcp_path() -> None:
     sections = load_corpus(DEFAULT_CORPUS)
     classified = classify_prompt("Find municipalities named Yokohama", sections)

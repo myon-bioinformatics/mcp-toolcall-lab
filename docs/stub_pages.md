@@ -85,7 +85,9 @@ its corpus (`{title, slug, body}` only — same public content as the
 "Corpus headings" list, never `chat_id`/`_meta`/arguments) to
 `stub-demo-data.json` alongside a copy of the script.
 
-A heading prompt gets a real body back, entirely client-side. A prompt
+A heading `<select>` lists the same titles; picking one prints that
+section body. No URL/source picker — the corpus is the vendored
+fixtures, split by `markdown.py`. A heading prompt also still works. A prompt
 that would trigger a real MCP tool call (mirrors `MCP_PATTERNS`' tokens
 and tool names, kept in sync by
 `tests/test_stub_pages.py::test_stub_demo_js_mirrors_mcp_patterns_tools_and_tokens`)

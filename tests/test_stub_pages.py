@@ -204,6 +204,7 @@ def test_write_pages_emits_the_static_client_side_demo(tmp_path: Path) -> None:
 
     html = (out / "index.html").read_text(encoding="utf-8")
     assert 'id="stub-demo"' in html
+    assert "heading-select" in (out / STUB_DEMO_JS_NAME).read_text(encoding="utf-8")
     assert f'src="{STUB_DEMO_JS_NAME}"' in html
     assert STUB_DEMO_DATA_NAME in html
     # Only {title, slug, body} per section -- no room for a runtime chat_id,
