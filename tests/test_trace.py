@@ -18,6 +18,8 @@ import tempfile
 from pathlib import Path
 
 import pytest
+from mcp import ClientSession
+from mcp.client.streamable_http import streamablehttp_client
 
 from mcp_toolcall_lab.chat_sim import send_direct, send_via_chat
 from tests.test_streamable_http_protocol import running_mcp_server
@@ -117,3 +119,63 @@ async def test_chat_path_unknown_tool_is_traceable_as_an_error():
         events = _read_events(log_path)
         assert events[0]["outcome"] == "error"
         assert events[0]["meta"]["call_id"] == trace.call_id
+
+
+@pytest.mark.integration
+async def test_every_logged_call_carries_a_duration() -> None:
+    """duration_ms is wall-clock time for the whole call, not just the tool
+    function -- see server.py's on_call_tool docstring for why it's measured
+    around any MCP_TOOL_DELAY_SECONDS delay too, not only call_next()."""
+    with tempfile.TemporaryDirectory() as tmp:
+        log_path = Path(tmp) / "toolcalls.jsonl"
+        with running_mcp_server(MCP_TOOLCALL_LOG=str(log_path)) as server:
+            await send_direct(server.url, tool_name="find_stations", arguments={"municipality_code": "14109"})
+
+        event = _read_events(log_path)[0]
+        assert isinstance(event["duration_ms"], (int, float))
+        assert event["duration_ms"] >= 0
+
+
+@pytest.mark.integration
+async def test_a_real_chat_products_forwarded_chat_id_header_is_traceable() -> None:
+    """A third delivery path, distinct from both of chat_sim.py's: a caller
+    that sets no MCP `_meta` at all (unlike send_via_chat/send_direct, which
+    both do by hand) but *does* send a known chat-correlation HTTP header --
+    the shape a real chat product's own backend produces once it forwards
+    its own conversation id (e.g. Open WebUI's ENABLE_FORWARD_USER_INFO_HEADERS
+    + X-OpenWebUI-Chat-Id, confirmed against its own source). No test here
+    drives an actual Open WebUI/LibreChat instance; it proves the header,
+    once it arrives however it arrives, ends up in the same shared log."""
+    with tempfile.TemporaryDirectory() as tmp:
+        log_path = Path(tmp) / "toolcalls.jsonl"
+        with running_mcp_server(MCP_TOOLCALL_LOG=str(log_path)) as server:
+            headers = {"X-OpenWebUI-Chat-Id": "chat_real_abc123", "X-OpenWebUI-Message-Id": "msg_xyz789"}
+            async with streamablehttp_client(server.url, headers=headers) as (read_stream, write_stream, _):
+                async with ClientSession(read_stream, write_stream) as session:
+                    await session.initialize()
+                    result = await session.call_tool("find_municipalities", {"query": "Yokohama"})
+
+        assert not result.isError
+        event = _read_events(log_path)[0]
+        assert event["meta"] == {
+            "forwarded_headers": {"chat_id": "chat_real_abc123", "message_id": "msg_xyz789"}
+        }
+
+
+@pytest.mark.integration
+async def test_a_plain_call_with_no_meta_and_no_forwarded_headers_logs_no_meta_key() -> None:
+    """Neither hand-set _meta nor a forwarded header -- the common case for
+    every non-chat protocol test in this repo -- should add a meta key at
+    all, not an empty dict; test_chat_and_direct_paths_share_the_same_log_schema
+    already relies on chat vs. direct calls having the *same* key set, and a
+    call with genuinely nothing to report should look different from both."""
+    with tempfile.TemporaryDirectory() as tmp:
+        log_path = Path(tmp) / "toolcalls.jsonl"
+        with running_mcp_server(MCP_TOOLCALL_LOG=str(log_path)) as server:
+            async with streamablehttp_client(server.url) as (read_stream, write_stream, _):
+                async with ClientSession(read_stream, write_stream) as session:
+                    await session.initialize()
+                    await session.call_tool("find_stations", {"municipality_code": "14109"})
+
+        event = _read_events(log_path)[0]
+        assert "meta" not in event

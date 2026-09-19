@@ -170,6 +170,22 @@ asyncio.run(main())
 With `MCP_TOOLCALL_LOG` set, both calls above land in the same JSONL file with the same shape,
 distinguished only by `meta.source` — see `tests/test_trace.py`.
 
+There's a **third** path traceable through the same log, with no `chat_sim`/`_meta` involved at
+all: a real chat product's own backend, once it forwards its own conversation id as an HTTP
+header when it calls a tool server (opt-in on its side — e.g. Open WebUI's
+`ENABLE_FORWARD_USER_INFO_HEADERS=true`, which sends `X-OpenWebUI-Chat-Id`/`X-OpenWebUI-Message-Id`;
+verified against its own source, `backend/open_webui/env.py` and `utils/tools.py`'s
+`build_tool_server_headers()`). The server reads whichever of those headers are present on the
+current Streamable HTTP request (`server.py`'s `_forwarded_chat_headers()`) and logs them under
+`meta.forwarded_headers` — a real chat UI's own chat_id shows up with no client-side wiring,
+distinct from `chat_sim.py`'s hand-set `_meta` (which exists only because a simulated caller has
+no real chat_id of its own to forward). A plain call with neither omits `meta` entirely rather
+than logging an empty dict.
+
+Every logged call also carries `duration_ms` — wall-clock time for the whole call as the caller
+experienced it, including any artificial `MCP_TOOL_DELAY_SECONDS` delay, not just the tool
+function's own execution.
+
 `tests/test_curl_protocol.py` gives the same raw-HTTP handshake pytest coverage (success, empty
 result, unknown tool, missing argument), alongside `tests/test_streamable_http_protocol.py`'s
 `mcp`-SDK-based client flow.

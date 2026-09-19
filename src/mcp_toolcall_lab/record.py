@@ -21,6 +21,7 @@ def record_call(
     result: Any = None,
     error: str | None = None,
     meta: dict[str, Any] | None = None,
+    duration_ms: float | None = None,
 ) -> None:
     """Append one call record when MCP_TOOLCALL_LOG is set.
 
@@ -29,10 +30,17 @@ def record_call(
 
     `meta` is whatever the caller put in the request's MCP `_meta` field (e.g.
     a chat-simulated caller's `call_id`/`chat_id`, or a caller talking to MCP
-    directly passing its own correlation id). It is opaque to this function —
-    logged verbatim when present — so a trace can be reconstructed from this
-    JSONL file regardless of which path (chat-simulated or direct) made the
-    call.
+    directly passing its own correlation id) plus, under `meta.forwarded_headers`,
+    any known chat-correlation HTTP header the transport itself carried (e.g. a
+    real chat product's own chat_id, forwarded with no client-side wiring --
+    see server.py's `_forwarded_chat_headers`). Both are opaque to this
+    function — logged verbatim when present — so a trace can be reconstructed
+    from this JSONL file regardless of which path (chat-simulated, a real
+    chat UI, or a direct call) made the call.
+
+    `duration_ms` is wall-clock time for the whole call as the caller
+    experienced it (including any artificial `MCP_TOOL_DELAY_SECONDS` delay),
+    not just the tool function's own execution.
     """
     log_path = os.environ.get("MCP_TOOLCALL_LOG")
     if not log_path:
@@ -43,6 +51,8 @@ def record_call(
         "arguments": arguments,
         "outcome": outcome,
     }
+    if duration_ms is not None:
+        event["duration_ms"] = round(duration_ms, 3)
     if meta:
         event["meta"] = meta
     if outcome == OUTCOME_ERROR:
