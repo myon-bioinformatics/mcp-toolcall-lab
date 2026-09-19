@@ -47,6 +47,14 @@ jobs:
           done
           curl -sf http://127.0.0.1:3000/health > /dev/null
 
+      - name: Record Open WebUI image digest
+        if: always()
+        run: |
+          python -m mcp_toolcall_lab.docker_logs image \
+            --compose docker/openwebui-smoke/docker-compose.yml \
+            --service open-webui \
+            --out test-results/openwebui-image.json
+
       - name: Playwright — input, Send, assert OpenAI + MCP wire loop
         env:
           OPEN_WEBUI_BASE_URL: http://127.0.0.1:3000

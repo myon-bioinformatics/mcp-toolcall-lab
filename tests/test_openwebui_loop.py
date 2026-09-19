@@ -7,7 +7,10 @@ import pytest
 from tests.real_chat_ui.openwebui_loop import (
     assert_openwebui_tool_loop,
     is_background_task,
+    is_product_ui_message_id,
     lab_vs_product_chat_ids,
+    message_ids_from_owui_chat,
+    mcp_tools_call_message_ids,
     product_conversation_id,
     summarize_mcp_handshake,
     summarize_openai_tool_loop,
@@ -17,6 +20,7 @@ CALL = "call_" + "a" * 24
 CHATCMPL_1 = "chatcmpl-turn1"
 CHATCMPL_2 = "chatcmpl-turn2"
 OWUI_CHAT = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+OWUI_MSG = "bbbbbbbb-cccc-dddd-eeee-ffffffffffff"
 
 
 def test_openai_loop_joins_tool_call_id_across_the_followup() -> None:
@@ -142,17 +146,22 @@ def _mcp_handshake_rows() -> list[dict]:
     return [
         {
             "event": "initialize",
-            "debug": {"session_id": "sess-1", "request_id": "1-init", "chat_id": OWUI_CHAT},
+            "debug": {"session_id": "sess-1", "request_id": "1-init", "chat_id": OWUI_CHAT, "message_id": OWUI_MSG},
         },
         {
             "event": "tools/list",
-            "debug": {"session_id": "sess-1", "request_id": "2-list", "chat_id": OWUI_CHAT},
+            "debug": {"session_id": "sess-1", "request_id": "2-list", "chat_id": OWUI_CHAT, "message_id": OWUI_MSG},
         },
         {
             "event": "tools/call",
             "tool": "find_municipalities",
             "chat_id": OWUI_CHAT,
-            "debug": {"session_id": "sess-1", "request_id": "3-call", "chat_id": OWUI_CHAT},
+            "debug": {
+                "session_id": "sess-1",
+                "request_id": "3-call",
+                "chat_id": OWUI_CHAT,
+                "message_id": OWUI_MSG,
+            },
         },
     ]
 
@@ -185,8 +194,10 @@ def test_title_generation_is_not_the_chat_turn() -> None:
         mcp_events=_mcp_handshake_rows(),
         page_url="http://127.0.0.1:3000/",
         ui_text="Yokohama (code 14109) is in Kanagawa.",
+        ui_message_ids=[OWUI_MSG],
     )
     assert result["conversation_id"] == OWUI_CHAT
+    assert result["ui_message_id"] == OWUI_MSG
 
 
 def test_assert_loop_accepts_a_complete_fixture_and_rejects_a_short_one() -> None:
@@ -197,9 +208,11 @@ def test_assert_loop_accepts_a_complete_fixture_and_rejects_a_short_one() -> Non
         mcp_events=mcp,
         page_url=f"http://127.0.0.1:3000/c/{OWUI_CHAT}",
         ui_text="Yokohama (code 14109) is in Kanagawa.",
+        ui_message_ids=[OWUI_MSG],
     )
     assert result["conversation_id"] == OWUI_CHAT
     assert result["ids"]["product_chat_ids"] == [OWUI_CHAT]
+    assert result["ui_message_id"] == OWUI_MSG
 
     with pytest.raises(AssertionError):
         assert_openwebui_tool_loop(
@@ -207,4 +220,53 @@ def test_assert_loop_accepts_a_complete_fixture_and_rejects_a_short_one() -> Non
             mcp_events=mcp,
             page_url=f"http://127.0.0.1:3000/c/{OWUI_CHAT}",
             ui_text="Yokohama",
+            ui_message_ids=[OWUI_MSG],
+        )
+
+
+def test_mcp_message_id_must_be_the_product_ui_message() -> None:
+    openai = _openai_tool_loop_rows()
+    mcp = _mcp_handshake_rows()
+    payload = {
+        "id": OWUI_CHAT,
+        "chat": {
+            "history": {
+                "messages": {
+                    OWUI_MSG: {"id": OWUI_MSG, "role": "user", "content": "Find municipalities named Yokohama"},
+                    "assistant-uuid": {"id": "assistant-uuid", "role": "assistant"},
+                },
+                "currentId": "assistant-uuid",
+            }
+        },
+    }
+    assert OWUI_MSG in message_ids_from_owui_chat(payload)
+    assert mcp_tools_call_message_ids(mcp) == [OWUI_MSG]
+    assert is_product_ui_message_id(OWUI_MSG) is True
+    assert is_product_ui_message_id("{{MESSAGE_ID}}") is False
+    assert is_product_ui_message_id("chat_" + "f" * 24) is False
+    assert is_product_ui_message_id(CALL) is False
+
+    with pytest.raises(AssertionError, match="X-OpenWebUI-Message-Id"):
+        assert_openwebui_tool_loop(
+            openai_events=openai,
+            mcp_events=[{**row, "debug": {k: v for k, v in (row.get("debug") or {}).items() if k != "message_id"}} for row in mcp],
+            page_url=f"http://127.0.0.1:3000/c/{OWUI_CHAT}",
+            ui_text="Yokohama",
+            ui_message_ids=[OWUI_MSG],
+        )
+    with pytest.raises(AssertionError, match="harvest"):
+        assert_openwebui_tool_loop(
+            openai_events=openai,
+            mcp_events=mcp,
+            page_url=f"http://127.0.0.1:3000/c/{OWUI_CHAT}",
+            ui_text="Yokohama",
+            ui_message_ids=[],
+        )
+    with pytest.raises(AssertionError):
+        assert_openwebui_tool_loop(
+            openai_events=openai,
+            mcp_events=mcp,
+            page_url=f"http://127.0.0.1:3000/c/{OWUI_CHAT}",
+            ui_text="Yokohama",
+            ui_message_ids=["cccccccccccccccc-dddd-eeee-ffff-000000000000"],
         )

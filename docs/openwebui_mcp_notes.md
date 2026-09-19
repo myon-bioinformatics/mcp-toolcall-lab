@@ -67,6 +67,11 @@ The Playwright job asserts the product loop, not a lab stand-in:
 5. `tools/list` → `tools/call`
 6. follow-up completion with `role: "tool"` and the same `tool_call_id`
 7. final assistant text containing Yokohama in `#response-content-container`
+8. UI message id: `X-OpenWebUI-Message-Id` on MCP `tools/call` equals a
+   message id from Open WebUI's own `GET /api/v1/chats/{id}` history
+   (not a lab `chat_*` / `call_*`, not an unsubstituted `{{MESSAGE_ID}}`).
+   If the product version does not send that header, or the chats API
+   does not yield the same id, the smoke fails — it does not PASS.
 
 Open WebUI may also POST `/v1/chat/completions` for background jobs whose
 user text starts with `### Task:` (titles, tags, follow-ups). Those are
@@ -114,7 +119,8 @@ path-filtered `pull_request`). Default `test.yml` stays `pytest -q`.
 **Does:** run the real Open WebUI image against the existing mock + OpenAI
 tool-call mock, drive the composer with Playwright, harvest product
 `chat.id` / OpenAI `chatcmpl-*` / `call_*` / UI message id / MCP
-session and request ids, and upload JSONL plus screenshots.
+session and request ids, record the running `open-webui` image digest, and
+upload JSONL plus screenshots.
 
 **Does not:** vendor Open WebUI's source, reproduce its SQLite schema,
 call MLIT or any live model API, inject hidden chain-of-thought or

@@ -137,6 +137,29 @@ def write_jsonl(path: Path, rows: list[dict[str, Any]]) -> None:
             handle.write(json.dumps(row, ensure_ascii=False, default=str) + "\n")
 
 
+def record_compose_image(compose_file: Path, service: str, out_path: Path) -> dict[str, Any]:
+    """Write docker inspect of one compose service (digest / image id)."""
+    cid = subprocess.check_output(
+        ["docker", "compose", "-f", str(compose_file), "ps", "-q", service],
+        text=True,
+    ).strip().splitlines()
+    if not cid or not cid[0]:
+        raise RuntimeError(f"no container for compose service {service}")
+    inspect = json.loads(
+        subprocess.check_output(["docker", "inspect", cid[0]], text=True)
+    )[0]
+    row = {
+        "service": service,
+        "image": (inspect.get("Config") or {}).get("Image"),
+        "id": inspect.get("Id"),
+        "repo_digests": inspect.get("RepoDigests") or [],
+        "created": inspect.get("Created"),
+    }
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(json.dumps(row, indent=2) + "\n", encoding="utf-8")
+    return row
+
+
 def capture_compose_logs(compose_file: Path, out_dir: Path) -> dict[str, Any]:
     """Run ``docker compose logs --timestamps`` and write raw + JSONL."""
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -227,6 +250,11 @@ def main(argv: list[str] | None = None) -> int:
     parse = sub.add_parser("parse", help="parse a saved compose.log to JSONL on stdout")
     parse.add_argument("log", type=Path)
 
+    image = sub.add_parser("image", help="write docker inspect digest/id for one compose service")
+    image.add_argument("--compose", "-f", required=True, type=Path)
+    image.add_argument("--service", required=True)
+    image.add_argument("--out", "-o", required=True, type=Path)
+
     args = parser.parse_args(argv)
     if args.cmd == "capture":
         summary = capture_compose_logs(args.compose, args.out)
@@ -236,6 +264,10 @@ def main(argv: list[str] | None = None) -> int:
         rows = parse_compose_text(args.log.read_text(encoding="utf-8"))
         for row in rows:
             print(json.dumps(row, ensure_ascii=False))
+        return 0
+    if args.cmd == "image":
+        row = record_compose_image(args.compose, args.service, args.out)
+        print(json.dumps(row, indent=2))
         return 0
     paths = [Path(item) for item in args.paths] or default_timeline_paths(args.dir)
     rows = timeline_rows(paths)

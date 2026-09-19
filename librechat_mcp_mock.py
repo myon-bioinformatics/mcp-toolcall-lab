@@ -851,13 +851,14 @@ class ObservabilityMiddleware(Middleware):
         if header_id:
             debug["chat_id"] = header_id
             debug["chat_id_source"] = "header"
-            message_id = id_from_headers(headers, MESSAGE_ID_HEADER_KEYS)
-            if message_id:
-                debug["message_id"] = message_id
+        message_id = id_from_headers(headers, MESSAGE_ID_HEADER_KEYS)
+        if message_id:
+            debug["message_id"] = message_id
         record_protocol_event(event=event, debug=debug or None)
         _trace_stderr(
             f"event={event} session_id={debug.get('session_id') or '-'} "
-            f"request_id={debug.get('request_id') or '-'} chat_id={debug.get('chat_id') or '-'}"
+            f"request_id={debug.get('request_id') or '-'} chat_id={debug.get('chat_id') or '-'} "
+            f"message_id={debug.get('message_id') or '-'}"
         )
 
     async def on_initialize(self, context: MiddlewareContext, call_next):
@@ -925,7 +926,8 @@ class ObservabilityMiddleware(Middleware):
         _trace_stderr(
             f"event={EVENT_TOOLS_CALL} tool={name} outcome={outcome} "
             f"session_id={debug.get('session_id') or '-'} "
-            f"request_id={debug.get('request_id') or '-'} chat_id={debug.get('chat_id') or '-'}",
+            f"request_id={debug.get('request_id') or '-'} chat_id={debug.get('chat_id') or '-'} "
+            f"message_id={debug.get('message_id') or '-'}",
             level=level,
         )
 

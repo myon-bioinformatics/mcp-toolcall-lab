@@ -24,7 +24,11 @@ from mcp_toolcall_lab.chat_ui import (
 from mcp_toolcall_lab.frontends import OPENWEBUI
 from mcp_toolcall_lab.mock.common import read_jsonl
 from mcp_toolcall_lab.trace_probe import snapshot_trace
-from tests.real_chat_ui.openwebui_loop import assert_openwebui_tool_loop
+from tests.real_chat_ui.openwebui_loop import (
+    attach_openwebui_chat_api_collector,
+    assert_openwebui_tool_loop,
+    harvest_openwebui_user_message_ids,
+)
 
 pytest.importorskip("playwright.sync_api")
 from playwright.sync_api import sync_playwright  # noqa: E402
@@ -81,11 +85,13 @@ def test_openwebui_toolcall_loop_and_id_continuity(page) -> None:
     logged_in = login(page, OPENWEBUI, OPEN_WEBUI_BASE_URL, EMAIL, PASSWORD)
     flags: dict = {"input_found": False, "send_clicked": False, "logged_in": logged_in}
     ui_text = ""
+    ui_message_ids: list[str] = []
     if logged_in:
         enable_mcp_picker(page, OPENWEBUI)
         before = 0
         if OPENWEBUI.response.container is not None:
             before = page.locator(OPENWEBUI.response.container.css()).count()
+        captured_ids = attach_openwebui_chat_api_collector(page)
         flags.update(type_and_send(page, OPENWEBUI, CHAT_MESSAGE))
         # A prior Send (or leftover chat) can already have #response-content-container.
         flags["assistant_visible"] = wait_for_assistant(
@@ -98,6 +104,8 @@ def test_openwebui_toolcall_loop_and_id_continuity(page) -> None:
         ui_text = page.locator("body").inner_text()
         flags["page_url"] = page.url
         flags["ui_text_tail"] = ui_text
+        ui_message_ids = list(dict.fromkeys([*captured_ids, *harvest_openwebui_user_message_ids(page)]))
+        flags["ui_message_ids"] = ui_message_ids
     else:
         flags["assistant_visible"] = False
         flags["page_url"] = OPEN_WEBUI_BASE_URL
@@ -118,6 +126,7 @@ def test_openwebui_toolcall_loop_and_id_continuity(page) -> None:
         page_url=page_url,
         ui_text=ui_text,
         expected_fragment=OPENWEBUI.sample_result_fragment,
+        ui_message_ids=ui_message_ids,
     )
     trace = snapshot_trace(
         mcp_log=MCP_LOG,

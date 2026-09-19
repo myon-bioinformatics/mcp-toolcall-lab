@@ -11,7 +11,7 @@ from __future__ import annotations
 from typing import Any
 
 from mcp_toolcall_lab.record import EVENT_INITIALIZE, EVENT_TOOLS_CALL, EVENT_TOOLS_LIST, mcp_tool_calls
-from mcp_toolcall_lab.trace_probe import extract_ids_from_url, snapshot_trace
+from mcp_toolcall_lab.trace_probe import classify_value, extract_ids_from_url, snapshot_trace
 
 
 def openai_completions(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -84,6 +84,7 @@ def summarize_mcp_handshake(events: list[dict[str, Any]]) -> dict[str, Any]:
         "tool_names": [str(event.get("tool")) for event in calls],
         "session_ids": session_ids,
         "request_ids": request_ids,
+        "message_ids": mcp_header_message_ids(events),
     }
 
 
@@ -120,6 +121,153 @@ def lab_vs_product_chat_ids(events: list[dict[str, Any]]) -> dict[str, list[str]
     return {"lab_chat_ids": lab, "product_chat_ids": product}
 
 
+_LAB_SHAPED = (
+    "lab_chat_id",
+    "call_id",
+    "completion_id",
+    "response_id",
+    "reasoning_id",
+    "responses_message_id",
+    "function_call_item_id",
+)
+
+
+def is_product_ui_message_id(value: str | None) -> bool:
+    """True for an OWUI uuid-like message id. Empty / templates / lab prefixes fail."""
+    text = str(value or "").strip()
+    if len(text) < 8:
+        return False
+    if "{{" in text or "}}" in text or "MESSAGE_ID" in text:
+        return False
+    kind = classify_value(text)
+    return kind not in _LAB_SHAPED
+
+
+def mcp_header_message_ids(events: list[dict[str, Any]]) -> list[str]:
+    """``debug.message_id`` from ``X-OpenWebUI-Message-Id`` (not minted)."""
+    found: list[str] = []
+    for event in events:
+        debug = event.get("debug") if isinstance(event.get("debug"), dict) else {}
+        value = debug.get("message_id") or event.get("message_id")
+        if not value:
+            continue
+        text = str(value)
+        if text not in found:
+            found.append(text)
+    return found
+
+
+def mcp_tools_call_message_ids(events: list[dict[str, Any]]) -> list[str]:
+    found: list[str] = []
+    for event in mcp_tool_calls(events):
+        debug = event.get("debug") if isinstance(event.get("debug"), dict) else {}
+        value = debug.get("message_id") or event.get("message_id")
+        if not value:
+            continue
+        text = str(value)
+        if text not in found:
+            found.append(text)
+    return found
+
+
+def message_ids_from_owui_chat(payload: Any) -> list[str]:
+    """Walk Open WebUI chat JSON for product message ids (any role)."""
+    ids: list[str] = []
+
+    def add(value: Any) -> None:
+        text = str(value or "").strip()
+        if text and text not in ids:
+            ids.append(text)
+
+    def walk_messages(obj: Any) -> None:
+        if not isinstance(obj, dict):
+            return
+        messages = obj.get("messages")
+        if isinstance(messages, dict):
+            for key, msg in messages.items():
+                add(key)
+                if isinstance(msg, dict) and msg.get("id"):
+                    add(msg.get("id"))
+        elif isinstance(messages, list):
+            for msg in messages:
+                if isinstance(msg, dict) and msg.get("id"):
+                    add(msg.get("id"))
+        for nested in (obj.get("history"), obj.get("chat")):
+            if isinstance(nested, dict):
+                walk_messages(nested)
+        current = obj.get("current_message_id") or obj.get("currentId")
+        if current:
+            add(current)
+
+    if isinstance(payload, list):
+        for item in payload:
+            walk_messages(item)
+    else:
+        walk_messages(payload)
+    return ids
+
+
+def harvest_openwebui_user_message_ids(page: Any) -> list[str]:
+    """Product message ids from ``GET /api/v1/chats/{id}`` in the browser origin."""
+    try:
+        payload = page.evaluate(
+            """async () => {
+                const tryFetch = async (url) => {
+                    const res = await fetch(url, { credentials: 'same-origin' });
+                    if (!res.ok) return { ok: false, status: res.status, body: null };
+                    return { ok: true, status: res.status, body: await res.json() };
+                };
+                const listHit = await tryFetch('/api/v1/chats/');
+                const list = listHit.ok && Array.isArray(listHit.body) ? listHit.body : [];
+                const chats = [];
+                for (const item of list.slice(0, 20)) {
+                    const id = item && item.id ? item.id : item;
+                    if (!id) continue;
+                    const hit = await tryFetch('/api/v1/chats/' + id);
+                    if (hit.ok) chats.push(hit.body);
+                }
+                const dom = [];
+                for (const el of document.querySelectorAll('[id^="message-index-input-"]')) {
+                    dom.push(el.id.slice('message-index-input-'.length));
+                }
+                return { list_status: listHit.status, chats, dom };
+            }"""
+        )
+    except Exception:
+        return []
+    ids: list[str] = []
+    if isinstance(payload, dict):
+        for chat in payload.get("chats") or []:
+            for item in message_ids_from_owui_chat(chat):
+                if item not in ids:
+                    ids.append(item)
+        for item in payload.get("dom") or []:
+            text = str(item).strip()
+            if text and text not in ids:
+                ids.append(text)
+    return ids
+
+
+def attach_openwebui_chat_api_collector(page: Any) -> list[str]:
+    """Collect user message ids from in-flight ``/api/v1/chats`` responses."""
+    captured: list[str] = []
+
+    def _on_response(response: Any) -> None:
+        try:
+            url = str(response.url or "")
+            if "/api/v1/chats" not in url or int(response.status) >= 400:
+                return
+            data = response.json()
+        except Exception:
+            return
+        for item in message_ids_from_owui_chat(data):
+            if item not in captured:
+                captured.append(item)
+
+    page.on("response", _on_response)
+    return captured
+
+
 def assert_openwebui_tool_loop(
     *,
     openai_events: list[dict[str, Any]],
@@ -128,6 +276,7 @@ def assert_openwebui_tool_loop(
     ui_text: str,
     expected_fragment: str = "Yokohama",
     mcp_tool: str = "find_municipalities",
+    ui_message_ids: list[str] | None = None,
 ) -> dict[str, Any]:
     """Hard-assert UI → OpenAI tool_calls → MCP → tool follow-up → UI."""
     openai_loop = summarize_openai_tool_loop(openai_events)
@@ -145,6 +294,8 @@ def assert_openwebui_tool_loop(
         openai_log=None,
         mcp_log=None,
     )
+    header_message_ids = mcp_tools_call_message_ids(mcp_events)
+    harvested_ui_ids = [str(item) for item in (ui_message_ids or []) if str(item).strip()]
 
     assert openai_loop["completion_n"] >= 2, openai_loop
     assert any(mcp_tool in name for name in openai_loop["tool_names"]), openai_loop["tool_names"]
@@ -180,12 +331,32 @@ def assert_openwebui_tool_loop(
         assert lab_id != conversation_id
         assert lab_id.startswith("chat_")
 
+    assert header_message_ids, (
+        "Open WebUI did not send X-OpenWebUI-Message-Id on tools/call — "
+        "cannot PASS without a product UI message id"
+    )
+    for message_id in header_message_ids:
+        assert is_product_ui_message_id(message_id), (
+            f"tools/call message_id is not a product UI id: {message_id!r}"
+        )
+    assert harvested_ui_ids, (
+        "could not harvest Open WebUI user message id from GET /api/v1/chats "
+        "or the send-hop chat API — cannot PASS"
+    )
+    assert any(is_product_ui_message_id(item) for item in harvested_ui_ids), harvested_ui_ids
+    assert header_message_ids[-1] in harvested_ui_ids, (
+        header_message_ids[-1],
+        harvested_ui_ids,
+    )
+
     assert expected_fragment.lower() in ui_text.lower(), ui_text[-500:]
 
     return {
         "openai": openai_loop,
         "mcp": mcp_loop,
         "conversation_id": conversation_id,
+        "ui_message_id": header_message_ids[-1],
+        "ui_message_ids": harvested_ui_ids,
         "ids": ids,
         "trace": trace,
     }
