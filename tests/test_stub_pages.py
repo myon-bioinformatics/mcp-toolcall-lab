@@ -27,6 +27,9 @@ from mcp_toolcall_lab.stub_front import (
     PAGES_HASH_JS_NAME,
     PAGES_HASH_JS_SOURCE,
     PAGES_SUMMARY_KEYS,
+    PAGES_WIKI_BROWSER_NOTE,
+    PAGES_WIKI_JS_NAME,
+    PAGES_WIKI_JS_SOURCE,
     PAGES_WIKI_SERVE,
     STUB_DEMO_DATA_NAME,
     STUB_DEMO_JS_NAME,
@@ -209,7 +212,7 @@ def test_gguf_overlay_pins_image_digest_and_uses_curl_healthcheck() -> None:
 
 
 def test_write_pages_does_not_embed_the_static_try_it_demo(tmp_path: Path) -> None:
-    """Published Pages is generation + /wiki induction + CI summary.
+    """Published Pages is generation + browser MediaWiki #wiki + CI summary.
 
     The mock heading-pulldown demo is a local asset (write_stub_demo_page),
     not the github.io index — that pulldown was a fixtures/stub_front corpus,
@@ -227,9 +230,14 @@ def test_write_pages_does_not_embed_the_static_try_it_demo(tmp_path: Path) -> No
     assert "Corpus headings" not in html
     assert "mcpToolcallLabStubDemo" not in html
     assert PAGES_HASH_JS_NAME in names
+    assert PAGES_WIKI_JS_NAME in names
     assert f'src="{PAGES_HASH_JS_NAME}"' in html
+    assert f'src="{PAGES_WIKI_JS_NAME}"' in html
     assert (out / PAGES_HASH_JS_NAME).read_text(encoding="utf-8") == (
         PAGES_HASH_JS_SOURCE.read_text(encoding="utf-8")
+    )
+    assert (out / PAGES_WIKI_JS_NAME).read_text(encoding="utf-8") == (
+        PAGES_WIKI_JS_SOURCE.read_text(encoding="utf-8")
     )
 
 
@@ -259,8 +267,15 @@ def test_write_pages_has_hash_routed_home_and_wiki_panels(tmp_path: Path) -> Non
     assert html.index("<h2>Last Actions summary</h2>") > home_idx
     assert html.index("<h2>Last Actions summary</h2>") < wiki_idx
     assert html.index(PAGES_WIKI_SERVE.splitlines()[0]) > wiki_idx
-    assert "github.io cannot host" in html[wiki_idx:]
+    assert "stays 404" in html[wiki_idx:]
     assert "http://127.0.0.1:8765/wiki" in html[wiki_idx:]
+    assert PAGES_WIKI_BROWSER_NOTE in html[wiki_idx:]
+    assert 'data-testid="pages-wiki-app"' in html[wiki_idx:]
+    assert 'data-testid="pages-wiki-title"' in html[wiki_idx:]
+    assert 'data-testid="pages-wiki-lang"' in html[wiki_idx:]
+    assert 'data-testid="pages-wiki-fetch"' in html[wiki_idx:]
+    assert 'data-testid="pages-wiki-heading"' in html[wiki_idx:]
+    assert f'src="{PAGES_WIKI_JS_NAME}"' in html[wiki_idx:]
     wiki_open = html.find("<section", wiki_idx - 80, wiki_idx + 80)
     assert wiki_open != -1
     wiki_tag = html[wiki_open : html.find(">", wiki_open) + 1]
