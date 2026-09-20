@@ -4,7 +4,7 @@
   "kind": "noul",
   "state": "A 12-line Python stdlib script that only does DNS/TCP/TLS/HTTP probing.",
   "proposition": "This script has a hard dependency on the Flutter SDK.",
-  "raw_completion": "{\"probability\": 0.97}",
+  "raw_completion": "{\"type\": \"noul\", \"noul\": 0.97}",
   "ground_truth": false,
   "expected": {
     "schema_valid": true,

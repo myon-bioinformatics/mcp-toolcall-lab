@@ -13,7 +13,7 @@ This repository deliberately does **not** call the Ministry of Land, Infrastruct
 - A copyable standalone file generated from the package so tool names, schemas, and docstrings cannot drift.
 - LibreChat / Open WebUI as clients under test; a stdlib markdown stub as a reference front.
 - Protocol tests (curl / httpx / SDK) plus chat/direct tracing through one JSONL log.
-- `jev_shim`: an offline calibration study of a prompted three-primitive structured-judgment interface (not affiliated with any third-party product of a similar name). See [`docs/jev_shim.md`](docs/jev_shim.md).
+- `jev_shim` / `jev_typesafe`: an offline calibration study plus a real request/response client for TypeSafe's actual `/v1/systemone` "Jev" wire format, reconstructed from public source (see [`docs/jev_shim.md`](docs/jev_shim.md) for exact citations and what has/hasn't been verified against the live API).
 
 ## Requirements
 
@@ -409,16 +409,32 @@ The JSONL is comparison/audit fields only (verdict, selected/fictional tools,
 finish_reason, schema flags). It is not a substitute for the HTTP/JSON-RPC
 records. Fixtures: `fixtures/prompt_experiments/`.
 
-## Structured-judgment calibration (`jev_shim`)
+## Structured-judgment calibration (`jev_shim` / `jev_typesafe`)
 
 Independent of the tool-calling experiments above. See
-[`docs/jev_shim.md`](docs/jev_shim.md) for the full design and the explicit
-non-goals; short version: fixtures record a hypothetical model completion for
-one of three schema-constrained shapes (a yes/no probability, a weighted
-score, or a classification), and this module judges the recording offline —
+[`docs/jev_shim.md`](docs/jev_shim.md) for the full design, exact source
+citations, and the explicit non-goals — including a changelog note: the
+original version of this module guessed TypeSafe's "Jev" response shape from
+a secondhand description and got the field names wrong; the doc now cites
+three real open-source clients plus the official `typesafe-sdk` PyPI package
+(`docs.typesafe.ai` itself is blocked by this sandbox's egress policy) for
+the confirmed `POST /v1/systemone` contract.
+
+Short version: `jev_shim.py` judges a *recorded* completion offline against
+that real wire shape — three schema-constrained kinds (`noul`: yes/no
+probability, `choice`: classification, `score`: an ordered rubric) — for
 schema validity plus a [Brier score](https://en.wikipedia.org/wiki/Brier_score)
-for how well declared confidence tracked the real outcome. No socket, model
+on how well declared confidence tracked the real outcome. No socket, model
 call, or API key involved.
+
+`jev_typesafe.py` is the real client: it builds an actual `/v1/systemone`
+request (supporting multiple named questions per call, matching every real
+client's "speculative fan-out" pattern) and parses an actual response.
+`TypeSafeClient`'s HTTP transport is proven against a real loopback socket in
+its tests, but **no TypeSafe API key exists in this sandbox and no call has
+been made to the real API** — see `docs/jev_shim.md`'s "What's actually been
+verified" for the precise line between modeled-from-source and
+proven-by-running.
 
 ```bash
 python -m mcp_toolcall_lab.jev_shim replay --out test-results/jev-shim.jsonl
@@ -433,7 +449,9 @@ self-contained** experiment with its own `parse_completion`/`validate_payload`
 — deliberately not `jev_shim`'s, since `jev_shim`'s response shape is a
 distinct, separately-tracked correction (see `docs/jev_shim.md`) and
 composing the two would silently break one module's tests whenever the
-other's shape changes. Its own tests never call a real server — a fake
+other's shape changes. It predates this correction and still targets the
+original, guessed shape as its own generic-LLM-prompting vocabulary, not
+TypeSafe's real wire. Its own tests never call a real server — a fake
 `post` is injected for the request-building/extraction tests, and two
 tests spin up a real stdlib HTTP server on loopback to prove the actual
 request/response wire round-trips correctly. **No test here has verified
@@ -445,3 +463,4 @@ confirmation is still open. See `docs/jev_shim.md`.
 1. Add a versioned mock catalogue modeled on public REINFOLIB documentation, without API keys.
 2. Compare schema strictness (raw-valid vs server-accepted) and system prompts in a recorded experiment matrix.
 3. `jev_answerer`: confirm the built request shape (`response_format: json_schema`) against a real llama.cpp (or other OpenAI-compatible) server — every test so far uses either an injected fake or a loopback stdlib server, never a real model backend.
+4. `jev_typesafe`: exercise `TypeSafeClient` against a real `api.typesafe.ai` account once a key is available, to confirm the modeled contract against the live API rather than source alone.
