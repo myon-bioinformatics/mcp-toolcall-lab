@@ -191,6 +191,8 @@ def render_rows(rows: list[dict[str, Any]]) -> str:
     md = load_markdown()
     if md is not None and hasattr(md, "table"):
         return md.table(keys, table_rows)
+    # Last-resort pipe table when vendor/markdown.py is absent. Generation
+    # and HTML/CSS for GFM tables belong to the vendored library.
     header = "| " + " | ".join(keys) + " |"
     sep = "| " + " | ".join("---" for _ in keys) + " |"
     body = ["| " + " | ".join(str(row.get(key, "")) for key in keys) + " |" for row in rows]
@@ -308,6 +310,18 @@ def _assistant_html(text: str) -> str:
     if md is not None and hasattr(md, "markdown_to_html"):
         return md.markdown_to_html(text)
     return f"<pre>{html.escape(text)}</pre>"
+
+
+def _vendor_style_tag(md: Any = None) -> str:
+    """Embed vendor CSS for ``markdown_to_html`` output.
+
+    ``default_stylesheet()`` lives in ``vendor/markdown.py`` (tables, alerts,
+    code, footnotes, …). The lab does not keep a second showcase stylesheet.
+    """
+    module = md if md is not None else load_markdown()
+    if module is not None and hasattr(module, "default_stylesheet"):
+        return f"<style>{module.default_stylesheet()}</style>"
+    return ""
 
 
 PAGES_FORBIDDEN_NAMES = frozenset(
@@ -787,14 +801,12 @@ def write_pages(
             "<pre>" + html.escape(PAGES_WIKI_SERVE) + "</pre>"
         )
     wiki_inner = wiki_inner + _pages_wiki_app_html()
-    # No authored CSS: headings/lists/tables/code blocks from markdown.py
-    # already read fine under the browser's own default stylesheet -- the
-    # same bet https://abehiroshi.la.coocan.jp/ makes, minimum effort for a
-    # technical report page nobody needs to be styled. Hide/show uses the
-    # HTML hidden attribute, not a stylesheet.
+    # Hide/show uses the HTML hidden attribute. Converted Markdown CSS comes
+    # from vendor/markdown.py (default_stylesheet), not a lab-authored copy.
     html_page = (
         "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
         "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
+        f"{_vendor_style_tag(md)}"
         "<title>mcp-toolcall-lab stub</title>"
         "</head><body>"
         "<h1>mcp-toolcall-lab stub</h1>"
@@ -938,6 +950,7 @@ def _page(chat_id: str, turns: list[Turn], prompt: str = "", sections: list[Sect
         options.append(f'<option value="{html.escape(section.title)}">{html.escape(section.title)}</option>')
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><title>stub-front {html.escape(chat_id)}</title>
+{_vendor_style_tag()}
 <style>
  body {{ font-family: sans-serif; max-width: 52rem; margin: 1.5rem auto; }}
  textarea {{ width: 100%; min-height: 4rem; }}

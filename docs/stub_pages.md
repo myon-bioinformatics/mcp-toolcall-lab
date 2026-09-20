@@ -25,7 +25,7 @@ missing, never the string `"None"`.
 
 | Service | DNS | Role |
 | --- | --- | --- |
-| `stub-front` | `:8765` | `markdown.py` + stdlib chat stub |
+| `stub-front` | `:8765` | vendored `markdown.py` + stdlib chat stub |
 | `mcp-mock` | `http://mcp-mock:8000/mcp` | generated FastMCP mock |
 | `cpu-llm` | `http://cpu-llm:8080/v1` | CPU-class model (lite stand-in today) |
 
@@ -85,6 +85,11 @@ there is logged as `CPU_LLM_COMPLETION_FAILED`, distinct from
 in the published summary so the Pages report says honestly which one ran.
 
 ## What the published page is
+
+Converted Markdown on this page (headings, lists, fenced JSON, …) is
+styled with `vendor/markdown.py`'s `default_stylesheet()`, not a
+lab-authored showcase CSS file. Hide/show of Home vs `#wiki` still uses
+the HTML `hidden` attribute.
 
 Near the top: a plain-HTML generation block (`Commit <shortSha>`, linked
 when `commitUrl` is known; Version only if `mcp_toolcall_lab.__version__`

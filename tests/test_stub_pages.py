@@ -54,11 +54,29 @@ def test_vendored_markdown_py_is_loadable() -> None:
     assert md is not None
     assert md.split_sections("# Yokohama\n\nbody\n")[0]["title"] == "Yokohama"
     recorded = assert_markdown_provenance()
-    assert recorded["commit"] == "f3c0bf82a7d0f0e9653a224d7055911e3068b7ff"
-    assert recorded["blob_sha"] == "ad3b9f8e81dafd8e17bb40035c390e42e69869ad"
+    assert recorded["commit"] == "446f7ab4df8b14018b7f37f83a63432fe9cdca5e"
+    assert recorded["blob_sha"] == "c40c8626df29444b1dca370c0835932956570468"
+    assert recorded["sha256"] == "daabe5dfab4d753b1bde3fd5c983305c05b43feb2c2190675fea42f500dd1e56"
     readme = (ROOT / "vendor" / "README.md").read_text(encoding="utf-8")
     assert "ref=${COMMIT}" in readme
     assert "not `main`" in readme
+    # P0–P3 APIs from myon-bioinformatics/markdown#17–#21 must be present.
+    assert hasattr(md, "markdown_to_html")
+    assert hasattr(md, "html_to_markdown")
+    assert hasattr(md, "default_stylesheet")
+    assert hasattr(md, "alert_stylesheet")
+    assert hasattr(md, "markdown_to_kramdown")
+    assert hasattr(md, "kramdown_to_markdown")
+    assert hasattr(md, "ial")
+    assert hasattr(md, "with_attributes")
+    html = md.markdown_to_html("| a | b |\n| --- | --- |\n| 1 | 2 |\n")
+    assert "<table>" in html
+    assert md.html_to_markdown("<table><tr><th>a</th></tr><tr><td>1</td></tr></table>").count("|") >= 2
+    assert "~~gone~~" in md.html_to_markdown("<del>gone</del>")
+    kramdown = md.markdown_to_kramdown('# Title {#intro .hero}\n')
+    assert "{: #intro .hero}" in kramdown
+    assert "#intro" in md.ial(id="intro")
+    assert ".markdown-alert" in md.default_stylesheet()
 
 
 def test_parse_sections_uses_markdown_py_bodies() -> None:
@@ -97,6 +115,42 @@ def test_write_pages_is_static(tmp_path: Path) -> None:
     assert (tmp_path / "site" / "summary.json").is_file()
     assert (tmp_path / "site" / BUILD_META_NAME).is_file()
     assert not (tmp_path / "site" / "last-run.json").exists()
+
+
+def test_write_pages_embeds_vendor_stylesheet_not_lab_css(tmp_path: Path) -> None:
+    """Pages CSS for converted Markdown comes from vendor/markdown.py."""
+    md = load_markdown()
+    assert md is not None
+    html = write_pages(tmp_path / "site", revision=_FAKE_REVISION).read_text(encoding="utf-8")
+    vendor_css = md.default_stylesheet()
+    assert vendor_css
+    assert vendor_css in html
+    assert html.index("<style>") < html.index("<title>")
+    # Lab must not ship a second markdown-feature stylesheet next to Pages.
+    assert not (ROOT / "src" / "mcp_toolcall_lab" / "static" / "markdown.css").exists()
+
+
+_VENDOR_OWNED_NAMES = (
+    "markdown_to_kramdown",
+    "kramdown_to_markdown",
+    "default_stylesheet",
+    "alert_stylesheet",
+    "html_to_markdown",
+)
+
+
+def test_lab_source_does_not_reimplement_vendor_converters() -> None:
+    """Ownership split: Markdown↔HTML/CSS/Kramdown IAL stay in vendor/."""
+    src_root = ROOT / "src" / "mcp_toolcall_lab"
+    offenders: list[str] = []
+    for path in src_root.rglob("*"):
+        if not path.is_file() or path.suffix not in {".py", ".js", ".css"}:
+            continue
+        text = path.read_text(encoding="utf-8")
+        for name in _VENDOR_OWNED_NAMES:
+            if f"def {name}" in text or f"function {name}" in text:
+                offenders.append(f"{path.relative_to(ROOT)}:{name}")
+    assert offenders == []
 
 
 def test_pages_tree_excludes_raw_mcp_logs(tmp_path: Path) -> None:
