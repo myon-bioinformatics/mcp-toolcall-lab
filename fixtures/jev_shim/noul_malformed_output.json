@@ -1,0 +1,13 @@
+{
+  "id": "noul_malformed_output",
+  "title": "The prompted-only shim's real failure mode: the model just talks instead of emitting the shape",
+  "kind": "noul",
+  "state": "A repository README claims 100% test coverage.",
+  "proposition": "The claim is independently verifiable from the README alone.",
+  "raw_completion": "I think this is probably false, since a README claiming coverage doesn't prove it without seeing the CI config.",
+  "ground_truth": false,
+  "expected": {
+    "schema_valid": false,
+    "correct": null
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "id": "choice_correct",
+  "title": "Classification matches ground truth, distribution shape is valid",
+  "kind": "choice",
+  "state": "tool/net_probe.dart: imports only dart:async, dart:io, and a local toolkit helper.",
+  "options": ["stays_dart", "ports_to_python", "ports_to_deno"],
+  "raw_completion": "{\"choice\": \"ports_to_python\", \"distribution\": {\"stays_dart\": 0.15, \"ports_to_python\": 0.75, \"ports_to_deno\": 0.10}, \"confidence\": 0.75}",
+  "ground_truth": "ports_to_python",
+  "expected": {
+    "schema_valid": true,
+    "correct": true
+  }
+}

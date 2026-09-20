@@ -1,0 +1,13 @@
+{
+  "id": "noul_well_calibrated_true",
+  "title": "Confident and correct: a proposition that is actually true",
+  "kind": "noul",
+  "state": "The function `is_probability` in jev_shim.py rejects booleans even though Python's `bool` is a subclass of `int`.",
+  "proposition": "The proposition above is true.",
+  "raw_completion": "{\"probability\": 0.92}",
+  "ground_truth": true,
+  "expected": {
+    "schema_valid": true,
+    "correct": true
+  }
+}
