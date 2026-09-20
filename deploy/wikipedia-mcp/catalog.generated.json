@@ -1,0 +1,68 @@
+{
+  "repository": "https://github.com/myon-bioinformatics/mcp-toolcall-lab",
+  "source": "mcp_toolcall_lab.server.create_mcp list_tools",
+  "tools": [
+    {
+      "name": "fetch_wikipedia_article",
+      "description": "Fetch a real Wikipedia article as a MediaWiki plaintext extract (not HTML). Returns canonical_title, extract, and headings from that same fetch. In-process TTL/LRU cache reuses the extract when only the heading changes.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "lang": {
+            "default": "en",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "additionalProperties": true,
+        "type": "object"
+      }
+    },
+    {
+      "name": "fetch_wikipedia_section",
+      "description": "Fetch a real Wikipedia article's sections over HTTP (the one family here that is not a mock). Omit `heading` to list section titles (a pulldown); pass one to get that section's body. Unmatched heading is an empty result, not an error. Same article is cached in-process so heading switches do not refetch.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "heading": {
+            "default": "",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "items": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      }
+    }
+  ]
+}
