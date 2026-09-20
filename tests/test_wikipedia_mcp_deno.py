@@ -193,29 +193,21 @@ def _read_tail(path: Path, limit: int = 4000) -> str:
 class RunningDeno:
     url: str
     process: subprocess.Popen[str]
-    kv_path: Path
 
 
 @contextmanager
 def running_wikipedia_mcp(
     extra_env: dict[str, str] | None = None,
-    *,
-    kv_path: Path | None = None,
 ) -> Iterator[RunningDeno]:
     if not Path(DENO).is_file():
         pytest.skip("deno is not installed")
     port = _free_port()
-    kv_dir: Path | None = None
-    if kv_path is None:
-        kv_dir = Path(tempfile.mkdtemp(prefix="wiki-mcp-kv-"))
-        kv_path = kv_dir / "sessions.kv"
     stderr_path = Path(tempfile.mkstemp(prefix="wiki-mcp-stderr-", suffix=".log")[1])
     env = {
         **os.environ,
         "MCP_HOST": "127.0.0.1",
         "MCP_PORT": str(port),
         FIXTURE_ENV: str(WIKI_FIXTURE),
-        "MCP_KV_PATH": str(kv_path),
     }
     if extra_env:
         env.update(extra_env)
@@ -224,11 +216,9 @@ def running_wikipedia_mcp(
             [
                 DENO,
                 "run",
-                "--unstable-kv",
                 "--allow-net",
                 "--allow-env",
                 "--allow-read",
-                "--allow-write",
                 "main.ts",
             ],
             cwd=DENO_DIR,
@@ -257,7 +247,7 @@ def running_wikipedia_mcp(
                     process.kill()
                     process.wait(timeout=5)
                 raise RuntimeError(f"Deno Wikipedia MCP did not start: {_read_tail(stderr_path)}")
-            yield RunningDeno(url=url, process=process, kv_path=kv_path)
+            yield RunningDeno(url=url, process=process)
         finally:
             process.terminate()
             try:
@@ -266,8 +256,6 @@ def running_wikipedia_mcp(
                 process.kill()
                 process.wait(timeout=5)
     stderr_path.unlink(missing_ok=True)
-    if kv_dir is not None:
-        shutil.rmtree(kv_dir, ignore_errors=True)
 
 
 class DenoMcpSession:
@@ -595,27 +583,63 @@ def test_deno_session_expires_after_ttl() -> None:
             session.close()
 
 
-def test_deno_session_survives_process_restart_via_shared_kv(tmp_path: Path) -> None:
-    kv_path = tmp_path / "sessions.kv"
-    with running_wikipedia_mcp(kv_path=kv_path) as server:
+def test_deno_hmac_session_is_accepted_by_a_second_process() -> None:
+    """Tokens are HMAC + TTL, not KV or an isolate-local Set — a second
+    process with the same MCP_SESSION_SECRET must accept the first process's id."""
+
+    secret = {"MCP_SESSION_SECRET": "lab-test-mcp-session-secret"}
+    with running_wikipedia_mcp(secret) as first:
+        session = DenoMcpSession(first.url)
+        try:
+            session.initialize()
+            token = session.session_id
+            assert token and token.startswith("sess_")
+            with running_wikipedia_mcp(secret) as second:
+                listed = httpx.post(
+                    second.url,
+                    headers={
+                        "Content-Type": "application/json",
+                        "Accept": ACCEPT,
+                        "Mcp-Session-Id": token,
+                    },
+                    json={"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}},
+                    timeout=10.0,
+                )
+            assert listed.status_code == 200
+            parsed = extract_sse_data(listed.text)
+            assert [tool["name"] for tool in parsed["result"]["tools"]] == list(
+                sorted(WIKIPEDIA_TOOL_NAMES)
+            )
+        finally:
+            session.close()
+
+
+def test_deno_tampered_session_is_rejected() -> None:
+    with running_wikipedia_mcp({"MCP_SESSION_SECRET": "lab-test-mcp-session-secret"}) as server:
         session = DenoMcpSession(server.url)
         try:
             session.initialize()
-            session_id = session.session_id
-            assert session_id
-        finally:
-            session.close()
-    with running_wikipedia_mcp(kv_path=kv_path) as server:
-        session = DenoMcpSession(server.url)
-        session.session_id = session_id
-        try:
-            response = session.post(
-                {"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}}
+            token = session.session_id
+            assert token
+            parts = token.split(".")
+            assert len(parts) == 3
+            mac = parts[2]
+            parts[2] = ("B" if mac.startswith("A") else "A") + mac[1:]
+            flipped = ".".join(parts)
+            listed = httpx.post(
+                server.url,
+                headers={
+                    "Content-Type": "application/json",
+                    "Accept": ACCEPT,
+                    "Mcp-Session-Id": flipped,
+                },
+                json={"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}},
+                timeout=10.0,
             )
-            assert response.status_code == 200
-            parsed = extract_sse_data(response.text)
-            names = [tool["name"] for tool in parsed["result"]["tools"]]
-            assert names == list(sorted(WIKIPEDIA_TOOL_NAMES))
+            assert listed.status_code == 400
+            body = listed.json()
+            assert body["error"]["code"] == -32000
+            assert "Mcp-Session-Id" in body["error"]["message"]
         finally:
             session.close()
 

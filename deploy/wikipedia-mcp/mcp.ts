@@ -1,7 +1,7 @@
 /** Streamable HTTP MCP: JSON-RPC 2.0 + SSE + Mcp-Session-Id + CORS. */
 
 import catalog from "./catalog.generated.json" with { type: "json" };
-import { allowWikiFetch, mintSession, sessionValid } from "./session.ts";
+import { allowWikiFetch, mintSessionToken, verifySessionToken } from "./session.ts";
 import {
   DEFAULT_LANG,
   WikipediaFetchError,
@@ -255,12 +255,12 @@ export async function handleRequest(req: Request): Promise<Response> {
   >;
 
   if (method === "initialize") {
-    const sessionId = await mintSession();
+    const sessionId = await mintSessionToken();
     return rpcResult(id, initializeResult(), { "Mcp-Session-Id": sessionId });
   }
 
   const sessionId = sessionOf(req);
-  if (!sessionId || !(await sessionValid(sessionId))) {
+  if (!sessionId || !(await verifySessionToken(sessionId))) {
     return jsonResponse(400, {
       jsonrpc: "2.0",
       id,
@@ -286,7 +286,7 @@ export async function handleRequest(req: Request): Promise<Response> {
         !Array.isArray(params.arguments)
       ? params.arguments
       : {}) as Record<string, unknown>;
-    if (WIKI_FETCH_TOOLS.has(name) && !(await allowWikiFetch(req))) {
+    if (WIKI_FETCH_TOOLS.has(name) && !allowWikiFetch(req)) {
       return rpcResult(id, toolError("Wikipedia fetch rate limit exceeded"), sessionHeader);
     }
     const result = await callTool(name, args);
