@@ -48,7 +48,7 @@ def test_five_expected_fixture_ids_present() -> None:
 
 
 def test_parse_completion_valid_json() -> None:
-    assert parse_completion('{"probability": 0.5}') == {"probability": 0.5}
+    assert parse_completion('{"type": "noul", "noul": 0.5}') == {"type": "noul", "noul": 0.5}
 
 
 def test_parse_completion_free_text_is_none() -> None:
@@ -60,24 +60,29 @@ def test_parse_completion_empty_string_is_none() -> None:
 
 
 # --- validate_noul_payload ----------------------------------------------
+#
+# Shapes below match TypeSafe's real /v1/systemone wire (see jev_shim.py's
+# module docstring and docs/jev_shim.md), not the original guessed shape.
 
 
 def test_noul_payload_valid() -> None:
-    assert validate_noul_payload({"probability": 0.0}) is True
-    assert validate_noul_payload({"probability": 1.0}) is True
-    assert validate_noul_payload({"probability": 0.42}) is True
+    assert validate_noul_payload({"type": "noul", "noul": 0.0}) is True
+    assert validate_noul_payload({"type": "noul", "noul": 1.0}) is True
+    assert validate_noul_payload({"type": "noul", "noul": 0.42}) is True
 
 
 def test_noul_payload_rejects_out_of_range() -> None:
-    assert validate_noul_payload({"probability": 1.5}) is False
-    assert validate_noul_payload({"probability": -0.1}) is False
+    assert validate_noul_payload({"type": "noul", "noul": 1.5}) is False
+    assert validate_noul_payload({"type": "noul", "noul": -0.1}) is False
 
 
 def test_noul_payload_rejects_wrong_shape() -> None:
-    assert validate_noul_payload({"probability": 0.5, "extra": 1}) is False
+    assert validate_noul_payload({"type": "noul", "noul": 0.5, "extra": 1}) is False
     assert validate_noul_payload({}) is False
-    assert validate_noul_payload({"probability": "0.5"}) is False
-    assert validate_noul_payload({"probability": True}) is False  # bool is not a probability
+    assert validate_noul_payload({"type": "noul", "noul": "0.5"}) is False
+    assert validate_noul_payload({"type": "noul", "noul": True}) is False  # bool is not a probability
+    assert validate_noul_payload({"type": "choice", "noul": 0.5}) is False  # wrong type tag
+    assert validate_noul_payload({"noul": 0.5}) is False  # missing type
     assert validate_noul_payload("not a dict") is False
     assert validate_noul_payload(None) is False
 
@@ -86,39 +91,85 @@ def test_noul_payload_rejects_wrong_shape() -> None:
 
 
 def test_choice_payload_valid() -> None:
-    payload = {"choice": "a", "distribution": {"a": 0.6, "b": 0.4}, "confidence": 0.6}
+    payload = {"type": "choice", "choice": "a", "confidence": 0.6, "probabilities": {"a": 0.6, "b": 0.4}}
     assert validate_choice_payload(payload) is True
 
 
-def test_choice_payload_rejects_choice_not_in_distribution() -> None:
-    payload = {"choice": "c", "distribution": {"a": 0.6, "b": 0.4}, "confidence": 0.6}
+def test_choice_payload_rejects_choice_not_in_probabilities() -> None:
+    payload = {"type": "choice", "choice": "c", "confidence": 0.6, "probabilities": {"a": 0.6, "b": 0.4}}
     assert validate_choice_payload(payload) is False
 
 
-def test_choice_payload_rejects_distribution_not_summing_to_one() -> None:
-    payload = {"choice": "a", "distribution": {"a": 0.6, "b": 0.1}, "confidence": 0.6}
+def test_choice_payload_rejects_probabilities_not_summing_to_one() -> None:
+    payload = {"type": "choice", "choice": "a", "confidence": 0.6, "probabilities": {"a": 0.6, "b": 0.1}}
     assert validate_choice_payload(payload) is False
 
 
 def test_choice_payload_rejects_missing_keys() -> None:
-    assert validate_choice_payload({"choice": "a"}) is False
+    assert validate_choice_payload({"type": "choice", "choice": "a"}) is False
+
+
+def test_choice_payload_rejects_wrong_type_tag() -> None:
+    payload = {"type": "noul", "choice": "a", "confidence": 0.6, "probabilities": {"a": 1.0}}
+    assert validate_choice_payload(payload) is False
 
 
 # --- validate_score_payload ----------------------------------------------
 
 
 def test_score_payload_valid() -> None:
-    payload = {"score": 7.5, "distribution": {"low": 0.2, "high": 0.8}, "confidence": 0.5}
+    payload = {
+        "type": "score",
+        "score": 0.8,
+        "confidence": 0.5,
+        "legend": {"0": "low", "1": "high"},
+        "probabilities": {"0": 0.2, "1": 0.8},
+    }
     assert validate_score_payload(payload) is True
 
 
 def test_score_payload_rejects_non_numeric_score() -> None:
-    payload = {"score": "high", "distribution": {"low": 0.2, "high": 0.8}, "confidence": 0.5}
+    payload = {
+        "type": "score",
+        "score": "high",
+        "confidence": 0.5,
+        "legend": {"0": "low", "1": "high"},
+        "probabilities": {"0": 0.2, "1": 0.8},
+    }
     assert validate_score_payload(payload) is False
 
 
 def test_score_payload_rejects_bad_confidence() -> None:
-    payload = {"score": 7.5, "distribution": {"low": 0.2, "high": 0.8}, "confidence": 1.2}
+    payload = {
+        "type": "score",
+        "score": 0.8,
+        "confidence": 1.2,
+        "legend": {"0": "low", "1": "high"},
+        "probabilities": {"0": 0.2, "1": 0.8},
+    }
+    assert validate_score_payload(payload) is False
+
+
+def test_score_payload_rejects_non_ordinal_legend_keys() -> None:
+    """Real TypeSafe scores are an ordered rubric list; legend keys are "0", "1", ... ."""
+    payload = {
+        "type": "score",
+        "score": 0.8,
+        "confidence": 0.5,
+        "legend": {"low": "low", "high": "high"},
+        "probabilities": {"low": 0.2, "high": 0.8},
+    }
+    assert validate_score_payload(payload) is False
+
+
+def test_score_payload_rejects_probabilities_keys_not_matching_legend() -> None:
+    payload = {
+        "type": "score",
+        "score": 0.8,
+        "confidence": 0.5,
+        "legend": {"0": "low", "1": "high"},
+        "probabilities": {"0": 0.2, "2": 0.8},
+    }
     assert validate_score_payload(payload) is False
 
 
@@ -175,8 +226,8 @@ def test_replay_choice_correct() -> None:
 def test_replay_score_records_error_not_pass_fail() -> None:
     audit = replay_case(_cases()["score_close_estimate"])
     assert audit["schema_valid"] is True
-    assert audit["predicted_score"] == 6.0
-    assert audit["error"] == pytest.approx(0.5)
+    assert audit["predicted_score"] == 2.3
+    assert audit["error"] == pytest.approx(0.2)
     assert audit["correct"] is None  # score has no correct/incorrect notion
 
 

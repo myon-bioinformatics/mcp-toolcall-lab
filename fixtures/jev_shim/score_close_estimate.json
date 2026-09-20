@@ -3,11 +3,16 @@
   "title": "Score is off by a small, recorded amount -- not a pass/fail question",
   "kind": "score",
   "state": "tool/net_probe.py: 8 unit tests, all pure-logic (no live network), stdlib only.",
-  "criteria": "Rate test-suite thoroughness for a diagnostic CLI, 0 (none) to 10 (exhaustive incl. live-network paths).",
-  "raw_completion": "{\"score\": 6.0, \"distribution\": {\"low\": 0.1, \"mid\": 0.6, \"high\": 0.3}, \"confidence\": 0.55}",
-  "ground_truth": 6.5,
+  "criteria": [
+    "0: no test coverage",
+    "1: basic happy-path coverage only",
+    "2: thorough for the offline/pure-logic surface",
+    "3: thorough including live-network paths"
+  ],
+  "raw_completion": "{\"type\": \"score\", \"score\": 2.3, \"confidence\": 0.6, \"legend\": {\"0\": \"no test coverage\", \"1\": \"basic happy-path coverage only\", \"2\": \"thorough for the offline/pure-logic surface\", \"3\": \"thorough including live-network paths\"}, \"probabilities\": {\"0\": 0.02, \"1\": 0.08, \"2\": 0.6, \"3\": 0.3}}",
+  "ground_truth": 2.5,
   "expected": {
     "schema_valid": true,
-    "error": 0.5
+    "error": 0.2
   }
 }

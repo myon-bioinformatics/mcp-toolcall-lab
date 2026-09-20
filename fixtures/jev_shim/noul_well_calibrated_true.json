@@ -4,7 +4,7 @@
   "kind": "noul",
   "state": "The function `is_probability` in jev_shim.py rejects booleans even though Python's `bool` is a subclass of `int`.",
   "proposition": "The proposition above is true.",
-  "raw_completion": "{\"probability\": 0.92}",
+  "raw_completion": "{\"type\": \"noul\", \"noul\": 0.92}",
   "ground_truth": true,
   "expected": {
     "schema_valid": true,
