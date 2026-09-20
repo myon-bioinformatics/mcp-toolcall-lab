@@ -73,8 +73,14 @@ CASE_MCP_ERROR = "MCP_ERROR"
 CASE_MCP_UNREACHABLE = "MCP_UNREACHABLE"
 
 WIKI_PAGES_DISCLAIMER = (
-    "This form runs on the local stdlib stub (or a CI job). "
-    "GitHub Pages is static and cannot fetch Wikipedia or keep this backend online."
+    "This form runs on the local stdlib stub (or a CI job), which fetches "
+    "Wikipedia in-process (same path as the MCP tools). Pages #wiki is a "
+    "separate browser → MediaWiki CORS form (no MCP) and cannot keep this "
+    "/wiki backend online."
+)
+PAGES_WIKI_BROWSER_NOTE = (
+    "Browser → MediaWiki API (not MCP). For the MCP Wikipedia tools / local "
+    "stub form, run compose or stub_front serve."
 )
 WIKI_EXTRACT_NOTE = (
     "MediaWiki plaintext extract, HTML-escaped. "
@@ -315,13 +321,15 @@ PAGES_FORBIDDEN_NAMES = frozenset(
 )
 
 # Local-only heading → body demo (tests / write_stub_demo_page). Not published
-# on GitHub Pages — that report is generation identity + #wiki induction.
+# on GitHub Pages — that report is generation identity + #wiki MediaWiki UI.
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 STUB_DEMO_JS_SOURCE = STATIC_DIR / "stub_demo.js"
 STUB_DEMO_JS_NAME = "stub-demo.js"
 STUB_DEMO_DATA_NAME = "stub-demo-data.json"
 PAGES_HASH_JS_SOURCE = STATIC_DIR / "pages_hash.js"
 PAGES_HASH_JS_NAME = "pages-hash.js"
+PAGES_WIKI_JS_SOURCE = STATIC_DIR / "pages_wiki.js"
+PAGES_WIKI_JS_NAME = "pages-wiki.js"
 PAGES_WIKI_SERVE = (
     "python -m mcp_toolcall_lab.stub_front serve --port 8765\n"
     "# then open /wiki  (http://127.0.0.1:8765/wiki)"
@@ -567,13 +575,13 @@ def _revision_html(revision: Mapping[str, Any]) -> str:
 
 
 def _pages_nav_html() -> str:
-    """Always-visible Home / #wiki controls. Hash only — no live /wiki path."""
+    """Always-visible Home / #wiki controls. Hash only — github.io /wiki stays 404."""
     return (
         '<p id="pages-nav">'
         '<a href="#" data-pages-nav="home" data-testid="pages-nav-home">Home</a>'
         " · "
         '<a href="#wiki" data-pages-nav="wiki" data-testid="pages-nav-wiki">'
-        "Open /wiki guidance</a>"
+        "Wiki</a>"
         "</p>"
     )
 
@@ -597,8 +605,9 @@ def _pages_wiki_back_html() -> str:
 def _pages_home_markdown(md: Any, summary_text: str) -> str:
     return "\n".join(
         [
-            "The live Wikipedia form (`GET /wiki`) is the local stdlib stub, not this "
-            "GitHub Pages host. [Open /wiki guidance](#wiki) for the exact serve command.",
+            "This host's [Wiki](#wiki) panel fetches Wikipedia from the browser "
+            "(MediaWiki Action API, CORS `origin=*`, no MCP). The MCP tools and "
+            "local `GET /wiki` form still need compose or `stub_front serve`.",
             "",
             md.heading("Last Actions summary", 2),
             "Allowlisted snapshot from the last `stub-pages` GitHub Actions run "
@@ -618,16 +627,51 @@ def _pages_home_markdown(md: Any, summary_text: str) -> str:
 
 def _pages_wiki_markdown(md: Any) -> str:
     return md.section(
-        "Live Wikipedia form (`/wiki`, not on this host)",
+        "Wikipedia extract (browser → MediaWiki API)",
         [
-            "The live Wikipedia title form + heading select is on the local stdlib stub "
-            "(`GET /wiki`), not this static GitHub Pages host. github.io cannot host "
-            "the live form or keep that backend. Reproduce locally:",
+            "This `#wiki` panel calls Wikipedia's Action API from the browser "
+            "(`origin=*`). It is not an MCP tool call. github.io `/wiki` stays 404; "
+            "that path is the local stdlib stub. MCP tools / local form:",
             md.code_block(PAGES_WIKI_SERVE, lang="bash"),
-            "GitHub Pages is static and cannot keep that backend, so this page does not "
-            "include the live form. CI screenshots use "
-            "`fixtures/wikipedia/yokohama_extract.json`, not live Wikipedia.",
+            "CI screenshots of the local stub still use "
+            "`fixtures/wikipedia/yokohama_extract.json`. A heading switch on this "
+            "panel reuses the in-memory extract (no second fetch).",
         ],
+    )
+
+
+def _pages_wiki_app_html() -> str:
+    """Raw HTML for the browser MediaWiki form. Kept outside markdown.py."""
+    return (
+        f'<p data-testid="pages-wiki-disclaimer">{html.escape(PAGES_WIKI_BROWSER_NOTE)}</p>'
+        '<div id="pages-wiki-app" data-testid="pages-wiki-app">'
+        '<form id="pages-wiki-form" data-testid="pages-wiki-form">'
+        "<p>"
+        '<label for="pages-wiki-title">Wikipedia title</label> '
+        '<input id="pages-wiki-title" name="title" value="Yokohama" '
+        'placeholder="Article title" data-testid="pages-wiki-title">'
+        "</p>"
+        "<p>"
+        '<label for="pages-wiki-lang">Language</label> '
+        '<select id="pages-wiki-lang" name="lang" data-testid="pages-wiki-lang">'
+        '<option value="en" selected>en</option>'
+        '<option value="ja">ja</option>'
+        "</select> "
+        '<button type="submit" data-testid="pages-wiki-fetch">Fetch</button>'
+        "</p>"
+        "<p>"
+        '<label for="pages-wiki-heading">Heading</label> '
+        '<select id="pages-wiki-heading" name="heading" data-testid="pages-wiki-heading">'
+        '<option value="">(full extract)</option>'
+        "</select>"
+        "</p>"
+        "</form>"
+        '<p data-testid="pages-wiki-error" hidden></p>'
+        '<p data-testid="pages-wiki-canonical" hidden></p>'
+        f'<p data-testid="pages-wiki-extract-note">{html.escape(WIKI_EXTRACT_NOTE)}</p>'
+        '<pre data-testid="pages-wiki-extract" hidden></pre>'
+        "</div>"
+        f'<script src="{PAGES_WIKI_JS_NAME}"></script>'
     )
 
 
@@ -714,8 +758,9 @@ def write_pages(
     not listed on the published index (they read as a Wiki TOC).
 
     The published ``index.html`` stays on one origin/endpoint. ``#wiki`` (and
-    optional ``?view=wiki``) is an in-page view switch, not a live ``/wiki``
-    path. Local Docker ``GET /wiki`` is unchanged.
+    optional ``?view=wiki``) is an in-page view switch, not a github.io
+    ``/wiki`` path (that URL stays 404). The ``#wiki`` panel fetches
+    MediaWiki from the browser. Local Docker ``GET /wiki`` is unchanged.
     """
     from mcp_toolcall_lab.mock.common import read_jsonl
 
@@ -737,9 +782,11 @@ def write_pages(
     else:
         home_inner = "<pre>" + html.escape(summary_text) + "</pre>"
         wiki_inner = (
-            "<h2>Live Wikipedia form (`/wiki`, not on this host)</h2>"
+            "<h2>Wikipedia extract (browser → MediaWiki API)</h2>"
+            f"<p>{html.escape(PAGES_WIKI_BROWSER_NOTE)}</p>"
             "<pre>" + html.escape(PAGES_WIKI_SERVE) + "</pre>"
         )
+    wiki_inner = wiki_inner + _pages_wiki_app_html()
     # No authored CSS: headings/lists/tables/code blocks from markdown.py
     # already read fine under the browser's own default stylesheet -- the
     # same bet https://abehiroshi.la.coocan.jp/ makes, minimum effort for a
@@ -760,6 +807,9 @@ def write_pages(
     (out_dir / "index.html").write_text(html_page, encoding="utf-8")
     (out_dir / PAGES_HASH_JS_NAME).write_text(
         PAGES_HASH_JS_SOURCE.read_text(encoding="utf-8"), encoding="utf-8"
+    )
+    (out_dir / PAGES_WIKI_JS_NAME).write_text(
+        PAGES_WIKI_JS_SOURCE.read_text(encoding="utf-8"), encoding="utf-8"
     )
     (out_dir / "summary.json").write_text(summary_text + "\n", encoding="utf-8")
     (out_dir / BUILD_META_NAME).write_text(

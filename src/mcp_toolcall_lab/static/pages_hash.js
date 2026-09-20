@@ -1,7 +1,7 @@
 /*
  * Same-origin hash router for the published GitHub Pages index.
- * Switches the home report and the #wiki induction panel. Not a live
- * Wikipedia form, and not the local stub-demo.js heading pulldown.
+ * Switches the home report and the #wiki panel (browser MediaWiki form
+ * in pages-wiki.js). Not the local stub-demo.js heading pulldown.
  *
  * Vanilla JS, no build step. write_pages() copies this file next to
  * index.html as pages-hash.js. viewFromLocation / applyView are the

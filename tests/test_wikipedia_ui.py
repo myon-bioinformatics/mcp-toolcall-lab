@@ -98,15 +98,21 @@ def test_wiki_escapes_extract_that_looks_like_html(monkeypatch) -> None:
     assert 'data-testid="wiki-section"' in html
 
 
-def test_pages_tree_does_not_claim_a_live_wikipedia_backend(tmp_path: Path) -> None:
+def test_pages_tree_hosts_browser_mediawiki_not_local_wiki_or_try_it(tmp_path: Path) -> None:
     index = write_pages(tmp_path / "site")
     html = index.read_text(encoding="utf-8")
-    assert "cannot keep that backend" in html or "does not include the live form" in html
+    assert "Browser → MediaWiki API (not MCP)" in html
+    assert "stub_front serve" in html
+    assert 'data-testid="pages-wiki-app"' in html
+    assert 'data-testid="pages-wiki-title"' in html
+    assert 'data-testid="pages-wiki-form"' in html
+    assert 'src="pages-wiki.js"' in html
     assert 'data-testid="wiki-title"' not in html
     assert 'action="/wiki"' not in html
     assert 'href="/wiki"' not in html
     assert 'href="#wiki"' in html
-    assert "GitHub Pages is static" in html
+    assert "Try it (static, no MCP)" not in html
+    assert "mcpToolcallLabStubDemo" not in html
 
 
 def test_composer_page_links_to_wiki_without_implying_pages_backend() -> None:
