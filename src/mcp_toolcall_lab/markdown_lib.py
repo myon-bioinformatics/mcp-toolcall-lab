@@ -4,12 +4,18 @@ The sibling repo ships one file. We keep a snapshot under ``vendor/`` so
 Docker / GitHub Pages builds stay offline after checkout. If the file is
 missing, callers fall back to the stub's own ATX splitter.
 
+Vendored ``markdown.py`` owns Markdown ↔ HTML/CSS and the thin Markdown ↔
+Kramdown IAL subset. This module does **not** reimplement
+``markdown_to_html``, ``html_to_markdown``, ``default_stylesheet``,
+``markdown_to_kramdown``, or ``ial`` — callers use ``load_markdown()``.
+
 ``Section``/``slugify``/``parse_sections``/``lookup_heading`` live here
 too: the heading -> body split is "use the vendored module, else a local
 ATX regex fallback" regardless of *what* corpus is being split (a
 fixtures/stub_front/*.md file for stub_front.py, or a live Wikipedia
 extract converted to ATX for wikipedia_tool.py) -- one implementation,
-not one per caller.
+not one per caller. Fuzzy heading lookup for the stub / Wikipedia tools
+stays here; it is not the library's ``extract_section``.
 """
 
 from __future__ import annotations

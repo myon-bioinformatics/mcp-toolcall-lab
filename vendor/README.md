@@ -4,6 +4,11 @@ Pinned snapshot of [`myon-bioinformatics/markdown`](https://github.com/myon-bioi
 `markdown.py` (stdlib helpers, not a CommonMark engine). The stub front loads
 this file by path so the Pages/Docker image does not grow a pip dependency.
 
+This file owns Markdown ↔ HTML/CSS and the thin Markdown ↔ Kramdown IAL
+subset (`markdown_to_html` / `html_to_markdown` / `default_stylesheet` /
+`markdown_to_kramdown` / `kramdown_to_markdown` / `ial` / `with_attributes`).
+The lab does not keep a second copy of those converters.
+
 Provenance is in [`markdown.provenance.json`](markdown.provenance.json)
 (`commit` + git `blob_sha` + `sha256`). Refresh **that commit**, not `main`:
 

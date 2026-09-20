@@ -34,12 +34,13 @@ is still not published.
 
 ## Why Wikipedia's own API, not HTML scraping
 
-`vendor/markdown.py`'s `html_to_markdown()` is explicitly a "conservative"
-converter (headings, paragraphs, bold/italic, links, images, simple
-lists — no `<table>`, no citation/infobox handling). A real Wikipedia
-article's raw HTML is full of exactly what it does not handle: infoboxes,
-reference lists, navigation boxes. Feeding that through would hide those
-limits behind a garbled conversion.
+`vendor/markdown.py`'s `html_to_markdown()` is a conservative converter
+(headings, paragraphs, bold/italic/strikethrough, links, images, simple
+lists, simple `<table>`, checkbox `<li>`, heading/p attributes). A real
+Wikipedia article's raw HTML is still full of what it does not handle:
+infoboxes, citation/reference lists, navigation boxes. Feeding that
+through would hide those limits behind a garbled conversion. The lab
+does not own a second HTML→Markdown path.
 
 Wikipedia's `action=query&prop=extracts&explaintext=1&exsectionformat=wiki`
 API sidesteps this: it returns plain text, already stripped of that
