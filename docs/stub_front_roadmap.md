@@ -34,6 +34,11 @@ split. It is not a product clone and not a CommonMark engine.
   (`stub_demo.js` remains a local/test asset via `write_stub_demo_page()`).
   `pages-hash.js` hide/shows home vs `#wiki`; `pages-wiki.js` `fetch`es
   the Action API with `origin=*`. github.io `/wiki` stays 404
+- Offline prompt/model experiment fixtures (`fixtures/prompt_experiments/`):
+  official Chat Completions `tools`/`tool_calls` + MCP Streamable HTTP
+  JSON-RPC request/response hops; advertised-tool success and fictional-tool
+  reject; audit JSONL for comparison only (not a wire log)
+  (`python -m mcp_toolcall_lab.prompt_experiment replay`)
 - `fetch_wikipedia_section` / `fetch_wikipedia_article` MCP tools
   (`wikipedia_tool.py`): the tools in `catalog.py` that are not
   deterministic mocks — a real Wikipedia article as a MediaWiki

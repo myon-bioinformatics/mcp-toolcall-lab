@@ -378,15 +378,32 @@ when `playwright` isn't installed, same as every other optional path in this rep
 
 Set `MCP_TOOLCALL_LOG=toolcalls.jsonl` before launch to record every `tools/call` as JSON Lines, including empty results and errors. The same logger is used by `python -m mcp_toolcall_lab` and by the standalone file. `arguments` in the log are the values received on the wire, before pydantic coercion.
 
-## Open WebUI experiment record
+## Prompt / model experiment fixtures (offline)
 
-Use `system_prompts/strict_tool_selection.md` as the starting system prompt. Open WebUI performs `initialize` and `tools/list`; the model only chooses among the resulting tool specs.
+Inputs are official OpenAI Chat Completions `tools` / `tool_calls` plus recorded
+MCP Streamable HTTP hops: JSON-RPC 2.0 request/response on `POST /mcp`
+(`initialize` → `notifications/initialized` → `tools/list`, then
+`tools/call` when the model selected a tool). Replay does not change that
+wire, call a model, or reach MLIT. Comparison JSONL is not a wire log.
 
-| Run | Model / settings | selected tool | raw schema valid | server accepted | outcome | notes |
+Use `system_prompts/strict_tool_selection.md`. The model may only choose among
+the advertised specs. A fictional tool name is a failure even if the intended
+action sounds correct. **raw schema valid** (arguments match advertised
+`parameters` before coercion) is separate from **server accepted** (MCP
+`tools/call` outcome is not `error`).
+
+| id | Model / settings | selected tool | raw schema valid | server accepted | outcome | notes |
 | --- | --- | --- | --- | --- | --- | --- |
-| 001 | GPT-OSS 20B / baseline | | | | | |
+| `available_tool_success` | lab-model / temperature 0, reasoning.effort=low, stop=[] | `find_municipalities` | true | true | success | advertised tool only; UI `chat_id` / message id / `call_*` bind the `tools/call` return to `role:tool` |
+| `fictional_tool_reject` | lab-model / temperature 0, reasoning.effort=low, stop=[] | _(none)_ | — | — | — | refuses `query_reinfoldib`; no sent `tools/call`; server `isError` envelope recorded separately |
 
-Success means the model copies an exact name from the advertised specs. A fictional tool name is a failure even if the intended action sounds correct. Record **raw schema valid** (arguments match `inputSchema` before coercion) separately from **server accepted** (the mock did not return `isError`). Pydantic may coerce `year: "2025"` and accept the call even when the raw JSON is not schema-valid. `outcome` is `success`, `empty`, or `error`.
+```bash
+python -m mcp_toolcall_lab.prompt_experiment replay --out test-results/prompt-experiments.jsonl
+```
+
+The JSONL is comparison/audit fields only (verdict, selected/fictional tools,
+finish_reason, schema flags). It is not a substitute for the HTTP/JSON-RPC
+records. Fixtures: `fixtures/prompt_experiments/`.
 
 ## Next increments
 
