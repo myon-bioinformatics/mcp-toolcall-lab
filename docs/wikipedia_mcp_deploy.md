@@ -62,7 +62,7 @@ deno task start
 # POST http://127.0.0.1:8000/mcp
 ```
 
-Local start needs `--allow-write` so Deno KV can persist the session file.
+Local start needs `--unstable-kv --allow-write` so Deno KV can persist the session file.
 Optional: `MCP_HOST`, `MCP_PORT` / `PORT`, and
 `MCP_TOOLCALL_LAB_WIKIPEDIA_FIXTURE=/abs/path/to/fixtures/wikipedia/yokohama_extract.json`
 to serve the vendored MediaWiki extract instead of calling Wikipedia.
@@ -100,7 +100,7 @@ curl -sS -X POST http://127.0.0.1:8000/mcp \
 4. Deno Deploy provides KV automatically (`Deno.openKv()` with no path). Do **not** set `MCP_KV_PATH` on Deploy.
 5. After deploy, the public URL is `https://<project>.deno.dev/mcp`.
 
-Permissions used at runtime: `--allow-net` (listen + Wikipedia), `--allow-env`,
+Permissions used at runtime: `--unstable-kv` (Deno KV sessions), `--allow-net` (listen + Wikipedia), `--allow-env`,
 `--allow-read` (optional fixture file), `--allow-write` (local KV file only).
 Deno Deploy grants net/env/KV; fixture read and `MCP_KV_PATH` are local/CI.
 

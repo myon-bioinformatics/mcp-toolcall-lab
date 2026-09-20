@@ -224,6 +224,7 @@ def running_wikipedia_mcp(
             [
                 DENO,
                 "run",
+                "--unstable-kv",
                 "--allow-net",
                 "--allow-env",
                 "--allow-read",
