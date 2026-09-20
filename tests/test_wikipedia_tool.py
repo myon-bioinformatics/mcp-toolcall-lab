@@ -116,9 +116,9 @@ def test_fetch_article_sections_bleach_shaped_empty_parent_is_inclusive(
     sections = fetch_article_sections("BLEACH")
     by_title = {section.title: section for section in sections}
     lead = by_title["あらすじ"]
-    assert "=== 死神代行篇 ===" in lead.body
+    assert "### 死神代行篇" in lead.body
     assert "arc1 body" in lead.body
-    assert "=== 尸魂界篇 ===" in lead.body
+    assert "### 尸魂界篇" in lead.body
     assert "arc2 body" in lead.body
     assert "登場人物" not in lead.body
 
