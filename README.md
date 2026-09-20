@@ -418,8 +418,7 @@ one of three schema-constrained shapes (a yes/no probability, a weighted
 score, or a classification), and this module judges the recording offline —
 schema validity plus a [Brier score](https://en.wikipedia.org/wiki/Brier_score)
 for how well declared confidence tracked the real outcome. No socket, model
-call, or API key involved; generating new completions against a real backend
-is a distinct, not-yet-built follow-up.
+call, or API key involved.
 
 ```bash
 python -m mcp_toolcall_lab.jev_shim replay --out test-results/jev-shim.jsonl
@@ -427,8 +426,18 @@ python -m mcp_toolcall_lab.jev_shim replay --out test-results/jev-shim.jsonl
 
 Fixtures: `fixtures/jev_shim/`.
 
+`jev_answerer.py` builds the OpenAI-compatible Chat Completions request
+(system prompt + JSON-schema-constrained `response_format`) for a live
+backend and extracts its completion text, ready to hand to `jev_shim`'s
+validators. Its own tests never call a real server — a fake `post` is
+injected for the request-building/extraction tests, and two tests spin up
+a real stdlib HTTP server on loopback to prove the actual request/response
+wire round-trips correctly. **No test here has verified the request shape
+against a real llama.cpp (or other) server** — that confirmation is still
+open. See `docs/jev_shim.md`.
+
 ## Next increments
 
 1. Add a versioned mock catalogue modeled on public REINFOLIB documentation, without API keys.
 2. Compare schema strictness (raw-valid vs server-accepted) and system prompts in a recorded experiment matrix.
-3. `jev_shim`: wire an actual completion source (e.g. llama.cpp with JSON-schema-constrained decoding) behind a pluggable "answerer" so calibration can be measured against real model output, not only recorded fixtures.
+3. `jev_answerer`: confirm the built request shape (`response_format: json_schema`) against a real llama.cpp (or other OpenAI-compatible) server — every test so far uses either an injected fake or a loopback stdlib server, never a real model backend.

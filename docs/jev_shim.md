@@ -70,10 +70,28 @@ plus the kind-specific input (`proposition` / `criteria` / `options`), a
 block asserting a subset of the audit fields (same convention as
 `prompt_experiment.py`'s fixtures).
 
+## Live backend: `jev_answerer.py`
+
+`jev_answerer.build_chat_completion_request()` builds an OpenAI-compatible
+Chat Completions request (system prompt teaching the three shapes + a
+`response_format: {"type": "json_schema", ...}` block) for a given
+kind/state, matching the request contract llama.cpp's server and other
+OpenAI-compatible backends document for constrained decoding.
+`HttpAnswerer.raw_completion()` posts it and extracts the completion text,
+ready for `jev_shim.parse_completion` / `validate_payload`.
+
+**This has not been verified against a real llama.cpp (or any other model)
+server.** `HttpAnswerer.post` is always injectable, and its own test suite
+only ever supplies either a fake `post` (proving request-building and
+response-extraction logic) or a real stdlib `http.server` on loopback
+(proving the actual HTTP request/response wire round-trips correctly, with
+zero external network). Neither proves a real model server accepts this
+exact `response_format` shape or honors it. Confirming that is the next
+step, tracked in README's "Next increments".
+
 ## Non-goals (explicit)
 
 - Not a client for any real "Jev"-branded API, and not a benchmark of one.
-- Not a live-model integration (no llama.cpp / OpenAI call exists yet).
 - Not full JSON Schema — validation is hand-written and shape-specific,
   matching this repo's existing style (see `prompt_experiment.py`'s
   `raw_schema_valid`) rather than adding a `jsonschema` dependency.
