@@ -1,0 +1,13 @@
+{
+  "id": "score_close_estimate",
+  "title": "Score is off by a small, recorded amount -- not a pass/fail question",
+  "kind": "score",
+  "state": "tool/net_probe.py: 8 unit tests, all pure-logic (no live network), stdlib only.",
+  "criteria": "Rate test-suite thoroughness for a diagnostic CLI, 0 (none) to 10 (exhaustive incl. live-network paths).",
+  "raw_completion": "{\"score\": 6.0, \"distribution\": {\"low\": 0.1, \"mid\": 0.6, \"high\": 0.3}, \"confidence\": 0.55}",
+  "ground_truth": 6.5,
+  "expected": {
+    "schema_valid": true,
+    "error": 0.5
+  }
+}

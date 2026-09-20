@@ -13,6 +13,7 @@ This repository deliberately does **not** call the Ministry of Land, Infrastruct
 - A copyable standalone file generated from the package so tool names, schemas, and docstrings cannot drift.
 - LibreChat / Open WebUI as clients under test; a stdlib markdown stub as a reference front.
 - Protocol tests (curl / httpx / SDK) plus chat/direct tracing through one JSONL log.
+- `jev_shim`: an offline calibration study of a prompted three-primitive structured-judgment interface (not affiliated with any third-party product of a similar name). See [`docs/jev_shim.md`](docs/jev_shim.md).
 
 ## Requirements
 
@@ -408,7 +409,26 @@ The JSONL is comparison/audit fields only (verdict, selected/fictional tools,
 finish_reason, schema flags). It is not a substitute for the HTTP/JSON-RPC
 records. Fixtures: `fixtures/prompt_experiments/`.
 
+## Structured-judgment calibration (`jev_shim`)
+
+Independent of the tool-calling experiments above. See
+[`docs/jev_shim.md`](docs/jev_shim.md) for the full design and the explicit
+non-goals; short version: fixtures record a hypothetical model completion for
+one of three schema-constrained shapes (a yes/no probability, a weighted
+score, or a classification), and this module judges the recording offline —
+schema validity plus a [Brier score](https://en.wikipedia.org/wiki/Brier_score)
+for how well declared confidence tracked the real outcome. No socket, model
+call, or API key involved; generating new completions against a real backend
+is a distinct, not-yet-built follow-up.
+
+```bash
+python -m mcp_toolcall_lab.jev_shim replay --out test-results/jev-shim.jsonl
+```
+
+Fixtures: `fixtures/jev_shim/`.
+
 ## Next increments
 
 1. Add a versioned mock catalogue modeled on public REINFOLIB documentation, without API keys.
 2. Compare schema strictness (raw-valid vs server-accepted) and system prompts in a recorded experiment matrix.
+3. `jev_shim`: wire an actual completion source (e.g. llama.cpp with JSON-schema-constrained decoding) behind a pluggable "answerer" so calibration can be measured against real model output, not only recorded fixtures.
