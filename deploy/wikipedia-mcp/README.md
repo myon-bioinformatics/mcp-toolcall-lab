@@ -1,10 +1,10 @@
 # Wikipedia MCP (Deno)
 
-Streamable HTTP MCP for `fetch_wikipedia_article` /
-`fetch_wikipedia_section` only. See [`docs/wikipedia_mcp_deploy.md`](../../docs/wikipedia_mcp_deploy.md).
-
-On Deno Deploy set `MCP_SESSION_SECRET`. CORS defaults to `*`; this is a
-public Wikipedia proxy unless you also set `MCP_ALLOWED_ORIGIN`.
+Keyless Streamable HTTP MCP for `fetch_wikipedia_article` /
+`fetch_wikipedia_section` only. Sessions are Deno KV (TTL + cap), not an
+in-memory `Set` and not an HMAC secret. See
+[`docs/wikipedia_mcp_deploy.md`](../../docs/wikipedia_mcp_deploy.md) for
+CORS/rate-limit warnings and Deploy steps.
 
 ```bash
 deno task start

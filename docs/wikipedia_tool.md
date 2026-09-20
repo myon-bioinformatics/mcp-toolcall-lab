@@ -21,7 +21,7 @@ MCP tool call.
 | Surface | Who fetches | How |
 | --- | --- | --- |
 | GitHub Pages `#wiki` | the browser | `fetch` MediaWiki Action API with `origin=*` (no MCP, no Docker) |
-| Deno Wikipedia MCP (`POST /mcp`) | the MCP server process | `deploy/wikipedia-mcp` Streamable HTTP (keyless). Not wired to Pages yet. See `docs/wikipedia_mcp_deploy.md`. |
+| Deno Wikipedia MCP (`POST /mcp`) | the MCP server process | `deploy/wikipedia-mcp` Streamable HTTP (keyless, Deno KV sessions, `lang` restricted to MediaWiki codes). Not wired to Pages yet. See `docs/wikipedia_mcp_deploy.md`. |
 | Local `GET /wiki` + FastMCP `fetch_wikipedia_*` | the stub / Python MCP server process | `wikipedia_tool.py` (unchanged) |
 
 A tool that LibreChat / Open WebUI / the stub should call still belongs

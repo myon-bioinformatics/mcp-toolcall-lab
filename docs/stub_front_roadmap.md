@@ -49,7 +49,7 @@ split. It is not a product clone and not a CommonMark engine.
   the same API, not those MCP tools. See `docs/wikipedia_tool.md`.
 - Wikipedia-only Deno Streamable HTTP MCP (`deploy/wikipedia-mcp`): keyless
   `POST /mcp` for `fetch_wikipedia_*`, catalog generated from FastMCP,
-  CORS + `Mcp-Session-Id`. Not connected to Pages `#wiki` yet.
+  CORS + Deno KV `Mcp-Session-Id`. Not connected to Pages `#wiki` yet.
   See `docs/wikipedia_mcp_deploy.md`.
 
 ## Later (unnumbered)

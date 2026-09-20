@@ -1,7 +1,7 @@
 /** Streamable HTTP MCP: JSON-RPC 2.0 + SSE + Mcp-Session-Id + CORS. */
 
 import catalog from "./catalog.generated.json" with { type: "json" };
-import { mintSessionToken, verifySessionToken } from "./session.ts";
+import { allowWikiFetch, mintSession, sessionValid } from "./session.ts";
 import {
   DEFAULT_LANG,
   WikipediaFetchError,
@@ -25,17 +25,19 @@ type JsonRpcRequest = {
 
 type CatalogTool = (typeof catalog.tools)[number];
 
-const ALLOWED_ORIGIN_ENV = "MCP_ALLOWED_ORIGIN";
+const WIKI_FETCH_TOOLS = new Set(["fetch_wikipedia_article", "fetch_wikipedia_section"]);
 
-function cors(): Record<string, string> {
-  let allowOrigin = "*";
+function corsHeaders(): Record<string, string> {
+  let origin = "*";
   try {
-    allowOrigin = Deno.env.get(ALLOWED_ORIGIN_ENV)?.trim() || "*";
+    origin = Deno.env.get("MCP_CORS_ORIGIN")?.trim() ||
+      Deno.env.get("MCP_ALLOWED_ORIGIN")?.trim() ||
+      "*";
   } catch {
-    allowOrigin = "*";
+    origin = "*";
   }
   return {
-    "Access-Control-Allow-Origin": allowOrigin,
+    "Access-Control-Allow-Origin": origin,
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
     "Access-Control-Allow-Headers":
       "Content-Type, Accept, Mcp-Session-Id, MCP-Protocol-Version, Last-Event-ID",
@@ -57,7 +59,7 @@ function jsonResponse(status: number, body: unknown, extra: Record<string, strin
     status,
     headers: {
       "Content-Type": "application/json",
-      ...cors(),
+      ...corsHeaders(),
       ...extra,
     },
   });
@@ -71,7 +73,7 @@ function sseMessage(payload: unknown, extra: Record<string, string> = {}): Respo
     headers: {
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache, no-transform",
-      ...cors(),
+      ...corsHeaders(),
       ...extra,
     },
   });
@@ -211,7 +213,7 @@ export async function handleRequest(req: Request): Promise<Response> {
   const path = url.pathname.replace(/\/+$/, "") || "/";
 
   if (req.method === "OPTIONS") {
-    return new Response(null, { status: 204, headers: cors() });
+    return new Response(null, { status: 204, headers: corsHeaders() });
   }
 
   if (req.method === "GET" && (path === "/" || path === "/health")) {
@@ -253,12 +255,12 @@ export async function handleRequest(req: Request): Promise<Response> {
   >;
 
   if (method === "initialize") {
-    const sessionId = await mintSessionToken();
+    const sessionId = await mintSession();
     return rpcResult(id, initializeResult(), { "Mcp-Session-Id": sessionId });
   }
 
   const sessionId = sessionOf(req);
-  if (!sessionId || !(await verifySessionToken(sessionId))) {
+  if (!sessionId || !(await sessionValid(sessionId))) {
     return jsonResponse(400, {
       jsonrpc: "2.0",
       id,
@@ -270,7 +272,7 @@ export async function handleRequest(req: Request): Promise<Response> {
   if (method === "notifications/initialized" || method.startsWith("notifications/")) {
     return new Response(null, {
       status: 202,
-      headers: { "Content-Type": "application/json", ...cors(), ...sessionHeader },
+      headers: { "Content-Type": "application/json", ...corsHeaders(), ...sessionHeader },
     });
   }
 
@@ -284,6 +286,9 @@ export async function handleRequest(req: Request): Promise<Response> {
         !Array.isArray(params.arguments)
       ? params.arguments
       : {}) as Record<string, unknown>;
+    if (WIKI_FETCH_TOOLS.has(name) && !(await allowWikiFetch(req))) {
+      return rpcResult(id, toolError("Wikipedia fetch rate limit exceeded"), sessionHeader);
+    }
     const result = await callTool(name, args);
     return rpcResult(id, result, sessionHeader);
   }
@@ -291,7 +296,7 @@ export async function handleRequest(req: Request): Promise<Response> {
   if (id === null || id === undefined) {
     return new Response(null, {
       status: 202,
-      headers: { "Content-Type": "application/json", ...cors(), ...sessionHeader },
+      headers: { "Content-Type": "application/json", ...corsHeaders(), ...sessionHeader },
     });
   }
   return rpcError(id, -32601, `Method not found: ${method}`, sessionHeader);

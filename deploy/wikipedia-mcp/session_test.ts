@@ -1,59 +1,90 @@
+/** Deno KV session TTL, cap, and path isolation. */
+
 import {
-  mintSessionToken,
-  SESSION_PREFIX,
-  verifySessionToken,
+  closeKv,
+  mintSession,
+  sessionMax,
+  sessionTtlMs,
+  sessionValid,
 } from "./session.ts";
 
-function assertEquals(actual: unknown, expected: unknown) {
-  const same = actual === expected || JSON.stringify(actual) === JSON.stringify(expected);
-  if (!same) {
-    throw new Error(`Expected ${Deno.inspect(expected)}, got ${Deno.inspect(actual)}`);
+function assert(cond: unknown, message: string): asserts cond {
+  if (!cond) throw new Error(message);
+}
+
+async function withKvEnv(
+  env: Record<string, string>,
+  fn: () => Promise<void>,
+): Promise<void> {
+  const previous: Record<string, string | undefined> = {};
+  for (const key of Object.keys(env)) {
+    previous[key] = Deno.env.get(key);
+    Deno.env.set(key, env[key]);
+  }
+  await closeKv();
+  try {
+    await fn();
+  } finally {
+    await closeKv();
+    for (const [key, value] of Object.entries(previous)) {
+      if (value == null) Deno.env.delete(key);
+      else Deno.env.set(key, value);
+    }
+    await closeKv();
   }
 }
 
-function assert(condition: unknown, message: string) {
-  if (!condition) throw new Error(message);
-}
-
-const SECRET_A = new TextEncoder().encode("lab-test-session-secret-a");
-const SECRET_B = new TextEncoder().encode("lab-test-session-secret-b");
-const NOW = 1_700_000_000;
-
-Deno.test("minted token is accepted without an in-memory Set", async () => {
-  const token = await mintSessionToken({ secret: SECRET_A, nowSeconds: NOW, ttlSeconds: 60 });
-  assert(token.startsWith(SESSION_PREFIX), "token must use sess_ prefix");
-  assertEquals(await verifySessionToken(token, { secret: SECRET_A, nowSeconds: NOW + 1 }), true);
-  // A second verifier with the same secret and no shared store still accepts it.
-  assertEquals(await verifySessionToken(token, { secret: SECRET_A, nowSeconds: NOW + 30 }), true);
+Deno.test("minted session is valid until TTL, then rejected", async () => {
+  const dir = await Deno.makeTempDir({ prefix: "mcp-session-" });
+  await withKvEnv(
+    {
+      MCP_KV_PATH: `${dir}/kv.sqlite`,
+      MCP_SESSION_TTL_SECONDS: "1",
+    },
+    async () => {
+      assert(sessionTtlMs() === 1000, `ttl ${sessionTtlMs()}`);
+      const id = await mintSession();
+      assert(await sessionValid(id), "fresh session should be valid");
+      assert(!(await sessionValid("sess_notreal")), "unknown id");
+      assert(!(await sessionValid(null)), "null id");
+      await new Promise((resolve) => setTimeout(resolve, 1300));
+      assert(!(await sessionValid(id)), "expired session should be invalid");
+    },
+  );
 });
 
-Deno.test("tampered token is rejected", async () => {
-  const token = await mintSessionToken({ secret: SECRET_A, nowSeconds: NOW, ttlSeconds: 60 });
-  const flippedMac = token.replace(/\.[^.]+$/, (mac) => {
-    const body = mac.slice(1);
-    return `.${body.startsWith("A") ? "B" : "A"}${body.slice(1)}`;
+Deno.test("session cap evicts the oldest id", async () => {
+  const dir = await Deno.makeTempDir({ prefix: "mcp-session-cap-" });
+  await withKvEnv(
+    {
+      MCP_KV_PATH: `${dir}/kv.sqlite`,
+      MCP_SESSION_MAX: "2",
+      MCP_SESSION_TTL_SECONDS: "1800",
+    },
+    async () => {
+      assert(sessionMax() === 2, `max ${sessionMax()}`);
+      const first = await mintSession();
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      const second = await mintSession();
+      assert(await sessionValid(first), "first still valid at cap");
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      const third = await mintSession();
+      assert(!(await sessionValid(first)), "oldest should be evicted");
+      assert(await sessionValid(second), "second kept");
+      assert(await sessionValid(third), "third kept");
+    },
+  );
+});
+
+Deno.test("sessions written to a KV file are readable after reopen", async () => {
+  const dir = await Deno.makeTempDir({ prefix: "mcp-session-reopen-" });
+  const path = `${dir}/kv.sqlite`;
+  let id = "";
+  await withKvEnv({ MCP_KV_PATH: path, MCP_SESSION_TTL_SECONDS: "1800" }, async () => {
+    id = await mintSession();
+    assert(await sessionValid(id), "before close");
   });
-  assertEquals(await verifySessionToken(flippedMac, { secret: SECRET_A, nowSeconds: NOW }), false);
-
-  const parts = token.split(".");
-  parts[1] = String(Number(parts[1]) + 10_000);
-  const tweakedExp = parts.join(".");
-  assertEquals(await verifySessionToken(tweakedExp, { secret: SECRET_A, nowSeconds: NOW }), false);
-});
-
-Deno.test("expired token is rejected even with a valid MAC", async () => {
-  const token = await mintSessionToken({ secret: SECRET_A, nowSeconds: NOW, ttlSeconds: 60 });
-  assertEquals(await verifySessionToken(token, { secret: SECRET_A, nowSeconds: NOW + 60 }), false);
-  assertEquals(await verifySessionToken(token, { secret: SECRET_A, nowSeconds: NOW + 61 }), false);
-});
-
-Deno.test("token signed with a different secret is rejected", async () => {
-  const token = await mintSessionToken({ secret: SECRET_A, nowSeconds: NOW, ttlSeconds: 60 });
-  assertEquals(await verifySessionToken(token, { secret: SECRET_B, nowSeconds: NOW }), false);
-});
-
-Deno.test("malformed tokens are rejected", async () => {
-  assertEquals(await verifySessionToken("", { secret: SECRET_A, nowSeconds: NOW }), false);
-  assertEquals(await verifySessionToken("sess_not-a-token", { secret: SECRET_A, nowSeconds: NOW }), false);
-  assertEquals(await verifySessionToken("totally-random", { secret: SECRET_A, nowSeconds: NOW }), false);
+  await withKvEnv({ MCP_KV_PATH: path, MCP_SESSION_TTL_SECONDS: "1800" }, async () => {
+    assert(await sessionValid(id), "same KV file, new openKv handle");
+  });
 });

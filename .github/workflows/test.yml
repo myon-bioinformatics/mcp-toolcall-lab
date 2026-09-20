@@ -20,7 +20,7 @@ jobs:
         run: pip install -e ".[test]"
       - name: Deno check
         run: deno check deploy/wikipedia-mcp/main.ts
-      - name: Deno unit tests
-        run: deno test --allow-env --allow-read deploy/wikipedia-mcp
+      - name: Deno test
+        run: deno test --allow-net --allow-env --allow-read --allow-write deploy/wikipedia-mcp
       - name: Test
         run: pytest -q

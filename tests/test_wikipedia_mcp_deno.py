@@ -181,68 +181,92 @@ def _free_port() -> int:
         return int(sock.getsockname()[1])
 
 
+def _read_tail(path: Path, limit: int = 4000) -> str:
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace")
+    except FileNotFoundError:
+        return ""
+    return text[-limit:]
+
+
 @dataclass
 class RunningDeno:
     url: str
     process: subprocess.Popen[str]
+    kv_path: Path
 
 
 @contextmanager
-def running_wikipedia_mcp(extra_env: dict[str, str] | None = None) -> Iterator[RunningDeno]:
+def running_wikipedia_mcp(
+    extra_env: dict[str, str] | None = None,
+    *,
+    kv_path: Path | None = None,
+) -> Iterator[RunningDeno]:
     if not Path(DENO).is_file():
         pytest.skip("deno is not installed")
     port = _free_port()
+    kv_dir: Path | None = None
+    if kv_path is None:
+        kv_dir = Path(tempfile.mkdtemp(prefix="wiki-mcp-kv-"))
+        kv_path = kv_dir / "sessions.kv"
+    stderr_path = Path(tempfile.mkstemp(prefix="wiki-mcp-stderr-", suffix=".log")[1])
     env = {
         **os.environ,
         "MCP_HOST": "127.0.0.1",
         "MCP_PORT": str(port),
         FIXTURE_ENV: str(WIKI_FIXTURE),
+        "MCP_KV_PATH": str(kv_path),
     }
     if extra_env:
         env.update(extra_env)
-    stderr = tempfile.TemporaryFile()
-    process = subprocess.Popen(
-        [DENO, "run", "--allow-net", "--allow-env", "--allow-read", "main.ts"],
-        cwd=DENO_DIR,
-        env=env,
-        stdout=subprocess.DEVNULL,
-        stderr=stderr,
-    )
-    url = f"http://127.0.0.1:{port}/mcp"
-
-    def _stderr_text() -> str:
-        stderr.flush()
-        stderr.seek(0)
-        return stderr.read().decode("utf-8", "replace")[-4000:]
-
-    try:
-        for _ in range(50):
-            if process.poll() is not None:
-                raise RuntimeError(
-                    f"Deno Wikipedia MCP exited {process.returncode}: {_stderr_text()}"
-                )
-            try:
-                httpx.get(f"http://127.0.0.1:{port}/health", timeout=0.2)
-                break
-            except httpx.TransportError:
-                time.sleep(0.1)
-        else:
+    with stderr_path.open("w", encoding="utf-8") as stderr_file:
+        process = subprocess.Popen(
+            [
+                DENO,
+                "run",
+                "--allow-net",
+                "--allow-env",
+                "--allow-read",
+                "--allow-write",
+                "main.ts",
+            ],
+            cwd=DENO_DIR,
+            env=env,
+            stdout=subprocess.DEVNULL,
+            stderr=stderr_file,
+            text=True,
+        )
+        url = f"http://127.0.0.1:{port}/mcp"
+        try:
+            for _ in range(50):
+                if process.poll() is not None:
+                    raise RuntimeError(
+                        f"Deno Wikipedia MCP exited {process.returncode}: {_read_tail(stderr_path)}"
+                    )
+                try:
+                    httpx.get(f"http://127.0.0.1:{port}/health", timeout=0.2)
+                    break
+                except httpx.TransportError:
+                    time.sleep(0.1)
+            else:
+                process.terminate()
+                try:
+                    process.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                    process.wait(timeout=5)
+                raise RuntimeError(f"Deno Wikipedia MCP did not start: {_read_tail(stderr_path)}")
+            yield RunningDeno(url=url, process=process, kv_path=kv_path)
+        finally:
             process.terminate()
             try:
                 process.wait(timeout=5)
             except subprocess.TimeoutExpired:
                 process.kill()
                 process.wait(timeout=5)
-            raise RuntimeError(f"Deno Wikipedia MCP did not start: {_stderr_text()}")
-        yield RunningDeno(url=url, process=process)
-    finally:
-        process.terminate()
-        try:
-            process.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            process.kill()
-            process.wait(timeout=5)
-        stderr.close()
+    stderr_path.unlink(missing_ok=True)
+    if kv_dir is not None:
+        shutil.rmtree(kv_dir, ignore_errors=True)
 
 
 class DenoMcpSession:
@@ -529,67 +553,6 @@ def test_deno_requires_session_and_does_not_invent_event_rows() -> None:
             session.close()
 
 
-def test_deno_hmac_session_is_accepted_by_a_second_process() -> None:
-    """Tokens are HMAC + TTL, not an isolate-local Set — a second process
-    with the same MCP_SESSION_SECRET must accept the first process's id."""
-
-    secret = {"MCP_SESSION_SECRET": "lab-test-mcp-session-secret"}
-    with running_wikipedia_mcp(secret) as first:
-        session = DenoMcpSession(first.url)
-        try:
-            session.initialize()
-            token = session.session_id
-            assert token and token.startswith("sess_")
-            with running_wikipedia_mcp(secret) as second:
-                listed = httpx.post(
-                    second.url,
-                    headers={
-                        "Content-Type": "application/json",
-                        "Accept": ACCEPT,
-                        "Mcp-Session-Id": token,
-                    },
-                    json={"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}},
-                    timeout=10.0,
-                )
-            assert listed.status_code == 200
-            parsed = extract_sse_data(listed.text)
-            assert [tool["name"] for tool in parsed["result"]["tools"]] == list(
-                sorted(WIKIPEDIA_TOOL_NAMES)
-            )
-        finally:
-            session.close()
-
-
-def test_deno_tampered_session_is_rejected() -> None:
-    with running_wikipedia_mcp({"MCP_SESSION_SECRET": "lab-test-mcp-session-secret"}) as server:
-        session = DenoMcpSession(server.url)
-        try:
-            session.initialize()
-            token = session.session_id
-            assert token
-            parts = token.split(".")
-            assert len(parts) == 3
-            mac = parts[2]
-            parts[2] = ("B" if mac.startswith("A") else "A") + mac[1:]
-            flipped = ".".join(parts)
-            listed = httpx.post(
-                server.url,
-                headers={
-                    "Content-Type": "application/json",
-                    "Accept": ACCEPT,
-                    "Mcp-Session-Id": flipped,
-                },
-                json={"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}},
-                timeout=10.0,
-            )
-            assert listed.status_code == 400
-            body = listed.json()
-            assert body["error"]["code"] == -32000
-            assert "Mcp-Session-Id" in body["error"]["message"]
-        finally:
-            session.close()
-
-
 def test_deno_rejects_injected_lang_as_tool_error(deno_session: DenoMcpSession) -> None:
     for lang in ("evil.com/", "evil.com", "#", "@"):
         result = extract_sse_data(
@@ -606,4 +569,91 @@ def test_deno_rejects_injected_lang_as_tool_error(deno_session: DenoMcpSession) 
             ).text
         )["result"]
         assert result["isError"] is True
-        assert "invalid wikipedia language code" in result["content"][0]["text"]
+        text = result["content"][0]["text"]
+        assert "invalid wikipedia language code" in text
+        assert "14109" not in text
+
+
+def test_deno_session_expires_after_ttl() -> None:
+    with running_wikipedia_mcp(extra_env={"MCP_SESSION_TTL_SECONDS": "1"}) as server:
+        session = DenoMcpSession(server.url)
+        try:
+            session.initialize()
+            listed = session.post(
+                {"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}}
+            )
+            assert listed.status_code == 200
+            time.sleep(1.5)
+            expired = session.post(
+                {"jsonrpc": "2.0", "id": 3, "method": "tools/list", "params": {}}
+            )
+            assert expired.status_code == 400
+            body = expired.json()
+            assert "session" in body["error"]["message"].lower()
+        finally:
+            session.close()
+
+
+def test_deno_session_survives_process_restart_via_shared_kv(tmp_path: Path) -> None:
+    kv_path = tmp_path / "sessions.kv"
+    with running_wikipedia_mcp(kv_path=kv_path) as server:
+        session = DenoMcpSession(server.url)
+        try:
+            session.initialize()
+            session_id = session.session_id
+            assert session_id
+        finally:
+            session.close()
+    with running_wikipedia_mcp(kv_path=kv_path) as server:
+        session = DenoMcpSession(server.url)
+        session.session_id = session_id
+        try:
+            response = session.post(
+                {"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}}
+            )
+            assert response.status_code == 200
+            parsed = extract_sse_data(response.text)
+            names = [tool["name"] for tool in parsed["result"]["tools"]]
+            assert names == list(sorted(WIKIPEDIA_TOOL_NAMES))
+        finally:
+            session.close()
+
+
+def test_deno_unknown_session_id_is_rejected() -> None:
+    with running_wikipedia_mcp() as server:
+        listed = httpx.post(
+            server.url,
+            headers={
+                "Content-Type": "application/json",
+                "Accept": ACCEPT,
+                "Mcp-Session-Id": "sess_not-a-real-session",
+            },
+            json={"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}},
+            timeout=10.0,
+        )
+        assert listed.status_code == 400
+        body = listed.json()
+        assert body["error"]["code"] == -32000
+        assert "Mcp-Session-Id" in body["error"]["message"]
+
+
+def test_deno_wikipedia_fetch_rate_limit() -> None:
+    with running_wikipedia_mcp(extra_env={"MCP_WIKI_FETCH_LIMIT_PER_MINUTE": "1"}) as server:
+        session = DenoMcpSession(server.url)
+        try:
+            session.initialize()
+            payload = {
+                "jsonrpc": "2.0",
+                "method": "tools/call",
+                "params": {
+                    "name": "fetch_wikipedia_article",
+                    "arguments": {"title": "Yokohama"},
+                },
+            }
+            first = extract_sse_data(session.post({**payload, "id": 40}).text)["result"]
+            assert first["isError"] is False
+            second = extract_sse_data(session.post({**payload, "id": 41}).text)["result"]
+            assert second["isError"] is True
+            assert "rate limit" in second["content"][0]["text"].lower()
+        finally:
+            session.close()

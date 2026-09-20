@@ -6,6 +6,8 @@ export const USER_AGENT =
   "mcp-toolcall-lab-wikipedia/0.1 (https://github.com/myon-bioinformatics/mcp-toolcall-lab; lab demo, not production traffic)";
 export const TIMEOUT_MS = 10_000;
 export const FIXTURE_ENV = "MCP_TOOLCALL_LAB_WIKIPEDIA_FIXTURE";
+export const CACHE_TTL_ENV = "MCP_TOOLCALL_LAB_WIKI_CACHE_TTL";
+export const CACHE_MAXSIZE_ENV = "MCP_TOOLCALL_LAB_WIKI_CACHE_MAXSIZE";
 /** MediaWiki-like project codes: en, zh-yue, simple. Rejects host injection. */
 export const LANG_RE = /^[a-z0-9-]{2,24}$/i;
 
@@ -88,6 +90,7 @@ export function assertSafeWikipediaApiUrl(url: URL): void {
 }
 
 export function slugify(title: string): string {
+  // Same ASCII class as markdown_lib.slugify (`[^a-z0-9]+`), not Unicode casefold.
   return title.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 }
 
@@ -275,6 +278,15 @@ async function fetchExtractPayload(title: string, lang: string): Promise<Record<
   }
 }
 
+function envNumber(name: string, fallback: number): number {
+  try {
+    const raw = Number(Deno.env.get(name) || "");
+    return Number.isFinite(raw) ? raw : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 export class WikipediaExtractCache {
   private readonly maxsize: number;
   private readonly ttlMs: number;
@@ -283,9 +295,9 @@ export class WikipediaExtractCache {
   private readonly alias = new Map<string, string>();
   private readonly inflight = new Map<string, Promise<WikipediaArticle>>();
 
-  constructor(maxsize = 16, ttlSeconds = 300) {
-    this.maxsize = Math.max(1, maxsize);
-    this.ttlMs = Math.max(0, ttlSeconds) * 1000;
+  constructor(maxsize?: number, ttlSeconds?: number) {
+    this.maxsize = Math.max(1, Math.floor(maxsize ?? envNumber(CACHE_MAXSIZE_ENV, 16)));
+    this.ttlMs = Math.max(0, (ttlSeconds ?? envNumber(CACHE_TTL_ENV, 300)) * 1000);
   }
 
   get(title: string, lang: string): WikipediaArticle | undefined {
