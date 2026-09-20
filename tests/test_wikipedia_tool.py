@@ -95,6 +95,34 @@ def test_fetch_article_sections_parses_a_mocked_response(monkeypatch: pytest.Mon
     assert "does not call a live encyclopedia" in sections[2].body
 
 
+def test_fetch_article_sections_bleach_shaped_empty_parent_is_inclusive(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # An H2 parent with only H3 children (BLEACH's "あらすじ") must keep those
+    # children's headings/body in its own section body, stopping only at the
+    # next H2 sibling -- same inclusive rule as the Pages #wiki JS (#33).
+    extract = (
+        "Lead.\n\n"
+        "== あらすじ ==\n\n"
+        "=== 死神代行篇 ===\n"
+        "arc1 body\n\n"
+        "=== 尸魂界篇 ===\n"
+        "arc2 body\n\n"
+        "== 登場人物 ==\n"
+        "people body\n"
+    )
+    _mock_extract_response(monkeypatch, title="BLEACH", extract=extract)
+
+    sections = fetch_article_sections("BLEACH")
+    by_title = {section.title: section for section in sections}
+    lead = by_title["あらすじ"]
+    assert "### 死神代行篇" in lead.body
+    assert "arc1 body" in lead.body
+    assert "### 尸魂界篇" in lead.body
+    assert "arc2 body" in lead.body
+    assert "登場人物" not in lead.body
+
+
 def test_fetch_article_sections_raises_on_missing_page(monkeypatch: pytest.MonkeyPatch) -> None:
     _mock_missing_page(monkeypatch, title="Some Nonexistent Page Xyz")
     with pytest.raises(WikipediaFetchError, match="no en.wikipedia.org article"):

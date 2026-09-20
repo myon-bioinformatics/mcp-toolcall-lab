@@ -208,7 +208,7 @@ def test_write_pages_includes_mediawiki_ui_mount(tmp_path: Path) -> None:
     assert 'data-testid="pages-wiki-heading"' in html
     assert "(full extract)" in html
     assert 'data-testid="pages-wiki-extract"' in html
-    assert f'src="{PAGES_WIKI_JS_NAME}"' in html
+    assert f'src="{PAGES_WIKI_JS_NAME}?v=' in html
     assert (out / PAGES_WIKI_JS_NAME).is_file()
     assert 'href="#wiki"' in html
     assert 'data-pages-view="wiki"' in html

@@ -285,8 +285,8 @@ def test_write_pages_does_not_embed_the_static_try_it_demo(tmp_path: Path) -> No
     assert "mcpToolcallLabStubDemo" not in html
     assert PAGES_HASH_JS_NAME in names
     assert PAGES_WIKI_JS_NAME in names
-    assert f'src="{PAGES_HASH_JS_NAME}"' in html
-    assert f'src="{PAGES_WIKI_JS_NAME}"' in html
+    assert f'src="{PAGES_HASH_JS_NAME}?v=' in html
+    assert f'src="{PAGES_WIKI_JS_NAME}?v=' in html
     assert (out / PAGES_HASH_JS_NAME).read_text(encoding="utf-8") == (
         PAGES_HASH_JS_SOURCE.read_text(encoding="utf-8")
     )
@@ -329,7 +329,7 @@ def test_write_pages_has_hash_routed_home_and_wiki_panels(tmp_path: Path) -> Non
     assert 'data-testid="pages-wiki-lang"' in html[wiki_idx:]
     assert 'data-testid="pages-wiki-fetch"' in html[wiki_idx:]
     assert 'data-testid="pages-wiki-heading"' in html[wiki_idx:]
-    assert f'src="{PAGES_WIKI_JS_NAME}"' in html[wiki_idx:]
+    assert f'src="{PAGES_WIKI_JS_NAME}?v=' in html[wiki_idx:]
     wiki_open = html.find("<section", wiki_idx - 80, wiki_idx + 80)
     assert wiki_open != -1
     wiki_tag = html[wiki_open : html.find(">", wiki_open) + 1]

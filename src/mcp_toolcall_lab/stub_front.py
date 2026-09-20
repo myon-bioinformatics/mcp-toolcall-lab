@@ -26,6 +26,7 @@ called in-process and still logged.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import html
 import json
 import os
@@ -344,6 +345,21 @@ PAGES_HASH_JS_SOURCE = STATIC_DIR / "pages_hash.js"
 PAGES_HASH_JS_NAME = "pages-hash.js"
 PAGES_WIKI_JS_SOURCE = STATIC_DIR / "pages_wiki.js"
 PAGES_WIKI_JS_NAME = "pages-wiki.js"
+
+
+def _asset_cache_bust(path: Path) -> str:
+    """``?v=<sha256[:10]>`` of ``path``'s current bytes.
+
+    The published ``index.html`` and the ``<script src>`` it points at are
+    written from the same ``write_pages()`` call, so a content-derived query
+    string always matches the JS actually deployed alongside it -- a CDN or
+    browser cache from a previous revision cannot serve stale JS under an
+    unchanged URL.
+    """
+    digest = hashlib.sha256(path.read_bytes()).hexdigest()[:10]
+    return f"?v={digest}"
+
+
 PAGES_WIKI_SERVE = (
     "python -m mcp_toolcall_lab.stub_front serve --port 8765\n"
     "# then open /wiki  (http://127.0.0.1:8765/wiki)"
@@ -654,7 +670,7 @@ def _pages_wiki_markdown(md: Any) -> str:
     )
 
 
-def _pages_wiki_app_html() -> str:
+def _pages_wiki_app_html(*, cache_bust: str = "") -> str:
     """Raw HTML for the browser MediaWiki form. Kept outside markdown.py."""
     return (
         f'<p data-testid="pages-wiki-disclaimer">{html.escape(PAGES_WIKI_BROWSER_NOTE)}</p>'
@@ -685,7 +701,7 @@ def _pages_wiki_app_html() -> str:
         f'<p data-testid="pages-wiki-extract-note">{html.escape(WIKI_EXTRACT_NOTE)}</p>'
         '<pre data-testid="pages-wiki-extract" hidden></pre>'
         "</div>"
-        f'<script src="{PAGES_WIKI_JS_NAME}"></script>'
+        f'<script src="{PAGES_WIKI_JS_NAME}{cache_bust}"></script>'
     )
 
 
@@ -800,7 +816,7 @@ def write_pages(
             f"<p>{html.escape(PAGES_WIKI_BROWSER_NOTE)}</p>"
             "<pre>" + html.escape(PAGES_WIKI_SERVE) + "</pre>"
         )
-    wiki_inner = wiki_inner + _pages_wiki_app_html()
+    wiki_inner = wiki_inner + _pages_wiki_app_html(cache_bust=_asset_cache_bust(PAGES_WIKI_JS_SOURCE))
     # Hide/show uses the HTML hidden attribute. Converted Markdown CSS comes
     # from vendor/markdown.py (default_stylesheet), not a lab-authored copy.
     html_page = (
@@ -813,7 +829,7 @@ def write_pages(
         f"{_pages_nav_html()}"
         f"{_pages_panel_html(view='home', inner=_revision_html(meta) + home_inner)}"
         f"{_pages_panel_html(view='wiki', inner=wiki_inner + _pages_wiki_back_html(), hidden=True)}"
-        f'<script src="{PAGES_HASH_JS_NAME}"></script>'
+        f'<script src="{PAGES_HASH_JS_NAME}{_asset_cache_bust(PAGES_HASH_JS_SOURCE)}"></script>'
         "</body></html>\n"
     )
     (out_dir / "index.html").write_text(html_page, encoding="utf-8")
@@ -828,6 +844,16 @@ def write_pages(
         json.dumps(meta, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
     )
     return out_dir / "index.html"
+
+
+def _heading_option_label(section: Section) -> str:
+    """``## Title`` display label -- same ATX prefix as pages_wiki.js's
+    ``headingLabel()`` (#33), so the local Docker ``/wiki`` form and the
+    published Pages ``#wiki`` panel show matching option text. The
+    ``<option>`` value stays the bare title; only the label gets the prefix.
+    """
+    level = section.level if 1 <= section.level <= 6 else 2
+    return f"{'#' * level} {section.title}"
 
 
 def render_wiki_page(
@@ -856,7 +882,7 @@ def render_wiki_page(
                 selected = " selected" if heading and section.title == heading else ""
                 section_options.append(
                     f'<option value="{html.escape(section.title)}"{selected}>'
-                    f"{html.escape(section.title)}</option>"
+                    f"{html.escape(_heading_option_label(section))}</option>"
                 )
             if heading:
                 match = lookup_heading(heading, article.sections(), fuzzy=True)
@@ -870,7 +896,7 @@ def render_wiki_page(
                             selected = " selected" if section.title == match.title else ""
                             section_options.append(
                                 f'<option value="{html.escape(section.title)}"{selected}>'
-                                f"{html.escape(section.title)}</option>"
+                                f"{html.escape(_heading_option_label(section))}</option>"
                             )
         except WikipediaFetchError as exc:
             error = str(exc)

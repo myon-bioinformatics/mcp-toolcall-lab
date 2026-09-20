@@ -91,6 +91,30 @@ Unchanged row shape:
 Listing headings and then fetching one body for the same title+language
 is one HTTP call: the process cache sits under both tools.
 
+## Section boundary + heading label parity (#33 / #34)
+
+Every surface that splits a heading into a section body now uses the
+same **inclusive** rule: a section's body runs up to the next heading
+whose level is <= its own, so a heading with only deeper child headings
+under it (e.g. an H2 with only H3 children, no H2-level body of its own —
+the "BLEACH `あらすじ`" shape) keeps those children in its own body
+instead of appearing empty. This is `markdown_lib.parse_sections()`'s
+contract (used by both the stub's fixture corpus and
+`WikipediaArticle.sections()`), and it matches the published Pages
+`#wiki` JS's `parseWikiSections()` (#33). Vendor `markdown.py`'s own
+`split_sections()` stays a flat, per-heading splitter (one part per
+heading, ending at the very next heading of any level) — `parse_sections()`
+merges consecutive flat parts itself rather than changing that vendored
+API's own contract, since other callers may depend on the flat shape.
+
+Heading **labels** also match across surfaces: an ATX prefix
+(`## Title`, `### Title`, …) using the heading's own level, same as
+`pages_wiki.js`'s `headingLabel()`. The local Docker `GET /wiki`
+`<select>` shows the same `## Title` label text; the `<option value>`
+stays the bare title so heading lookup / the `?heading=` querystring
+round-trip is unaffected. `fetch_wikipedia_section`'s `heading_markdown`
+field was already ATX before #34; only the body-boundary rule changed.
+
 ## In-process cache
 
 `wikipedia_tool.py` keeps a thread-safe TTL/LRU cache inside the MCP
