@@ -34,7 +34,36 @@ assert.deepStrictEqual(
 assert.strictEqual(sections[0].level, 2);
 assert.strictEqual(sections[2].level, 3);
 assert.ok(sections[0].body.includes("Kanagawa Prefecture"));
+assert.ok(!sections[0].body.includes("=== Climate ==="));
+assert.ok(sections[1].body.includes("=== Climate ==="));
+assert.ok(sections[1].body.includes("Mild in this fixture"));
 assert.ok(sections[2].body.includes("Mild in this fixture"));
+assert.ok(!sections[2].body.includes("== See also =="));
+
+assert.strictEqual(wiki.headingLabel(2, "あらすじ"), "## あらすじ");
+assert.strictEqual(wiki.headingLabel(3, "死神代行篇"), "### 死神代行篇");
+
+const bleach = [
+  "lead",
+  "",
+  "== あらすじ ==",
+  "",
+  "=== 死神代行篇 ===",
+  "arc1",
+  "=== 尸魂界篇 ===",
+  "arc2",
+  "== 登場人物 ==",
+  "people",
+].join("\n");
+const bleachSections = wiki.parseWikiSections(bleach);
+assert.strictEqual(bleachSections[0].title, "あらすじ");
+assert.strictEqual(bleachSections[0].level, 2);
+assert.ok(bleachSections[0].body.includes("=== 死神代行篇 ==="));
+assert.ok(bleachSections[0].body.includes("arc1"));
+assert.ok(bleachSections[0].body.includes("=== 尸魂界篇 ==="));
+assert.ok(bleachSections[0].body.includes("arc2"));
+assert.ok(!bleachSections[0].body.includes("== 登場人物 =="));
+assert.strictEqual(wiki.sectionView(bleach, "あらすじ"), bleachSections[0].body);
 
 assert.ok(wiki.sectionView(extract, "").includes("== Geography =="));
 assert.strictEqual(wiki.sectionView(extract, "Geography"), sections[0].body);
@@ -91,9 +120,18 @@ assert.strictEqual(wiki.wikiHash({ title: "Yokohama", lang: "ja" }), "#wiki?titl
 
 const view = wiki.viewState(parsed, "Geography");
 assert.strictEqual(view.canonical_title, "Yokohama");
-assert.deepStrictEqual(view.headings, ["Geography", "History", "Climate", "See also"]);
+assert.deepStrictEqual(view.headings, [
+  { title: "Geography", level: 2 },
+  { title: "History", level: 2 },
+  { title: "Climate", level: 3 },
+  { title: "See also", level: 2 },
+]);
 assert.ok(view.body.includes("Kanagawa Prefecture"));
 assert.ok(!view.body.includes("== History =="));
+const historyView = wiki.viewState(parsed, "History");
+assert.ok(historyView.body.includes("=== Climate ==="));
+assert.ok(historyView.body.includes("Mild in this fixture"));
+assert.ok(!historyView.body.includes("== See also =="));
 
 wiki.loadArticle("", "en").then((empty) => {
   assert.strictEqual(empty.ok, false);
