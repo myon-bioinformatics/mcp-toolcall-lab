@@ -471,8 +471,10 @@ def fetch_wikipedia_section(title: str, heading: str = "", *, lang: str = DEFAUL
     A ``heading`` that matches (see ``lookup_heading()`` -- exact first,
     then fuzzy): that one section's title, its ATX form (``heading_markdown``,
     e.g. ``"## Geography"`` -- the section's own level, not hardcoded),
-    and its body (everything after that heading up to the next one at any
-    level, same as every other ``Section`` in this repo). A ``heading`` that
+    and its body (everything after that heading up to the next one at the
+    same level or shallower, so nested subsections stay inside -- same
+    contract as every other ``Section`` in this repo, see
+    ``markdown_lib.parse_sections()``). A ``heading`` that
     matches nothing is a normal empty result, not an error -- same
     "valid call, no rows" contract catalog.py's other tools use. A fetch
     that fails outright (network, no such article) raises

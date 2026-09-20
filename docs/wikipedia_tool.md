@@ -82,7 +82,12 @@ Unchanged row shape:
   list, deliberately without body text.
 - a matching `heading`: that section's title, its ATX form
   (`heading_markdown`, e.g. `"## Geography"` — the section's own level),
-  and its body.
+  and its body. The body runs until the next heading at the same level or
+  shallower, so a heading with no prose of its own — only deeper
+  subsections (e.g. an empty parent followed straight by its `###`
+  children) — still returns those nested subsections instead of an empty
+  string. Same rule as `markdown_lib.parse_sections()`'s other callers and
+  the Pages `#wiki` JS's `parseWikiSections`.
 - no match: an empty result. Same "valid call, no rows is not an error"
   contract as every other tool in `catalog.py`.
 - no such article, or the fetch fails outright: raises
@@ -122,6 +127,10 @@ screenshot it without filling widgets):
   dropdown
 - `/wiki?title=Yokohama&heading=Geography` — the same article from cache,
   selected section body
+
+The heading `<option>` labels carry the same `## `/`### ` ATX prefix as
+the Pages `#wiki` JS (the option's `value` stays the bare title, so
+`heading=` query params are unaffected).
 
 Displayed text is `html.escape`d into `<pre>`. GitHub Pages does not
 host this **server** form (a `/wiki` path on github.io stays 404). Local

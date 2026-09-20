@@ -95,6 +95,38 @@ def test_fetch_article_sections_parses_a_mocked_response(monkeypatch: pytest.Mon
     assert "does not call a live encyclopedia" in sections[2].body
 
 
+def test_fetch_article_sections_bleach_shaped_empty_parent(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A ``== heading ==`` with no prose of its own, only ``===`` arcs
+    underneath (BLEACH's ``あらすじ``, see issue #34) must not come back
+    empty -- its body includes the nested arcs, ending only at the next
+    heading of its own level or shallower. Same contract as the Pages
+    ``#wiki`` JS's ``parseWikiSections`` (tests/test_pages_wiki.py)."""
+    extract = (
+        "lead\n\n"
+        "== あらすじ ==\n"
+        "\n"
+        "=== 死神代行篇 ===\n"
+        "arc1\n\n"
+        "=== 尸魂界篇 ===\n"
+        "arc2\n\n"
+        "== 登場人物 ==\n"
+        "people\n"
+    )
+    _mock_extract_response(monkeypatch, title="BLEACH", extract=extract)
+
+    sections = fetch_article_sections("BLEACH")
+    titles = [s.title for s in sections]
+    assert titles == ["BLEACH", "あらすじ", "死神代行篇", "尸魂界篇", "登場人物"]
+
+    arasuji = next(s for s in sections if s.title == "あらすじ")
+    assert arasuji.level == 2
+    assert "=== 死神代行篇 ===" in arasuji.body
+    assert "arc1" in arasuji.body
+    assert "=== 尸魂界篇 ===" in arasuji.body
+    assert "arc2" in arasuji.body
+    assert "登場人物" not in arasuji.body
+
+
 def test_fetch_article_sections_raises_on_missing_page(monkeypatch: pytest.MonkeyPatch) -> None:
     _mock_missing_page(monkeypatch, title="Some Nonexistent Page Xyz")
     with pytest.raises(WikipediaFetchError, match="no en.wikipedia.org article"):

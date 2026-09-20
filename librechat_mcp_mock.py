@@ -168,34 +168,53 @@ def slugify(title: str) -> str:
 
 
 def parse_sections(markdown: str) -> list[Section]:
-    """Heading → body. Prefer vendored ``markdown.py``; ATX regex is the fallback."""
+    """Heading → body. Prefer vendored ``markdown.py``; ATX regex is the fallback.
+
+    A section's body runs until the next heading whose level is <= its own,
+    so a shallower heading's body includes any deeper subsections nested
+    under it (e.g. an H2 with no prose of its own, only H3 children) instead
+    of coming back empty. This matches ``extract_section`` (this module and
+    vendored ``markdown.py``) and the Pages ``#wiki`` JS's own
+    ``parseWikiSections`` -- one heading contract across every surface that
+    slices Markdown/MediaWiki sections in this repo.
+
+    ``split_sections`` itself (vendored or not) still cuts at *every*
+    heading regardless of level -- that flat chunk list is only reassembled
+    into inclusive bodies here, so the provenance-pinned vendored file
+    (see ``assert_markdown_provenance``) never needs editing.
+    """
     md = load_markdown()
+    chunks: list[tuple[int, str, list[str]]] = []
     if md is not None and hasattr(md, "split_sections"):
-        sections: list[Section] = []
-        line = 1
         for part in md.split_sections(markdown):
             level = int(part.get("level") or 0)
             title = str(part.get("title") or "")
             raw = str(part.get("content") or "")
-            if level <= 0 or not title:
-                line += raw.count("\n") or 1
-                continue
-            body_lines = raw.splitlines()
-            body = "\n".join(body_lines[1:]).strip()
+            chunks.append((level, title, raw.splitlines(keepends=True)))
+    else:
+        lines = markdown.splitlines(keepends=True)
+        found: list[tuple[int, int, str]] = []
+        for index, line in enumerate(lines):
+            match = _HEADING_RE.match(line.rstrip("\r\n"))
+            if match:
+                found.append((index, len(match.group(1)), match.group(2).strip()))
+        for idx, (start, level, title) in enumerate(found):
+            end = found[idx + 1][0] if idx + 1 < len(found) else len(lines)
+            chunks.append((level, title, lines[start:end]))
+
+    sections: list[Section] = []
+    line = 1
+    for i, (level, title, chunk_lines) in enumerate(chunks):
+        raw = "".join(chunk_lines)
+        if level > 0 and title:
+            nested: list[str] = []
+            j = i + 1
+            while j < len(chunks) and chunks[j][0] > level:
+                nested.extend(chunks[j][2])
+                j += 1
+            body = "".join(chunk_lines[1:] + nested).strip()
             sections.append(Section(level, title, slugify(title), body, line))
-            line += raw.count("\n") or 1
-        return sections
-    lines = markdown.splitlines()
-    found: list[tuple[int, int, str]] = []
-    for index, line in enumerate(lines):
-        match = _HEADING_RE.match(line)
-        if match:
-            found.append((index, len(match.group(1)), match.group(2).strip()))
-    sections = []
-    for idx, (start, level, title) in enumerate(found):
-        end = found[idx + 1][0] if idx + 1 < len(found) else len(lines)
-        body = "\n".join(lines[start + 1 : end]).strip()
-        sections.append(Section(level, title, slugify(title), body, start + 1))
+        line += raw.count("\n") or 1
     return sections
 
 
@@ -740,8 +759,10 @@ def fetch_wikipedia_section(title: str, heading: str = "", *, lang: str = DEFAUL
     A ``heading`` that matches (see ``lookup_heading()`` -- exact first,
     then fuzzy): that one section's title, its ATX form (``heading_markdown``,
     e.g. ``"## Geography"`` -- the section's own level, not hardcoded),
-    and its body (everything after that heading up to the next one at any
-    level, same as every other ``Section`` in this repo). A ``heading`` that
+    and its body (everything after that heading up to the next one at the
+    same level or shallower, so nested subsections stay inside -- same
+    contract as every other ``Section`` in this repo, see
+    ``markdown_lib.parse_sections()``). A ``heading`` that
     matches nothing is a normal empty result, not an error -- same
     "valid call, no rows" contract catalog.py's other tools use. A fetch
     that fails outright (network, no such article) raises

@@ -85,6 +85,39 @@ def test_parse_sections_uses_markdown_py_bodies() -> None:
     assert "mock tool" in sections[0].body
 
 
+def test_parse_sections_nested_heading_stays_inside_empty_parent() -> None:
+    """BLEACH-shaped fixture: an H2 with no prose of its own, only H3 arcs
+    underneath (mirrors tests/test_pages_wiki.py's JS parseWikiSections
+    contract for the same shape) -- the parent's body must not come back
+    empty, and a sibling H2 at the same level must still end it."""
+    markdown = (
+        "# BLEACH\n\n"
+        "lead\n\n"
+        "## あらすじ\n\n"
+        "### 死神代行篇\n\narc1\n\n"
+        "### 尸魂界篇\n\narc2\n\n"
+        "## 登場人物\n\npeople\n"
+    )
+    sections = parse_sections(markdown)
+    titles = [s.title for s in sections]
+    assert titles == ["BLEACH", "あらすじ", "死神代行篇", "尸魂界篇", "登場人物"]
+
+    arasuji = sections[1]
+    assert arasuji.level == 2
+    assert "### 死神代行篇" in arasuji.body
+    assert "arc1" in arasuji.body
+    assert "### 尸魂界篇" in arasuji.body
+    assert "arc2" in arasuji.body
+    assert "登場人物" not in arasuji.body
+
+    arc1 = sections[2]
+    assert arc1.level == 3
+    assert arc1.body == "arc1"
+
+    people = sections[4]
+    assert people.body == "people"
+
+
 def test_render_rows_uses_markdown_table() -> None:
     text = render_rows([{"name": "Yokohama", "code": "14109"}])
     assert "Yokohama" in text
@@ -286,7 +319,7 @@ def test_write_pages_does_not_embed_the_static_try_it_demo(tmp_path: Path) -> No
     assert PAGES_HASH_JS_NAME in names
     assert PAGES_WIKI_JS_NAME in names
     assert f'src="{PAGES_HASH_JS_NAME}"' in html
-    assert f'src="{PAGES_WIKI_JS_NAME}"' in html
+    assert f'src="{PAGES_WIKI_JS_NAME}?v=' in html
     assert (out / PAGES_HASH_JS_NAME).read_text(encoding="utf-8") == (
         PAGES_HASH_JS_SOURCE.read_text(encoding="utf-8")
     )
@@ -329,7 +362,7 @@ def test_write_pages_has_hash_routed_home_and_wiki_panels(tmp_path: Path) -> Non
     assert 'data-testid="pages-wiki-lang"' in html[wiki_idx:]
     assert 'data-testid="pages-wiki-fetch"' in html[wiki_idx:]
     assert 'data-testid="pages-wiki-heading"' in html[wiki_idx:]
-    assert f'src="{PAGES_WIKI_JS_NAME}"' in html[wiki_idx:]
+    assert f'src="{PAGES_WIKI_JS_NAME}?v=' in html[wiki_idx:]
     wiki_open = html.find("<section", wiki_idx - 80, wiki_idx + 80)
     assert wiki_open != -1
     wiki_tag = html[wiki_open : html.find(">", wiki_open) + 1]

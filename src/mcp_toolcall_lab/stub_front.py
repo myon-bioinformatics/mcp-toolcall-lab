@@ -26,6 +26,7 @@ called in-process and still logged.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import html
 import json
 import os
@@ -654,8 +655,15 @@ def _pages_wiki_markdown(md: Any) -> str:
     )
 
 
-def _pages_wiki_app_html() -> str:
-    """Raw HTML for the browser MediaWiki form. Kept outside markdown.py."""
+def _pages_wiki_app_html(*, cache_bust: str = "") -> str:
+    """Raw HTML for the browser MediaWiki form. Kept outside markdown.py.
+
+    ``cache_bust`` (a short hash of ``pages_wiki.js``'s own source) is
+    appended as a ``?v=`` query on the ``<script src>`` so a published
+    Pages change to that file is not served stale from a browser cache
+    that only revalidates ``index.html``.
+    """
+    wiki_js_src = PAGES_WIKI_JS_NAME + (f"?v={cache_bust}" if cache_bust else "")
     return (
         f'<p data-testid="pages-wiki-disclaimer">{html.escape(PAGES_WIKI_BROWSER_NOTE)}</p>'
         '<div id="pages-wiki-app" data-testid="pages-wiki-app">'
@@ -685,7 +693,7 @@ def _pages_wiki_app_html() -> str:
         f'<p data-testid="pages-wiki-extract-note">{html.escape(WIKI_EXTRACT_NOTE)}</p>'
         '<pre data-testid="pages-wiki-extract" hidden></pre>'
         "</div>"
-        f'<script src="{PAGES_WIKI_JS_NAME}"></script>'
+        f'<script src="{wiki_js_src}"></script>'
     )
 
 
@@ -790,6 +798,8 @@ def write_pages(
             leftover.unlink()
     summary = pages_summary(_load_json_object(last_run), read_jsonl(observations) if observations else [])
     summary_text = json.dumps(summary, indent=2, ensure_ascii=False)
+    wiki_js_source = PAGES_WIKI_JS_SOURCE.read_text(encoding="utf-8")
+    wiki_js_hash = hashlib.sha256(wiki_js_source.encode("utf-8")).hexdigest()[:8]
     if md is not None:
         home_inner = md.markdown_to_html(_pages_home_markdown(md, summary_text))
         wiki_inner = md.markdown_to_html(_pages_wiki_markdown(md))
@@ -800,7 +810,7 @@ def write_pages(
             f"<p>{html.escape(PAGES_WIKI_BROWSER_NOTE)}</p>"
             "<pre>" + html.escape(PAGES_WIKI_SERVE) + "</pre>"
         )
-    wiki_inner = wiki_inner + _pages_wiki_app_html()
+    wiki_inner = wiki_inner + _pages_wiki_app_html(cache_bust=wiki_js_hash)
     # Hide/show uses the HTML hidden attribute. Converted Markdown CSS comes
     # from vendor/markdown.py (default_stylesheet), not a lab-authored copy.
     html_page = (
@@ -820,9 +830,7 @@ def write_pages(
     (out_dir / PAGES_HASH_JS_NAME).write_text(
         PAGES_HASH_JS_SOURCE.read_text(encoding="utf-8"), encoding="utf-8"
     )
-    (out_dir / PAGES_WIKI_JS_NAME).write_text(
-        PAGES_WIKI_JS_SOURCE.read_text(encoding="utf-8"), encoding="utf-8"
-    )
+    (out_dir / PAGES_WIKI_JS_NAME).write_text(wiki_js_source, encoding="utf-8")
     (out_dir / "summary.json").write_text(summary_text + "\n", encoding="utf-8")
     (out_dir / BUILD_META_NAME).write_text(
         json.dumps(meta, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
@@ -854,9 +862,10 @@ def render_wiki_page(
             extract = article.extract
             for section in article.sections():
                 selected = " selected" if heading and section.title == heading else ""
+                label = "#" * section.level + " " + section.title
                 section_options.append(
                     f'<option value="{html.escape(section.title)}"{selected}>'
-                    f"{html.escape(section.title)}</option>"
+                    f"{html.escape(label)}</option>"
                 )
             if heading:
                 match = lookup_heading(heading, article.sections(), fuzzy=True)
@@ -868,9 +877,10 @@ def render_wiki_page(
                         section_options = ['<option value="">(full extract)</option>']
                         for section in article.sections():
                             selected = " selected" if section.title == match.title else ""
+                            label = "#" * section.level + " " + section.title
                             section_options.append(
                                 f'<option value="{html.escape(section.title)}"{selected}>'
-                                f"{html.escape(section.title)}</option>"
+                                f"{html.escape(label)}</option>"
                             )
         except WikipediaFetchError as exc:
             error = str(exc)

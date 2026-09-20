@@ -42,7 +42,8 @@ def test_wiki_title_shows_escaped_plaintext_extract(monkeypatch) -> None:
     assert WIKI_EXTRACT_NOTE in html
     assert 'data-cache="miss"' in html
     assert 'data-testid="wiki-heading-select"' in html
-    assert ">Geography<" in html
+    assert ">## Geography<" in html
+    assert 'value="Geography"' in html
     assert 'data-testid="wiki-canonical-title">Yokohama</strong>' in html
     # Second render of the same title is a cache hit and still does not refetch.
     html_hit = render_wiki_page(title="Yokohama")
@@ -106,7 +107,7 @@ def test_pages_tree_hosts_browser_mediawiki_not_local_wiki_or_try_it(tmp_path: P
     assert 'data-testid="pages-wiki-app"' in html
     assert 'data-testid="pages-wiki-title"' in html
     assert 'data-testid="pages-wiki-form"' in html
-    assert 'src="pages-wiki.js"' in html
+    assert 'src="pages-wiki.js?v=' in html
     assert 'data-testid="wiki-title"' not in html
     assert 'action="/wiki"' not in html
     assert 'href="/wiki"' not in html
