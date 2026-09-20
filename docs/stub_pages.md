@@ -1,15 +1,21 @@
 # Serverless stub try (GitHub Actions + Pages)
 
 GitHub Pages hosts a **static** report. It cannot keep Docker running
-and it is not a Wikipedia UI. GitHub Actions is the compute: it starts
+or the local `GET /wiki` stub backend. It **can** fetch Wikipedia from
+the browser: the MediaWiki Action API allows CORS via `origin=*`.
+GitHub Actions is the compute for the Last Actions snapshot: it starts
 one compose network, sends a turn through the stub, appends
 anti-patterns as JSONL, then publishes `_site/` to
 https://myon-bioinformatics.github.io/mcp-toolcall-lab/.
 
-The published `index.html` is generation identity (Commit / optional
-Version, plus `_site/build_meta.json`) plus a clear pointer to local
-`/wiki`, then a concise Last Actions snapshot. It does **not** embed
-the mock heading-pulldown "Try it" demo — that pulldown read
+The published `index.html` stays on one GitHub Pages endpoint. A
+same-origin hash switch (`#wiki`, optional `?view=wiki`) shows an
+in-page browser → MediaWiki form; there is no live `/wiki` path on
+github.io (that URL stays 404 by design — it is the local stub).
+Default view (`#` / empty hash) is generation identity (Commit /
+optional Version, plus `_site/build_meta.json`), a short pointer, and a
+concise Last Actions snapshot. It does **not** embed the mock
+heading-pulldown "Try it" demo — that pulldown read
 `fixtures/stub_front`, not Wikipedia, and looked like a stub Wiki UI.
 
 `usable_session_id()` stays on the MCP mock: a missing session is
@@ -19,7 +25,7 @@ missing, never the string `"None"`.
 
 | Service | DNS | Role |
 | --- | --- | --- |
-| `stub-front` | `:8765` | `markdown.py` + stdlib chat stub |
+| `stub-front` | `:8765` | vendored `markdown.py` + stdlib chat stub |
 | `mcp-mock` | `http://mcp-mock:8000/mcp` | generated FastMCP mock |
 | `cpu-llm` | `http://cpu-llm:8080/v1` | CPU-class model (lite stand-in today) |
 
@@ -35,7 +41,8 @@ does not start this stack.
 Ledger: `test-results/antipatterns.jsonl` (dictionary:
 `fixtures/antipatterns/catalog.yaml`). A miss does not pretend Send failed.
 Raw MCP / cpu-llm / last-run files stay Actions artifacts. Pages only gets
-`index.html`, allowlisted `summary.json`, and `build_meta.json`. Docker
+`index.html`, `pages-hash.js`, `pages-wiki.js`, allowlisted `summary.json`,
+and `build_meta.json`. Docker
 container logs are captured into `test-results/docker-logs/` on the smoke
 job; they are artifacts, not Pages content.
 
@@ -79,6 +86,11 @@ in the published summary so the Pages report says honestly which one ran.
 
 ## What the published page is
 
+Converted Markdown on this page (headings, lists, fenced JSON, …) is
+styled with `vendor/markdown.py`'s `default_stylesheet()`, not a
+lab-authored showcase CSS file. Hide/show of Home vs `#wiki` still uses
+the HTML `hidden` attribute.
+
 Near the top: a plain-HTML generation block (`Commit <shortSha>`, linked
 when `commitUrl` is known; Version only if `mcp_toolcall_lab.__version__`
 exists — this package does not invent one). Schema:
@@ -89,18 +101,27 @@ exists — this package does not invent one). Schema:
 it ignores default `_site/` and the chosen `--out` directory so generating
 (or regenerating) the Pages tree cannot mark a clean checkout dirty.
 
-Then `/wiki` induction: the live Wikipedia title form + heading select
-is the local stub, not github.io.
+The home view keeps Last Actions on this host. `#wiki` is a browser
+MediaWiki client (title → headings → section, in-memory extract on
+heading switch). MCP `fetch_wikipedia_*` and the local stub form stay
+on compose / `stub_front serve`.
 
 ```bash
 python -m mcp_toolcall_lab.stub_front serve --port 8765
 # open http://127.0.0.1:8765/wiki
 ```
 
-GitHub Pages cannot fetch MediaWiki or keep that backend. The "Last
-Actions summary" JSON below that is the last `stub-pages` smoke
+Deep-link the wiki panel as
+`https://myon-bioinformatics.github.io/mcp-toolcall-lab/#wiki`
+(optional `#wiki?title=Yokohama&lang=ja`; or `index.html?view=wiki`,
+which the hash script treats like `#wiki`). `write_pages()` copies
+`pages-hash.js` and `pages-wiki.js` next to `index.html`. Do not
+confuse that with `stub-demo.js` (local/test only).
+
+Pages `#wiki` is CORS MediaWiki from the browser, not MCP. The "Last
+Actions summary" JSON on the home view is the last `stub-pages` smoke
 snapshot — the actual value of this host — kept thinner than generation
-+ `/wiki` guidance.
++ the `#wiki` form.
 
 ## Local heading-lookup JS (not on Pages)
 
@@ -109,7 +130,9 @@ snapshot — the actual value of this host — kept thinner than generation
 local tests. `write_stub_demo_page()` writes that script plus
 `{title, slug, body}` corpus JSON. `write_pages()` does **not** copy
 those files into `_site/` and does not mount `#stub-demo` on the
-published index.
+published index. The Pages `#wiki` view is the browser MediaWiki form
+(plus a pointer to local `GET /wiki` / MCP), not that fixtures/stub_front
+mock.
 
 A prompt that would trigger a real MCP tool call (mirrors
 `MCP_PATTERNS`' tokens and tool names, kept in sync by

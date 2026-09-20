@@ -21,22 +21,27 @@ split. It is not a product clone and not a CommonMark engine.
 - `dispatch_tool`, stdlib `McpStdlibSession`
 - Serverless stub try: Actions boots `docker/stub-pages` (stub + MCP +
   CPU-class `cpu-llm`), JSONL anti-patterns, GitHub Pages static report
-- Vendored `markdown.py` for heading→body / table / HTML on the stub
+- Vendored `markdown.py` (P0–P3 through `446f7ab4`): Markdown ↔ HTML/CSS
+  and thin Markdown ↔ Kramdown IAL. The stub calls those helpers for
+  heading→body / table / HTML; it does not reimplement them.
 - Real tiny GGUF overlay (`docker-compose.gguf.yml`, opt-in via
   `stub-pages.yml`'s `use_real_gguf` input): auto-discovered + checksummed
   fetch script, `/v1/chat/completions` smoke check distinct from `/health`,
   `cpu_llm_backend` in the published summary
 - GitHub Pages report: generation identity (`build_meta.json` / Commit)
-  + local `/wiki` induction + Last Actions snapshot. The mock "Try it"
-  heading pulldown is **not** on the published index (`stub_demo.js`
-  remains a local/test asset via `write_stub_demo_page()`)
+  + same-origin `#wiki` browser MediaWiki form + Last Actions snapshot.
+  The mock "Try it" heading pulldown is **not** on the published index
+  (`stub_demo.js` remains a local/test asset via `write_stub_demo_page()`).
+  `pages-hash.js` hide/shows home vs `#wiki`; `pages-wiki.js` `fetch`es
+  the Action API with `origin=*`. github.io `/wiki` stays 404
 - `fetch_wikipedia_section` / `fetch_wikipedia_article` MCP tools
   (`wikipedia_tool.py`): the tools in `catalog.py` that are not
   deterministic mocks — a real Wikipedia article as a MediaWiki
   plaintext extract (no HTML scraping, no markdown.py HTML conversion),
   heading list from the same fetch, in-process TTL/LRU cache so heading
-  switches do not refetch. Stdlib stub `GET /wiki` is the thin form;
-  Pages does not host it. See `docs/wikipedia_tool.md`.
+  switches do not refetch. Stdlib stub `GET /wiki` is the thin
+  server-side form. Pages `#wiki` is a separate browser CORS client of
+  the same API, not those MCP tools. See `docs/wikipedia_tool.md`.
 
 ## Later (unnumbered)
 

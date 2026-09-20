@@ -1,7 +1,8 @@
 {
   "repository": "https://github.com/myon-bioinformatics/markdown",
   "path": "markdown.py",
-  "commit": "77b9cdcc6fe0de743a1642afe0289f0925843821",
-  "blob_sha": "a5fb7b7eed022dd73fa68ab51cf6d54cbba63a91",
-  "sha256": "b4ce3851d9faecad5a6e58e62de9d5357af2f6db73cf389e9d3298b7f1016a18"
+  "commit": "446f7ab4df8b14018b7f37f83a63432fe9cdca5e",
+  "blob_sha": "c40c8626df29444b1dca370c0835932956570468",
+  "sha256": "daabe5dfab4d753b1bde3fd5c983305c05b43feb2c2190675fea42f500dd1e56",
+  "date": "2026-09-20"
 }

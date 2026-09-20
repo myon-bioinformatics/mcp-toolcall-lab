@@ -11,26 +11,36 @@ only the vendored fixture corpus.
 plaintext extract, the canonical title after redirects, and the heading
 list derived from that extract.
 
-## Why an MCP tool, not client-side JS
+## Two fetch paths: Pages `#wiki` vs MCP / local `/wiki`
 
-A tool that fetches an arbitrary external URL belongs in the MCP catalog,
-where a real client (LibreChat, Open WebUI, the stub) makes an actual
-network call through the MCP server process. GitHub Pages is a static
-host: it cannot fetch Wikipedia. The published report is generation
-identity + induction to local `/wiki`, not a mock heading pulldown.
+The MediaWiki Action API supports CORS via `origin=*`, so a static page
+on github.io **can** `fetch` `https://{lang}.wikipedia.org/w/api.php`
+from the browser. That is what published `#wiki` does. It is **not** an
+MCP tool call.
 
-The stdlib stub serves a **local** `GET /wiki` form (title input +
-server-rendered heading `<select>`). That form is not published as a live
-backend on Pages. The Pages report says so explicitly.
+| Surface | Who fetches | How |
+| --- | --- | --- |
+| GitHub Pages `#wiki` | the browser | `fetch` MediaWiki Action API with `origin=*` (no MCP, no Docker) |
+| Local `GET /wiki` + MCP `fetch_wikipedia_*` | the stub / MCP server process | `wikipedia_tool.py` (unchanged) |
+
+A tool that LibreChat / Open WebUI / the stub should call still belongs
+in the MCP catalog, where the **server process** makes the HTTP call.
+GitHub Pages remains a static host: it cannot keep that backend or a
+github.io `/wiki` route (that path stays 404). The published index stays
+`index.html`; `#wiki` (optional `?view=wiki`) hide/shows the browser
+MediaWiki form. Heading switches reuse the in-memory extract (same idea
+as the Python process cache). The mock `stub_demo.js` heading pulldown
+is still not published.
 
 ## Why Wikipedia's own API, not HTML scraping
 
-`vendor/markdown.py`'s `html_to_markdown()` is explicitly a "conservative"
-converter (headings, paragraphs, bold/italic, links, images, simple
-lists — no `<table>`, no citation/infobox handling). A real Wikipedia
-article's raw HTML is full of exactly what it does not handle: infoboxes,
-reference lists, navigation boxes. Feeding that through would hide those
-limits behind a garbled conversion.
+`vendor/markdown.py`'s `html_to_markdown()` is a conservative converter
+(headings, paragraphs, bold/italic/strikethrough, links, images, simple
+lists, simple `<table>`, checkbox `<li>`, heading/p attributes). A real
+Wikipedia article's raw HTML is still full of what it does not handle:
+infoboxes, citation/reference lists, navigation boxes. Feeding that
+through would hide those limits behind a garbled conversion. The lab
+does not own a second HTML→Markdown path.
 
 Wikipedia's `action=query&prop=extracts&explaintext=1&exsectionformat=wiki`
 API sidesteps this: it returns plain text, already stripped of that
@@ -113,13 +123,16 @@ screenshot it without filling widgets):
   selected section body
 
 Displayed text is `html.escape`d into `<pre>`. GitHub Pages does not
-host this form. Local `/wiki` may include a small authored `<style>`
-block for the form; the published Pages report is a different host
-(no Wikipedia-form CSS, and no live Wikipedia backend) on purpose.
+host this **server** form (a `/wiki` path on github.io stays 404). Local
+`/wiki` may include a small authored `<style>` block; the published
+Pages `#wiki` panel is a different client: vanilla JS, no authored CSS,
+browser → MediaWiki CORS. `#wiki` is still on `index.html`, not a
+second Pages route.
 
 ```bash
 python -m mcp_toolcall_lab.stub_front serve --port 8765
 # open http://127.0.0.1:8765/wiki
+# Pages browser MediaWiki UI: https://myon-bioinformatics.github.io/mcp-toolcall-lab/#wiki
 ```
 
 ## Testing without live network

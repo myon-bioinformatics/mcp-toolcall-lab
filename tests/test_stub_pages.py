@@ -24,7 +24,13 @@ from mcp_toolcall_lab.stub_front import (
     BUILD_META_NAME,
     MCP_PATTERNS,
     PAGES_FORBIDDEN_NAMES,
+    PAGES_HASH_JS_NAME,
+    PAGES_HASH_JS_SOURCE,
     PAGES_SUMMARY_KEYS,
+    PAGES_WIKI_BROWSER_NOTE,
+    PAGES_WIKI_JS_NAME,
+    PAGES_WIKI_JS_SOURCE,
+    PAGES_WIKI_SERVE,
     STUB_DEMO_DATA_NAME,
     STUB_DEMO_JS_NAME,
     STUB_DEMO_JS_SOURCE,
@@ -48,11 +54,29 @@ def test_vendored_markdown_py_is_loadable() -> None:
     assert md is not None
     assert md.split_sections("# Yokohama\n\nbody\n")[0]["title"] == "Yokohama"
     recorded = assert_markdown_provenance()
-    assert recorded["commit"] == "77b9cdcc6fe0de743a1642afe0289f0925843821"
-    assert recorded["blob_sha"] == "a5fb7b7eed022dd73fa68ab51cf6d54cbba63a91"
+    assert recorded["commit"] == "446f7ab4df8b14018b7f37f83a63432fe9cdca5e"
+    assert recorded["blob_sha"] == "c40c8626df29444b1dca370c0835932956570468"
+    assert recorded["sha256"] == "daabe5dfab4d753b1bde3fd5c983305c05b43feb2c2190675fea42f500dd1e56"
     readme = (ROOT / "vendor" / "README.md").read_text(encoding="utf-8")
     assert "ref=${COMMIT}" in readme
     assert "not `main`" in readme
+    # P0–P3 APIs from myon-bioinformatics/markdown#17–#21 must be present.
+    assert hasattr(md, "markdown_to_html")
+    assert hasattr(md, "html_to_markdown")
+    assert hasattr(md, "default_stylesheet")
+    assert hasattr(md, "alert_stylesheet")
+    assert hasattr(md, "markdown_to_kramdown")
+    assert hasattr(md, "kramdown_to_markdown")
+    assert hasattr(md, "ial")
+    assert hasattr(md, "with_attributes")
+    html = md.markdown_to_html("| a | b |\n| --- | --- |\n| 1 | 2 |\n")
+    assert "<table>" in html
+    assert md.html_to_markdown("<table><tr><th>a</th></tr><tr><td>1</td></tr></table>").count("|") >= 2
+    assert "~~gone~~" in md.html_to_markdown("<del>gone</del>")
+    kramdown = md.markdown_to_kramdown('# Title {#intro .hero}\n')
+    assert "{: #intro .hero}" in kramdown
+    assert "#intro" in md.ial(id="intro")
+    assert ".markdown-alert" in md.default_stylesheet()
 
 
 def test_parse_sections_uses_markdown_py_bodies() -> None:
@@ -91,6 +115,42 @@ def test_write_pages_is_static(tmp_path: Path) -> None:
     assert (tmp_path / "site" / "summary.json").is_file()
     assert (tmp_path / "site" / BUILD_META_NAME).is_file()
     assert not (tmp_path / "site" / "last-run.json").exists()
+
+
+def test_write_pages_embeds_vendor_stylesheet_not_lab_css(tmp_path: Path) -> None:
+    """Pages CSS for converted Markdown comes from vendor/markdown.py."""
+    md = load_markdown()
+    assert md is not None
+    html = write_pages(tmp_path / "site", revision=_FAKE_REVISION).read_text(encoding="utf-8")
+    vendor_css = md.default_stylesheet()
+    assert vendor_css
+    assert vendor_css in html
+    assert html.index("<style>") < html.index("<title>")
+    # Lab must not ship a second markdown-feature stylesheet next to Pages.
+    assert not (ROOT / "src" / "mcp_toolcall_lab" / "static" / "markdown.css").exists()
+
+
+_VENDOR_OWNED_NAMES = (
+    "markdown_to_kramdown",
+    "kramdown_to_markdown",
+    "default_stylesheet",
+    "alert_stylesheet",
+    "html_to_markdown",
+)
+
+
+def test_lab_source_does_not_reimplement_vendor_converters() -> None:
+    """Ownership split: Markdown↔HTML/CSS/Kramdown IAL stay in vendor/."""
+    src_root = ROOT / "src" / "mcp_toolcall_lab"
+    offenders: list[str] = []
+    for path in src_root.rglob("*"):
+        if not path.is_file() or path.suffix not in {".py", ".js", ".css"}:
+            continue
+        text = path.read_text(encoding="utf-8")
+        for name in _VENDOR_OWNED_NAMES:
+            if f"def {name}" in text or f"function {name}" in text:
+                offenders.append(f"{path.relative_to(ROOT)}:{name}")
+    assert offenders == []
 
 
 def test_pages_tree_excludes_raw_mcp_logs(tmp_path: Path) -> None:
@@ -206,7 +266,7 @@ def test_gguf_overlay_pins_image_digest_and_uses_curl_healthcheck() -> None:
 
 
 def test_write_pages_does_not_embed_the_static_try_it_demo(tmp_path: Path) -> None:
-    """Published Pages is generation + /wiki induction + CI summary.
+    """Published Pages is generation + browser MediaWiki #wiki + CI summary.
 
     The mock heading-pulldown demo is a local asset (write_stub_demo_page),
     not the github.io index — that pulldown was a fixtures/stub_front corpus,
@@ -223,6 +283,161 @@ def test_write_pages_does_not_embed_the_static_try_it_demo(tmp_path: Path) -> No
     assert STUB_DEMO_DATA_NAME not in html
     assert "Corpus headings" not in html
     assert "mcpToolcallLabStubDemo" not in html
+    assert PAGES_HASH_JS_NAME in names
+    assert PAGES_WIKI_JS_NAME in names
+    assert f'src="{PAGES_HASH_JS_NAME}"' in html
+    assert f'src="{PAGES_WIKI_JS_NAME}"' in html
+    assert (out / PAGES_HASH_JS_NAME).read_text(encoding="utf-8") == (
+        PAGES_HASH_JS_SOURCE.read_text(encoding="utf-8")
+    )
+    assert (out / PAGES_WIKI_JS_NAME).read_text(encoding="utf-8") == (
+        PAGES_WIKI_JS_SOURCE.read_text(encoding="utf-8")
+    )
+
+
+def test_write_pages_has_hash_routed_home_and_wiki_panels(tmp_path: Path) -> None:
+    """Published index stays one endpoint: #wiki is an in-page transition."""
+    html = write_pages(tmp_path / "site", revision=_FAKE_REVISION).read_text(encoding="utf-8")
+    assert 'id="pages-nav"' in html
+    assert 'data-testid="pages-nav-home" href="#"' in html or (
+        'href="#" data-pages-nav="home" data-testid="pages-nav-home"' in html
+    )
+    assert 'href="#wiki"' in html
+    assert 'data-pages-nav="wiki"' in html
+    assert 'data-testid="pages-nav-wiki"' in html
+    assert 'id="home"' in html
+    assert 'id="wiki"' in html
+    assert 'data-pages-view="home"' in html
+    assert 'data-pages-view="wiki"' in html
+    assert 'data-testid="pages-home"' in html
+    assert 'data-testid="pages-wiki"' in html
+    assert 'data-testid="pages-nav-back"' in html
+    assert "Back to report" in html
+    assert 'id="build-meta"' in html
+    home_idx = html.index('data-pages-view="home"')
+    wiki_idx = html.index('data-pages-view="wiki"')
+    assert html.index('id="build-meta"') > home_idx
+    assert html.index('id="build-meta"') < wiki_idx
+    assert html.index("<h2>Last Actions summary</h2>") > home_idx
+    assert html.index("<h2>Last Actions summary</h2>") < wiki_idx
+    assert html.index(PAGES_WIKI_SERVE.splitlines()[0]) > wiki_idx
+    assert "stays 404" in html[wiki_idx:]
+    assert "http://127.0.0.1:8765/wiki" in html[wiki_idx:]
+    assert PAGES_WIKI_BROWSER_NOTE in html[wiki_idx:]
+    assert 'data-testid="pages-wiki-app"' in html[wiki_idx:]
+    assert 'data-testid="pages-wiki-title"' in html[wiki_idx:]
+    assert 'data-testid="pages-wiki-lang"' in html[wiki_idx:]
+    assert 'data-testid="pages-wiki-fetch"' in html[wiki_idx:]
+    assert 'data-testid="pages-wiki-heading"' in html[wiki_idx:]
+    assert f'src="{PAGES_WIKI_JS_NAME}"' in html[wiki_idx:]
+    wiki_open = html.find("<section", wiki_idx - 80, wiki_idx + 80)
+    assert wiki_open != -1
+    wiki_tag = html[wiki_open : html.find(">", wiki_open) + 1]
+    assert " hidden" in wiki_tag
+    assert 'action="/wiki"' not in html
+    assert 'href="/wiki"' not in html
+    assert 'id="stub-demo"' not in html
+    assert "Try it (static, no MCP)" not in html
+    assert "Corpus headings" not in html
+
+
+_PAGES_HASH_CONTRACT = """
+const pages = require(process.argv[1]);
+const assert = require("assert");
+
+assert.strictEqual(pages.viewFromLocation("", ""), "home");
+assert.strictEqual(pages.viewFromLocation("#", ""), "home");
+assert.strictEqual(pages.viewFromLocation("#home", ""), "home");
+assert.strictEqual(pages.viewFromLocation("#wiki", ""), "wiki");
+assert.strictEqual(pages.viewFromLocation("#wiki?x=1", ""), "wiki");
+assert.strictEqual(pages.viewFromLocation("", "?view=wiki"), "wiki");
+assert.strictEqual(pages.viewFromLocation("#", "?view=wiki"), "wiki");
+assert.strictEqual(pages.viewFromLocation("", "?foo=1&view=wiki"), "wiki");
+assert.strictEqual(pages.viewFromLocation("", "?view=home"), "home");
+assert.strictEqual(pages.viewFromLocation("#other", ""), "home");
+assert.strictEqual(pages.viewFromLocation("#wiki", "?view=home"), "wiki");
+
+function el(attr, value) {
+  const attrs = {};
+  attrs[attr] = value;
+  return {
+    getAttribute(name) {
+      return Object.prototype.hasOwnProperty.call(attrs, name) ? attrs[name] : null;
+    },
+    setAttribute(name, next) {
+      attrs[name] = String(next);
+    },
+    removeAttribute(name) {
+      delete attrs[name];
+    },
+    hasAttribute(name) {
+      return Object.prototype.hasOwnProperty.call(attrs, name);
+    },
+  };
+}
+
+const home = el("data-pages-view", "home");
+const wiki = el("data-pages-view", "wiki");
+const navHome = el("data-pages-nav", "home");
+const navWiki = el("data-pages-nav", "wiki");
+const doc = {
+  querySelectorAll(sel) {
+    if (sel === "[data-pages-view]") return [home, wiki];
+    if (sel === "[data-pages-nav]") return [navHome, navWiki];
+    return [];
+  },
+};
+pages.applyView(doc, "wiki");
+assert.strictEqual(home.hasAttribute("hidden"), true);
+assert.strictEqual(wiki.hasAttribute("hidden"), false);
+assert.strictEqual(navWiki.getAttribute("aria-current"), "page");
+assert.strictEqual(navHome.hasAttribute("aria-current"), false);
+pages.applyView(doc, "home");
+assert.strictEqual(home.hasAttribute("hidden"), false);
+assert.strictEqual(wiki.hasAttribute("hidden"), true);
+assert.strictEqual(navHome.getAttribute("aria-current"), "page");
+assert.strictEqual(navWiki.hasAttribute("aria-current"), false);
+
+let replaced = "";
+const win = {
+  location: {
+    href: "https://example.test/mcp-toolcall-lab/?view=wiki",
+    hash: "",
+    search: "?view=wiki",
+    pathname: "/mcp-toolcall-lab/",
+  },
+  history: {
+    replaceState(_state, _title, url) {
+      replaced = url;
+    },
+  },
+  document: doc,
+};
+assert.strictEqual(pages.syncFromLocation(win), "wiki");
+assert.ok(replaced.includes("#wiki"));
+assert.ok(!replaced.includes("view=wiki"));
+console.log("ok");
+"""
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node not installed in this environment")
+def test_pages_hash_js_view_and_apply_contracts() -> None:
+    result = subprocess.run(
+        ["node", "-e", _PAGES_HASH_CONTRACT, str(PAGES_HASH_JS_SOURCE)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr + result.stdout
+    assert "ok" in result.stdout
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node not installed in this environment")
+def test_pages_hash_js_is_valid_javascript() -> None:
+    result = subprocess.run(
+        ["node", "--check", str(PAGES_HASH_JS_SOURCE)], capture_output=True, text=True
+    )
+    assert result.returncode == 0, result.stderr
 
 
 def test_write_pages_emits_build_meta_and_commit(tmp_path: Path) -> None:
@@ -236,6 +451,7 @@ def test_write_pages_emits_build_meta_and_commit(tmp_path: Path) -> None:
     assert _FAKE_REVISION["subject"] in html
     assert _FAKE_REVISION["sha"] in html
     assert "python -m mcp_toolcall_lab.stub_front serve --port 8765" in html
+    assert PAGES_WIKI_SERVE.splitlines()[0] in html
     assert "/wiki" in html
     assert "<h2>Last Actions summary</h2>" in html
     assert "not live Wikipedia.## Last Actions" not in html
