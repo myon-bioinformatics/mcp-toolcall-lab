@@ -1,0 +1,10 @@
+{
+  "name": "mcp-toolcall-lab-wikipedia",
+  "exports": "./main.ts",
+  "tasks": {
+    "start": "deno run --allow-net --allow-env --allow-read main.ts"
+  },
+  "compilerOptions": {
+    "strict": true
+  }
+}

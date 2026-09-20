@@ -7,6 +7,9 @@ This repository deliberately does **not** call the Ministry of Land, Infrastruct
 ## What is in the tree
 
 - A FastMCP Streamable HTTP server with three deterministic real-estate-style mock tools.
+- A Wikipedia-only Streamable HTTP MCP (Deno Deploy, no API keys) for `fetch_wikipedia_*`.
+  Catalog schemas are generated from the Python FastMCP server. Pages `#wiki` is not
+  connected to it yet. See [`docs/wikipedia_mcp_deploy.md`](docs/wikipedia_mcp_deploy.md).
 - A copyable standalone file generated from the package so tool names, schemas, and docstrings cannot drift.
 - LibreChat / Open WebUI as clients under test; a stdlib markdown stub as a reference front.
 - Protocol tests (curl / httpx / SDK) plus chat/direct tracing through one JSONL log.

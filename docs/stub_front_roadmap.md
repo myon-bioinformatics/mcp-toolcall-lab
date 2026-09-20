@@ -47,9 +47,15 @@ split. It is not a product clone and not a CommonMark engine.
   switches do not refetch. Stdlib stub `GET /wiki` is the thin
   server-side form. Pages `#wiki` is a separate browser CORS client of
   the same API, not those MCP tools. See `docs/wikipedia_tool.md`.
+- Wikipedia-only Deno Streamable HTTP MCP (`deploy/wikipedia-mcp`): keyless
+  `POST /mcp` for `fetch_wikipedia_*`, catalog generated from FastMCP,
+  CORS + `Mcp-Session-Id`. Not connected to Pages `#wiki` yet.
+  See `docs/wikipedia_mcp_deploy.md`.
 
 ## Later (unnumbered)
 
+- Pages `#wiki` → Deno Wikipedia MCP (browser `fetch` of `POST /mcp`)
+- OpenAI `tools` / `tool_calls` → MCP → `role: tool` browser round-trip
 - Accuracy harness vs `myon-bioinformatics/markdown` (do not vendor CommonMark here)
 - Playwright against the stub (reuse `frontends.py`; no product Docker)
 - Optional `openai_toolcall_mock` backend for the stub

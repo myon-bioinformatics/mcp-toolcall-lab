@@ -13,7 +13,12 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
       - name: Install
         run: pip install -e ".[test]"
+      - name: Deno check
+        run: deno check deploy/wikipedia-mcp/main.ts
       - name: Test
         run: pytest -q
