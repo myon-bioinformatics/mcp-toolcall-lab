@@ -1,6 +1,7 @@
 /** Streamable HTTP MCP: JSON-RPC 2.0 + SSE + Mcp-Session-Id + CORS. */
 
 import catalog from "./catalog.generated.json" with { type: "json" };
+import { mintSessionToken, verifySessionToken } from "./session.ts";
 import {
   DEFAULT_LANG,
   WikipediaFetchError,
@@ -24,16 +25,24 @@ type JsonRpcRequest = {
 
 type CatalogTool = (typeof catalog.tools)[number];
 
-const sessions = new Set<string>();
+const ALLOWED_ORIGIN_ENV = "MCP_ALLOWED_ORIGIN";
 
-const CORS: Record<string, string> = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  "Access-Control-Allow-Headers":
-    "Content-Type, Accept, Mcp-Session-Id, MCP-Protocol-Version, Last-Event-ID",
-  "Access-Control-Expose-Headers": "Mcp-Session-Id",
-  "Access-Control-Max-Age": "86400",
-};
+function cors(): Record<string, string> {
+  let allowOrigin = "*";
+  try {
+    allowOrigin = Deno.env.get(ALLOWED_ORIGIN_ENV)?.trim() || "*";
+  } catch {
+    allowOrigin = "*";
+  }
+  return {
+    "Access-Control-Allow-Origin": allowOrigin,
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Headers":
+      "Content-Type, Accept, Mcp-Session-Id, MCP-Protocol-Version, Last-Event-ID",
+    "Access-Control-Expose-Headers": "Mcp-Session-Id",
+    "Access-Control-Max-Age": "86400",
+  };
+}
 
 function header(req: Request, name: string): string | null {
   return req.headers.get(name);
@@ -48,7 +57,7 @@ function jsonResponse(status: number, body: unknown, extra: Record<string, strin
     status,
     headers: {
       "Content-Type": "application/json",
-      ...CORS,
+      ...cors(),
       ...extra,
     },
   });
@@ -62,7 +71,7 @@ function sseMessage(payload: unknown, extra: Record<string, string> = {}): Respo
     headers: {
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache, no-transform",
-      ...CORS,
+      ...cors(),
       ...extra,
     },
   });
@@ -197,18 +206,12 @@ function initializeResult() {
   };
 }
 
-function mintSession(): string {
-  const id = `sess_${crypto.randomUUID().replaceAll("-", "")}`;
-  sessions.add(id);
-  return id;
-}
-
 export async function handleRequest(req: Request): Promise<Response> {
   const url = new URL(req.url);
   const path = url.pathname.replace(/\/+$/, "") || "/";
 
   if (req.method === "OPTIONS") {
-    return new Response(null, { status: 204, headers: CORS });
+    return new Response(null, { status: 204, headers: cors() });
   }
 
   if (req.method === "GET" && (path === "/" || path === "/health")) {
@@ -250,12 +253,12 @@ export async function handleRequest(req: Request): Promise<Response> {
   >;
 
   if (method === "initialize") {
-    const sessionId = mintSession();
+    const sessionId = await mintSessionToken();
     return rpcResult(id, initializeResult(), { "Mcp-Session-Id": sessionId });
   }
 
   const sessionId = sessionOf(req);
-  if (!sessionId || !sessions.has(sessionId)) {
+  if (!sessionId || !(await verifySessionToken(sessionId))) {
     return jsonResponse(400, {
       jsonrpc: "2.0",
       id,
@@ -267,7 +270,7 @@ export async function handleRequest(req: Request): Promise<Response> {
   if (method === "notifications/initialized" || method.startsWith("notifications/")) {
     return new Response(null, {
       status: 202,
-      headers: { "Content-Type": "application/json", ...CORS, ...sessionHeader },
+      headers: { "Content-Type": "application/json", ...cors(), ...sessionHeader },
     });
   }
 
@@ -288,7 +291,7 @@ export async function handleRequest(req: Request): Promise<Response> {
   if (id === null || id === undefined) {
     return new Response(null, {
       status: 202,
-      headers: { "Content-Type": "application/json", ...CORS, ...sessionHeader },
+      headers: { "Content-Type": "application/json", ...cors(), ...sessionHeader },
     });
   }
   return rpcError(id, -32601, `Method not found: ${method}`, sessionHeader);

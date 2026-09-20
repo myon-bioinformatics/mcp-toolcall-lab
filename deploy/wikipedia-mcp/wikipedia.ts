@@ -6,6 +6,8 @@ export const USER_AGENT =
   "mcp-toolcall-lab-wikipedia/0.1 (https://github.com/myon-bioinformatics/mcp-toolcall-lab; lab demo, not production traffic)";
 export const TIMEOUT_MS = 10_000;
 export const FIXTURE_ENV = "MCP_TOOLCALL_LAB_WIKIPEDIA_FIXTURE";
+/** MediaWiki-like project codes: en, zh-yue, simple. Rejects host injection. */
+export const LANG_RE = /^[a-z0-9-]{2,24}$/i;
 
 const WIKI_HEADING_RE = /^(=+)\s*(.+?)\s*=+\s*$/;
 const ATX_HEADING_RE = /^(#{1,6})\s+(.+?)\s*#*\s*$/;
@@ -42,9 +44,47 @@ function cacheKey(lang: string, title: string): string {
   return `${lang}\0${title.trim().toLowerCase()}`;
 }
 
-function normalizeLang(lang: string | undefined): string {
+export function normalizeLang(lang: string | undefined): string {
   const cleaned = (lang || "").trim();
-  return cleaned || DEFAULT_LANG;
+  return assertAllowedLang(cleaned || DEFAULT_LANG);
+}
+
+export function assertAllowedLang(lang: string): string {
+  if (!LANG_RE.test(lang)) {
+    throw new WikipediaFetchError(`invalid wikipedia language code '${lang}'`);
+  }
+  return lang.toLowerCase();
+}
+
+/**
+ * Build the MediaWiki action API URL and refuse anything that is not a
+ * `*.wikipedia.org` host (no userinfo, no open-redirect / host injection).
+ */
+export function wikipediaApiUrl(lang: string): URL {
+  const safeLang = assertAllowedLang(lang);
+  const url = new URL(`https://${safeLang}.wikipedia.org/w/api.php`);
+  assertSafeWikipediaApiUrl(url);
+  return url;
+}
+
+export function assertSafeWikipediaApiUrl(url: URL): void {
+  if (url.protocol !== "https:") {
+    throw new WikipediaFetchError(`refusing non-https wikipedia URL '${url.href}'`);
+  }
+  if (url.username || url.password) {
+    throw new WikipediaFetchError(`refusing wikipedia URL with userinfo '${url.href}'`);
+  }
+  const host = url.hostname.toLowerCase();
+  if (!host.endsWith(".wikipedia.org") || host === "wikipedia.org") {
+    throw new WikipediaFetchError(`refusing unexpected wikipedia host '${url.hostname}'`);
+  }
+  // Single project subdomain only — not wikipedia.org.evil.com or nested hosts.
+  if (!/^[a-z0-9-]{2,24}\.wikipedia\.org$/i.test(host)) {
+    throw new WikipediaFetchError(`refusing unexpected wikipedia host '${url.hostname}'`);
+  }
+  if (url.pathname !== "/w/api.php") {
+    throw new WikipediaFetchError(`refusing unexpected wikipedia path '${url.pathname}'`);
+  }
 }
 
 export function slugify(title: string): string {
@@ -197,6 +237,7 @@ async function readFixturePayload(
 }
 
 async function fetchExtractPayload(title: string, lang: string): Promise<Record<string, unknown>> {
+  const api = wikipediaApiUrl(lang);
   const fixture = Deno.env.get(FIXTURE_ENV)?.trim();
   if (fixture) {
     return await readFixturePayload(fixture, title, lang);
@@ -210,7 +251,9 @@ async function fetchExtractPayload(title: string, lang: string): Promise<Record<
     redirects: "1",
     titles: title,
   });
-  const url = `${WIKIPEDIA_API.replace("{lang}", lang)}?${query.toString()}`;
+  const url = new URL(api.href);
+  url.search = query.toString();
+  assertSafeWikipediaApiUrl(url);
   try {
     const response = await fetch(url, {
       headers: { "User-Agent": USER_AGENT, Accept: "application/json" },
@@ -238,6 +281,7 @@ export class WikipediaExtractCache {
   private readonly order: string[] = [];
   private readonly entries = new Map<string, CacheEntry>();
   private readonly alias = new Map<string, string>();
+  private readonly inflight = new Map<string, Promise<WikipediaArticle>>();
 
   constructor(maxsize = 16, ttlSeconds = 300) {
     this.maxsize = Math.max(1, maxsize);
@@ -311,6 +355,33 @@ export class WikipediaExtractCache {
       this.purge(this.order[0]);
     }
   }
+
+  /**
+   * Same-key cache misses single-flight via a Map of in-flight Promises
+   * (parity with Python WikipediaExtractCache._inflight). Distinct keys load
+   * concurrently. The loader runs without blocking other keys.
+   */
+  async getOrLoad(
+    title: string,
+    lang: string,
+    loader: () => Promise<{ article: WikipediaArticle; aliases?: string[] }>,
+  ): Promise<WikipediaArticle> {
+    const hit = this.get(title, lang);
+    if (hit) return hit;
+    const key = cacheKey(lang, title);
+    const existing = this.inflight.get(key);
+    if (existing) return existing;
+    const pending = (async () => {
+      const { article, aliases = [] } = await loader();
+      return this.put(article, aliases);
+    })();
+    this.inflight.set(key, pending);
+    try {
+      return await pending;
+    } finally {
+      if (this.inflight.get(key) === pending) this.inflight.delete(key);
+    }
+  }
 }
 
 const cache = new WikipediaExtractCache();
@@ -324,11 +395,14 @@ export async function loadWikipediaArticle(
   if (!cleaned) {
     throw new WikipediaFetchError(`no ${safeLang}.wikipedia.org article named '${title}'`);
   }
-  const hit = cache.get(cleaned, safeLang);
-  if (hit) return hit;
-  const payload = await fetchExtractPayload(cleaned, safeLang);
-  const article = parseExtractPayload(payload, cleaned, safeLang);
-  return cache.put(article, [cleaned, article.canonical_title, ...redirectAliases(payload)]);
+  return await cache.getOrLoad(cleaned, safeLang, async () => {
+    const payload = await fetchExtractPayload(cleaned, safeLang);
+    const article = parseExtractPayload(payload, cleaned, safeLang);
+    return {
+      article,
+      aliases: [cleaned, article.canonical_title, ...redirectAliases(payload)],
+    };
+  });
 }
 
 export async function fetchWikipediaArticle(title: string, lang = DEFAULT_LANG) {

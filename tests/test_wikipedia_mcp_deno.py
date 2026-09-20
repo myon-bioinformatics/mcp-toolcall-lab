@@ -15,6 +15,7 @@ import os
 import shutil
 import socket
 import subprocess
+import tempfile
 import time
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -187,7 +188,7 @@ class RunningDeno:
 
 
 @contextmanager
-def running_wikipedia_mcp() -> Iterator[RunningDeno]:
+def running_wikipedia_mcp(extra_env: dict[str, str] | None = None) -> Iterator[RunningDeno]:
     if not Path(DENO).is_file():
         pytest.skip("deno is not installed")
     port = _free_port()
@@ -197,19 +198,29 @@ def running_wikipedia_mcp() -> Iterator[RunningDeno]:
         "MCP_PORT": str(port),
         FIXTURE_ENV: str(WIKI_FIXTURE),
     }
+    if extra_env:
+        env.update(extra_env)
+    stderr = tempfile.TemporaryFile()
     process = subprocess.Popen(
         [DENO, "run", "--allow-net", "--allow-env", "--allow-read", "main.ts"],
         cwd=DENO_DIR,
         env=env,
         stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        text=True,
+        stderr=stderr,
     )
     url = f"http://127.0.0.1:{port}/mcp"
+
+    def _stderr_text() -> str:
+        stderr.flush()
+        stderr.seek(0)
+        return stderr.read().decode("utf-8", "replace")[-4000:]
+
     try:
         for _ in range(50):
             if process.poll() is not None:
-                raise RuntimeError(f"Deno Wikipedia MCP exited {process.returncode}")
+                raise RuntimeError(
+                    f"Deno Wikipedia MCP exited {process.returncode}: {_stderr_text()}"
+                )
             try:
                 httpx.get(f"http://127.0.0.1:{port}/health", timeout=0.2)
                 break
@@ -217,7 +228,12 @@ def running_wikipedia_mcp() -> Iterator[RunningDeno]:
                 time.sleep(0.1)
         else:
             process.terminate()
-            raise RuntimeError("Deno Wikipedia MCP did not start")
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait(timeout=5)
+            raise RuntimeError(f"Deno Wikipedia MCP did not start: {_stderr_text()}")
         yield RunningDeno(url=url, process=process)
     finally:
         process.terminate()
@@ -226,6 +242,7 @@ def running_wikipedia_mcp() -> Iterator[RunningDeno]:
         except subprocess.TimeoutExpired:
             process.kill()
             process.wait(timeout=5)
+        stderr.close()
 
 
 class DenoMcpSession:
@@ -510,3 +527,83 @@ def test_deno_requires_session_and_does_not_invent_event_rows() -> None:
             assert parsed["jsonrpc"] == "2.0"
         finally:
             session.close()
+
+
+def test_deno_hmac_session_is_accepted_by_a_second_process() -> None:
+    """Tokens are HMAC + TTL, not an isolate-local Set — a second process
+    with the same MCP_SESSION_SECRET must accept the first process's id."""
+
+    secret = {"MCP_SESSION_SECRET": "lab-test-mcp-session-secret"}
+    with running_wikipedia_mcp(secret) as first:
+        session = DenoMcpSession(first.url)
+        try:
+            session.initialize()
+            token = session.session_id
+            assert token and token.startswith("sess_")
+            with running_wikipedia_mcp(secret) as second:
+                listed = httpx.post(
+                    second.url,
+                    headers={
+                        "Content-Type": "application/json",
+                        "Accept": ACCEPT,
+                        "Mcp-Session-Id": token,
+                    },
+                    json={"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}},
+                    timeout=10.0,
+                )
+            assert listed.status_code == 200
+            parsed = extract_sse_data(listed.text)
+            assert [tool["name"] for tool in parsed["result"]["tools"]] == list(
+                sorted(WIKIPEDIA_TOOL_NAMES)
+            )
+        finally:
+            session.close()
+
+
+def test_deno_tampered_session_is_rejected() -> None:
+    with running_wikipedia_mcp({"MCP_SESSION_SECRET": "lab-test-mcp-session-secret"}) as server:
+        session = DenoMcpSession(server.url)
+        try:
+            session.initialize()
+            token = session.session_id
+            assert token
+            parts = token.split(".")
+            assert len(parts) == 3
+            mac = parts[2]
+            parts[2] = ("B" if mac.startswith("A") else "A") + mac[1:]
+            flipped = ".".join(parts)
+            listed = httpx.post(
+                server.url,
+                headers={
+                    "Content-Type": "application/json",
+                    "Accept": ACCEPT,
+                    "Mcp-Session-Id": flipped,
+                },
+                json={"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}},
+                timeout=10.0,
+            )
+            assert listed.status_code == 400
+            body = listed.json()
+            assert body["error"]["code"] == -32000
+            assert "Mcp-Session-Id" in body["error"]["message"]
+        finally:
+            session.close()
+
+
+def test_deno_rejects_injected_lang_as_tool_error(deno_session: DenoMcpSession) -> None:
+    for lang in ("evil.com/", "evil.com", "#", "@"):
+        result = extract_sse_data(
+            deno_session.post(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 30,
+                    "method": "tools/call",
+                    "params": {
+                        "name": "fetch_wikipedia_article",
+                        "arguments": {"title": "Yokohama", "lang": lang},
+                    },
+                }
+            ).text
+        )["result"]
+        assert result["isError"] is True
+        assert "invalid wikipedia language code" in result["content"][0]["text"]

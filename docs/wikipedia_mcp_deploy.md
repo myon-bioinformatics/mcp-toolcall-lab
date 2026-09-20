@@ -8,7 +8,8 @@ this change; that connection (and any OpenAI `tools` / `tool_calls` → MCP →
 No MLIT, no API keys, no custom JSON event rows. The wire is official MCP
 Streamable HTTP: JSON-RPC 2.0 on `POST /mcp`, SSE `event: message` for
 responses, empty **202** for `notifications/initialized`, `Mcp-Session-Id`,
-and CORS so a later github.io client can `fetch()` it.
+and CORS so a later github.io client can `fetch()` it. `GET /mcp` (SSE
+resume) is not implemented — clients should POST only.
 
 Tool `inputSchema` is generated from the Python FastMCP catalog
 (`python -m mcp_toolcall_lab.wikipedia_mcp_catalog` →
@@ -24,9 +25,16 @@ deno task start
 # POST http://127.0.0.1:8000/mcp
 ```
 
-Optional: `MCP_HOST`, `MCP_PORT` / `PORT`, and
-`MCP_TOOLCALL_LAB_WIKIPEDIA_FIXTURE=/abs/path/to/fixtures/wikipedia/yokohama_extract.json`
-to serve the vendored MediaWiki extract instead of calling Wikipedia.
+Optional env:
+
+- `MCP_HOST`, `MCP_PORT` / `PORT`
+- `MCP_SESSION_SECRET` — HMAC key for `Mcp-Session-Id` tokens (see below). If
+  unset, the process derives a random secret for local/dev only.
+- `MCP_SESSION_TTL_SECONDS` — session token lifetime (default `3600`)
+- `MCP_ALLOWED_ORIGIN` — if set, sent as `Access-Control-Allow-Origin`
+  instead of `*`
+- `MCP_TOOLCALL_LAB_WIKIPEDIA_FIXTURE=/abs/path/to/fixtures/wikipedia/yokohama_extract.json`
+  to serve the vendored MediaWiki extract instead of calling Wikipedia.
 
 Handshake (same product order as Open WebUI / PR #23 fixtures):
 
@@ -53,11 +61,43 @@ curl -sS -X POST http://127.0.0.1:8000/mcp \
 
 `GET /health` is a deploy probe (`{"ok": true, ...}`), not an MCP method.
 
+## Sessions (HMAC, no isolate-local store)
+
+`Mcp-Session-Id` is a short-TTL HMAC token (`sess_<nonce>.<exp>.<mac>`), not
+an in-memory `Set`. Deno Deploy may route `initialize` and the next
+`tools/list` to different isolates, so a process-local session table would
+400 and leak. Verification is signature + expiry only.
+
+On **Deno Deploy, set `MCP_SESSION_SECRET`** to a long random value shared
+by every isolate. Do not commit it. If the env var is unset (local/dev),
+the server derives a stable-for-this-process secret — tokens will not
+verify on another process or isolate.
+
+## Public proxy risk (CORS `*` + keyless)
+
+This endpoint has **no API key**. Default CORS is
+`Access-Control-Allow-Origin: *`. Anyone who can reach the URL can
+initialize a session and fetch Wikipedia through it. Treat a public
+`*.deno.dev` deploy as a **Wikipedia proxy**, not a private backend.
+
+Recommendations:
+
+1. Always set `MCP_SESSION_SECRET` on Deploy (required for sessions; not an
+   access-control key by itself).
+2. Set `MCP_ALLOWED_ORIGIN` to the github.io origin that will call this
+   server (for example `https://myon-bioinformatics.github.io`) instead of
+   leaving `*`.
+3. Do not point production traffic at this lab server.
+
+`lang` is restricted to MediaWiki-like codes (`/^[a-z0-9-]{2,24}$/i`) and
+the constructed URL host must be `*.wikipedia.org` before any fetch.
+
 ## Deno Deploy
 
 1. Create a project pointed at this repository.
 2. Set the entrypoint to `deploy/wikipedia-mcp/main.ts` (root directory = repo root, or set the project root to `deploy/wikipedia-mcp` and entrypoint `main.ts`).
-3. Do not set secrets. Wikimedia needs a `User-Agent`; the server sends a lab UA on the server-side fetch.
+3. **Set `MCP_SESSION_SECRET`** (required). Optionally set `MCP_ALLOWED_ORIGIN`.
+   Wikimedia needs a `User-Agent`; the server sends a lab UA on the server-side fetch.
 4. After deploy, the public URL is `https://<project>.deno.dev/mcp`.
 
 Permissions used at runtime: `--allow-net` (listen + Wikipedia), `--allow-env`, `--allow-read` (optional fixture file). Deno Deploy grants net/env; fixture read is only for local/CI.
