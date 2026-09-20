@@ -436,19 +436,31 @@ been made to the real API** — see `docs/jev_shim.md`'s "What's actually been
 verified" for the precise line between modeled-from-source and
 proven-by-running.
 
-`jev_answerer.py` (a separate, still-open module) is neither of these — it
-prompts an arbitrary OpenAI-compatible backend (e.g. llama.cpp) into
-imitating a similar three-shape vocabulary; it predates this correction and
-targets the original guessed shape, not TypeSafe's real one.
-
 ```bash
 python -m mcp_toolcall_lab.jev_shim replay --out test-results/jev-shim.jsonl
 ```
 
 Fixtures: `fixtures/jev_shim/`.
 
+`jev_answerer.py` builds the OpenAI-compatible Chat Completions request
+(system prompt + JSON-schema-constrained `response_format`) for a live
+backend and extracts its completion text. It is a **separate,
+self-contained** experiment with its own `parse_completion`/`validate_payload`
+— deliberately not `jev_shim`'s, since `jev_shim`'s response shape is a
+distinct, separately-tracked correction (see `docs/jev_shim.md`) and
+composing the two would silently break one module's tests whenever the
+other's shape changes. It predates this correction and still targets the
+original, guessed shape as its own generic-LLM-prompting vocabulary, not
+TypeSafe's real wire. Its own tests never call a real server — a fake
+`post` is injected for the request-building/extraction tests, and two
+tests spin up a real stdlib HTTP server on loopback to prove the actual
+request/response wire round-trips correctly. **No test here has verified
+the request shape against a real llama.cpp (or other) server** — that
+confirmation is still open. See `docs/jev_shim.md`.
+
 ## Next increments
 
 1. Add a versioned mock catalogue modeled on public REINFOLIB documentation, without API keys.
 2. Compare schema strictness (raw-valid vs server-accepted) and system prompts in a recorded experiment matrix.
-3. `jev_typesafe`: exercise `TypeSafeClient` against a real `api.typesafe.ai` account once a key is available, to confirm the modeled contract against the live API rather than source alone.
+3. `jev_answerer`: confirm the built request shape (`response_format: json_schema`) against a real llama.cpp (or other OpenAI-compatible) server — every test so far uses either an injected fake or a loopback stdlib server, never a real model backend.
+4. `jev_typesafe`: exercise `TypeSafeClient` against a real `api.typesafe.ai` account once a key is available, to confirm the modeled contract against the live API rather than source alone.

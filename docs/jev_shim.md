@@ -196,12 +196,50 @@ client = TypeSafeClient()  # reads TYPESAFE_API_KEY from the environment
 answers = client.system_one("some state", {"is_ready": noul_question()})
 ```
 
+## Live backend: `jev_answerer.py` — a separate, self-contained experiment
+
+`jev_answerer.build_chat_completion_request()` builds an OpenAI-compatible
+Chat Completions request (system prompt teaching a three-shape vocabulary +
+a `response_format: {"type": "json_schema", ...}` block) for a given
+kind/state, matching the request contract llama.cpp's server and other
+OpenAI-compatible backends document for constrained decoding.
+`HttpAnswerer.raw_completion()` posts it and extracts the completion text.
+
+**This module is deliberately decoupled from `jev_shim`.** A separate,
+still-open correction (`jev_shim`'s response shape was originally guessed
+from a secondhand description and got the field names wrong; it's being
+fixed to TypeSafe's real, confirmed `POST /v1/systemone` contract) targets
+`jev_shim.py` itself. `jev_answerer.py` here still targets the *original,
+guessed* shape (`{"probability": ...}`, `distribution`, etc.) as its own
+generic-LLM-prompting vocabulary — not TypeSafe's real wire. Its own
+`parse_completion` / `validate_payload` are separate functions with their
+own shape, not imported from `jev_shim`. This was a deliberate fix, not the
+original design: an earlier version composed `jev_answerer`'s output
+directly with `jev_shim.validate_payload`, which a cross-implementer
+review correctly flagged as broken by construction once `jev_shim`'s shape
+changes — the same "Jev" name would otherwise have silently coupled two
+unrelated questions ("does a generic LLM follow a prompted shape" vs. "what
+does TypeSafe's real API return") through a shared validator. Decoupling
+means a future change to either module's shape can no longer silently
+break the other's tests, whichever merges first.
+
+**This has not been verified against a real llama.cpp (or any other model)
+server.** `HttpAnswerer.post` is always injectable, and its own test suite
+only ever supplies either a fake `post` (proving request-building and
+response-extraction logic) or a real stdlib `http.server` on loopback
+(proving the actual HTTP request/response wire round-trips correctly, with
+zero external network). Neither proves a real model server accepts this
+exact `response_format` shape or honors it. Confirming that is the next
+step, tracked in README's "Next increments".
+
 ## Non-goals (explicit)
 
 - Not a full SDK for TypeSafe's API — no retries, streaming, or model
   listing (`GET /v1/models`); just the one endpoint this study needed.
-- Not full JSON Schema — `jev_shim`'s validation is hand-written and
-  shape-specific, matching this repo's existing style (see
+- `jev_answerer.py` is not a client for any real "Jev"-branded API either,
+  and not a benchmark of one — see "Live backend" above.
+- Not full JSON Schema — `jev_shim`'s and `jev_answerer`'s validation is
+  hand-written and shape-specific, matching this repo's existing style (see
   `prompt_experiment.py`'s `raw_schema_valid`) rather than adding a
   `jsonschema` dependency.
 - Not a live-API integration test — see "What's actually been verified".
