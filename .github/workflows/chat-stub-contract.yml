@@ -1,0 +1,29 @@
+name: chat-stub-contract
+
+on:
+  pull_request:
+    paths:
+      - "deploy/chat-stub/**"
+      - "fixtures/prompt_experiments/**"
+      - "tests/test_chat_contract.py"
+      - ".github/workflows/chat-stub-contract.yml"
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Install test runner and package
+        run: python -m pip install -e ".[test]"
+      - name: Python contract
+        run: python -m pytest -q tests/test_chat_contract.py
+      - name: Deno type check
+        run: deno check deploy/chat-stub/main.ts deploy/chat-stub/test_main.ts
+      - name: Deno contract
+        run: deno test --allow-read deploy/chat-stub/test_main.ts
