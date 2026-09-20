@@ -1,14 +1,16 @@
-"""Offline study: can a generic LLM imitate a "structured judgment" interface?
+"""Offline study: can a generic LLM imitate TypeSafe's real "Jev" wire shape?
 
-Background (for future readers who weren't in the conversation this came
-from): TypeSafe's "Jev" is a third-party model that, per its own public
-description, never generates free text -- it only answers three primitive
-query shapes (a yes/no probability, a weighted score + distribution, or a
-classification + distribution), each with a schema-constrained response.
-This module has **no relationship to Jev or TypeSafe**, calls no external
-API, and makes no claim about how the real product works internally. It
-only asks a narrower, answerable question: if you *prompt* an ordinary
-generative LLM to answer in the same three shapes, and *validate* its
+Corrected version. The original design here guessed at Jev's response shape
+from a secondhand blog post and got it wrong (see docs/jev_shim.md's
+changelog note). The shapes below now match TypeSafe's actual, confirmed
+"System One" API (``POST /v1/systemone``), reconstructed from three public
+open-source clients plus the official ``typesafe-sdk`` PyPI package's
+OpenAPI-generated schema (``docs.typesafe.ai`` itself is blocked by this
+sandbox's egress policy -- see docs/jev_shim.md for exactly what was read
+and where). This module still has **no relationship to TypeSafe**, calls no
+external API, and makes no claim about the real model's internal behavior.
+It asks a narrower, answerable question: if you *prompt* an ordinary
+generative LLM to answer in Jev's real wire shape, and *validate* its
 output against that shape, how well does its self-reported confidence
 match reality?
 
@@ -16,26 +18,28 @@ Same philosophy as prompt_experiment.py: fixtures record a hypothetical
 model completion (a JSON string, as if a real LLM had been prompted to
 answer this way) plus the real-world ground truth, and this module judges
 the recorded completion offline. Nothing here opens a socket or calls a
-model -- generating *new* completions against a real backend (llama.cpp,
-an OpenAI-compatible endpoint, etc.) is a separate, not-yet-built concern.
+model. ``jev_typesafe.py`` builds the real ``/v1/systemone`` request this
+module's shapes are validated against.
 
     python -m mcp_toolcall_lab.jev_shim replay --out test-results/jev-shim.jsonl
 
-Three query kinds, matching Jev's own vocabulary for continuity with the
-discussion this came from:
+Three query kinds (TypeSafe's own names -- ``noul``/``choice``/``score``):
 
-- ``noul``:   a yes/no proposition -> {"probability": 0.0-1.0}
-- ``score``:  a rubric -> {"score": number, "distribution": {label: prob},
-              "confidence": 0.0-1.0}
-- ``choice``: a classification -> {"choice": str, "distribution":
-              {option: prob}, "confidence": 0.0-1.0}
+- ``noul``:   a yes/no proposition -> {"type": "noul", "noul": 0.0-1.0}
+- ``choice``: a classification -> {"type": "choice", "choice": str,
+              "confidence": 0.0-1.0, "probabilities": {option: prob}}
+- ``score``:  an ordered rubric -> {"type": "score", "score": number,
+              "confidence": 0.0-1.0, "legend": {"0": desc, "1": desc, ...},
+              "probabilities": {"0": prob, "1": prob, ...}}
+  (``legend``/``probabilities`` keys are the string forms of the rubric's
+  0-based position, matching TypeSafe's ordered-criteria-list design.)
 
 A response is schema-valid only if it parses as JSON and matches its
 kind's shape exactly (no missing/extra top-level keys, right types,
 probabilities in range). Free text, or JSON missing a required field, is
 schema-invalid -- exactly the failure mode a real constrained-decoding
-backend (e.g. JSON-schema-constrained sampling) would prevent, and this
-offline harness cannot, since it never calls a model.
+backend would prevent, and this offline harness cannot, since it never
+calls a model.
 """
 
 from __future__ import annotations
@@ -77,7 +81,8 @@ def _is_probability(value: Any) -> bool:
     return isinstance(value, (int, float)) and not isinstance(value, bool) and 0.0 <= value <= 1.0
 
 
-def _is_distribution(value: Any) -> bool:
+def _is_probability_map(value: Any) -> bool:
+    """A non-empty dict of probabilities that sum to ~1 (TypeSafe's ``probabilities`` field)."""
     if not isinstance(value, dict) or not value:
         return False
     total = 0.0
@@ -90,31 +95,46 @@ def _is_distribution(value: Any) -> bool:
     return math.isclose(total, 1.0, abs_tol=0.05)
 
 
+def _is_ordinal_key(key: Any) -> bool:
+    """TypeSafe's score ``legend``/``probabilities`` are keyed "0", "1", ... (rubric position)."""
+    return isinstance(key, str) and key.isdigit()
+
+
 def validate_noul_payload(payload: Any) -> bool:
-    if not isinstance(payload, dict) or set(payload) != {"probability"}:
+    if not isinstance(payload, dict) or set(payload) != {"type", "noul"}:
         return False
-    return _is_probability(payload["probability"])
+    if payload["type"] != "noul":
+        return False
+    return _is_probability(payload["noul"])
 
 
-def validate_score_payload(payload: Any) -> bool:
-    if not isinstance(payload, dict) or set(payload) != {"score", "distribution", "confidence"}:
+def validate_choice_payload(payload: Any) -> bool:
+    if not isinstance(payload, dict) or set(payload) != {"type", "choice", "confidence", "probabilities"}:
         return False
-    if not isinstance(payload["score"], (int, float)) or isinstance(payload["score"], bool):
+    if payload["type"] != "choice":
         return False
-    if not _is_distribution(payload["distribution"]):
+    if not isinstance(payload["choice"], str) or not payload["choice"]:
+        return False
+    probabilities = payload["probabilities"]
+    if not _is_probability_map(probabilities):
+        return False
+    if payload["choice"] not in probabilities:
         return False
     return _is_probability(payload["confidence"])
 
 
-def validate_choice_payload(payload: Any) -> bool:
-    if not isinstance(payload, dict) or set(payload) != {"choice", "distribution", "confidence"}:
+def validate_score_payload(payload: Any) -> bool:
+    if not isinstance(payload, dict) or set(payload) != {"type", "score", "confidence", "legend", "probabilities"}:
         return False
-    if not isinstance(payload["choice"], str) or not payload["choice"]:
+    if payload["type"] != "score":
         return False
-    distribution = payload["distribution"]
-    if not _is_distribution(distribution):
+    if not isinstance(payload["score"], (int, float)) or isinstance(payload["score"], bool):
         return False
-    if payload["choice"] not in distribution:
+    legend = payload["legend"]
+    probabilities = payload["probabilities"]
+    if not isinstance(legend, dict) or not legend or not all(_is_ordinal_key(key) for key in legend):
+        return False
+    if not _is_probability_map(probabilities) or set(probabilities) != set(legend):
         return False
     return _is_probability(payload["confidence"])
 
@@ -186,7 +206,7 @@ def replay_case(case: dict[str, Any]) -> dict[str, Any]:
 
     if schema_valid:
         if kind == KIND_NOUL:
-            predicted_probability = float(payload["probability"])
+            predicted_probability = float(payload["noul"])
             ground_truth = bool(case["ground_truth"])
             correct = (predicted_probability >= 0.5) == ground_truth
         elif kind == KIND_CHOICE:
@@ -210,9 +230,16 @@ def replay_case(case: dict[str, Any]) -> dict[str, Any]:
         "error": error,
     }
     expected = case.get("expected") if isinstance(case.get("expected"), dict) else {}
-    matched_expected = all(audit.get(key) == value for key, value in expected.items())
+    matched_expected = all(_matches_expected(audit.get(key), value) for key, value in expected.items())
     audit["verdict"] = VERDICT_PASS if (not expected or matched_expected) else VERDICT_FAIL
     return audit
+
+
+def _matches_expected(actual: Any, expected: Any) -> bool:
+    """Float-tolerant equality: ``error`` is derived via subtraction and can carry FP noise."""
+    if isinstance(actual, (int, float)) and isinstance(expected, (int, float)):
+        return math.isclose(actual, expected, abs_tol=1e-9)
+    return actual == expected
 
 
 def calibration_summary(cases: list[dict[str, Any]], audits: list[dict[str, Any]]) -> dict[str, Any]:
