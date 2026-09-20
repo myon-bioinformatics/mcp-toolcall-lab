@@ -42,11 +42,52 @@ def test_wiki_title_shows_escaped_plaintext_extract(monkeypatch) -> None:
     assert WIKI_EXTRACT_NOTE in html
     assert 'data-cache="miss"' in html
     assert 'data-testid="wiki-heading-select"' in html
-    assert ">Geography<" in html
+    assert ">## Geography<" in html
     assert 'data-testid="wiki-canonical-title">Yokohama</strong>' in html
     # Second render of the same title is a cache hit and still does not refetch.
     html_hit = render_wiki_page(title="Yokohama")
     assert 'data-cache="hit"' in html_hit
+
+
+def test_wiki_heading_options_show_atx_labels_but_bare_values(monkeypatch) -> None:
+    # Docker GET /wiki option labels must match the Pages #wiki JS's "## Title"
+    # display (#33 / issue #34 parity); the <option value> stays the bare
+    # title so heading lookup / the querystring round-trip is unaffected.
+    import io
+
+    from mcp_toolcall_lab import wikipedia_tool as wt
+
+    payload = {
+        "batchcomplete": "",
+        "query": {
+            "pages": {
+                "1": {
+                    "pageid": 1,
+                    "ns": 0,
+                    "title": "Yokohama",
+                    "extract": "Lead.\n\n== Geography ==\nBody.\n\n=== Climate ===\nMild.\n",
+                }
+            }
+        },
+    }
+
+    class _FakeResponse:
+        def __init__(self) -> None:
+            self._buf = io.BytesIO(json.dumps(payload).encode("utf-8"))
+
+        def read(self, n: int = -1) -> bytes:
+            return self._buf.read(n)
+
+        def __enter__(self) -> "_FakeResponse":
+            return self
+
+        def __exit__(self, *exc: object) -> None:
+            return None
+
+    monkeypatch.setattr(wt.urllib.request, "urlopen", lambda *args, **kwargs: _FakeResponse())
+    html = render_wiki_page(title="Yokohama")
+    assert '<option value="Geography">## Geography</option>' in html
+    assert '<option value="Climate">### Climate</option>' in html
 
 
 def test_wiki_heading_shows_section_body_without_html_injection(monkeypatch) -> None:
@@ -106,7 +147,7 @@ def test_pages_tree_hosts_browser_mediawiki_not_local_wiki_or_try_it(tmp_path: P
     assert 'data-testid="pages-wiki-app"' in html
     assert 'data-testid="pages-wiki-title"' in html
     assert 'data-testid="pages-wiki-form"' in html
-    assert 'src="pages-wiki.js"' in html
+    assert 'src="pages-wiki.js?v=' in html
     assert 'data-testid="wiki-title"' not in html
     assert 'action="/wiki"' not in html
     assert 'href="/wiki"' not in html

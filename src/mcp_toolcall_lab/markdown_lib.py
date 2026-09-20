@@ -66,22 +66,39 @@ def slugify(title: str) -> str:
 
 
 def parse_sections(markdown: str) -> list[Section]:
-    """Heading → body. Prefer vendored ``markdown.py``; ATX regex is the fallback."""
+    """Heading → body. Prefer vendored ``markdown.py``; ATX regex is the fallback.
+
+    A section's body runs up to the next heading whose level is <= its own,
+    so nested child headings (e.g. an H2 with H3 subsections) stay inside
+    their parent's body instead of being cut off by the first child heading.
+    This matches the Pages ``#wiki`` JS (``parseWikiSections`` / #33) and
+    vendor ``markdown.py``'s own ``extract_section`` -- one inclusive
+    contract for every corpus this splits (stub_front fixtures, Wikipedia
+    extracts), on both the vendored and the fallback path.
+    """
     md = load_markdown()
     if md is not None and hasattr(md, "split_sections"):
-        sections: list[Section] = []
+        parts = list(md.split_sections(markdown))
+        levels = [int(part.get("level") or 0) for part in parts]
+        titles = [str(part.get("title") or "") for part in parts]
+        raws = [str(part.get("content") or "") for part in parts]
+
+        starts: list[int] = []
         line = 1
-        for part in md.split_sections(markdown):
-            level = int(part.get("level") or 0)
-            title = str(part.get("title") or "")
-            raw = str(part.get("content") or "")
-            if level <= 0 or not title:
-                line += raw.count("\n") or 1
-                continue
-            body_lines = raw.splitlines()
-            body = "\n".join(body_lines[1:]).strip()
-            sections.append(Section(level, title, slugify(title), body, line))
+        for raw in raws:
+            starts.append(line)
             line += raw.count("\n") or 1
+
+        sections: list[Section] = []
+        for idx, (level, title) in enumerate(zip(levels, titles)):
+            if level <= 0 or not title:
+                continue
+            end = idx + 1
+            while end < len(parts) and not (levels[end] > 0 and levels[end] <= level):
+                end += 1
+            body_lines = "".join(raws[idx:end]).splitlines()
+            body = "\n".join(body_lines[1:]).strip()
+            sections.append(Section(level, title, slugify(title), body, starts[idx]))
         return sections
     lines = markdown.splitlines()
     found: list[tuple[int, int, str]] = []
@@ -91,7 +108,11 @@ def parse_sections(markdown: str) -> list[Section]:
             found.append((index, len(match.group(1)), match.group(2).strip()))
     sections = []
     for idx, (start, level, title) in enumerate(found):
-        end = found[idx + 1][0] if idx + 1 < len(found) else len(lines)
+        end = len(lines)
+        for j in range(idx + 1, len(found)):
+            if found[j][1] <= level:
+                end = found[j][0]
+                break
         body = "\n".join(lines[start + 1 : end]).strip()
         sections.append(Section(level, title, slugify(title), body, start + 1))
     return sections
