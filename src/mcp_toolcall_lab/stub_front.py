@@ -73,8 +73,14 @@ CASE_MCP_ERROR = "MCP_ERROR"
 CASE_MCP_UNREACHABLE = "MCP_UNREACHABLE"
 
 WIKI_PAGES_DISCLAIMER = (
-    "This form runs on the local stdlib stub (or a CI job). "
-    "GitHub Pages is static and cannot fetch Wikipedia or keep this backend online."
+    "This form runs on the local stdlib stub (or a CI job), which fetches "
+    "Wikipedia in-process (same path as the MCP tools). Pages #wiki is a "
+    "separate browser → MediaWiki CORS form (no MCP) and cannot keep this "
+    "/wiki backend online."
+)
+PAGES_WIKI_BROWSER_NOTE = (
+    "Browser → MediaWiki API (not MCP). For the MCP Wikipedia tools / local "
+    "stub form, run compose or stub_front serve."
 )
 WIKI_EXTRACT_NOTE = (
     "MediaWiki plaintext extract, HTML-escaped. "
@@ -315,11 +321,19 @@ PAGES_FORBIDDEN_NAMES = frozenset(
 )
 
 # Local-only heading → body demo (tests / write_stub_demo_page). Not published
-# on GitHub Pages — that report is generation identity + /wiki induction.
+# on GitHub Pages — that report is generation identity + #wiki MediaWiki UI.
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 STUB_DEMO_JS_SOURCE = STATIC_DIR / "stub_demo.js"
 STUB_DEMO_JS_NAME = "stub-demo.js"
 STUB_DEMO_DATA_NAME = "stub-demo-data.json"
+PAGES_HASH_JS_SOURCE = STATIC_DIR / "pages_hash.js"
+PAGES_HASH_JS_NAME = "pages-hash.js"
+PAGES_WIKI_JS_SOURCE = STATIC_DIR / "pages_wiki.js"
+PAGES_WIKI_JS_NAME = "pages-wiki.js"
+PAGES_WIKI_SERVE = (
+    "python -m mcp_toolcall_lab.stub_front serve --port 8765\n"
+    "# then open /wiki  (http://127.0.0.1:8765/wiki)"
+)
 BUILD_META_NAME = "build_meta.json"
 BUILD_META_KEYS = (
     "version",
@@ -560,6 +574,107 @@ def _revision_html(revision: Mapping[str, Any]) -> str:
     return f'<p id="build-meta">{" · ".join(parts)}</p>'
 
 
+def _pages_nav_html() -> str:
+    """Always-visible Home / #wiki controls. Hash only — github.io /wiki stays 404."""
+    return (
+        '<p id="pages-nav">'
+        '<a href="#" data-pages-nav="home" data-testid="pages-nav-home">Home</a>'
+        " · "
+        '<a href="#wiki" data-pages-nav="wiki" data-testid="pages-nav-wiki">'
+        "Wiki</a>"
+        "</p>"
+    )
+
+
+def _pages_panel_html(*, view: str, inner: str, hidden: bool = False) -> str:
+    hid = " hidden" if hidden else ""
+    safe = html.escape(view)
+    return (
+        f'<section id="{safe}" data-pages-view="{safe}" '
+        f'data-testid="pages-{safe}"{hid}>{inner}</section>'
+    )
+
+
+def _pages_wiki_back_html() -> str:
+    return (
+        '<p><a href="#" data-pages-nav="home" data-testid="pages-nav-back">'
+        "Back to report</a></p>"
+    )
+
+
+def _pages_home_markdown(md: Any, summary_text: str) -> str:
+    return "\n".join(
+        [
+            "This host's [Wiki](#wiki) panel fetches Wikipedia from the browser "
+            "(MediaWiki Action API, CORS `origin=*`, no MCP). The MCP tools and "
+            "local `GET /wiki` form still need compose or `stub_front serve`.",
+            "",
+            md.heading("Last Actions summary", 2),
+            "Allowlisted snapshot from the last `stub-pages` GitHub Actions run "
+            "(stub + MCP mock + CPU-class model on one compose network). "
+            "Raw MCP logs are not on Pages. This host cannot keep Docker running.",
+            md.code_block(summary_text, lang="json"),
+            md.bullet_list(
+                [
+                    "Local: `docker compose -f docker/stub-pages/docker-compose.yml up --build`",
+                    "Actions: workflow `stub-pages` (`workflow_dispatch`)",
+                    "MCP: `http://mcp-mock:8000/mcp` · CPU model: `http://cpu-llm:8080/v1`",
+                ]
+            ),
+        ]
+    )
+
+
+def _pages_wiki_markdown(md: Any) -> str:
+    return md.section(
+        "Wikipedia extract (browser → MediaWiki API)",
+        [
+            "This `#wiki` panel calls Wikipedia's Action API from the browser "
+            "(`origin=*`). It is not an MCP tool call. github.io `/wiki` stays 404; "
+            "that path is the local stdlib stub. MCP tools / local form:",
+            md.code_block(PAGES_WIKI_SERVE, lang="bash"),
+            "CI screenshots of the local stub still use "
+            "`fixtures/wikipedia/yokohama_extract.json`. A heading switch on this "
+            "panel reuses the in-memory extract (no second fetch).",
+        ],
+    )
+
+
+def _pages_wiki_app_html() -> str:
+    """Raw HTML for the browser MediaWiki form. Kept outside markdown.py."""
+    return (
+        f'<p data-testid="pages-wiki-disclaimer">{html.escape(PAGES_WIKI_BROWSER_NOTE)}</p>'
+        '<div id="pages-wiki-app" data-testid="pages-wiki-app">'
+        '<form id="pages-wiki-form" data-testid="pages-wiki-form">'
+        "<p>"
+        '<label for="pages-wiki-title">Wikipedia title</label> '
+        '<input id="pages-wiki-title" name="title" value="Yokohama" '
+        'placeholder="Article title" data-testid="pages-wiki-title">'
+        "</p>"
+        "<p>"
+        '<label for="pages-wiki-lang">Language</label> '
+        '<select id="pages-wiki-lang" name="lang" data-testid="pages-wiki-lang">'
+        '<option value="en" selected>en</option>'
+        '<option value="ja">ja</option>'
+        "</select> "
+        '<button type="submit" data-testid="pages-wiki-fetch">Fetch</button>'
+        "</p>"
+        "<p>"
+        '<label for="pages-wiki-heading">Heading</label> '
+        '<select id="pages-wiki-heading" name="heading" data-testid="pages-wiki-heading">'
+        '<option value="">(full extract)</option>'
+        "</select>"
+        "</p>"
+        "</form>"
+        '<p data-testid="pages-wiki-error" hidden></p>'
+        '<p data-testid="pages-wiki-canonical" hidden></p>'
+        f'<p data-testid="pages-wiki-extract-note">{html.escape(WIKI_EXTRACT_NOTE)}</p>'
+        '<pre data-testid="pages-wiki-extract" hidden></pre>'
+        "</div>"
+        f'<script src="{PAGES_WIKI_JS_NAME}"></script>'
+    )
+
+
 def _stub_demo_html() -> str:
     """Raw HTML for the static, client-side heading-lookup demo.
 
@@ -641,6 +756,11 @@ def write_pages(
 
     ``corpus`` is accepted so ``pages --corpus`` still parses; mock headings are
     not listed on the published index (they read as a Wiki TOC).
+
+    The published ``index.html`` stays on one origin/endpoint. ``#wiki`` (and
+    optional ``?view=wiki``) is an in-page view switch, not a github.io
+    ``/wiki`` path (that URL stays 404). The ``#wiki`` panel fetches
+    MediaWiki from the browser. Local Docker ``GET /wiki`` is unchanged.
     """
     from mcp_toolcall_lab.mock.common import read_jsonl
 
@@ -657,51 +777,40 @@ def write_pages(
     summary = pages_summary(_load_json_object(last_run), read_jsonl(observations) if observations else [])
     summary_text = json.dumps(summary, indent=2, ensure_ascii=False)
     if md is not None:
-        body = md.section(
-            "Live Wikipedia form (`/wiki`, not on this host)",
-            [
-                "The live Wikipedia title form + heading select is on the local stdlib stub "
-                "(`GET /wiki`), not this static GitHub Pages host. Reproduce locally:",
-                md.code_block(
-                    "python -m mcp_toolcall_lab.stub_front serve --port 8765\n"
-                    "# then open /wiki  (http://127.0.0.1:8765/wiki)",
-                    lang="bash",
-                ),
-                "GitHub Pages is static and cannot keep that backend, so this page does not "
-                "include the live form. CI screenshots use "
-                "`fixtures/wikipedia/yokohama_extract.json`, not live Wikipedia.",
-                md.heading("Last Actions summary", 2),
-                "Allowlisted snapshot from the last `stub-pages` GitHub Actions run "
-                "(stub + MCP mock + CPU-class model on one compose network). "
-                "Raw MCP logs are not on Pages. This host cannot keep Docker running.",
-                md.code_block(summary_text, lang="json"),
-                md.bullet_list(
-                    [
-                        "Local: `docker compose -f docker/stub-pages/docker-compose.yml up --build`",
-                        "Actions: workflow `stub-pages` (`workflow_dispatch`)",
-                        "MCP: `http://mcp-mock:8000/mcp` · CPU model: `http://cpu-llm:8080/v1`",
-                    ]
-                ),
-            ],
-        )
-        inner = md.markdown_to_html(body)
+        home_inner = md.markdown_to_html(_pages_home_markdown(md, summary_text))
+        wiki_inner = md.markdown_to_html(_pages_wiki_markdown(md))
     else:
-        inner = "<pre>" + html.escape(summary_text) + "</pre>"
+        home_inner = "<pre>" + html.escape(summary_text) + "</pre>"
+        wiki_inner = (
+            "<h2>Wikipedia extract (browser → MediaWiki API)</h2>"
+            f"<p>{html.escape(PAGES_WIKI_BROWSER_NOTE)}</p>"
+            "<pre>" + html.escape(PAGES_WIKI_SERVE) + "</pre>"
+        )
+    wiki_inner = wiki_inner + _pages_wiki_app_html()
     # No authored CSS: headings/lists/tables/code blocks from markdown.py
     # already read fine under the browser's own default stylesheet -- the
     # same bet https://abehiroshi.la.coocan.jp/ makes, minimum effort for a
-    # technical report page nobody needs to be styled.
+    # technical report page nobody needs to be styled. Hide/show uses the
+    # HTML hidden attribute, not a stylesheet.
     html_page = (
         "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
         "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
         "<title>mcp-toolcall-lab stub</title>"
         "</head><body>"
         "<h1>mcp-toolcall-lab stub</h1>"
-        f"{_revision_html(meta)}"
-        f"{inner}"
+        f"{_pages_nav_html()}"
+        f"{_pages_panel_html(view='home', inner=_revision_html(meta) + home_inner)}"
+        f"{_pages_panel_html(view='wiki', inner=wiki_inner + _pages_wiki_back_html(), hidden=True)}"
+        f'<script src="{PAGES_HASH_JS_NAME}"></script>'
         "</body></html>\n"
     )
     (out_dir / "index.html").write_text(html_page, encoding="utf-8")
+    (out_dir / PAGES_HASH_JS_NAME).write_text(
+        PAGES_HASH_JS_SOURCE.read_text(encoding="utf-8"), encoding="utf-8"
+    )
+    (out_dir / PAGES_WIKI_JS_NAME).write_text(
+        PAGES_WIKI_JS_SOURCE.read_text(encoding="utf-8"), encoding="utf-8"
+    )
     (out_dir / "summary.json").write_text(summary_text + "\n", encoding="utf-8")
     (out_dir / BUILD_META_NAME).write_text(
         json.dumps(meta, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
