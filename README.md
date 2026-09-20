@@ -428,13 +428,17 @@ Fixtures: `fixtures/jev_shim/`.
 
 `jev_answerer.py` builds the OpenAI-compatible Chat Completions request
 (system prompt + JSON-schema-constrained `response_format`) for a live
-backend and extracts its completion text, ready to hand to `jev_shim`'s
-validators. Its own tests never call a real server — a fake `post` is
-injected for the request-building/extraction tests, and two tests spin up
-a real stdlib HTTP server on loopback to prove the actual request/response
-wire round-trips correctly. **No test here has verified the request shape
-against a real llama.cpp (or other) server** — that confirmation is still
-open. See `docs/jev_shim.md`.
+backend and extracts its completion text. It is a **separate,
+self-contained** experiment with its own `parse_completion`/`validate_payload`
+— deliberately not `jev_shim`'s, since `jev_shim`'s response shape is a
+distinct, separately-tracked correction (see `docs/jev_shim.md`) and
+composing the two would silently break one module's tests whenever the
+other's shape changes. Its own tests never call a real server — a fake
+`post` is injected for the request-building/extraction tests, and two
+tests spin up a real stdlib HTTP server on loopback to prove the actual
+request/response wire round-trips correctly. **No test here has verified
+the request shape against a real llama.cpp (or other) server** — that
+confirmation is still open. See `docs/jev_shim.md`.
 
 ## Next increments
 

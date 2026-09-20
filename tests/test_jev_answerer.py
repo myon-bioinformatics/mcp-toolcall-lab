@@ -2,7 +2,9 @@
 
 No live backend is called here -- ``post`` is always a fake. See the
 module docstring in jev_answerer.py for exactly what that does and does
-not prove about a real llama.cpp (or other OpenAI-compatible) server.
+not prove about a real llama.cpp (or other OpenAI-compatible) server, and
+why this module's ``parse_completion``/``validate_payload`` are its own
+and deliberately not ``jev_shim``'s.
 """
 
 from __future__ import annotations
@@ -18,9 +20,10 @@ from mcp_toolcall_lab.jev_answerer import (
     HttpAnswerer,
     build_chat_completion_request,
     extract_completion_text,
+    parse_completion,
     urllib_post,
+    validate_payload,
 )
-from mcp_toolcall_lab.jev_shim import parse_completion, validate_payload
 
 
 def _openai_response(content: str) -> dict[str, Any]:
@@ -59,11 +62,30 @@ def test_choice_request_shape_lists_options() -> None:
     assert "- a" in content and "- b" in content and "- c" in content
     schema = request["response_format"]["json_schema"]["schema"]
     assert set(schema["required"]) == {"choice", "distribution", "confidence"}
+    # The candidate set itself is constrained, not just "any string".
+    assert schema["properties"]["choice"]["enum"] == ["a", "b", "c"]
 
 
 def test_unknown_kind_raises() -> None:
     with pytest.raises(ValueError):
         build_chat_completion_request("nonsense", "state", model="m")
+
+
+def test_noul_without_proposition_raises() -> None:
+    with pytest.raises(ValueError):
+        build_chat_completion_request("noul", "state", model="m")
+
+
+def test_score_without_criteria_raises() -> None:
+    with pytest.raises(ValueError):
+        build_chat_completion_request("score", "state", model="m")
+
+
+def test_choice_without_options_raises() -> None:
+    with pytest.raises(ValueError):
+        build_chat_completion_request("choice", "state", model="m")
+    with pytest.raises(ValueError):
+        build_chat_completion_request("choice", "state", model="m", options=[])
 
 
 # --- extract_completion_text --------------------------------------------
@@ -115,8 +137,9 @@ def test_http_answerer_base_url_trailing_slash_is_handled() -> None:
     assert seen["url"] == "http://127.0.0.1:8080/v1/chat/completions"
 
 
-def test_http_answerer_output_composes_with_jev_shim_validation() -> None:
-    """The point of the module: its output must be exactly what jev_shim expects."""
+def test_http_answerer_output_validates_against_own_shape() -> None:
+    """The point of the module: its output must match its own declared shape
+    (deliberately not jev_shim's -- see the module docstring)."""
 
     def fake_post(url: str, body: dict[str, Any]) -> dict[str, Any]:
         return _openai_response('{"choice": "b", "distribution": {"a": 0.2, "b": 0.8}, "confidence": 0.7}')
@@ -129,7 +152,7 @@ def test_http_answerer_output_composes_with_jev_shim_validation() -> None:
     assert validate_payload("choice", payload) is True
 
 
-def test_http_answerer_malformed_model_output_is_still_extracted_but_fails_jev_shim_validation() -> None:
+def test_http_answerer_malformed_model_output_is_still_extracted_but_fails_validation() -> None:
     """A live model ignoring response_format is exactly the failure jev_shim.md
     documents as the real, un-preventable-offline failure mode -- this proves
     that failure surfaces as a validation failure, not a crash in either module."""

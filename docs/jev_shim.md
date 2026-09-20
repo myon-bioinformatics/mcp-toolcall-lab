@@ -70,15 +70,32 @@ plus the kind-specific input (`proposition` / `criteria` / `options`), a
 block asserting a subset of the audit fields (same convention as
 `prompt_experiment.py`'s fixtures).
 
-## Live backend: `jev_answerer.py`
+## Live backend: `jev_answerer.py` — a separate, self-contained experiment
 
 `jev_answerer.build_chat_completion_request()` builds an OpenAI-compatible
-Chat Completions request (system prompt teaching the three shapes + a
-`response_format: {"type": "json_schema", ...}` block) for a given
+Chat Completions request (system prompt teaching a three-shape vocabulary +
+a `response_format: {"type": "json_schema", ...}` block) for a given
 kind/state, matching the request contract llama.cpp's server and other
 OpenAI-compatible backends document for constrained decoding.
-`HttpAnswerer.raw_completion()` posts it and extracts the completion text,
-ready for `jev_shim.parse_completion` / `validate_payload`.
+`HttpAnswerer.raw_completion()` posts it and extracts the completion text.
+
+**This module is deliberately decoupled from `jev_shim`.** A separate,
+still-open correction (`jev_shim`'s response shape was originally guessed
+from a secondhand description and got the field names wrong; it's being
+fixed to TypeSafe's real, confirmed `POST /v1/systemone` contract) targets
+`jev_shim.py` itself. `jev_answerer.py` here still targets the *original,
+guessed* shape (`{"probability": ...}`, `distribution`, etc.) as its own
+generic-LLM-prompting vocabulary — not TypeSafe's real wire. Its own
+`parse_completion` / `validate_payload` are separate functions with their
+own shape, not imported from `jev_shim`. This was a deliberate fix, not the
+original design: an earlier version composed `jev_answerer`'s output
+directly with `jev_shim.validate_payload`, which a cross-implementer
+review correctly flagged as broken by construction once `jev_shim`'s shape
+changes — the same "Jev" name would otherwise have silently coupled two
+unrelated questions ("does a generic LLM follow a prompted shape" vs. "what
+does TypeSafe's real API return") through a shared validator. Decoupling
+means a future change to either module's shape can no longer silently
+break the other's tests, whichever merges first.
 
 **This has not been verified against a real llama.cpp (or any other model)
 server.** `HttpAnswerer.post` is always injectable, and its own test suite
