@@ -65,6 +65,19 @@
     return "https://" + safeLang + ".wikipedia.org/w/api.php?" + query;
   }
 
+  function headingLabel(level, title) {
+    var n = Number(level);
+    if (!(n >= 1 && n <= 6)) {
+      n = 2;
+    }
+    var hashes = "";
+    var i;
+    for (i = 0; i < n; i++) {
+      hashes += "#";
+    }
+    return hashes + " " + String(title || "");
+  }
+
   function parseWikiSections(extract) {
     var lines = String(extract || "").split(/\r?\n/);
     var found = [];
@@ -78,7 +91,14 @@
     var sections = [];
     for (i = 0; i < found.length; i++) {
       var start = found[i].index;
-      var end = i + 1 < found.length ? found[i + 1].index : lines.length;
+      var end = lines.length;
+      var j;
+      for (j = i + 1; j < found.length; j++) {
+        if (found[j].level <= found[i].level) {
+          end = found[j].index;
+          break;
+        }
+      }
       sections.push({
         title: found[i].title,
         level: found[i].level,
@@ -201,7 +221,7 @@
     return {
       body: sectionView(article.extract, heading),
       headings: (article.sections || parseWikiSections(article.extract)).map(function (section) {
-        return section.title;
+        return { title: section.title, level: section.level };
       }),
       canonical_title: article.canonical_title,
       error: "",
@@ -315,10 +335,13 @@
     full.textContent = "(full extract)";
     select.appendChild(full);
     for (var i = 0; i < headings.length; i++) {
+      var entry = headings[i];
+      var title = typeof entry === "string" ? entry : entry.title;
+      var level = typeof entry === "string" ? 2 : entry.level;
       var option = select.ownerDocument.createElement("option");
-      option.value = headings[i];
-      option.textContent = headings[i];
-      if (headings[i] === selected) {
+      option.value = title;
+      option.textContent = headingLabel(level, title);
+      if (title === selected) {
         option.selected = true;
       }
       select.appendChild(option);
@@ -503,6 +526,7 @@
     escapeHtml: escapeHtml,
     normalizeLang: normalizeLang,
     buildApiUrl: buildApiUrl,
+    headingLabel: headingLabel,
     parseWikiSections: parseWikiSections,
     findSection: findSection,
     sectionView: sectionView,
