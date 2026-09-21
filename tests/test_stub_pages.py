@@ -54,13 +54,13 @@ def test_vendored_markdown_py_is_loadable() -> None:
     assert md is not None
     assert md.split_sections("# Yokohama\n\nbody\n")[0]["title"] == "Yokohama"
     recorded = assert_markdown_provenance()
-    assert recorded["commit"] == "446f7ab4df8b14018b7f37f83a63432fe9cdca5e"
-    assert recorded["blob_sha"] == "c40c8626df29444b1dca370c0835932956570468"
-    assert recorded["sha256"] == "daabe5dfab4d753b1bde3fd5c983305c05b43feb2c2190675fea42f500dd1e56"
+    assert recorded["commit"] == "441fb675d59e0ee9f60522f4d3a2dcfc87e5261d"
+    assert recorded["blob_sha"] == "6c0d53b8428e2f2db7ce65f90846f797ce174cff"
+    assert recorded["sha256"] == "a44a4592cdbd609ef85acfad11499a25ea1dd7d65d92e8e7c6df8fdeb9bd15cb"
     readme = (ROOT / "vendor" / "README.md").read_text(encoding="utf-8")
     assert "ref=${COMMIT}" in readme
     assert "not `main`" in readme
-    # P0–P3 APIs from myon-bioinformatics/markdown#17–#21 must be present.
+    # Vendored API surface through the current markdown.py snapshot must be present.
     assert hasattr(md, "markdown_to_html")
     assert hasattr(md, "html_to_markdown")
     assert hasattr(md, "default_stylesheet")
@@ -69,6 +69,12 @@ def test_vendored_markdown_py_is_loadable() -> None:
     assert hasattr(md, "kramdown_to_markdown")
     assert hasattr(md, "ial")
     assert hasattr(md, "with_attributes")
+    assert hasattr(md, "markdown_to_py_percent")
+    assert hasattr(md, "markdown_headings_to_mermaid_mindmap")
+    assert hasattr(md, "markdown_links_to_dot")
+    assert hasattr(md, "inspect_to_markdown")
+    assert hasattr(md, "argparse_to_markdown")
+    assert hasattr(md, "distribution_to_markdown")
     html = md.markdown_to_html("| a | b |\n| --- | --- |\n| 1 | 2 |\n")
     assert "<table>" in html
     assert md.html_to_markdown("<table><tr><th>a</th></tr><tr><td>1</td></tr></table>").count("|") >= 2

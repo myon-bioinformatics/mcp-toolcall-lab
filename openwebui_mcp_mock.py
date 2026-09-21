@@ -127,6 +127,7 @@ import importlib.util
 import json
 import os
 import re
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from types import ModuleType
@@ -261,7 +262,19 @@ def load_markdown() -> ModuleType | None:
     if spec is None or spec.loader is None:
         return None
     module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+    # dataclasses resolves postponed annotations through sys.modules while
+    # decorating classes. Register dynamic modules before exec_module(), just
+    # like the normal import machinery does.
+    previous = sys.modules.get(spec.name)
+    sys.modules[spec.name] = module
+    try:
+        spec.loader.exec_module(module)
+    except Exception:
+        if previous is None:
+            sys.modules.pop(spec.name, None)
+        else:
+            sys.modules[spec.name] = previous
+        raise
     return module
 
 

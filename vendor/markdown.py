@@ -1,4 +1,5 @@
 # markdown.py
+# metadata: __all__=98 | base_sha=cae5618bd940ded29d4b61f71e4a11ee51faa9d9 | updated_at=2026-09-21T15:05:00Z
 """Stdlib-only Markdown utility functions.
 
 This module is intentionally a single file with no CLI / ``main`` entry point.
@@ -14,6 +15,7 @@ from __future__ import annotations
 __all__ = [
     "save_markdown",
     "read_markdown",
+    "run_markdown_doctest",
     "extract_sections",
     "split_sections",
     "extract_links",
@@ -21,6 +23,7 @@ __all__ = [
     "extract_code_blocks",
     "extract_raw_html",
     "extract_urls",
+    "extract_data_uris",
     "extract_section",
     "strip_prose_keep_structure",
     "minify_markdown",
@@ -34,6 +37,11 @@ __all__ = [
     "markdown_link_to_html",
     "html_to_markdown",
     "markdown_to_html",
+    "HtmlNode",
+    "parse_html_dom",
+    "dom_to_html",
+    "dom_to_markdown",
+    "markdown_to_dom",
     "markdown_to_kramdown",
     "kramdown_to_markdown",
     "ial",
@@ -56,7 +64,39 @@ __all__ = [
     "footnote_ref",
     "footnote",
     "code_block",
+    "mermaid_block",
+    "extract_mermaid_blocks",
+    "markdown_headings_to_mermaid_mindmap",
+    "markdown_tasks_to_mermaid_flowchart",
+    "python_to_mermaid_class_diagram",
+    "markdown_links_to_dot",
+    "inspect_to_markdown",
+    "argparse_to_markdown",
+    "distribution_to_markdown",
     "table",
+    "aligned_table",
+    "markdown_table_to_rows",
+    "markdown_table_to_records",
+    "csv_to_markdown_table",
+    "markdown_table_to_csv",
+    "markdown_table_statistics",
+    "json_to_markdown",
+    "markdown_to_json",
+    "structured_to_markdown",
+    "markdown_to_structured",
+    "ini_to_markdown",
+    "markdown_to_ini",
+    "toml_to_markdown",
+    "markdown_to_toml",
+    "dotenv_to_markdown",
+    "markdown_to_dotenv",
+    "redis_snapshot_to_markdown",
+    "sql_ddl_to_markdown",
+    "markdown_to_sql_ddl",
+    "markdown_to_ipynb",
+    "ipynb_to_markdown",
+    "markdown_to_py_percent",
+    "py_percent_to_markdown",
     "key_value_table",
     "section",
     "inline_code",
@@ -73,13 +113,32 @@ __all__ = [
     "UNSUPPORTED",
 ]
 
+import argparse
+import ast
+import configparser
+import csv
+import doctest
+import graphlib
 import html as html_module
+import importlib.metadata as importlib_metadata
+import inspect
+import io
 import json
+import math
 import re
+import statistics
+import tokenize
+import unicodedata
+from dataclasses import dataclass
 from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any
 from urllib.parse import urljoin, urlparse
+
+try:
+    import tomllib
+except ModuleNotFoundError:  # Python < 3.11
+    tomllib = None
 
 # ---------------------------------------------------------------------------
 # Capability notes (kept in-module so a vendored single file stays honest)
@@ -101,6 +160,7 @@ SUPPORTED = {
         "link/image builders",
         "HTML <a>/<img> <-> Markdown link/image",
         "conservative html_to_markdown / markdown_to_html for common tags",
+        "lightweight HtmlNode / parse_html_dom / dom_to_html / dom_to_markdown / markdown_to_dom",
         "GitHub / Qiita / Zenn / Obsidian alerts and callouts in markdown_to_html "
         "(shared <aside class=\"markdown-alert\"> HTML; alerts win over ordinary > quotes)",
         "ordinary > blockquotes in markdown_to_html (multi-line, blank > lines; "
@@ -120,6 +180,10 @@ SUPPORTED = {
         "HTML <del> -> ~~text~~ and <li><input type=checkbox> -> - [ ] / - [x] in html_to_markdown",
         "heading/paragraph id+class (+ other simple attrs) in html_to_markdown "
         "as Pandoc-style {#id .class key=\"value\"} so markdown_to_kramdown can attach IAL",
+        "structured_to_markdown / markdown_to_structured for JSON-compatible Python data "
+        "(typed canonical Markdown table; reusable by INI/TOML adapters)",
+        "INI / TOML / dotenv <-> canonical structured Markdown adapters "
+        "(semantic round-trip; source comments/spacing/quote style are canonicalized)",
         "markdown_to_kramdown: Pandoc/PHP-Extra {#id .class key=value} on headings/paragraphs "
         "-> Kramdown block IAL ({: #id .class key=\"value\"}); ordinary Markdown left alone",
         "kramdown_to_markdown: strip known heading/paragraph IAL back to plain Markdown "
@@ -134,6 +198,11 @@ SUPPORTED = {
         "details (Zenn :::details summary / body; markdown_to_html -> <details><summary>)",
         "footnote_ref / footnote ([^id] inline ref and [^id]: definition)",
         "inline_code / code_block / json_block",
+        "mermaid_block / extract_mermaid_blocks (opaque Mermaid source only; no parsing/rendering)",
+        "structural diagrams: headings -> Mermaid mindmap, task deps -> Mermaid flowchart, "
+        "Python classes -> Mermaid classDiagram, Markdown links -> Graphviz DOT",
+        "reference generators: inspect object -> API reference, argparse parser -> CLI reference, "
+        "installed distribution metadata -> package reference",
         "table / key_value_table",
         "md_table / md_kv (*args-friendly wrappers, no list/dict pre-building needed)",
         "status_line",
@@ -169,13 +238,14 @@ UNSUPPORTED = {
         "<http://...> and [text](url) become <a>)",
         "angle autolinks with schemes other than http/https (mailto:, ftp:, uppercase HTTP://)",
         "unmatched strikethrough (a lone ~~ stays literal; ~~a~~b~~ takes the first pair)",
-        "Math / mermaid rendering",
+        "Math / Mermaid rendering (Mermaid helpers only fence/extract opaque source)",
         "full Kramdown (extensions {::comment}/{::options}/{::nomarkdown}, math, "
         "TOC macros {:toc}, span IAL, IAL on lists/quotes/tables, attribute references)",
         "Liquid {% %} / {{ }}, YAML front matter, Jekyll tags / includes / baseurl",
     ],
     "conversion": [
         "lossy round-trips for complex nested HTML",
+        "browser DOM / HTML5 tree-construction fidelity (HtmlNode is a small normalized tree)",
         "JavaScript / SVG behavior preservation",
         "CSS class and style fidelity (HTML style= is dropped; IAL class names are kept)",
         "raw inline HTML tags are escaped, not passed through, by markdown_to_html",
@@ -203,6 +273,8 @@ _REF_LINK_RE = re.compile(r"(?<!!)\[([^\]]+)\]\[([^\]]*)\]")
 _REF_IMAGE_RE = re.compile(r"!\[([^\]]*)\]\[([^\]]+)\]")
 _ANGLE_URL_RE = re.compile(r"<(https?://[^>\s]+)>")
 _BARE_URL_RE = re.compile(r"(?<![\"'(\\[])(https?://[^\s)<>\"]+)")
+_DATA_URI_RE = re.compile(r"(?<![A-Za-z0-9_-])data:([^,\s]*),([^\s]*)", re.IGNORECASE)
+_DATA_URI_MEDIA_TYPE_RE = re.compile(r"^[A-Za-z][A-Za-z0-9._+-]*/[A-Za-z0-9._+-]+\Z")
 _HTML_TAG_RE = re.compile(r"</?([A-Za-z][A-Za-z0-9]*)\b[^>]*>", re.DOTALL)
 _HTML_IMG_RE = re.compile(
     r"<img\b([^>]*)/?>",
@@ -269,6 +341,85 @@ _TRAILING_PANDOC_ATTR_RE = re.compile(
     r"^(?P<body>.*?)(?P<list>\{(?![%{:])(?P<inner>[^{}]*)\})\s*$"
 )
 _HTML_ATTR_SKIP = frozenset({"id", "class", "style"})
+_HOST_PORT_REFERENCE_RE = re.compile(
+    r"^(?P<host>(?:localhost|(?:[A-Za-z0-9-]+\.)+[A-Za-z0-9-]+|(?:\d{1,3}\.){3}\d{1,3}|\[[0-9A-Fa-f:.]+\]))"
+    r":(?P<port>\d{1,5})(?P<rest>(?:[/?#].*)?)$"
+)
+
+
+# === SECTION: scanner ===
+# Shared lexical helpers. New format converters should use these helpers
+# instead of re-implementing fence state or treating inline code as prose.
+
+@dataclass(frozen=True)
+class _ScannedLine:
+    """One physical Markdown line with its code-context classification."""
+
+    text: str
+    in_fenced_code: bool
+    is_fence_open: bool = False
+    is_fence_close: bool = False
+
+
+def _advance_fence(active_fence: str | None, line: str) -> tuple[str | None, bool, bool]:
+    """Return next fence state, plus whether ``line`` opens or closes it."""
+    match = _FENCE_RE.match(line)
+    if active_fence is not None:
+        if match and line.startswith(active_fence):
+            return None, False, True
+        return active_fence, False, False
+    if match:
+        return match.group(1), True, False
+    return None, False, False
+
+
+def _scan_lines(lines: list[str]) -> list[_ScannedLine]:
+    """Classify lines as ordinary text or fenced-code context.
+
+    This is deliberately lexical and dependency-free. It preserves the
+    repository's existing ``_FENCE_RE`` contract.
+    """
+    active_fence: str | None = None
+    scanned: list[_ScannedLine] = []
+    for line in lines:
+        next_fence, opened, closed = _advance_fence(active_fence, line)
+        scanned.append(
+            _ScannedLine(
+                text=line,
+                in_fenced_code=active_fence is not None or opened,
+                is_fence_open=opened,
+                is_fence_close=closed,
+            )
+        )
+        active_fence = next_fence
+    return scanned
+
+
+def _mask_inline_code(text: str) -> str:
+    """Replace balanced backtick code spans with spaces, preserving indexes.
+
+    This conservative helper is for scanners/extractors, not an inline
+    renderer. Unbalanced runs stay untouched; fenced code is handled by
+    ``_scan_lines`` first.
+    """
+    chars = list(text)
+    index = 0
+    while index < len(text):
+        if text[index] != "`":
+            index += 1
+            continue
+        end = index
+        while end < len(text) and text[end] == "`":
+            end += 1
+        marker = text[index:end]
+        close = text.find(marker, end)
+        if close < 0:
+            index = end
+            continue
+        for masked_index in range(index, close + len(marker)):
+            chars[masked_index] = " "
+        index = close + len(marker)
+    return "".join(chars)
 
 
 # ---------------------------------------------------------------------------
@@ -315,12 +466,57 @@ def read_markdown(filepath: str, count_hashtags: bool = False) -> dict:
     return result
 
 
+def run_markdown_doctest(content: str, name: str = "<markdown>", globs: Any = None) -> doctest.TestResults:
+    """Run Python doctest prompts found in fenced Markdown code blocks.
+
+    Only Python-family fences participate. The examples are executed, so this
+    helper is for trusted project documentation and test suites only.
+    """
+    source = _markdown_doctest_source(content)
+    test = doctest.DocTestParser().get_doctest(
+        source, dict(globs or {}), name, name, 0,
+    )
+    runner = doctest.DocTestRunner()
+    runner.run(test, out=lambda _message: None)
+    return doctest.TestResults(runner.failures, runner.tries)
+
+
+def _markdown_doctest_source(content: str) -> str:
+    """Keep Python fence contents while preserving Markdown line numbers.
+
+    Fence state is supplied by the shared P0 scanner rather than a parallel
+    fence parser. Fence info strings use their first token as the language.
+    """
+    lines = content.splitlines(keepends=True)
+    scanned = _scan_lines([line.rstrip("\r\n") for line in lines])
+    output: list[str] = []
+    in_python = False
+    for line, item in zip(lines, scanned):
+        match = _FENCE_RE.match(item.text)
+        if item.is_fence_open:
+            info = match.group(2).strip() if match else ""
+            language = info.split()[0].lower() if info else ""
+            in_python = language in {"python", "python3", "py", "pycon"}
+            output.append("\n" if line.endswith("\n") else "")
+        elif item.is_fence_close:
+            in_python = False
+            output.append("\n" if line.endswith("\n") else "")
+        elif in_python:
+            output.append(item.text + ("\n" if line.endswith("\n") else ""))
+        else:
+            output.append("\n" if line.endswith("\n") else "")
+    return "".join(output)
+
 # ---------------------------------------------------------------------------
 # Structure extraction
 # ---------------------------------------------------------------------------
 
 def extract_sections(content: str) -> list[dict[str, Any]]:
-    """Extract ATX heading names from Markdown content."""
+    """List ATX headings (``level`` + ``title``), without their body text.
+
+    For heading-delimited sections that keep each section's body, use
+    ``split_sections()`` instead.
+    """
     sections: list[dict[str, Any]] = []
     for line in content.splitlines():
         match = _HEADING_RE.match(line)
@@ -335,10 +531,13 @@ def extract_sections(content: str) -> list[dict[str, Any]]:
 
 
 def split_sections(content: str) -> list[dict[str, Any]]:
-    """Split content into heading-delimited sections.
+    """Split content into heading-delimited sections, each with its body text.
 
-    The prelude before the first heading is returned with ``level`` 0 and
-    an empty ``title`` when it is non-empty.
+    Each item has ``level``, ``title``, and ``content`` (the heading line
+    plus everything up to the next heading of any level). The prelude
+    before the first heading is returned with ``level`` 0 and an empty
+    ``title`` when it is non-empty. For a heading list without body text,
+    use ``extract_sections()`` instead.
     """
     lines = content.splitlines(keepends=True)
     parts: list[dict[str, Any]] = []
@@ -502,20 +701,20 @@ def extract_code_blocks(content: str) -> list[dict[str, Any]]:
     """Extract fenced code blocks (``` or ~~~)."""
     blocks: list[dict[str, Any]] = []
     lines = content.splitlines()
+    scanned = _scan_lines(lines)
     i = 0
     while i < len(lines):
-        match = _FENCE_RE.match(lines[i])
-        if not match:
+        if not scanned[i].is_fence_open:
             i += 1
             continue
+        match = _FENCE_RE.match(lines[i])
+        assert match is not None  # guaranteed by _scan_lines
         fence = match.group(1)
         info = match.group(2).strip()
         lang = info.split()[0] if info else ""
         body: list[str] = []
         i += 1
-        while i < len(lines):
-            if lines[i].startswith(fence):
-                break
+        while i < len(lines) and not scanned[i].is_fence_close:
             body.append(lines[i])
             i += 1
         blocks.append(
@@ -525,7 +724,8 @@ def extract_code_blocks(content: str) -> list[dict[str, Any]]:
                 "code": "\n".join(body),
             }
         )
-        i += 1
+        if i < len(lines):
+            i += 1
     return blocks
 
 
@@ -565,6 +765,52 @@ def extract_urls(content: str, *, base_url: str | None = None) -> list[str]:
     for match in _BARE_URL_RE.finditer(content):
         add(match.group(1).rstrip(".,;:)"))
     return urls
+
+
+def extract_data_uris(content: str) -> list[dict[str, str]]:
+    """List well-formed literal data URIs without decoding their payloads.
+
+    The helper is observation-only: it does not fetch, decode, or execute
+    a URI. A missing media type uses the RFC default ``text/plain``.
+    Payload punctuation is preserved; only explicit surrounding delimiters
+    and an unmatched Markdown closing parenthesis are removed.
+    """
+    found: list[dict[str, str]] = []
+    for match in _DATA_URI_RE.finditer(content):
+        metadata = match.group(1)
+        parts = metadata.split(";") if metadata else []
+        declared_type = parts[0].lower() if parts and parts[0] else ""
+        if declared_type and not _DATA_URI_MEDIA_TYPE_RE.match(declared_type):
+            continue
+        if any(part and "=" not in part and part.lower() != "base64" for part in parts[1:]):
+            continue
+        uri = match.group(0).rstrip("\"'>")
+        # Drop unmatched Markdown ")" chars and any prose punctuation
+        # trailing *after* them (e.g. "...hello)." from "(data:...,hello).",
+        # or "...hello))" from a prose paren wrapping a "(...)" link/image),
+        # but keep payload punctuation that sits *before* them (e.g. the "!"
+        # in "(data:...,Hello!)" is data, not a delimiter). Multiple stacked
+        # wrappers can leave more than one unmatched ")" at the end, so cut
+        # at the excess-th ")" from the right in the trailing run, not
+        # always just the last one.
+        trim = len(uri)
+        while trim > 0 and uri[trim - 1] in ").,;:!?":
+            trim -= 1
+        tail = uri[trim:]
+        paren_positions = [i for i, char in enumerate(tail) if char == ")"]
+        excess = uri.count(")") - uri.count("(")
+        if paren_positions and excess > 0:
+            cut_at = paren_positions[-min(excess, len(paren_positions))]
+            uri = uri[: trim + cut_at]
+            # Removing a wrapping ")" can expose a quote/angle delimiter
+            # that was only hidden behind it, e.g. "(<data:...,x>)".
+            uri = uri.rstrip("\"'>")
+        found.append({
+            "uri": uri,
+            "media_type": declared_type or "text/plain",
+            "metadata": metadata,
+        })
+    return found
 
 
 def inventory(content: str) -> dict[str, Any]:
@@ -785,8 +1031,11 @@ def markdown_image_to_html(
     else:
         # Treat bare path/URL as image source.
         alt, url, title = "", markdown.strip(), ""
+    safe_url = _sanitize_url_scheme(url)
+    if not safe_url:
+        return html_module.escape(alt)
     attrs = [
-        f'src="{html_module.escape(url, quote=True)}"',
+        f'src="{html_module.escape(safe_url, quote=True)}"',
         f'alt="{html_module.escape(alt, quote=True)}"',
     ]
     if title:
@@ -814,7 +1063,10 @@ def markdown_link_to_html(markdown: str) -> str:
     if not match:
         return ""
     text, url, title = match.group(1), match.group(2), match.group(3) or ""
-    attrs = [f'href="{html_module.escape(url, quote=True)}"']
+    safe_url = _sanitize_url_scheme(url)
+    if not safe_url:
+        return html_module.escape(text)
+    attrs = [f'href="{html_module.escape(safe_url, quote=True)}"']
     if title:
         attrs.append(f'title="{html_module.escape(title, quote=True)}"')
     return f"<a {' '.join(attrs)}>{html_module.escape(text)}</a>"
@@ -1178,6 +1430,451 @@ def code_block(code: str, lang: str = "", *, fence_char: str = "`") -> str:
     return f"{fence}{lang}\n{code}\n{fence}\n"
 
 
+def mermaid_block(source: str, *, fence_char: str = "`") -> str:
+    """Wrap opaque Mermaid source in a safe ``mermaid`` fenced block.
+
+    Line endings are normalized to LF. Mermaid syntax is not parsed or
+    validated, and no renderer, browser, JavaScript runtime, or I/O is used.
+    """
+    normalized = source.replace("\r\n", "\n").replace("\r", "\n")
+    return code_block(normalized, lang="mermaid", fence_char=fence_char)
+
+
+def extract_mermaid_blocks(content: str) -> list[str]:
+    """Return Mermaid fenced-block sources in document order.
+
+    The info-string language match is case-insensitive and must be exactly
+    ``mermaid`` as its first token. Non-Mermaid fences and inline code are
+    ignored. Returned line endings follow the module-wide LF convention.
+    """
+    return [
+        block["code"]
+        for block in extract_code_blocks(content)
+        if block["language"].lower() == "mermaid"
+    ]
+
+
+def _diagram_label(text: Any) -> str:
+    """Escape a label for quoted Mermaid/DOT output."""
+    return str(text).replace("\\", "\\\\").replace('"', '\\"').replace("\n", " ")
+
+
+def _live_markdown_lines(content: str) -> list[tuple[str, str]]:
+    """Return ``(raw, inline-masked)`` lines outside fenced code."""
+    lines = content.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+    scanned = _scan_lines(lines)
+    result: list[tuple[str, str]] = []
+    for line, item in zip(lines, scanned):
+        if item.in_fenced_code:
+            continue
+        result.append((line, _mask_inline_code(line)))
+    return result
+
+
+def markdown_headings_to_mermaid_mindmap(content: str, *, root: str = "Document") -> str:
+    """Generate deterministic Mermaid mindmap source from live ATX headings."""
+    headings: list[tuple[int, str]] = []
+    for raw, masked in _live_markdown_lines(content):
+        match = _HEADING_RE.match(masked)
+        if match:
+            headings.append((len(match.group(1)), raw[len(match.group(1)):].strip()))
+
+    out = ["mindmap", f'  root["{_diagram_label(root)}"]']
+    stack: list[tuple[int, str]] = []
+    for index, (level, title) in enumerate(headings):
+        while stack and stack[-1][0] >= level:
+            stack.pop()
+        depth = len(stack) + 2
+        node_id = f"n{index}"
+        out.append("  " * depth + f'{node_id}["{_diagram_label(title)}"]')
+        stack.append((level, node_id))
+    return "\n".join(out) + "\n"
+
+
+_TASK_DEP_RE = re.compile(r"^\s*[-*+]\s+\[[ xX]\]\s+(.+?)(?:\s+<-\s+(.+))?\s*$")
+
+
+def markdown_tasks_to_mermaid_flowchart(content: str) -> str:
+    """Generate Mermaid flowchart source from narrow GFM task dependencies.
+
+    Syntax: ``- [ ] Deploy <- Build, Test`` means Deploy depends on Build and
+    Test. Every referenced dependency must also appear as a task item.
+    """
+    tasks: list[tuple[str, list[str]]] = []
+    seen: set[str] = set()
+    for raw, masked in _live_markdown_lines(content):
+        match = _TASK_DEP_RE.match(masked)
+        if not match:
+            continue
+        name = raw[match.start(1):match.end(1)].strip()
+        deps_text = match.group(2)
+        if " <- " in name:
+            name = name.split(" <- ", 1)[0].rstrip()
+        if not name or name in seen:
+            raise ValueError(f"Task names must be unique and non-empty: {name!r}")
+        seen.add(name)
+        deps = [part.strip() for part in deps_text.split(",")] if deps_text else []
+        if any(not dep for dep in deps):
+            raise ValueError(f"Empty dependency for task {name!r}")
+        tasks.append((name, deps))
+
+    names = {name for name, _ in tasks}
+    missing = sorted({dep for _, deps in tasks for dep in deps if dep not in names})
+    if missing:
+        raise ValueError("Unknown task dependencies: " + ", ".join(missing))
+
+    graph = {name: set(deps) for name, deps in tasks}
+    try:
+        tuple(graphlib.TopologicalSorter(graph).static_order())
+    except graphlib.CycleError as exc:
+        raise ValueError("Task dependency cycle detected") from exc
+
+    ids = {name: f"n{index}" for index, (name, _) in enumerate(tasks)}
+    out = ["flowchart TD"]
+    for name, _ in tasks:
+        out.append(f'  {ids[name]}["{_diagram_label(name)}"]')
+    for name, deps in tasks:
+        for dep in deps:
+            out.append(f"  {ids[dep]} --> {ids[name]}")
+    return "\n".join(out) + "\n"
+
+
+def _ast_base_name(node: ast.expr) -> str:
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        left = _ast_base_name(node.value)
+        return f"{left}.{node.attr}" if left else node.attr
+    return ""
+
+
+def python_to_mermaid_class_diagram(source: str) -> str:
+    """Generate Mermaid ``classDiagram`` source from Python class structure."""
+    try:
+        tree = ast.parse(source)
+    except SyntaxError as exc:
+        raise ValueError(f"Invalid Python source: {exc}") from exc
+
+    classes = [node for node in tree.body if isinstance(node, ast.ClassDef)]
+    known_names = [node.name for node in classes]
+    external_bases: list[str] = []
+    for node in classes:
+        for base in node.bases:
+            name = _ast_base_name(base)
+            if name and name not in known_names and name not in external_bases:
+                external_bases.append(name)
+
+    ids: dict[str, str] = {}
+    for index, name in enumerate(known_names + external_bases):
+        ids[name] = f"c{index}"
+
+    out = ["classDiagram"]
+    for node in classes:
+        class_id = ids[node.name]
+        out.append(f'  class {class_id}["{_diagram_label(node.name)}"] {{')
+        for item in node.body:
+            if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                args = [arg.arg for arg in item.args.args]
+                if args and args[0] in {"self", "cls"}:
+                    args = args[1:]
+                out.append(f"    {item.name}({', '.join(args)})")
+        out.append("  }")
+    for name in external_bases:
+        out.append(f'  class {ids[name]}["{_diagram_label(name)}"]')
+    for node in classes:
+        for base in node.bases:
+            name = _ast_base_name(base)
+            if name:
+                out.append(f"  {ids[name]} <|-- {ids[node.name]}")
+    return "\n".join(out) + "\n"
+
+
+def markdown_links_to_dot(content: str) -> str:
+    """Generate a deterministic DOT link graph grouped by current heading.
+
+    Links before the first heading belong to ``Document``. If a syntactically
+    matched ATX heading becomes empty after stripping, that section also falls
+    back to ``Document`` instead of creating an empty node label.
+    """
+    normalized = content.replace("\r\n", "\n").replace("\r", "\n")
+    lines = normalized.split("\n")
+    scanned = _scan_lines(lines)
+    current = "Document"
+    edges: list[tuple[str, str, str]] = []
+    refs = _reference_map(normalized)
+    for line, item in zip(lines, scanned):
+        if item.in_fenced_code:
+            continue
+        masked = _mask_inline_code(line)
+        heading_match = _HEADING_RE.match(masked)
+        if heading_match:
+            current = line[len(heading_match.group(1)):].strip() or "Document"
+            continue
+        safe = _INLINE_IMAGE_RE.sub(lambda m: " " * len(m.group(0)), masked)
+        for match in _INLINE_LINK_RE.finditer(safe):
+            edges.append((current, match.group(2), match.group(1)))
+        for match in _REF_LINK_RE.finditer(safe):
+            text_value = match.group(1)
+            key = (match.group(2) or text_value).strip().lower()
+            target = refs.get(key, {}).get("url", "")
+            if target:
+                edges.append((current, target, text_value))
+
+    sources: list[str] = []
+    targets: list[str] = []
+    for source, target, _ in edges:
+        if source not in sources:
+            sources.append(source)
+        if target not in targets:
+            targets.append(target)
+    source_ids = {name: f"s{i}" for i, name in enumerate(sources)}
+    target_ids = {url: f"u{i}" for i, url in enumerate(targets)}
+
+    out = ["digraph markdown_links {"]
+    for name in sources:
+        out.append(f'  {source_ids[name]} [label="{_diagram_label(name)}"];')
+    for url in targets:
+        out.append(f'  {target_ids[url]} [label="{_diagram_label(url)}"];')
+    for source, target, label in edges:
+        out.append(
+            f'  {source_ids[source]} -> {target_ids[target]} [label="{_diagram_label(label)}"];'
+        )
+    out.append("}")
+    return "\n".join(out) + "\n"
+
+
+def _reference_summary(value: Any) -> str:
+    """Return the first non-empty documentation line for a known object."""
+    try:
+        doc = inspect.getdoc(value) or ""
+    except (AttributeError, TypeError):
+        return ""
+    return next((line.strip() for line in doc.splitlines() if line.strip()), "")
+
+
+def _reference_signature(value: Any) -> str:
+    """Return a stable signature when ``inspect.signature`` supports value."""
+    try:
+        return str(inspect.signature(value))
+    except (TypeError, ValueError):
+        return ""
+
+
+def _reference_member(value: Any) -> Any:
+    """Unwrap class/static methods without invoking descriptors."""
+    if isinstance(value, (classmethod, staticmethod)):
+        return value.__func__
+    return value
+
+
+def inspect_to_markdown(obj: Any, *, title: str | None = None) -> str:
+    """Generate a small API reference for an already-provided Python object.
+
+    Module/class members are read from ``vars()`` so properties and other
+    descriptors are not invoked. No module discovery or dynamic import occurs.
+    """
+    if inspect.ismodule(obj):
+        kind = "module"
+    elif inspect.isclass(obj):
+        kind = "class"
+    elif inspect.isfunction(obj):
+        kind = "function"
+    elif inspect.ismethod(obj):
+        kind = "method"
+    elif inspect.isbuiltin(obj):
+        kind = "builtin"
+    else:
+        kind = type(obj).__name__
+
+    name = getattr(obj, "__qualname__", None) or getattr(obj, "__name__", None) or type(obj).__name__
+    module_name = getattr(obj, "__module__", "") or ""
+    doc = inspect.getdoc(obj) or ""
+    output = [heading(title or f"API: {name}")]
+    metadata_rows = [["Name", name], ["Kind", kind]]
+    if module_name:
+        metadata_rows.append(["Module", module_name])
+    signature = _reference_signature(obj)
+    if signature:
+        metadata_rows.append(["Signature", signature])
+    output.append(table(["Field", "Value"], metadata_rows))
+    if doc:
+        output.append(heading("Description", 2))
+        output.append(doc.rstrip() + "\n")
+
+    members: list[list[str]] = []
+    if inspect.ismodule(obj) or inspect.isclass(obj):
+        owner_module = getattr(obj, "__name__", "") if inspect.ismodule(obj) else ""
+        for member_name, raw_value in sorted(vars(obj).items()):
+            if member_name.startswith("_"):
+                continue
+            value = _reference_member(raw_value)
+            if not (inspect.isfunction(value) or inspect.isclass(value) or inspect.isbuiltin(value)):
+                continue
+            if owner_module and getattr(value, "__module__", owner_module) != owner_module:
+                continue
+            member_kind = "class" if inspect.isclass(value) else "function"
+            members.append([
+                member_name,
+                member_kind,
+                _reference_signature(value),
+                _reference_summary(value),
+            ])
+    if members:
+        output.append(heading("Public API", 2))
+        output.append(table(["Name", "Kind", "Signature", "Summary"], members))
+    return "\n".join(part.rstrip("\n") for part in output if part) + "\n"
+
+
+def _argparse_value(value: Any) -> str:
+    """Render argparse metadata without unstable object reprs."""
+    if value == argparse.SUPPRESS:
+        return "SUPPRESS"
+    if value is None:
+        return ""
+    if isinstance(value, (str, int, float, bool)):
+        return str(value)
+    if isinstance(value, (list, tuple)):
+        return ", ".join(_argparse_value(item) for item in value)
+    return type(value).__name__
+
+
+def _argparse_type_name(value: Any) -> str:
+    """Return a compact, stable display name for an argparse ``type`` value."""
+    if value is None:
+        return ""
+    name = getattr(value, "__name__", None)
+    if name:
+        return str(name)
+    return type(value).__name__
+
+
+def _argparse_action_name(action: argparse.Action) -> str:
+    """Normalize common argparse action classes to user-facing action names."""
+    mapping = {
+        "_StoreAction": "store",
+        "_StoreConstAction": "store_const",
+        "_StoreTrueAction": "store_true",
+        "_StoreFalseAction": "store_false",
+        "_AppendAction": "append",
+        "_AppendConstAction": "append_const",
+        "_CountAction": "count",
+        "_HelpAction": "help",
+        "_VersionAction": "version",
+        "BooleanOptionalAction": "boolean_optional",
+    }
+    return mapping.get(action.__class__.__name__, action.__class__.__name__.lstrip("_"))
+
+
+def argparse_to_markdown(parser: argparse.ArgumentParser, *, title: str | None = None) -> str:
+    """Generate deterministic CLI reference Markdown from an ArgumentParser.
+
+    The parser is never executed. Reading ``_actions`` is the only intentional
+    narrow dependency on argparse private state; public parser metadata and
+    ``format_usage()`` are used otherwise. Type, metavar, and common action
+    kinds are rendered as stable descriptive names rather than object reprs.
+    """
+    if not isinstance(parser, argparse.ArgumentParser):
+        raise TypeError("parser must be an argparse.ArgumentParser")
+
+    output = [heading(title or f"CLI: {parser.prog}")]
+    if parser.description:
+        output.append(str(parser.description).rstrip() + "\n")
+    usage = parser.format_usage().strip()
+    if usage:
+        output.append(heading("Usage", 2))
+        output.append(code_block(usage, lang="text"))
+
+    argument_rows: list[list[str]] = []
+    subcommands: list[list[str]] = []
+    for action in parser._actions:
+        if action.__class__.__name__ == "_SubParsersAction":
+            for command, child in sorted(action.choices.items()):
+                subcommands.append([command, child.description or ""])
+            continue
+        if action.dest == argparse.SUPPRESS:
+            continue
+        label = ", ".join(action.option_strings) if action.option_strings else action.dest
+        choices = ""
+        if action.choices is not None:
+            try:
+                choices = ", ".join(str(choice) for choice in action.choices)
+            except TypeError:
+                choices = _argparse_value(action.choices)
+        argument_rows.append([
+            label,
+            "yes" if action.required else "no",
+            _argparse_value(action.nargs),
+            choices,
+            _argparse_value(action.default),
+            _argparse_type_name(action.type),
+            _argparse_value(action.metavar),
+            _argparse_action_name(action),
+            "" if action.help == argparse.SUPPRESS else str(action.help or ""),
+        ])
+
+    if argument_rows:
+        output.append(heading("Arguments", 2))
+        output.append(table(
+            ["Argument", "Required", "Nargs", "Choices", "Default", "Type", "Metavar", "Action", "Help"],
+            argument_rows,
+        ))
+    if subcommands:
+        output.append(heading("Subcommands", 2))
+        output.append(table(["Command", "Description"], subcommands))
+    if parser.epilog:
+        output.append(heading("Epilog", 2))
+        output.append(str(parser.epilog).rstrip() + "\n")
+    return "\n".join(part.rstrip("\n") for part in output if part) + "\n"
+
+
+def distribution_to_markdown(name: str, *, title: str | None = None) -> str:
+    """Generate package metadata Markdown for an installed distribution."""
+    if not str(name).strip():
+        raise ValueError("distribution name must be non-empty")
+    try:
+        dist = importlib_metadata.distribution(str(name))
+    except importlib_metadata.PackageNotFoundError as exc:
+        raise ValueError(f"Distribution not found: {name}") from exc
+
+    metadata = dist.metadata
+    package_name = metadata.get("Name") or str(name)
+    output = [heading(title or f"Package: {package_name}")]
+    fields = [
+        ("Name", package_name),
+        ("Version", dist.version),
+        ("Summary", metadata.get("Summary", "")),
+        ("Requires-Python", metadata.get("Requires-Python", "")),
+        ("License", metadata.get("License", "")),
+        ("Author", metadata.get("Author", "")),
+        ("Author-email", metadata.get("Author-email", "")),
+        ("Home-page", metadata.get("Home-page", "")),
+    ]
+    output.append(table(["Field", "Value"], [[key, value] for key, value in fields if value]))
+
+    project_urls = sorted(metadata.get_all("Project-URL") or [])
+    if project_urls:
+        output.append(heading("Project URLs", 2))
+        rows = []
+        for value in project_urls:
+            label, separator, url = value.partition(",")
+            rows.append([label.strip() if separator else "", url.strip() if separator else value.strip()])
+        output.append(table(["Label", "URL"], rows))
+
+    requirements = sorted(dist.requires or [])
+    if requirements:
+        output.append(heading("Requires", 2))
+        output.append(bullet_list(requirements))
+
+    entry_points = sorted(dist.entry_points, key=lambda item: (item.group, item.name, item.value))
+    if entry_points:
+        output.append(heading("Entry Points", 2))
+        output.append(table(
+            ["Group", "Name", "Value"],
+            [[item.group, item.name, item.value] for item in entry_points],
+        ))
+    return "\n".join(part.rstrip("\n") for part in output if part) + "\n"
+
+
 def json_block(obj: Any, indent: int = 2) -> str:
     """Serialize ``obj`` as JSON and wrap it in a ```json fenced code block."""
     text = json.dumps(obj, ensure_ascii=False, indent=indent)
@@ -1197,16 +1894,796 @@ def table(headers: Any, rows: Any) -> str:
     >>> table(["a", "b"], [[1, 2], [3, 4]])
     '| a | b |\\n| --- | --- |\\n| 1 | 2 |\\n| 3 | 4 |\\n'
     """
-    headers = [str(h) for h in headers]
+    headers = [_escape_table_cell(h) for h in headers]
     if not headers:
         return ""
     out = ["| " + " | ".join(headers) + " |", "| " + " | ".join(["---"] * len(headers)) + " |"]
     for row in rows:
-        cells = [str(v) for v in row][: len(headers)]
+        cells = [_escape_table_cell(v) for v in row][: len(headers)]
         cells += [""] * (len(headers) - len(cells))
         out.append("| " + " | ".join(cells) + " |")
     return "\n".join(out) + "\n"
 
+
+# === SECTION: table ===
+
+def _display_width(value: Any) -> int:
+    """Return a terminal-style display width for a Markdown table cell.
+
+    Combining marks take no column; full-width and wide East Asian characters
+    take two. Ambiguous-width characters deliberately stay one column so the
+    result is stable across common Western and Japanese terminals.
+    """
+    width = 0
+    for char in str(value):
+        if unicodedata.combining(char):
+            continue
+        width += 2 if unicodedata.east_asian_width(char) in {"F", "W"} else 1
+    return width
+
+
+def _escape_table_cell(value: Any) -> str:
+    """Escape a cell for the small GFM pipe-table subset used by this module."""
+    return str(value).replace("\\", "\\\\").replace("|", "\\|").replace("\n", "<br>")
+
+
+def aligned_table(headers: Any, rows: Any) -> str:
+    """Build a pipe table aligned by display width, including CJK cells.
+
+    This is presentation-oriented: parsing it with :func:`markdown_table_to_rows`
+    recovers the escaped cell text, but physical padding is not preserved.
+    """
+    header_cells = [_escape_table_cell(header) for header in headers]
+    if not header_cells:
+        return ""
+    body = []
+    for row in rows:
+        cells = [_escape_table_cell(value) for value in row][: len(header_cells)]
+        body.append(cells + [""] * (len(header_cells) - len(cells)))
+    widths = [
+        max(3, _display_width(header_cells[index]), *(_display_width(row[index]) for row in body))
+        for index in range(len(header_cells))
+    ]
+
+    def render(cells: list[str]) -> str:
+        return "| " + " | ".join(
+            cell + " " * (widths[index] - _display_width(cell))
+            for index, cell in enumerate(cells)
+        ) + " |"
+
+    out = [render(header_cells), "| " + " | ".join("-" * width for width in widths) + " |"]
+    out.extend(render(row) for row in body)
+    return "\n".join(out) + "\n"
+
+
+def markdown_table_to_rows(content: str) -> tuple[list[str], list[list[str]]]:
+    """Read the first live GFM pipe table as ``(headers, rows)``.
+
+    A table must have a header and a ``| --- |`` delimiter row. Fenced
+    examples, malformed tables, and all text after the first table are
+    ignored. Escaped pipes become literal pipes.
+    """
+    lines = content.splitlines()
+    scanned = _scan_lines(lines)
+    for index, line in enumerate(lines):
+        if scanned[index].in_fenced_code or not _is_table_start(lines, index):
+            continue
+        headers = _split_table_row(line)
+        rows: list[list[str]] = []
+        cursor = index + 2
+        while cursor < len(lines):
+            candidate = lines[cursor]
+            if not candidate.strip() or not _looks_like_table_row(candidate):
+                break
+            if scanned[cursor].in_fenced_code or _is_table_separator(candidate):
+                break
+            cells = _split_table_row(candidate)[: len(headers)]
+            rows.append(cells + [""] * (len(headers) - len(cells)))
+            cursor += 1
+        return headers, rows
+    return [], []
+
+
+def markdown_table_to_records(content: str) -> list[dict[str, str]]:
+    """Read the first GFM pipe table as dictionaries keyed by its headers.
+
+    Duplicate headers have no lossless dictionary representation and raise
+    ``ValueError`` rather than silently overwriting a column.
+    """
+    headers, rows = markdown_table_to_rows(content)
+    if len(set(headers)) != len(headers):
+        raise ValueError("Markdown table headers must be unique for records")
+    return [dict(zip(headers, row)) for row in rows]
+
+
+def csv_to_markdown_table(content: str, *, align: bool = False) -> str:
+    """Convert CSV text to a GFM pipe table using the first row as headers.
+
+    CSV quoting is handled by :mod:`csv`; a blank CSV document produces an
+    empty result. Set ``align=True`` for East Asian display-width padding.
+    """
+    rows = list(csv.reader(io.StringIO(content)))
+    if not rows:
+        return ""
+    renderer = aligned_table if align else table
+    return renderer(rows[0], rows[1:])
+
+
+def markdown_table_to_csv(content: str) -> str:
+    """Convert the first live GFM pipe table to RFC-style CSV text."""
+    headers, rows = markdown_table_to_rows(content)
+    if not headers:
+        return ""
+    out = io.StringIO(newline="")
+    writer = csv.writer(out, lineterminator="\n")
+    writer.writerow(headers)
+    writer.writerows(rows)
+    return out.getvalue()
+
+
+def markdown_to_ipynb(content: str, *, indent: int | None = 2) -> str:
+    """Make a minimal nbformat-4 JSON notebook from Markdown and Python fences.
+
+    Fenced-code state comes from the shared ``_scan_lines`` scanner. The
+    converter does not execute cells, create outputs, or infer kernels.
+    """
+    lines = content.splitlines(keepends=True)
+    scanned = _scan_lines([line.rstrip("\r\n") for line in lines])
+    cells: list[dict[str, Any]] = []
+    prose: list[str] = []
+    index = 0
+    while index < len(lines):
+        item = scanned[index]
+        match = _FENCE_RE.match(item.text)
+        info = match.group(2).strip() if match else ""
+        language = info.split()[0].lower() if info else ""
+        if item.is_fence_open and language in {"python", "py", "python3"}:
+            if prose:
+                cells.append({"cell_type": "markdown", "metadata": {}, "source": prose})
+                prose = []
+            index += 1
+            code: list[str] = []
+            while index < len(lines) and not scanned[index].is_fence_close:
+                code.append(lines[index])
+                index += 1
+            if index < len(lines):
+                index += 1
+            cells.append({
+                "cell_type": "code",
+                "execution_count": None,
+                "metadata": {},
+                "outputs": [],
+                "source": code,
+            })
+            continue
+        prose.append(lines[index])
+        index += 1
+    if prose:
+        cells.append({"cell_type": "markdown", "metadata": {}, "source": prose})
+    notebook = {
+        "cells": cells,
+        "metadata": {"kernelspec": {"display_name": "Python 3", "language": "python", "name": "python3"}},
+        "nbformat": 4,
+        "nbformat_minor": 5,
+    }
+    return json.dumps(notebook, ensure_ascii=False, indent=indent) + "\n"
+
+
+def ipynb_to_markdown(notebook: str | dict[str, Any]) -> str:
+    """Render Markdown and code cell sources from a minimal nbformat notebook.
+
+    Outputs and execution counts are deliberately ignored.
+    """
+    data = json.loads(notebook) if isinstance(notebook, str) else notebook
+    if not isinstance(data, dict) or not isinstance(data.get("cells"), list):
+        raise ValueError("notebook must be an nbformat object with a cells list")
+    parts: list[str] = []
+    for cell in data["cells"]:
+        if not isinstance(cell, dict):
+            continue
+        source = cell.get("source", [])
+        text = source if isinstance(source, str) else "".join(source)
+        if cell.get("cell_type") == "markdown":
+            parts.append(text)
+        elif cell.get("cell_type") == "code":
+            parts.append("```python\n" + text + ("" if text.endswith("\n") or not text else "\n") + "```\n")
+    return "".join(parts)
+
+
+_PY_PERCENT_MARKER_RE = re.compile(r"^#\s*%%(?:\s+\[markdown\])?\s*$")
+
+
+def _py_percent_marker_rows(content: str) -> dict[int, str]:
+    """Return 1-based marker rows mapped to markdown or code.
+
+    tokenize is used only to recognize real Python comment tokens, so text
+    such as "# %%" inside a string never becomes a cell boundary.
+    """
+    rows: dict[int, str] = {}
+    try:
+        tokens = tokenize.generate_tokens(io.StringIO(content).readline)
+        for token in tokens:
+            if token.type != tokenize.COMMENT or token.start[1] != 0:
+                continue
+            text = token.string.strip()
+            if not _PY_PERCENT_MARKER_RE.fullmatch(text):
+                continue
+            rows[token.start[0]] = "markdown" if "[markdown]" in text else "code"
+    except (tokenize.TokenError, IndentationError) as exc:
+        raise ValueError(f"Invalid py:percent Python source: {exc}") from exc
+    return rows
+
+
+def markdown_to_py_percent(content: str) -> str:
+    """Convert Markdown/Python fences to a narrow Jupytext py:percent form.
+
+    The existing Markdown -> ipynb converter defines the cell split. Markdown
+    cells become # %% [markdown] blocks with line comments; Python cells
+    become # %% blocks and keep their source text unchanged.
+    """
+    notebook = json.loads(markdown_to_ipynb(content))
+    out: list[str] = []
+    for cell in notebook["cells"]:
+        source = cell.get("source", [])
+        text = source if isinstance(source, str) else "".join(source)
+        if cell.get("cell_type") == "markdown":
+            out.append("# %% [markdown]\n")
+            for line in text.splitlines(keepends=True):
+                body = line.rstrip("\r\n")
+                ending = "\n" if line.endswith(("\n", "\r")) else ""
+                out.append(("# " + body if body else "#") + ending)
+            if text and not text.endswith(("\n", "\r")):
+                out.append("\n")
+        elif cell.get("cell_type") == "code":
+            out.append("# %%\n")
+            out.append(text)
+            if text and not text.endswith(("\n", "\r")):
+                out.append("\n")
+    return "".join(out)
+
+
+def py_percent_to_markdown(content: str) -> str:
+    """Convert the canonical narrow py:percent subset back to Markdown.
+
+    Marker comments must start in column zero. Markdown-cell payload lines must
+    be blank or comment lines. Code-cell source is copied verbatim; it is never
+    parsed through AST/unparse, so ordinary Python comments are preserved.
+    """
+    normalized = content.replace("\r\n", "\n").replace("\r", "\n")
+    marker_rows = _py_percent_marker_rows(normalized)
+    if not marker_rows:
+        raise ValueError("No py:percent cell markers found")
+
+    lines = normalized.splitlines(keepends=True)
+    marker_indices = sorted(row - 1 for row in marker_rows)
+    parts: list[str] = []
+    for offset, marker_index in enumerate(marker_indices):
+        kind = marker_rows[marker_index + 1]
+        end = marker_indices[offset + 1] if offset + 1 < len(marker_indices) else len(lines)
+        body = lines[marker_index + 1:end]
+        if kind == "markdown":
+            for line_number, line in enumerate(body, marker_index + 2):
+                raw = line[:-1] if line.endswith("\n") else line
+                if raw == "":
+                    parts.append("\n" if line.endswith("\n") else "")
+                elif raw == "#":
+                    parts.append("\n" if line.endswith("\n") else "")
+                elif raw.startswith("# "):
+                    parts.append(raw[2:] + ("\n" if line.endswith("\n") else ""))
+                else:
+                    raise ValueError(
+                        f"py:percent markdown cell line {line_number} must be a comment"
+                    )
+        else:
+            code = "".join(body)
+            parts.append("~~~python\n")
+            parts.append(code)
+            if code and not code.endswith("\n"):
+                parts.append("\n")
+            parts.append("~~~\n")
+    return "".join(parts)
+
+# === SECTION: structured snapshots ===
+
+def markdown_table_statistics(content: str) -> dict[str, Any]:
+    """Return a small, non-mutating summary of the first Markdown table.
+
+    Numeric aggregates appear only when every non-empty value in a column
+    parses as a finite number (``nan``/``inf`` spellings are treated as
+    non-numeric text, not data); no schema inference or value conversion
+    is applied.
+
+    :raises ValueError: if two columns share a header -- ``numeric_columns``
+        is keyed by header text, which cannot represent both losslessly
+        (same contract as :func:`markdown_table_to_records`).
+    """
+    headers, data_rows = markdown_table_to_rows(content)
+    if not headers:
+        return {"rows": 0, "columns": 0, "headers": [], "numeric_columns": {}}
+    if len(set(headers)) != len(headers):
+        raise ValueError("Markdown table headers must be unique for statistics")
+    numeric_columns: dict[str, dict[str, float | int]] = {}
+    for index, header in enumerate(headers):
+        values = [row[index] for row in data_rows if index < len(row) and row[index] != ""]
+        if not values:
+            continue
+        try:
+            numbers = [float(value) for value in values]
+        except ValueError:
+            continue
+        if not all(math.isfinite(number) for number in numbers):
+            continue
+        numeric_columns[header] = {
+            "count": len(numbers),
+            "min": min(numbers),
+            "max": max(numbers),
+            "mean": statistics.mean(numbers),
+            "median": statistics.median(numbers),
+        }
+    return {
+        "rows": len(data_rows),
+        "columns": len(headers),
+        "headers": headers,
+        "numeric_columns": numeric_columns,
+    }
+
+_SQL_IDENTIFIER_RE = (
+    r'(?:"(?:""|[^"])*"|`(?:``|[^`])*`|\[(?:\]\]|[^\]])*\]|[A-Za-z_][A-Za-z0-9_$]*)'
+)
+_CREATE_TABLE_NAME_RE = re.compile(
+    r"\bCREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?"
+    r"(" + _SQL_IDENTIFIER_RE + r"(?:\." + _SQL_IDENTIFIER_RE + r")*)",
+    re.IGNORECASE,
+)
+_SQL_TRAILING_NEWLINES_RE = re.compile(
+    r"<!-- markdown\.py:sql-trailing-newlines=(\d+) -->"
+)
+
+
+def json_to_markdown(value: Any, title: str = "JSON") -> str:
+    """Wrap JSON data as a Markdown document without performing I/O."""
+    return heading(title) + json_block(value)
+
+
+def markdown_to_json(content: str) -> Any:
+    """Read the first JSON fence emitted by :func:`json_to_markdown`."""
+    for block in extract_code_blocks(content):
+        if block["language"].lower() == "json":
+            return json.loads(block["code"])
+    raise ValueError("No fenced JSON block found")
+
+
+
+_STRUCTURED_TABLE_HEADERS = ["id", "parent", "slot", "type", "value"]
+_STRUCTURED_MARKER = "<!-- markdown.py:structured-v1 -->\n"
+_STRUCTURED_SCALAR_TYPES = {"str", "int", "float", "bool", "null"}
+
+
+def _structured_scalar_type(value: Any) -> str | None:
+    if value is None:
+        return "null"
+    if isinstance(value, bool):
+        return "bool"
+    if isinstance(value, str):
+        return "str"
+    if isinstance(value, int):
+        return "int"
+    if isinstance(value, float):
+        return "float"
+    return None
+
+
+def _structured_json_dumps(value: Any) -> str:
+    """Encode one structured scalar/key with stable JSON settings."""
+    return json.dumps(
+        value,
+        ensure_ascii=False,
+        allow_nan=False,
+        separators=(",", ":"),
+    )
+
+
+def _structured_json_loads(text: str, *, what: str) -> Any:
+    """Decode one JSON-backed structured field with a focused error."""
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Structured {what} is not valid JSON") from exc
+
+
+def _structured_encode_scalar(value: Any) -> tuple[str, str]:
+    kind = _structured_scalar_type(value)
+    if kind is None:
+        raise TypeError(
+            "structured data must use JSON-compatible dict/list/scalar values"
+        )
+    return kind, _structured_json_dumps(value)
+
+
+def _structured_decode_scalar(kind: str, encoded: str) -> Any:
+    if kind not in _STRUCTURED_SCALAR_TYPES:
+        raise ValueError(f"Unknown structured node type: {kind!r}")
+    value = _structured_json_loads(encoded, what="scalar value")
+    actual = _structured_scalar_type(value)
+    if actual != kind:
+        raise ValueError(
+            f"Structured scalar type mismatch: declared {kind}, got {actual}"
+        )
+    return value
+
+
+def _structured_validate(value: Any) -> None:
+    if isinstance(value, dict):
+        for key, child in value.items():
+            if not isinstance(key, str):
+                raise TypeError("structured mappings require string keys")
+            _structured_validate(child)
+        return
+    if isinstance(value, list):
+        for child in value:
+            _structured_validate(child)
+        return
+    _structured_encode_scalar(value)
+
+
+def structured_to_markdown(value: Any, title: str = "Structured data") -> str:
+    """Render JSON-compatible Python data as a canonical typed Markdown table.
+
+    The representation is intended as a small common layer for format adapters
+    such as INI and TOML. Mapping keys must be strings. Supported values are
+    dict, list, str, int, finite float, bool and None. Object order and list
+    order are preserved.
+
+    This is a semantic round-trip format, not a source-text preservation
+    format: whitespace, comments, quoting style, and source-format trivia from
+    an upstream format belong to that adapter's declared lossiness contract.
+    """
+    _structured_validate(value)
+    rows: list[list[str]] = []
+
+    def visit(node: Any, parent: str = "", slot: str = "") -> None:
+        node_id = str(len(rows))
+        if isinstance(node, dict):
+            rows.append([node_id, parent, slot, "dict", ""])
+            for key, child in node.items():
+                visit(child, node_id, _structured_json_dumps(key))
+            return
+        if isinstance(node, list):
+            rows.append([node_id, parent, slot, "list", ""])
+            for index, child in enumerate(node):
+                visit(child, node_id, str(index))
+            return
+
+        kind, encoded = _structured_encode_scalar(node)
+        rows.append([node_id, parent, slot, kind, encoded])
+
+    visit(value)
+    return heading(title) + _STRUCTURED_MARKER + table(_STRUCTURED_TABLE_HEADERS, rows)
+
+
+def markdown_to_structured(content: str) -> Any:
+    """Restore data emitted by structured_to_markdown.
+
+    A live structured marker must be paired with the immediately following
+    canonical pipe table. Node ids and rows use contiguous pre-order traversal;
+    that ordering is part of the canonical representation. Malformed node ids,
+    parent references, slots, type tags, or scalar JSON values raise ValueError
+    instead of being guessed.
+    """
+    lines = content.splitlines()
+    scanned = _scan_lines(lines)
+    marker = _STRUCTURED_MARKER.strip()
+    marker_index = next(
+        (
+            index
+            for index, line in enumerate(lines)
+            if not scanned[index].in_fenced_code and line.strip() == marker
+        ),
+        None,
+    )
+    if marker_index is None:
+        raise ValueError("No structured-data marker found")
+
+    table_index = marker_index + 1
+    while table_index < len(lines) and not lines[table_index].strip():
+        table_index += 1
+    if table_index >= len(lines) or not _is_table_start(lines, table_index):
+        raise ValueError("Structured-data marker is not paired with a table")
+
+    headers, rows = markdown_table_to_rows("\n".join(lines[table_index:]))
+    if headers != _STRUCTURED_TABLE_HEADERS:
+        raise ValueError("No canonical structured-data table found")
+    if not rows:
+        raise ValueError("Structured-data table has no root node")
+
+    nodes: list[Any] = []
+    for expected_id, row in enumerate(rows):
+        raw_id, raw_parent, slot, kind, encoded = row
+        try:
+            node_id = int(raw_id)
+        except ValueError as exc:
+            raise ValueError("Structured node id must be an integer") from exc
+        if node_id != expected_id:
+            raise ValueError("Structured node ids must be contiguous and ordered")
+
+        if kind == "dict":
+            if encoded:
+                raise ValueError("Structured container rows must have empty values")
+            node: Any = {}
+        elif kind == "list":
+            if encoded:
+                raise ValueError("Structured container rows must have empty values")
+            node = []
+        else:
+            node = _structured_decode_scalar(kind, encoded)
+
+        if expected_id == 0:
+            if raw_parent or slot:
+                raise ValueError("Structured root node cannot have parent or slot")
+            nodes.append(node)
+            continue
+
+        try:
+            parent_id = int(raw_parent)
+        except ValueError as exc:
+            raise ValueError("Structured parent id must be an integer") from exc
+        if parent_id < 0 or parent_id >= len(nodes):
+            raise ValueError("Structured parent must reference an earlier node")
+
+        parent = nodes[parent_id]
+        if isinstance(parent, dict):
+            key = _structured_json_loads(slot, what="mapping slot")
+            if not isinstance(key, str):
+                raise ValueError("Structured mapping slot must decode to a string")
+            if key in parent:
+                raise ValueError("Structured mapping contains a duplicate key")
+            parent[key] = node
+        elif isinstance(parent, list):
+            try:
+                index = int(slot)
+            except ValueError as exc:
+                raise ValueError("Structured list slot must be an integer") from exc
+            if index != len(parent):
+                raise ValueError("Structured list slots must be contiguous and ordered")
+            parent.append(node)
+        else:
+            raise ValueError("Structured scalar nodes cannot have children")
+
+        nodes.append(node)
+
+    return nodes[0]
+
+
+
+_INI_DEFAULT_SENTINEL = "\\x00markdown.py:no-default\\x00"
+_DOTENV_KEY_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+_TOML_BARE_KEY_RE = re.compile(r"^[A-Za-z0-9_-]+$")
+
+
+def _ini_loads(content: str) -> dict[str, dict[str, str]]:
+    """Parse the supported INI subset without interpolation or case folding."""
+    parser = configparser.ConfigParser(interpolation=None, strict=True)
+    parser.optionxform = str
+    parser.default_section = _INI_DEFAULT_SENTINEL
+    try:
+        parser.read_string(content)
+    except configparser.Error as exc:
+        raise ValueError(f"Invalid INI: {exc}") from exc
+    return {
+        section_name: dict(parser.items(section_name, raw=True))
+        for section_name in parser.sections()
+    }
+
+
+def _ini_dumps(value: Any) -> str:
+    if not isinstance(value, dict):
+        raise ValueError("INI root must be a mapping of sections")
+    parser = configparser.ConfigParser(interpolation=None, strict=True)
+    parser.optionxform = str
+    parser.default_section = _INI_DEFAULT_SENTINEL
+    for section_name, options in value.items():
+        if not isinstance(section_name, str) or "\n" in section_name or "\r" in section_name:
+            raise ValueError("INI section names must be single-line strings")
+        if section_name == _INI_DEFAULT_SENTINEL:
+            raise ValueError("INI section name is reserved")
+        if not isinstance(options, dict):
+            raise ValueError("INI sections must contain key/value mappings")
+        parser.add_section(section_name)
+        for key, item in options.items():
+            if (
+                not isinstance(key, str)
+                or not key
+                or "\n" in key
+                or "\r" in key
+                or "=" in key
+                or ":" in key
+            ):
+                raise ValueError("INI keys must be non-empty single-line strings without = or :")
+            if not isinstance(item, str):
+                raise ValueError("INI values must be strings")
+            parser.set(section_name, key, item)
+    stream = io.StringIO()
+    parser.write(stream, space_around_delimiters=False)
+    return stream.getvalue()
+
+
+def ini_to_markdown(content: str, title: str = "INI") -> str:
+    """Convert INI to canonical structured Markdown.
+
+    Section names, key case, and string values round-trip. Comments, delimiter
+    choice, and whitespace are intentionally canonicalized. [DEFAULT] is
+    treated as an ordinary section so implicit interpolation/inheritance is not
+    invented during conversion.
+    """
+    return structured_to_markdown(_ini_loads(content), title)
+
+
+def markdown_to_ini(content: str) -> str:
+    """Convert canonical structured Markdown to deterministic INI text."""
+    return _ini_dumps(markdown_to_structured(content))
+
+
+def _dotenv_loads(content: str) -> dict[str, str]:
+    result: dict[str, str] = {}
+    for line_number, raw_line in enumerate(content.splitlines(), 1):
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith("export "):
+            line = line[7:].lstrip()
+        key, separator, raw_value = line.partition("=")
+        key = key.strip()
+        if not separator or not _DOTENV_KEY_RE.fullmatch(key):
+            raise ValueError(f"Invalid dotenv assignment on line {line_number}")
+        if key in result:
+            raise ValueError(f"Duplicate dotenv key: {key}")
+
+        raw_value = raw_value.strip()
+        if raw_value.startswith('"'):
+            try:
+                value = json.loads(raw_value)
+            except json.JSONDecodeError as exc:
+                raise ValueError(f"Invalid quoted dotenv value on line {line_number}") from exc
+            if not isinstance(value, str):
+                raise ValueError(f"Dotenv values must be strings on line {line_number}")
+        elif raw_value.startswith("'"):
+            if len(raw_value) < 2 or not raw_value.endswith("'"):
+                raise ValueError(f"Invalid quoted dotenv value on line {line_number}")
+            value = raw_value[1:-1]
+        else:
+            value = raw_value
+        result[key] = value
+    return result
+
+
+def _dotenv_dumps(value: Any) -> str:
+    if not isinstance(value, dict):
+        raise ValueError("dotenv root must be a mapping")
+    lines: list[str] = []
+    for key, item in value.items():
+        if not isinstance(key, str) or not _DOTENV_KEY_RE.fullmatch(key):
+            raise ValueError(f"Invalid dotenv key: {key!r}")
+        if not isinstance(item, str):
+            raise ValueError("dotenv values must be strings")
+        lines.append(f"{key}={_structured_json_dumps(item)}")
+    return "".join(line + "\n" for line in lines)
+
+
+def dotenv_to_markdown(content: str, title: str = ".env") -> str:
+    """Convert a narrow dotenv subset to canonical structured Markdown.
+
+    Blank lines and full-line comments are ignored; optional export is
+    accepted. Variable expansion is never performed. The canonical writer uses
+    deterministic double-quoted JSON-compatible string escaping.
+    """
+    return structured_to_markdown(_dotenv_loads(content), title)
+
+
+def markdown_to_dotenv(content: str) -> str:
+    """Convert canonical structured Markdown to deterministic dotenv text."""
+    return _dotenv_dumps(markdown_to_structured(content))
+
+
+def _toml_key(key: str) -> str:
+    if _TOML_BARE_KEY_RE.fullmatch(key):
+        return key
+    return _structured_json_dumps(key)
+
+
+def _toml_value(value: Any) -> str:
+    if isinstance(value, str):
+        return _structured_json_dumps(value)
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, int):
+        return str(value)
+    if isinstance(value, float):
+        if not math.isfinite(value):
+            raise ValueError("TOML canonical writer requires finite floats")
+        return repr(value)
+    if isinstance(value, list):
+        return "[" + ", ".join(_toml_value(item) for item in value) + "]"
+    if isinstance(value, dict):
+        fields = []
+        for key, item in value.items():
+            if not isinstance(key, str):
+                raise ValueError("TOML mappings require string keys")
+            fields.append(f"{_toml_key(key)} = {_toml_value(item)}")
+        return "{ " + ", ".join(fields) + " }"
+    if value is None:
+        raise ValueError("TOML has no null value")
+    raise ValueError(f"Unsupported TOML value type: {type(value).__name__}")
+
+
+def _toml_dumps(value: Any) -> str:
+    if not isinstance(value, dict):
+        raise ValueError("TOML document root must be a mapping")
+    lines = []
+    for key, item in value.items():
+        if not isinstance(key, str):
+            raise ValueError("TOML mappings require string keys")
+        lines.append(f"{_toml_key(key)} = {_toml_value(item)}")
+    return "".join(line + "\n" for line in lines)
+
+
+def toml_to_markdown(content: str, title: str = "TOML") -> str:
+    """Convert TOML to canonical structured Markdown on Python 3.11+.
+
+    The reversible subset is the JSON-compatible TOML value space. TOML
+    datetime/date/time values and non-finite floats are rejected rather than
+    silently stringified.
+    """
+    if tomllib is None:
+        raise RuntimeError("toml_to_markdown requires Python 3.11+ (tomllib)")
+    try:
+        value = tomllib.loads(content)
+    except tomllib.TOMLDecodeError as exc:
+        raise ValueError(f"Invalid TOML: {exc}") from exc
+    try:
+        _structured_validate(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            "TOML contains values outside the reversible structured subset"
+        ) from exc
+    return structured_to_markdown(value, title)
+
+
+def markdown_to_toml(content: str) -> str:
+    """Convert canonical structured Markdown to deterministic TOML text."""
+    return _toml_dumps(markdown_to_structured(content))
+
+
+def redis_snapshot_to_markdown(snapshot: Any, title: str = "Redis snapshot") -> str:
+    """Document an already obtained Redis/RedisJSON snapshot without connecting."""
+    return json_to_markdown(snapshot, title)
+
+
+def sql_ddl_to_markdown(sql: str, title: str = "SQL schema") -> str:
+    """Document a supplied SQL DDL snapshot without parsing or executing it.
+
+    Input line endings are normalized to LF before fencing. The normalized
+    trailing-newline count is recorded in a Markdown comment so the companion
+    reader restores the LF-normalized snapshot exactly.
+    """
+    sql = sql.replace("\r\n", "\n").replace("\r", "\n")
+    names = _CREATE_TABLE_NAME_RE.findall(sql)
+    outline = bullet_list(["Table: " + name for name in names]) if names else ""
+    trailing_newlines = len(sql) - len(sql.rstrip("\n"))
+    body = sql.rstrip("\n")
+    fence = _adaptive_fence(sql, "`")
+    fenced = fence + "sql\n" + body + "\n" + fence + "\n"
+    marker = "<!-- markdown.py:sql-trailing-newlines=" + str(trailing_newlines) + " -->\n"
+    return heading(title) + outline + marker + fenced
+
+
+def markdown_to_sql_ddl(content: str) -> str:
+    """Return the first SQL snapshot without validating or executing it."""
+    for block in extract_code_blocks(content):
+        if block["language"].lower() == "sql":
+            marker = _SQL_TRAILING_NEWLINES_RE.search(content)
+            trailing_newlines = int(marker.group(1)) if marker else 0
+            return block["code"].rstrip("\n") + "\n" * trailing_newlines
+    raise ValueError("No fenced SQL block found")
 
 def key_value_table(
     data: Any,
@@ -1734,6 +3211,241 @@ def kramdown_to_markdown(content: str) -> str:
 # Conservative HTML <-> Markdown (common tags only)
 # ---------------------------------------------------------------------------
 
+@dataclass
+class HtmlNode:
+    """Small normalized HTML tree node; not a browser DOM implementation.
+
+    ``kind`` is ``"root"``, ``"element"``, or ``"text"``. Element nodes use
+    lowercase ``tag`` names and sanitized attributes. Unknown tags are retained
+    as transparent containers so their safe text/children can degrade without
+    passing unsupported markup through.
+    """
+
+    kind: str
+    tag: str = ""
+    attrs: dict[str, str] | None = None
+    children: list["HtmlNode"] | None = None
+    text: str = ""
+
+    def __post_init__(self) -> None:
+        if self.attrs is None:
+            self.attrs = {}
+        if self.children is None:
+            self.children = []
+
+
+_DOM_SAFE_TAGS = frozenset({
+    "a", "aside", "b", "blockquote", "br", "code", "del", "details", "em",
+    "h1", "h2", "h3", "h4", "h5", "h6", "hr", "i", "img", "input", "li",
+    "ol", "p", "pre", "s", "section", "strong", "summary", "sup", "table",
+    "tbody", "td", "tfoot", "th", "thead", "tr", "ul",
+})
+_DOM_VOID_TAGS = frozenset({"br", "hr", "img", "input"})
+_HTML_VOID_TAGS = frozenset({
+    "area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta",
+    "param", "source", "track", "wbr",
+})
+_DOM_DROP_TAGS = frozenset({"script", "style"})
+_DOM_URL_ATTRS = frozenset({"href", "src"})
+_DOM_COMMON_ATTRS = frozenset({
+    "alt", "checked", "class", "disabled", "href", "id", "open", "src",
+    "title", "type",
+})
+
+
+def _sanitize_url_scheme(value: str) -> str:
+    """Normalize and validate a URL for generated HTML attributes.
+
+    C0 controls and DEL are removed before parsing. http/https/mailto and
+    ordinary relative URLs are kept; other absolute schemes are rejected.
+    An unambiguous host:port reference such as ``example.com:8080/path`` is
+    normalized to ``//example.com:8080/path`` so browsers treat it as a
+    network-path reference rather than an unknown custom scheme.
+    """
+    cleaned = "".join(ch for ch in value.strip() if ord(ch) >= 0x20 and ord(ch) != 0x7F)
+    if not cleaned:
+        return ""
+    if cleaned.startswith(("#", "/", "./", "../")):
+        return cleaned
+    host_port = _HOST_PORT_REFERENCE_RE.fullmatch(cleaned)
+    if host_port:
+        port = int(host_port.group("port"))
+        if 1 <= port <= 65535:
+            return "//" + cleaned
+        return ""
+    parsed = urlparse(cleaned)
+    if not parsed.scheme:
+        return cleaned
+    if parsed.scheme.lower() in {"http", "https", "mailto"}:
+        return cleaned
+    return ""
+
+
+def _dom_sanitize_attrs(tag: str, attrs: list[tuple[str, str | None]]) -> dict[str, str]:
+    safe: dict[str, str] = {}
+    for raw_key, raw_value in attrs:
+        key = raw_key.lower()
+        if key.startswith("on") or key == "style":
+            continue
+        if key not in _DOM_COMMON_ATTRS and not key.startswith("data-"):
+            continue
+        value = raw_value or ""
+        if key in _DOM_URL_ATTRS:
+            value = _sanitize_url_scheme(value)
+            if not value:
+                continue
+        safe[key] = value
+    if tag == "input" and safe.get("type", "").lower() != "checkbox":
+        return {}
+    return safe
+
+
+class _LightweightDomParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.root = HtmlNode("root")
+        self.stack: list[HtmlNode] = [self.root]
+        self._suppress_depth = 0
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        tag = tag.lower()
+        if tag in _DOM_DROP_TAGS:
+            self._suppress_depth += 1
+            return
+        if self._suppress_depth:
+            return
+        node = HtmlNode(
+            "element",
+            tag=tag,
+            attrs=_dom_sanitize_attrs(tag, attrs) if tag in _DOM_SAFE_TAGS else {},
+        )
+        assert self.stack[-1].children is not None
+        self.stack[-1].children.append(node)
+        if tag not in _DOM_VOID_TAGS:
+            self.stack.append(node)
+
+    def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        self.handle_starttag(tag, attrs)
+        if tag.lower() not in _DOM_VOID_TAGS:
+            self.handle_endtag(tag)
+
+    def handle_endtag(self, tag: str) -> None:
+        tag = tag.lower()
+        if tag in _DOM_DROP_TAGS:
+            if self._suppress_depth:
+                self._suppress_depth -= 1
+            return
+        if self._suppress_depth:
+            return
+        for index in range(len(self.stack) - 1, 0, -1):
+            if self.stack[index].tag == tag:
+                del self.stack[index:]
+                break
+
+    def handle_data(self, data: str) -> None:
+        if self._suppress_depth or not data:
+            return
+        assert self.stack[-1].children is not None
+        self.stack[-1].children.append(HtmlNode("text", text=data))
+
+
+def parse_html_dom(html: str) -> HtmlNode:
+    """Parse HTML into a small sanitized in-memory tree.
+
+    This uses html.parser.HTMLParser, not browser HTML5 tree construction.
+    script/style subtrees are dropped, event/style attributes are removed,
+    unsafe URL schemes are rejected, and unknown tags become transparent
+    containers when serialized.
+    """
+    parser = _LightweightDomParser()
+    parser.feed(html)
+    parser.close()
+    return parser.root
+
+
+def dom_to_html(node: HtmlNode) -> str:
+    """Serialize a lightweight DOM tree to sanitized HTML."""
+
+    def render(current: HtmlNode) -> str:
+        if current.kind == "text":
+            return html_module.escape(current.text, quote=False)
+        children = "".join(render(child) for child in (current.children or []))
+        if current.kind == "root":
+            return children
+        if current.kind != "element":
+            return children
+        tag = current.tag.lower()
+        if tag not in _DOM_SAFE_TAGS:
+            return children
+        attrs = current.attrs or {}
+        if tag == "a" and not attrs.get("href"):
+            return children
+        if tag == "img" and not attrs.get("src"):
+            return html_module.escape(attrs.get("alt", ""), quote=False)
+        attr_text = "".join(
+            (f' {key}="{html_module.escape(str(value), quote=True)}"'
+             if value != "" else f" {key}")
+            for key, value in sorted(attrs.items())
+        )
+        if tag in _DOM_VOID_TAGS:
+            return f"<{tag}{attr_text} />"
+        return f"<{tag}{attr_text}>{children}</{tag}>"
+
+    return render(node)
+
+
+def _dom_details_to_markdown(node: HtmlNode) -> str:
+    summary = "Details"
+    body_nodes: list[HtmlNode] = []
+    for child in node.children or []:
+        if child.kind == "element" and child.tag == "summary":
+            summary = _html_to_markdown_impl(dom_to_html(child)).strip() or "Details"
+        else:
+            body_nodes.append(child)
+    body_root = HtmlNode("root", children=body_nodes)
+    body = _html_to_markdown_impl(dom_to_html(body_root)).strip()
+    if body:
+        return f":::details {summary}\n{body}\n:::\n"
+    return f":::details {summary}\n:::\n"
+
+
+def dom_to_markdown(node: HtmlNode) -> str:
+    """Convert a lightweight DOM tree to normalized Markdown.
+
+    Existing html_to_markdown remains the compatibility engine. details is
+    handled explicitly so the DOM path preserves the repository contract.
+    """
+    if node.kind == "element" and node.tag == "details":
+        return _dom_details_to_markdown(node)
+    if node.kind == "root":
+        parts: list[str] = []
+        pending: list[HtmlNode] = []
+
+        def flush_pending() -> None:
+            if not pending:
+                return
+            fragment = HtmlNode("root", children=list(pending))
+            converted = _html_to_markdown_impl(dom_to_html(fragment))
+            if converted.strip():
+                parts.append(converted.strip())
+            pending.clear()
+
+        for child in node.children or []:
+            if child.kind == "element" and child.tag == "details":
+                flush_pending()
+                parts.append(_dom_details_to_markdown(child).strip())
+            else:
+                pending.append(child)
+        flush_pending()
+        return "\n\n".join(part for part in parts if part).strip() + ("\n" if parts else "")
+    return _html_to_markdown_impl(dom_to_html(node))
+
+
+def markdown_to_dom(content: str) -> HtmlNode:
+    """Convert the repository supported Markdown subset to HtmlNode."""
+    return parse_html_dom(markdown_to_html(content))
+
+
 class _HTMLToMarkdownParser(HTMLParser):
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
@@ -1754,14 +3466,36 @@ class _HTMLToMarkdownParser(HTMLParser):
         self._table_row_is_header = False
         self._in_thead = False
         self._block_attr_suffixes: list[str] = []
+        self._details_stack: list[dict[str, Any]] = []
+        self._blockquote_paragraphs: list[int] = []
+        self._skip_next_list_structural_whitespace = False
+        self._protected_trailing_space_kind: str | None = None
+        self._open_tags: list[str] = []
 
-    def _emit(self, text: str) -> None:
+    def _emit(self, text: str, *, trailing_space_kind: str | None = None) -> None:
         if self._table_cell is not None:
             self._table_cell.append(text)
         elif self._table_depth:
             return
         else:
             self.parts.append(text)
+        if text:
+            self._protected_trailing_space_kind = trailing_space_kind
+
+    def _trim_structural_boundary(self) -> None:
+        """Drop source-formatting whitespace before a block boundary.
+
+        Markdown syntax emitted by this parser can intentionally end in one
+        space. Those spaces are tracked by provenance instead of inferred from
+        the rendered text, so source text that merely looks similar is still
+        normalized normally.
+        """
+        target = self._table_cell if self._table_cell is not None else self.parts
+        if not target or not target[-1]:
+            return
+        if self._protected_trailing_space_kind is not None:
+            return
+        target[-1] = target[-1].rstrip(" \t")
 
     def _flush_cell(self) -> None:
         if self._table_cell is None or self._table_row is None:
@@ -1812,6 +3546,9 @@ class _HTMLToMarkdownParser(HTMLParser):
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         tag = tag.lower()
+        parent_tag = self._open_tags[-1] if self._open_tags else None
+        if tag not in _HTML_VOID_TAGS:
+            self._open_tags.append(tag)
         attr = {k.lower(): (v or "") for k, v in attrs}
         if tag in {"script", "style"}:
             self._suppress += 1
@@ -1856,12 +3593,23 @@ class _HTMLToMarkdownParser(HTMLParser):
         if tag in {"tbody", "tfoot", "caption", "colgroup", "col"}:
             return
         if tag in {"h1", "h2", "h3", "h4", "h5", "h6"}:
+            self._trim_structural_boundary()
             level = int(tag[1])
             self._emit("\n\n" + ("#" * level) + " ")
             self._block_attr_suffixes.append(_html_attrs_to_pandoc_suffix(attr))
         elif tag == "p":
-            self._emit("\n\n")
-            self._block_attr_suffixes.append(_html_attrs_to_pandoc_suffix(attr))
+            self._trim_structural_boundary()
+            if parent_tag == "blockquote" and self._blockquote_paragraphs:
+                if self._blockquote_paragraphs[-1] > 0:
+                    self._emit(
+                        "\n>\n> ",
+                        trailing_space_kind="blockquote-prefix",
+                    )
+                self._blockquote_paragraphs[-1] += 1
+                self._block_attr_suffixes.append(_html_attrs_to_pandoc_suffix(attr))
+            else:
+                self._emit("\n\n")
+                self._block_attr_suffixes.append(_html_attrs_to_pandoc_suffix(attr))
         elif tag == "br":
             self._emit("  \n")
         elif tag == "hr":
@@ -1879,27 +3627,54 @@ class _HTMLToMarkdownParser(HTMLParser):
             self._in_pre = True
             self._emit("\n\n```\n")
         elif tag == "a":
-            self._emit("[")
-            self._link_href = attr.get("href", "")
-            self._link_title = attr.get("title", "")
-            self._link_open = True
+            safe_href = _sanitize_url_scheme(attr.get("href", ""))
+            if safe_href:
+                self._emit("[")
+                self._link_href = safe_href
+                self._link_title = attr.get("title", "")
+                self._link_open = True
+            else:
+                self._link_href = ""
+                self._link_title = ""
+                self._link_open = False
         elif tag == "img":
-            self._emit(
-                make_image(
-                    attr.get("alt", ""),
-                    attr.get("src", ""),
-                    attr.get("title") or None,
+            alt = attr.get("alt", "")
+            safe_src = _sanitize_url_scheme(attr.get("src", ""))
+            if safe_src:
+                self._emit(
+                    make_image(
+                        alt,
+                        safe_src,
+                        attr.get("title") or None,
+                    )
                 )
-            )
+            else:
+                self._emit(alt)
         elif tag == "input":
             if attr.get("type", "").lower() == "checkbox":
                 mark = "x" if "checked" in attr else " "
                 self._emit(f"[{mark}]")
+        elif tag == "blockquote":
+            self._blockquote_paragraphs.append(0)
+            self._emit(
+                "\n\n> ",
+                trailing_space_kind="blockquote-prefix",
+            )
         elif tag in {"ul", "ol"}:
+            if self._list_stack:
+                target = self._table_cell if self._table_cell is not None else self.parts
+                if (
+                    target
+                    and target[-1]
+                    and self._protected_trailing_space_kind != "list-marker"
+                ):
+                    target[-1] = target[-1].rstrip()
             self._list_stack.append(tag)
             self._li_index.append(0)
-            self._emit("\n")
+            if len(self._list_stack) == 1:
+                self._emit("\n")
         elif tag == "li":
+            self._trim_structural_boundary()
             depth = max(len(self._list_stack) - 1, 0)
             indent = "  " * depth
             kind = self._list_stack[-1] if self._list_stack else "ul"
@@ -1908,12 +3683,53 @@ class _HTMLToMarkdownParser(HTMLParser):
                 bullet = f"{self._li_index[-1]}."
             else:
                 bullet = "-"
-            self._emit(f"\n{indent}{bullet} ")
-        elif tag == "blockquote":
-            self._emit("\n\n> ")
+            self._emit(
+                f"\n{indent}{bullet} ",
+                trailing_space_kind="list-marker",
+            )
+        elif tag == "details":
+            # A fenced :::details block cannot live safely inside one GFM table
+            # cell. Preserve the pre-#41 behavior there by flattening the
+            # contents instead of reconstructing a multiline container.
+            special = self._table_cell is None
+            self._details_stack.append(
+                {
+                    "special": special,
+                    "start": len(self.parts) if special else None,
+                    "summary_start": None,
+                    "summary": "Details",
+                }
+            )
+        elif tag == "summary" and self._details_stack:
+            current = self._details_stack[-1]
+            if current.get("special") and parent_tag == "details":
+                current["summary_start"] = len(self.parts)
 
     def handle_endtag(self, tag: str) -> None:
         tag = tag.lower()
+        implicitly_closed: list[str] = []
+        matched_open_tag = False
+        for index in range(len(self._open_tags) - 1, -1, -1):
+            if self._open_tags[index] == tag:
+                matched_open_tag = True
+                implicitly_closed = self._open_tags[index + 1:]
+                del self._open_tags[index:]
+                break
+
+        # html.parser does not synthesize end-tag callbacks for malformed
+        # descendants. The lightweight DOM path nevertheless serializes those
+        # descendants as balanced HTML before conversion. Mirror that narrow
+        # recovery for inline Markdown delimiters when an ancestor closes.
+        for implicit_tag in reversed(implicitly_closed):
+            if implicit_tag in {"strong", "b"}:
+                self._emit("**")
+            elif implicit_tag in {"em", "i"}:
+                self._emit("*")
+            elif implicit_tag in {"del", "s"}:
+                self._emit("~~")
+            elif implicit_tag == "code" and self._in_code and not self._in_pre:
+                self._emit("`")
+                self._in_code = False
         if tag in {"script", "style"}:
             self._suppress = max(0, self._suppress - 1)
             return
@@ -1948,6 +3764,7 @@ class _HTMLToMarkdownParser(HTMLParser):
                 self._flush_cell()
             return
         if tag in {"h1", "h2", "h3", "h4", "h5", "h6", "p"}:
+            self._trim_structural_boundary()
             suffix = (
                 self._block_attr_suffixes.pop()
                 if self._block_attr_suffixes
@@ -1955,14 +3772,18 @@ class _HTMLToMarkdownParser(HTMLParser):
             )
             if suffix:
                 self._emit(suffix)
+            if tag == "p" and self._blockquote_paragraphs:
+                parent_tag = self._open_tags[-1] if self._open_tags else None
+                if parent_tag == "blockquote":
+                    return
             self._emit("\n\n")
-        elif tag in {"strong", "b"}:
+        elif tag in {"strong", "b"} and matched_open_tag:
             self._emit("**")
-        elif tag in {"em", "i"}:
+        elif tag in {"em", "i"} and matched_open_tag:
             self._emit("*")
-        elif tag in {"del", "s"}:
+        elif tag in {"del", "s"} and matched_open_tag:
             self._emit("~~")
-        elif tag == "code" and not self._in_pre:
+        elif tag == "code" and matched_open_tag and self._in_code and not self._in_pre:
             self._emit("`")
             self._in_code = False
         elif tag == "pre":
@@ -1974,30 +3795,83 @@ class _HTMLToMarkdownParser(HTMLParser):
             else:
                 self._emit(f"]({self._link_href})")
             self._link_open = False
+        elif tag == "summary" and self._details_stack:
+            current = self._details_stack[-1]
+            summary_start = current.get("summary_start")
+            if current.get("special") and isinstance(summary_start, int):
+                summary = "".join(self.parts[summary_start:]).strip()
+                del self.parts[summary_start:]
+                current["summary"] = summary or "Details"
+                current["summary_start"] = None
+        elif tag == "details" and self._details_stack:
+            current = self._details_stack.pop()
+            if current.get("special"):
+                start = current.get("start")
+                if isinstance(start, int):
+                    body = "".join(self.parts[start:])
+                    del self.parts[start:]
+                    body = re.sub(r"\n{3,}", "\n\n", body).strip()
+                    summary = str(current.get("summary") or "Details")
+                    if body:
+                        self._emit(f"\n\n:::details {summary}\n{body}\n:::\n\n")
+                    else:
+                        self._emit(f"\n\n:::details {summary}\n:::\n\n")
+        elif tag == "blockquote":
+            if self._blockquote_paragraphs:
+                self._blockquote_paragraphs.pop()
+            self._emit("\n\n")
         elif tag in {"ul", "ol"}:
             if self._list_stack:
                 self._list_stack.pop()
             if self._li_index:
                 self._li_index.pop()
-            self._emit("\n")
+            if self._list_stack:
+                self._skip_next_list_structural_whitespace = True
+            else:
+                self._emit("\n")
 
     def handle_data(self, data: str) -> None:
         if self._suppress:
             return
         if self._table_depth and self._table_cell is None:
             return
+        if self._skip_next_list_structural_whitespace:
+            self._skip_next_list_structural_whitespace = False
+            if not data.strip():
+                return
+        if (
+            not data.strip()
+            and self._open_tags
+            and self._open_tags[-1] in {"blockquote", "ul", "ol"}
+        ):
+            return
         if self._in_pre or self._in_code:
             self._emit(data)
         else:
-            self._emit(re.sub(r"\s+", " ", data))
+            collapsed = re.sub(r"\s+", " ", data)
+            # HTML comments and transparent/ignored markup can split what is
+            # semantically one whitespace run into multiple handle_data()
+            # callbacks. Coalesce that boundary so legacy conversion matches
+            # the DOM path, which removes such nodes before re-serialization.
+            target = self._table_cell if self._table_cell is not None else self.parts
+            if (
+                collapsed.startswith(" ")
+                and target
+                and target[-1]
+                and target[-1][-1].isspace()
+            ):
+                collapsed = collapsed[1:]
+            if collapsed:
+                self._emit(collapsed)
 
     def output(self) -> str:
         text = "".join(self.parts)
         text = re.sub(r"\n{3,}", "\n\n", text)
-        return text.strip() + "\n"
+        normalized = text.strip()
+        return normalized + "\n" if normalized else ""
 
 
-def html_to_markdown(html: str) -> str:
+def _html_to_markdown_impl(html: str) -> str:
     """Conservatively convert common HTML tags to Markdown.
 
     Simple ``<table>`` trees become GFM pipe tables (``| a | b |`` plus a
@@ -2022,14 +3896,27 @@ def html_to_markdown(html: str) -> str:
     return parser.output()
 
 
+def html_to_markdown(html: str) -> str:
+    """Conservatively convert common HTML tags to Markdown.
+
+    This public compatibility entry point intentionally delegates to the
+    legacy parser engine. Keeping the engine separate lets DOM conversion
+    reuse the same implementation without creating a future recursion loop.
+    """
+    return _html_to_markdown_impl(html)
+
+
 def _escape_html_text(text: str) -> str:
     return html_module.escape(text, quote=False)
 
 
 def _angle_autolink_html(url: str) -> str:
-    """Render a stashed ``<http(s)://...>`` autolink as ``<a href>``."""
-    href = html_module.escape(url, quote=True)
+    """Render a safe stashed angle autolink; unsafe URLs degrade to text."""
+    safe_url = _sanitize_url_scheme(url)
     text = html_module.escape(url)
+    if not safe_url:
+        return text
+    href = html_module.escape(safe_url, quote=True)
     return f'<a href="{href}">{text}</a>'
 
 
@@ -2341,9 +4228,27 @@ def _split_table_row(line: str) -> list[str]:
     stripped = line.strip()
     if stripped.startswith("|"):
         stripped = stripped[1:]
-    if stripped.endswith("|") and not stripped.endswith("\\|"):
+    before_last = stripped[:-1] if stripped.endswith("|") else stripped
+    trailing_slashes = len(before_last) - len(before_last.rstrip("\\"))
+    if stripped.endswith("|") and trailing_slashes % 2 == 0:
         stripped = stripped[:-1]
-    return [cell.strip().replace("\\|", "|") for cell in re.split(r"(?<!\\)\|", stripped)]
+    cells: list[str] = []
+    cell: list[str] = []
+    index = 0
+    while index < len(stripped):
+        char = stripped[index]
+        if char == "\\" and index + 1 < len(stripped) and stripped[index + 1] in {"\\", "|"}:
+            cell.append(stripped[index + 1])
+            index += 2
+            continue
+        if char == "|":
+            cells.append("".join(cell).strip())
+            cell = []
+        else:
+            cell.append(char)
+        index += 1
+    cells.append("".join(cell).strip())
+    return cells
 
 
 def _looks_like_table_row(line: str) -> bool:
@@ -2474,8 +4379,8 @@ def markdown_to_html(content: str) -> str:
 
     Handles ATX headings, fenced code, paragraphs, inline code, bold/italic,
     strikethrough (``~~text~~`` → ``<del>``), links, images, angle-bracket
-    http(s) autolinks, thematic breaks, simple bullet/numbered lists, GFM
-    task lists, ordinary ``>`` blockquotes, simple GFM pipe tables,
+    http(s) autolinks, thematic breaks, simple indentation-based nested
+    bullet/numbered lists, nested GFM task lists, ordinary ``>`` blockquotes, simple GFM pipe tables,
     GitHub / Qiita / Zenn / Obsidian alerts, Zenn-style ``:::details``
     collapsible sections, and a small GFM/Pandoc-like footnote subset.
 
@@ -2592,6 +4497,77 @@ def markdown_to_html(content: str) -> str:
             text = text.replace(f"\x00PH{index}\x00", snippet)
         return text
 
+    def consume_list(start: int) -> tuple[str, int]:
+        """Consume one contiguous Markdown list, preserving simple nesting.
+
+        Nesting is indentation-based and deliberately small: list items may
+        contain child ul/ol lists, but arbitrary block content inside an item
+        remains out of scope.
+        """
+
+        def match_list_line(index: int):
+            if index >= len(lines):
+                return None
+            return re.match(r"^(\s*)([-*+]|\d+\.)\s+(.*)$", lines[index])
+
+        def kind_for(marker: str) -> str:
+            return "ol" if marker.endswith(".") and marker[:-1].isdigit() else "ul"
+
+        def render_item(kind: str, item: str) -> str:
+            task = _parse_task_item(item) if kind == "ul" else None
+            if task is None:
+                return render_inline(item)
+            checked, rest = task
+            box = _task_checkbox_html(checked)
+            body = render_inline(rest)
+            return f"{box} {body}" if body else box
+
+        def consume_level(index: int, indent: int, kind: str) -> tuple[list[str], int]:
+            parts = [f"<{kind}>"]
+            while index < len(lines):
+                match = match_list_line(index)
+                if match is None:
+                    break
+                current_indent = len(match.group(1).expandtabs(4))
+                current_kind = kind_for(match.group(2))
+                if current_indent < indent:
+                    break
+                if current_indent != indent or current_kind != kind:
+                    break
+
+                item = match.group(3)
+                index += 1
+                children: list[str] = []
+                while index < len(lines):
+                    child = match_list_line(index)
+                    if child is None:
+                        break
+                    child_indent = len(child.group(1).expandtabs(4))
+                    if child_indent <= indent:
+                        break
+                    child_kind = kind_for(child.group(2))
+                    child_parts, index = consume_level(index, child_indent, child_kind)
+                    children.extend(child_parts)
+
+                body = render_item(kind, item)
+                if children:
+                    parts.append(f"<li>{body}")
+                    parts.extend(children)
+                    parts.append("</li>")
+                else:
+                    parts.append(f"<li>{body}</li>")
+
+            parts.append(f"</{kind}>")
+            return parts, index
+
+        first = match_list_line(start)
+        if first is None:
+            return "", start
+        indent = len(first.group(1).expandtabs(4))
+        kind = kind_for(first.group(2))
+        parts, end = consume_level(start, indent, kind)
+        return "\n".join(parts), end
+
     def paragraph_interrupt(index: int) -> bool:
         line = lines[index]
         if not line.strip():
@@ -2698,24 +4674,9 @@ def markdown_to_html(content: str) -> str:
         ul = re.match(r"^(\s*)[-*+]\s+(.*)$", line)
         ol = re.match(r"^(\s*)\d+\.\s+(.*)$", line)
         if ul or ol:
-            kind = "ul" if ul else "ol"
-            item = (ul or ol).group(2)  # type: ignore[union-attr]
-            if in_list != kind:
-                close_list()
-                out.append(f"<{kind}>")
-                in_list = kind
-            task = _parse_task_item(item) if ul else None
-            if task is not None:
-                checked, rest = task
-                box = _task_checkbox_html(checked)
-                body = render_inline(rest)
-                if body:
-                    out.append(f"<li>{box} {body}</li>")
-                else:
-                    out.append(f"<li>{box}</li>")
-            else:
-                out.append(f"<li>{render_inline(item)}</li>")
-            i += 1
+            close_list()
+            html, i = consume_list(i)
+            out.append(html)
             continue
 
         if not line.strip():
@@ -2729,7 +4690,12 @@ def markdown_to_html(content: str) -> str:
         while i < len(lines) and not paragraph_interrupt(i):
             para.append(lines[i])
             i += 1
-        out.append(f"<p>{render_inline(' '.join(s.strip() for s in para))}</p>")
+        rendered_para: list[str] = []
+        for index, raw in enumerate(para):
+            rendered_para.append(render_inline(raw.strip()))
+            if index + 1 < len(para):
+                rendered_para.append("<br />" if raw.endswith("  ") else " ")
+        out.append(f"<p>{''.join(rendered_para)}</p>")
 
     close_list()
     if footnote_order:
