@@ -21,9 +21,10 @@ split. It is not a product clone and not a CommonMark engine.
 - `dispatch_tool`, stdlib `McpStdlibSession`
 - Serverless stub try: Actions boots `docker/stub-pages` (stub + MCP +
   CPU-class `cpu-llm`), JSONL anti-patterns, GitHub Pages static report
-- Vendored `markdown.py` (P0–P3 through `446f7ab4`): Markdown ↔ HTML/CSS
-  and thin Markdown ↔ Kramdown IAL. The stub calls those helpers for
-  heading→body / table / HTML; it does not reimplement them.
+- Vendored `markdown.py` (snapshot `441fb675`): current stdlib helper surface,
+  including Markdown ↔ HTML/CSS/Kramdown, structured conversions, py:percent,
+  structural diagram generators, and API/CLI/package reference generation.
+  The stub calls the helpers it needs; it does not reimplement them.
 - Real tiny GGUF overlay (`docker-compose.gguf.yml`, opt-in via
   `stub-pages.yml`'s `use_real_gguf` input): auto-discovered + checksummed
   fetch script, `/v1/chat/completions` smoke check distinct from `/health`,
