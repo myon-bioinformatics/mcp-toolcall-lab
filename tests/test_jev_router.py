@@ -83,3 +83,14 @@ def test_none_from_tool_family_is_contradiction_fallback() -> None:
     assert decision.needs_tool is True
     assert decision.tool_family == "none"
     assert decision.fallback_reason == "needs_tool_but_no_family"
+
+
+def test_specific_none_family_reason_beats_low_confidence() -> None:
+    backend = FixtureBackend(fixtures={
+        "needs_tool": {"type": "noul", "noul": 0.95},
+        "tool_family": {"type": "choice", "choice": "none", "confidence": 0.6,
+                        "probabilities": {"ironmate": 0.1, "wikipedia": 0.1, "mock": 0.2, "none": 0.6}},
+    })
+    decision = decide_route(backend, "uncertain contradictory route")
+    assert decision.confidence == 0.6
+    assert decision.fallback_reason == "needs_tool_but_no_family"
