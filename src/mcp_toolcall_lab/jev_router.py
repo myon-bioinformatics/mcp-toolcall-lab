@@ -67,7 +67,7 @@ def decide_route(
         if family == "none":
             fallback_reason = "needs_tool_but_no_family"
 
-    if confidence < threshold:
+    if confidence < threshold and fallback_reason is None:
         fallback_reason = "low_confidence"
     if family not in TOOL_FAMILIES:
         family = "none"
