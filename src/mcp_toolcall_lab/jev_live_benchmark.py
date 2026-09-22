@@ -3,12 +3,11 @@ from __future__ import annotations
 
 import json
 import urllib.request
-from typing import Any, Callable
+from typing import Any
 
 from mcp_toolcall_lab.jev_backend import Backend
 from mcp_toolcall_lab.jev_router import calibration, confusion_matrix, decide_route
 
-Post = Callable[[str, dict[str, Any]], dict[str, Any]]
 
 
 def urllib_json_post(url: str, body: dict[str, Any], *, timeout: float = 30.0) -> dict[str, Any]:
@@ -65,7 +64,9 @@ def run_backend_routing_benchmark(
         "routed": routed,
         "fallbacks": matrix["fallback-correct"] + matrix["fallback-wrong"],
         "wrong_routes": matrix["routed-wrong"],
-        "llm_selector_calls_avoided_estimate": routed,
+        # Confidence/policy estimate only: routed-wrong is intentionally included
+        # because the selector call was skipped even though correctness regressed.
+        "selector_calls_skipped_by_policy": routed,
         "decision_ms": round(sum(float(row["decision_ms"]) for row in rows), 3),
         "confusion_matrix": matrix,
         "calibration": calibration(rows),
