@@ -78,6 +78,6 @@ class IronmateClient:
             meta=meta,
             debug=debug,
             duration_ms=round((time.monotonic() - started) * 1000, 3),
-                event=EVENT_IRONMATE_CALLER,
+            event=EVENT_IRONMATE_CALLER,
         )
         return result
