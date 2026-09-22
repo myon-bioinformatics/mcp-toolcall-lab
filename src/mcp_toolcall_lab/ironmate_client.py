@@ -2,7 +2,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import time
 from typing import Any, Protocol
+
+from mcp_toolcall_lab.record import OUTCOME_ERROR, OUTCOME_SUCCESS, record_call
 
 
 class McpSession(Protocol):
@@ -43,5 +46,36 @@ class IronmateClient:
         self.session.initialize()
         return normalize_catalog(self.session.list_tools())
 
-    def call(self, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
-        return self.session.call_tool(name, arguments)
+    def call(
+        self,
+        name: str,
+        arguments: dict[str, Any],
+        *,
+        meta: dict[str, Any] | None = None,
+        debug: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Delegate one Ironmate call and record it using the lab's shared trace."""
+        started = time.monotonic()
+        try:
+            result = self.session.call_tool(name, arguments, meta=meta)
+        except Exception as exc:
+            record_call(
+                tool=name,
+                arguments=arguments,
+                outcome=OUTCOME_ERROR,
+                error=str(exc),
+                meta=meta,
+                debug=debug,
+                duration_ms=(time.monotonic() - started) * 1000,
+            )
+            raise
+        record_call(
+            tool=name,
+            arguments=arguments,
+            outcome=OUTCOME_SUCCESS,
+            result=result,
+            meta=meta,
+            debug=debug,
+            duration_ms=(time.monotonic() - started) * 1000,
+        )
+        return result
