@@ -1,0 +1,17 @@
+{
+  "source": "Ironmate MCP",
+  "note": "Offline contract fixture. Refresh from a real Ironmate MCP tools/list response before treating catalog drift as authoritative.",
+  "tools": [
+    {
+      "name": "search_repository_metadata",
+      "description": "Search repository metadata.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": {"type": "string"}
+        },
+        "required": ["query"]
+      }
+    }
+  ]
+}
