@@ -1,0 +1,16 @@
+{
+  "is_actionable": {"type": "noul", "noul": 0.88},
+  "category": {
+    "type": "choice",
+    "choice": "billing",
+    "confidence": 0.71,
+    "probabilities": {"billing": 0.71, "technical": 0.2, "other": 0.09}
+  },
+  "severity": {
+    "type": "score",
+    "score": 1,
+    "confidence": 0.6,
+    "legend": {"0": "low", "1": "medium", "2": "high"},
+    "probabilities": {"0": 0.15, "1": 0.6, "2": 0.25}
+  }
+}
