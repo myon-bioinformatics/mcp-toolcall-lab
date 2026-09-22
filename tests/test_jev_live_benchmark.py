@@ -35,7 +35,7 @@ def test_measured_backend_report_keeps_provenance_and_correctness():
     assert report["routed"] == 2
     assert report["fallbacks"] == 0
     assert report["wrong_routes"] == 1
-    assert report["llm_selector_calls_avoided_estimate"] == 2
+    assert report["selector_calls_skipped_by_policy"] == 2
     assert report["confusion_matrix"]["routed-correct"] == 1
     assert report["confusion_matrix"]["routed-wrong"] == 1
     assert report["calibration"]["fixture"]["n"] == 2
@@ -60,7 +60,7 @@ def test_low_confidence_is_fallback_not_avoided():
         {"id": "a", "state": "ambiguous", "expected_tool_family": "ironmate"},
     ], low)
     assert report["fallbacks"] == 1
-    assert report["llm_selector_calls_avoided_estimate"] == 0
+    assert report["selector_calls_skipped_by_policy"] == 0
     assert report["wrong_routes"] == 0
 
 
