@@ -1,13 +1,13 @@
 # Jev-assisted Ironmate routing
 
-This is the first execution slice that connects the typed Jev router to the thin Ironmate MCP client.
+This began as the first execution slice connecting the typed Jev router to the thin Ironmate MCP client. The optional direct-family extension keeps that original behavior as the default while allowing confident Wikipedia/mock routes to bypass the selector LLM when the caller supplies an execution boundary.
 
 The optimization is intentionally narrow:
 
 - high-confidence `ironmate` -> call Ironmate directly and skip the heavier LLM selector;
 - high-confidence `needs_tool=false` -> skip both LLM selection and tool execution;
 - low-confidence or contradictory decisions -> preserve the caller-supplied existing LLM fallback;
-- `wikipedia` and `mock` still use that existing flow in this slice rather than expanding the pre-router all at once.
+- `wikipedia` and `mock` use the existing flow by default, but callers may now opt them into direct execution with injected `direct_calls`;
 
 The executor does not know Ironmate business logic. The caller supplies the MCP tool name and arguments, and `IronmateClient` performs the normal MCP call.
 
