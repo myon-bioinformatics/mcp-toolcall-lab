@@ -13,18 +13,24 @@ class McpSession(Protocol):
 
 def normalize_catalog(response: dict[str, Any]) -> list[dict[str, Any]]:
     """Keep only the stable MCP catalog surface used by the snapshot."""
-    tools = response.get("result", {}).get("tools")
+    result = response.get("result")
+    if not isinstance(result, dict):
+        raise ValueError("Ironmate tools/list response has no result.tools list")
+    tools = result.get("tools")
     if not isinstance(tools, list):
         raise ValueError("Ironmate tools/list response has no result.tools list")
     out = []
     for tool in tools:
         if not isinstance(tool, dict) or not isinstance(tool.get("name"), str):
             raise ValueError("Ironmate catalog contains an invalid tool")
-        out.append({
+        spec = {
             "name": tool["name"],
             "description": tool.get("description", ""),
             "inputSchema": tool.get("inputSchema", {"type": "object"}),
-        })
+        }
+        if "outputSchema" in tool:
+            spec["outputSchema"] = tool["outputSchema"]
+        out.append(spec)
     return sorted(out, key=lambda item: item["name"])
 
 
