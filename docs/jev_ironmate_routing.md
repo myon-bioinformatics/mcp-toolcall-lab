@@ -13,8 +13,13 @@ The executor does not know Ironmate business logic. The caller supplies the MCP 
 
 ## Offline comparison
 
-`benchmark_row()` and `benchmark_summary()` expose the #39 measurements without external credentials: LLM calls avoided, wrong routes, fallback count, split decision/LLM/tool latency, and tool success/attempt counts.
+`benchmark_row()` and `benchmark_summary()` expose the #39 measurements without external credentials: LLM calls avoided, wrong routes, policy/uncertainty fallbacks, confident-but-not-yet-wired out-of-scope families, split decision/LLM/tool latency, and tool success/attempt counts.
 
 The benchmark treats fewer LLM calls as useful only alongside the independent wrong-route count. A later live/authorized benchmark can feed the same row shape without changing deterministic default CI.
 
 The Jev wire contract remains defined by #36 and #37; this module consumes `RouteDecision` from the existing router and does not redefine Jev payloads.
+
+
+## Trace correlation
+
+The Jev decision row and Ironmate caller row receive the caller's same `meta`/`debug` objects. Cross-layer correlation is therefore explicit rather than invented by this adapter: pass a shared identifier such as `debug["chat_id"]` (and/or a trace id in `meta`) when the two rows need to be joined. The Ironmate caller trace uses `source="jev-router"` unless the caller explicitly supplies another source.
