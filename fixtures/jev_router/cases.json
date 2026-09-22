@@ -1,0 +1,7 @@
+[
+  {"id":"wikipedia-obvious","state":"Extract the BLEACH section from Wikipedia","expected_tool_family":"wikipedia"},
+  {"id":"ironmate-obvious","state":"Search my repository metadata through Ironmate","expected_tool_family":"ironmate"},
+  {"id":"mock-obvious","state":"Exercise the malformed-arguments MCP mock","expected_tool_family":"mock"},
+  {"id":"no-tool-obvious","state":"Rewrite this sentence more concisely","expected_tool_family":"none"},
+  {"id":"ambiguous-low-confidence","state":"Look this up if necessary","expected_tool_family":"none","expect_fallback":true}
+]
