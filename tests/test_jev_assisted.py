@@ -23,15 +23,14 @@ class FakeSession:
 def backend(needs: float, family: str = "ironmate", confidence: float = .95):
     fixtures = {"needs_tool": {"type": "noul", "noul": needs}}
     if needs >= .5:
+        remainder = (1.0 - confidence) / 3
         fixtures["tool_family"] = {
             "type": "choice",
             "choice": family,
             "confidence": confidence,
             "probabilities": {
-                "ironmate": confidence if family == "ironmate" else .01,
-                "wikipedia": confidence if family == "wikipedia" else .01,
-                "mock": confidence if family == "mock" else .01,
-                "none": confidence if family == "none" else .01,
+                name: confidence if name == family else remainder
+                for name in ("ironmate", "wikipedia", "mock", "none")
             },
         }
     return FixtureBackend(fixtures=fixtures)
