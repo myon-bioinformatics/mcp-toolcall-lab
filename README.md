@@ -13,6 +13,7 @@ This repository deliberately does **not** call the Ministry of Land, Infrastruct
 - A copyable standalone file generated from the package so tool names, schemas, and docstrings cannot drift.
 - LibreChat / Open WebUI as clients under test; a stdlib markdown stub as a reference front.
 - Protocol tests (curl / httpx / SDK) plus chat/direct tracing through one JSONL log.
+- A stable anti-pattern catalog spanning runtime classifier IDs and broader design/integration traps; see [`docs/antipatterns.md`](docs/antipatterns.md).
 - `jev_shim` / `jev_typesafe`: an offline calibration study plus a real request/response client for TypeSafe's actual `/v1/systemone` "Jev" wire format, reconstructed from public source (see [`docs/jev_shim.md`](docs/jev_shim.md) for exact citations and what has/hasn't been verified against the live API).
 - `jev_backend`: a minimal `fixture` / `typesafe_mock` backend-switch + JSONL trace skeleton (issue #36/#37, step 1) that later Jev-assisted routing experiments (issue #39) build on. See [`docs/jev_backend.md`](docs/jev_backend.md).
 
@@ -84,7 +85,7 @@ reaches them by service DNS (`http://mcp-mock:8000/mcp`,
 `http://openai-mock:8090/v1`) — not `host.docker.internal`. Playwright on the
 host types into the real composer and clicks Send. If MCP does not come back,
 the run appends an anti-pattern to `test-results/antipatterns.jsonl` (see
-`fixtures/antipatterns/catalog.yaml`) instead of treating that miss as “the
+`fixtures/antipatterns/catalog.yaml` and [`docs/antipatterns.md`](docs/antipatterns.md)) instead of treating that miss as “the
 click never happened.”
 
 ```bash
