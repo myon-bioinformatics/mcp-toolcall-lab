@@ -1,0 +1,104 @@
+[
+  {
+    "id": "ironmate-repo-metadata-en",
+    "state": "Search my repository metadata for markdown-related projects.",
+    "expected_tool_family": "ironmate",
+    "needs_probability": 0.98,
+    "chosen_family": "ironmate",
+    "family_confidence": 0.96,
+    "ironmate_arguments": {
+      "query": "markdown"
+    }
+  },
+  {
+    "id": "ironmate-repo-metadata-ja",
+    "state": "IronmateでリポジトリのメタデータからMCP関連を探して。",
+    "expected_tool_family": "ironmate",
+    "needs_probability": 0.97,
+    "chosen_family": "ironmate",
+    "family_confidence": 0.95,
+    "ironmate_arguments": {
+      "query": "MCP"
+    }
+  },
+  {
+    "id": "ironmate-project-filter",
+    "state": "Find repository metadata matching Flutter tools.",
+    "expected_tool_family": "ironmate",
+    "needs_probability": 0.94,
+    "chosen_family": "ironmate",
+    "family_confidence": 0.91,
+    "ironmate_arguments": {
+      "query": "Flutter"
+    }
+  },
+  {
+    "id": "ironmate-ambiguous",
+    "state": "必要ならリポジトリ情報も見て候補を探して。",
+    "expected_tool_family": "ironmate",
+    "needs_probability": 0.62,
+    "chosen_family": "ironmate",
+    "family_confidence": 0.6,
+    "ironmate_arguments": {
+      "query": "候補"
+    }
+  },
+  {
+    "id": "wikipedia-bleach",
+    "state": "WikipediaからBLEACHの概要を確認して。",
+    "expected_tool_family": "wikipedia",
+    "needs_probability": 0.98,
+    "chosen_family": "wikipedia",
+    "family_confidence": 0.96
+  },
+  {
+    "id": "wikipedia-yokohama",
+    "state": "Look up the history section for Yokohama on Wikipedia.",
+    "expected_tool_family": "wikipedia",
+    "needs_probability": 0.96,
+    "chosen_family": "wikipedia",
+    "family_confidence": 0.94
+  },
+  {
+    "id": "wikipedia-section",
+    "state": "Wikipediaの記事から見出しと段落を抽出したい。",
+    "expected_tool_family": "wikipedia",
+    "needs_probability": 0.93,
+    "chosen_family": "wikipedia",
+    "family_confidence": 0.9
+  },
+  {
+    "id": "mock-malformed",
+    "state": "Exercise the malformed-arguments MCP mock.",
+    "expected_tool_family": "mock",
+    "needs_probability": 0.97,
+    "chosen_family": "mock",
+    "family_confidence": 0.95
+  },
+  {
+    "id": "mock-toolcall",
+    "state": "MCPモックでtool callの失敗ケースを再現して。",
+    "expected_tool_family": "mock",
+    "needs_probability": 0.95,
+    "chosen_family": "mock",
+    "family_confidence": 0.92
+  },
+  {
+    "id": "none-rewrite-ja",
+    "state": "この文章を短く書き直して。",
+    "expected_tool_family": "none",
+    "needs_probability": 0.03
+  },
+  {
+    "id": "none-rewrite-en",
+    "state": "Rewrite this sentence more concisely.",
+    "expected_tool_family": "none",
+    "needs_probability": 0.04
+  },
+  {
+    "id": "none-explain",
+    "state": "Explain what a Python dataclass is without looking anything up.",
+    "expected_tool_family": "none",
+    "needs_probability": 0.08
+  }
+]
