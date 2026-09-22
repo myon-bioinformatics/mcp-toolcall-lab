@@ -79,11 +79,14 @@ def run_offline_comparison(
     baseline_llm_calls = len(cases)
     assisted_llm_calls = sum(bool(row["llm_used"]) for row in rows)
     return {
+        "prob_sources": sorted({str(row["prob_source"]) for row in rows}),
         "baseline": {"llm_calls": baseline_llm_calls},
         "assisted": {**assisted, "llm_calls": assisted_llm_calls},
         "delta": {
             "llm_calls": assisted_llm_calls - baseline_llm_calls,
             "llm_calls_avoided": baseline_llm_calls - assisted_llm_calls,
+            # Narrow by design: wrong_routes excludes policy-fallback rows because
+            # the existing LLM safety net remains in control for those requests.
             "correctness_regressions": assisted["wrong_routes"],
         },
         "rows": rows,
