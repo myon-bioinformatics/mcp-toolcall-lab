@@ -55,6 +55,7 @@ class IronmateClient:
         debug: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Delegate one Ironmate call and record it using the lab's shared trace."""
+        meta = {"source": "ironmate-client", **(meta or {})}
         started = time.monotonic()
         try:
             result = self.session.call_tool(name, arguments, meta=meta)
