@@ -23,3 +23,10 @@ The Jev wire contract remains defined by #36 and #37; this module consumes `Rout
 ## Trace correlation
 
 The Jev decision row and Ironmate caller row receive the caller's same `meta`/`debug` objects. Cross-layer correlation is therefore explicit rather than invented by this adapter: pass a shared identifier such as `debug["chat_id"]` (and/or a trace id in `meta`) when the two rows need to be joined. The Ironmate caller trace uses `source="jev-router"` unless the caller explicitly supplies another source.
+
+
+## Execution failure behavior
+
+A high-confidence Ironmate route is an optimization, not a new hard failure boundary. If the direct MCP call raises (for example, transport/server failure), the caller-supplied existing LLM flow is used instead. The benchmark records this separately as `execution_fallbacks`; it is not mixed with router-confidence `policy_fallbacks` or confident-but-unwired `out_of_scope_family`.
+
+For a high-confidence `needs_tool=false` decision, `result=None` means only that this routing layer has no tool result. It is not a user-facing empty answer; the caller remains responsible for its normal no-tool conversational response path.
