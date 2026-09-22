@@ -42,11 +42,12 @@ def test_representative_ironmate_call_records_shared_trace(tmp_path, monkeypatch
     assert result["result"]["content"][0]["text"] == "ok"
     assert session.calls[0][2]["meta"]["source"] == "jev-router"
     [row] = read_jsonl(str(log))
-    assert row["event"] == "tools/call"
+    assert row["event"] == "ironmate-client/tools/call"
     assert row["tool"] == "search_repository_metadata"
     assert row["arguments"] == {"query": "markdown"}
     assert row["outcome"] == "success"
     assert row["meta"]["trace_id"] == "trace_ironmate_1"
+    assert row["meta"]["source"] == "jev-router"
     assert row["chat_id"] == "chat_ironmate_1"
     assert row["duration_ms"] >= 0
 
@@ -60,7 +61,20 @@ def test_failed_ironmate_call_records_error_then_reraises(tmp_path, monkeypatch)
         client.call("search_repository_metadata", {"query": "markdown"})
 
     [row] = read_jsonl(str(log))
-    assert row["event"] == "tools/call"
+    assert row["event"] == "ironmate-client/tools/call"
+    assert row["meta"]["source"] == "ironmate-client"
     assert row["outcome"] == "error"
     assert row["error"] == "ironmate unavailable"
     assert row["duration_ms"] >= 0
+
+
+def test_caller_trace_is_not_counted_as_server_tool_call(tmp_path, monkeypatch):
+    from mcp_toolcall_lab.record import mcp_tool_calls
+
+    log = tmp_path / "calls.jsonl"
+    monkeypatch.setenv("MCP_TOOLCALL_LOG", str(log))
+    IronmateClient(FakeSession()).call("search_repository_metadata", {"query": "markdown"})
+
+    rows = read_jsonl(str(log))
+    assert rows[0]["event"] == "ironmate-client/tools/call"
+    assert mcp_tool_calls(rows) == []
