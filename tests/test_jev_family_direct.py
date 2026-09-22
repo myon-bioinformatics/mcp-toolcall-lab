@@ -90,16 +90,19 @@ def test_direct_family_failure_degrades_to_existing_flow():
     assert result.execution_fallback_reason == "wikipedia_call_error"
 
 
-def test_arbitrary_family_key_cannot_bypass_supported_family_gate():
+def test_ironmate_direct_call_cannot_bypass_dedicated_client_boundary():
     calls = []
+    session = FakeSession()
     result = execute_jev_assisted(
-        backend("mock"),
-        "mock",
-        ironmate_client=IronmateClient(FakeSession()),
-        ironmate_tool="unused",
-        ironmate_arguments={},
+        backend("ironmate"),
+        "ironmate",
+        ironmate_client=IronmateClient(session),
+        ironmate_tool="search_repository_metadata",
+        ironmate_arguments={"query": "mcp"},
         fallback=lambda state: "existing-flow",
         direct_calls={"ironmate": lambda: calls.append("bad")},
     )
-    assert result.llm_used is True
+    assert result.llm_used is False
+    assert result.tool_called is True
     assert calls == []
+    assert result.result == {"result": {"ok": True}}
