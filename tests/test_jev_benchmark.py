@@ -44,6 +44,7 @@ def test_offline_comparison_quantifies_baseline_vs_assisted_policy():
         fallback=lambda state: fallback_calls.append(state) or {"fallback": state},
     )
 
+    assert report["prob_sources"] == ["fixture"]
     assert report["baseline"]["llm_calls"] == 12
     assert report["assisted"]["llm_calls"] == 6
     assert report["delta"]["llm_calls"] == -6
