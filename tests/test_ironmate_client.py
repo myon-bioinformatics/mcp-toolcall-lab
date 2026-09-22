@@ -49,3 +49,33 @@ def test_representative_call_is_delegated_without_business_logic():
 def test_catalog_rejects_missing_tools():
     with pytest.raises(ValueError, match="result.tools"):
         normalize_catalog({"result": {}})
+
+
+def test_normalize_catalog_sorts_multiple_tools_and_preserves_output_schema():
+    response = {
+        "result": {
+            "tools": [
+                {
+                    "name": "zeta",
+                    "description": "Z",
+                    "inputSchema": {"type": "object"},
+                    "outputSchema": {"type": "object", "properties": {"ok": {"type": "boolean"}}},
+                },
+                {
+                    "name": "alpha",
+                    "description": "A",
+                    "inputSchema": {"type": "object"},
+                },
+            ]
+        }
+    }
+    tools = normalize_catalog(response)
+    assert [tool["name"] for tool in tools] == ["alpha", "zeta"]
+    assert tools[1]["outputSchema"]["properties"]["ok"]["type"] == "boolean"
+    assert "outputSchema" not in tools[0]
+
+
+@pytest.mark.parametrize("bad_result", [None, "bad", [], 1])
+def test_catalog_rejects_non_object_result(bad_result):
+    with pytest.raises(ValueError, match="result.tools"):
+        normalize_catalog({"result": bad_result})
