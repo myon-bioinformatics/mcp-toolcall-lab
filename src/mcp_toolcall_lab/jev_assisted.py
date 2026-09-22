@@ -10,6 +10,7 @@ from mcp_toolcall_lab.jev_backend import Backend
 from mcp_toolcall_lab.jev_router import RouteDecision, decide_route
 
 Fallback = Callable[[Any], Any]
+DirectCall = Callable[[], Any]
 
 
 @dataclass(frozen=True)
@@ -23,6 +24,40 @@ class AssistedResult:
     execution_fallback_reason: str | None = None
 
 
+def _execute_direct(
+    call: DirectCall,
+    *,
+    decision: RouteDecision,
+    state: Any,
+    fallback: Fallback,
+    error_reason: str,
+) -> AssistedResult:
+    """Run a direct tool boundary with shared timing and fallback semantics."""
+    started = time.monotonic()
+    try:
+        result = call()
+    except Exception:
+        tool_ms = round((time.monotonic() - started) * 1000, 3)
+        fallback_started = time.monotonic()
+        result = fallback(state)
+        return AssistedResult(
+            decision=decision,
+            llm_used=True,
+            tool_called=True,
+            result=result,
+            llm_ms=round((time.monotonic() - fallback_started) * 1000, 3),
+            tool_ms=tool_ms,
+            execution_fallback_reason=error_reason,
+        )
+    return AssistedResult(
+        decision=decision,
+        llm_used=False,
+        tool_called=True,
+        result=result,
+        tool_ms=round((time.monotonic() - started) * 1000, 3),
+    )
+
+
 def execute_jev_assisted(
     backend: Backend,
     state: Any,
@@ -34,12 +69,13 @@ def execute_jev_assisted(
     threshold: float = 0.75,
     meta: dict[str, Any] | None = None,
     debug: dict[str, Any] | None = None,
+    direct_calls: dict[str, DirectCall] | None = None,
 ) -> AssistedResult:
     """Pre-route only safe cases; preserve the existing fallback for everything else.
 
-    This first integration slice directly executes only a high-confidence Ironmate
-    route. Wikipedia/mock and all fallback decisions deliberately continue through
-    the caller-supplied existing LLM flow.
+    Ironmate keeps its traced client boundary. Other high-confidence families can
+    opt into direct execution through caller-injected zero-argument callables.
+    Unsupported families and all policy fallbacks preserve the existing LLM flow.
     """
     decision = decide_route(
         backend, state, threshold=threshold, meta=meta, debug=debug
@@ -53,34 +89,32 @@ def execute_jev_assisted(
             result=None,
         )
 
+    if (
+        decision.fallback_reason is None
+        and decision.tool_family in {"wikipedia", "mock"}
+        and direct_calls
+        and decision.tool_family in direct_calls
+    ):
+        return _execute_direct(
+            direct_calls[decision.tool_family],
+            decision=decision,
+            state=state,
+            fallback=fallback,
+            error_reason=f"{decision.tool_family}_call_error",
+        )
+
     if decision.tool_family == "ironmate" and decision.fallback_reason is None:
-        started = time.monotonic()
-        try:
-            result = ironmate_client.call(
+        return _execute_direct(
+            lambda: ironmate_client.call(
                 ironmate_tool,
                 ironmate_arguments,
                 meta={"source": "jev-router", **(meta or {})},
                 debug=debug,
-            )
-        except Exception:
-            tool_ms = round((time.monotonic() - started) * 1000, 3)
-            fallback_started = time.monotonic()
-            result = fallback(state)
-            return AssistedResult(
-                decision=decision,
-                llm_used=True,
-                tool_called=True,
-                result=result,
-                llm_ms=round((time.monotonic() - fallback_started) * 1000, 3),
-                tool_ms=tool_ms,
-                execution_fallback_reason="ironmate_call_error",
-            )
-        return AssistedResult(
+            ),
             decision=decision,
-            llm_used=False,
-            tool_called=True,
-            result=result,
-            tool_ms=round((time.monotonic() - started) * 1000, 3),
+            state=state,
+            fallback=fallback,
+            error_reason="ironmate_call_error",
         )
 
     started = time.monotonic()
