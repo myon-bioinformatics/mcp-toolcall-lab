@@ -6,8 +6,9 @@ from mcp_toolcall_lab.jev_backend import FixtureBackend
 
 
 class FakeSession:
-    def __init__(self):
+    def __init__(self, *, error=None):
         self.calls = []
+        self.error = error
 
     def initialize(self):
         return {"result": {}}
@@ -17,6 +18,8 @@ class FakeSession:
 
     def call_tool(self, name, arguments, **kwargs):
         self.calls.append((name, arguments, kwargs))
+        if self.error is not None:
+            raise self.error
         return {"result": {"ok": True}}
 
 
@@ -49,10 +52,28 @@ def test_high_confidence_ironmate_skips_llm_and_calls_mcp():
     )
     assert result.llm_used is False
     assert result.tool_called is True
+    assert result.execution_fallback_reason is None
     assert result.result == {"result": {"ok": True}}
     assert fallback_calls == []
     assert session.calls[0][0] == "search_repository_metadata"
     assert session.calls[0][2]["meta"]["source"] == "jev-router"
+
+
+def test_ironmate_call_error_degrades_to_existing_fallback():
+    session = FakeSession(error=RuntimeError("transport down"))
+    result = execute_jev_assisted(
+        backend(.98),
+        "find repository metadata",
+        ironmate_client=IronmateClient(session),
+        ironmate_tool="search_repository_metadata",
+        ironmate_arguments={"query": "markdown"},
+        fallback=lambda state: {"llm": state},
+    )
+    assert result.llm_used is True
+    assert result.tool_called is True
+    assert result.execution_fallback_reason == "ironmate_call_error"
+    assert result.result == {"llm": "find repository metadata"}
+    assert len(session.calls) == 1
 
 
 def test_low_confidence_ironmate_preserves_existing_fallback():
@@ -145,6 +166,7 @@ def test_benchmark_surface_counts_avoided_wrong_fallback_and_success():
     assert summary["llm_calls_avoided"] == 1
     assert summary["wrong_routes"] == 0
     assert summary["policy_fallbacks"] == 1
+    assert summary["execution_fallbacks"] == 0
     assert summary["out_of_scope_family"] == 0
     assert summary["tool_successes"] == 1
     assert summary["tool_attempts"] == 1
@@ -175,3 +197,22 @@ def test_benchmark_separates_policy_fallback_from_out_of_scope_family():
     assert summary["policy_fallbacks"] == 1
     assert summary["out_of_scope_family"] == 1
     assert summary["wrong_routes"] == 0
+
+
+def test_benchmark_separates_execution_failure_from_scope_fallback():
+    failed = execute_jev_assisted(
+        backend(.98),
+        "metadata",
+        ironmate_client=IronmateClient(FakeSession(error=RuntimeError("down"))),
+        ironmate_tool="search_repository_metadata",
+        ironmate_arguments={"query": "x"},
+        fallback=lambda state: "existing-flow",
+    )
+    summary = benchmark_summary([
+        benchmark_row(failed, expected_tool_family="ironmate", tool_success=False),
+    ])
+    assert summary["policy_fallbacks"] == 0
+    assert summary["execution_fallbacks"] == 1
+    assert summary["out_of_scope_family"] == 0
+    assert summary["tool_attempts"] == 1
+    assert summary["tool_successes"] == 0
