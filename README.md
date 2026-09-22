@@ -458,9 +458,21 @@ request/response wire round-trips correctly. **No test here has verified
 the request shape against a real llama.cpp (or other) server** — that
 confirmation is still open. See `docs/jev_shim.md`.
 
+`jev_backend.py` is a small backend-switch skeleton (#36/#37) sitting under
+the calibration work above: `FixtureBackend` and `TypeSafeMockBackend`
+answer the same noul/choice/score wire, tagged with a `prob_source` field so
+self-reported and TypeSafe-shaped confidence never get pooled by accident.
+`decide()` traces one row per question to `MCP_TOOLCALL_LOG` (event
+`jev/decision`) via the same correlation plumbing `record.py` uses. Neither
+backend calls a model or opens a socket. See
+[`docs/jev_shim.md`](docs/jev_shim.md#backend-switch-skeleton-jev_backendpy-3637-consumed-by-39).
+Fixtures: `fixtures/jev_backend/`.
+
 ## Next increments
 
 1. Add a versioned mock catalogue modeled on public REINFOLIB documentation, without API keys.
 2. Compare schema strictness (raw-valid vs server-accepted) and system prompts in a recorded experiment matrix.
 3. `jev_answerer`: confirm the built request shape (`response_format: json_schema`) against a real llama.cpp (or other OpenAI-compatible) server — every test so far uses either an injected fake or a loopback stdlib server, never a real model backend.
+4. `jev_backend`: add the `openai_compat` backend (#37 P1) against the existing digest-pinned llama.cpp Docker, GGUF opt-in only.
+5. `jev_router.py` (#39): an independent typed pre-LLM decision module (`needs_tool` / `tool_family` / `confidence` / `prob_source`) consuming `jev_backend.decide()`, with its own fixtures, a confusion matrix, Brier calibration (reusing `jev_shim.brier_score()`), decision/LLM/tool latency split, and a mechanical correctness-regression gate.
 4. `jev_typesafe`: exercise `TypeSafeClient` against a real `api.typesafe.ai` account once a key is available, to confirm the modeled contract against the live API rather than source alone.

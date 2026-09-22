@@ -1,0 +1,16 @@
+{
+  "is_ready": {"type": "noul", "noul": 0.87},
+  "tone": {
+    "type": "choice",
+    "choice": "calm",
+    "confidence": 0.7,
+    "probabilities": {"calm": 0.7, "angry": 0.2, "excited": 0.1}
+  },
+  "coverage": {
+    "type": "score",
+    "score": 2,
+    "confidence": 0.55,
+    "legend": {"0": "no coverage", "1": "basic happy-path only", "2": "thorough"},
+    "probabilities": {"0": 0.05, "1": 0.3, "2": 0.65}
+  }
+}

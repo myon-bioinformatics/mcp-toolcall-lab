@@ -232,6 +232,49 @@ zero external network). Neither proves a real model server accepts this
 exact `response_format` shape or honors it. Confirming that is the next
 step, tracked in README's "Next increments".
 
+## Backend switch skeleton: `jev_backend.py` (#36/#37, consumed by #39)
+
+Tracked in [issue #36](https://github.com/myon-bioinformatics/mcp-toolcall-lab/issues/36)
+(backend-switch investigation) and [issue #37](https://github.com/myon-bioinformatics/mcp-toolcall-lab/issues/37)
+(the priority order that came out of it: `fixture` / `typesafe_mock` at P0,
+`openai_compat` against the existing digest-pinned llama.cpp Docker at P1,
+Open Jev / LocalJev at P2, real TypeSafe at P3). This slice ships only the
+two P0 backends. It exists so [issue #39](https://github.com/myon-bioinformatics/mcp-toolcall-lab/issues/39)'s
+typed pre-LLM router (`needs_tool` / `tool_family` / `confidence`) has a
+transport-agnostic layer to sit on top of, instead of being written against
+one hardcoded backend — that router is a **later, independent module**
+(its own file and fixtures, e.g. `jev_router.py`), not part of this one.
+
+- `FixtureBackend`: answers come from `fixtures/jev_backend/fixture_answers.json`,
+  keyed by question name. No model, no network.
+- `TypeSafeMockBackend`: the real `jev_typesafe.TypeSafeClient` request build
+  / response parse code path, wired to an injected fake `post`. Same "proves
+  the code path, not the live server" posture as `jev_typesafe.py`'s own
+  tests — no call to `api.typesafe.ai` happens here either.
+
+Both backends answer in the same real noul/choice/score wire shape (checked
+against `jev_shim.validate_payload`), so a router built on `decide()` never
+has to special-case which backend answered. Each decision record carries a
+`prob_source` field set to exactly the backend name that produced the
+number — this is what keeps a future self-reported confidence source (e.g.
+`jev_answerer`'s generic-LLM imitation) from ever being pooled with
+TypeSafe-shaped probabilities in the same Brier-score calibration bucket,
+which was the concrete risk flagged in the #39 slice-boundary review.
+
+`decide()` writes one JSONL row per question to `MCP_TOOLCALL_LOG` (event
+`jev/decision`) using `record.resolve_correlation` for `chat_id`/`call_id`,
+the same correlation plumbing `record.py` already uses for MCP tool calls —
+only when that env var is set; default `pytest` never writes a file or
+opens a socket for either backend. Fixtures: `fixtures/jev_backend/`.
+
+```python
+from mcp_toolcall_lab.jev_backend import decide, load_fixture_backend
+from mcp_toolcall_lab.jev_typesafe import noul_question
+
+backend = load_fixture_backend()
+records = decide(backend, "some state", {"is_ready": noul_question()})
+```
+
 ## Non-goals (explicit)
 
 - Not a full SDK for TypeSafe's API — no retries, streaming, or model
@@ -243,3 +286,6 @@ step, tracked in README's "Next increments".
   `prompt_experiment.py`'s `raw_schema_valid`) rather than adding a
   `jsonschema` dependency.
 - Not a live-API integration test — see "What's actually been verified".
+- `jev_backend.py` is not the #39 router — it is the transport switch the
+  router will consume; `openai_compat` / Open Jev / TypeSafe-live backends
+  (#37's P1-P3) are not implemented yet.
