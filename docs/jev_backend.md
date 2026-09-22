@@ -102,3 +102,20 @@ answer_with_trace(mock_backend, "is_ready", noul_question(), state="some state")
 ## P1 OpenAI-compatible / llama.cpp boundary
 
 `OpenAICompatBackend` requires an injected `post(url, body)` callable; it has no live HTTP default. This keeps ordinary CI deterministic. For the opt-in real-model smoke, use the repository's existing digest-pinned `cpu-llm` service and pass `base_url="http://cpu-llm:8080"`. The adapter requests `response_format.type=json_schema`, parses `choices[0].message.content`, and then applies the shared `jev_shim.validate_payload` validator. This path is structurally covered offline; successful behavior against a real GGUF/llama.cpp process is only established when the opt-in smoke is run.
+
+### OpenAI-compatible contract
+
+For P1, "OpenAI-compatible" deliberately means only the subset this adapter
+uses and tests: `POST /v1/chat/completions` with `model`, `temperature`,
+`messages`, and `response_format.type=json_schema`, plus a response whose
+JSON text is at `choices[0].message.content`. The current concrete opt-in
+target is the repository's pinned llama.cpp server. Compatibility with vLLM,
+Ollama bridges, LiteLLM, or other servers is not claimed until separately
+tested. Streaming, tool calls, multimodal content, logprobs, and provider
+extensions are outside this adapter's contract.
+
+`self_reported` is a model-emitted confidence/probability provenance label,
+not a statement that the value is a calibrated or "true" probability.
+Benchmark/calibration code must keep it separate from fixture, TypeSafe-native,
+or future logits-derived sources unless an explicit calibration step justifies
+combining them.
