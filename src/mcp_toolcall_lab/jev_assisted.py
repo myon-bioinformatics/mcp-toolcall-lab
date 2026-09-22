@@ -20,6 +20,7 @@ class AssistedResult:
     result: Any
     llm_ms: float = 0.0
     tool_ms: float = 0.0
+    execution_fallback_reason: str | None = None
 
 
 def execute_jev_assisted(
@@ -54,12 +55,26 @@ def execute_jev_assisted(
 
     if decision.tool_family == "ironmate" and decision.fallback_reason is None:
         started = time.monotonic()
-        result = ironmate_client.call(
-            ironmate_tool,
-            ironmate_arguments,
-            meta={"source": "jev-router", **(meta or {})},
-            debug=debug,
-        )
+        try:
+            result = ironmate_client.call(
+                ironmate_tool,
+                ironmate_arguments,
+                meta={"source": "jev-router", **(meta or {})},
+                debug=debug,
+            )
+        except Exception:
+            tool_ms = round((time.monotonic() - started) * 1000, 3)
+            fallback_started = time.monotonic()
+            result = fallback(state)
+            return AssistedResult(
+                decision=decision,
+                llm_used=True,
+                tool_called=True,
+                result=result,
+                llm_ms=round((time.monotonic() - fallback_started) * 1000, 3),
+                tool_ms=tool_ms,
+                execution_fallback_reason="ironmate_call_error",
+            )
         return AssistedResult(
             decision=decision,
             llm_used=False,
@@ -92,6 +107,7 @@ def benchmark_row(
         "llm_used": result.llm_used,
         "llm_avoided": not result.llm_used,
         "tool_called": result.tool_called,
+        "execution_fallback_reason": result.execution_fallback_reason,
         "llm_ms": result.llm_ms,
         "tool_ms": result.tool_ms,
     }
@@ -115,8 +131,11 @@ def benchmark_summary(rows: list[dict[str, Any]]) -> dict[str, int | float]:
         "llm_calls_avoided": sum(bool(row.get("llm_avoided")) for row in rows),
         "wrong_routes": wrong_routes,
         "policy_fallbacks": sum(bool(row.get("fallback_reason")) for row in rows),
+        "execution_fallbacks": sum(bool(row.get("execution_fallback_reason")) for row in rows),
         "out_of_scope_family": sum(
-            bool(row.get("llm_used")) and not bool(row.get("fallback_reason"))
+            bool(row.get("llm_used"))
+            and not bool(row.get("fallback_reason"))
+            and not bool(row.get("execution_fallback_reason"))
             for row in rows
         ),
         "decision_ms": round(sum(float(row.get("decision_ms", 0.0)) for row in rows), 3),
