@@ -15,15 +15,43 @@ their P0 pair:
 
 Both answer in TypeSafe's real `noul`/`choice`/`score` wire shape —
 exactly what `jev_shim.validate_payload` checks — and tag every answer with
-`prob_source` (`"fixture"` or `"typesafe_mock"`) so a downstream consumer,
-or `jev_shim.brier_score()`, never has to guess (or accidentally average
-together) which kind of source produced a given confidence.
+`prob_source` so a downstream consumer, or `jev_shim.brier_score()`, never
+has to guess which kind of source produced a confidence.
+
+### `prob_source` contract
+
+`prob_source` is an extensible string identifier, not a closed enum. The
+backends shipped in this slice use exactly `fixture` and `typesafe_mock`.
+Future backends must choose a stable value that describes the source of the
+probability/confidence rather than merely the transport. In particular,
+self-reported generic-LLM confidence, logits-derived probability, and a
+TypeSafe-provided probability must remain distinguishable; calibration or
+Brier-score aggregation must not silently pool different `prob_source`
+values. New values should therefore be documented when their backend lands.
 
 `answer_with_trace()` times one `Backend.answer()` call and appends a
 single JSONL row to the same `MCP_TOOLCALL_LOG`-gated trace file
 `record.py` writes MCP tool calls to, under `event: "jev/backend_answer"` —
-one trace file, multiple event kinds, same `meta`/`debug` correlation-id
-passthrough, rather than a second logging path.
+one trace file, multiple event kinds, same correlation context rather than a
+second logging path.
+
+### Trace minimum contract
+
+A `jev/backend_answer` row keeps these fields stable for downstream
+router/benchmark consumers:
+
+- `event`: `"jev/backend_answer"`
+- `backend`: backend implementation name
+- `prob_source`: probability/confidence provenance described above
+- `name` and `kind`: question identity and `noul`/`choice`/`score` kind
+- `answer`: validated TypeSafe-shaped answer payload
+- `duration_ms`: backend-answer latency measured with a monotonic clock
+
+Correlation fields remain optional because callers may not have chat
+context. When supplied, `meta` and `debug` are preserved; a
+`debug.chat_id` is also exposed as top-level `chat_id`, matching the
+existing trace convention. Additional fields may be added later without
+removing or changing the meaning of the minimum fields above.
 
 ## What this is not (yet)
 
