@@ -5,7 +5,7 @@ from dataclasses import dataclass
 import time
 from typing import Any, Protocol
 
-from mcp_toolcall_lab.record import OUTCOME_ERROR, OUTCOME_SUCCESS, record_call
+from mcp_toolcall_lab.record import EVENT_IRONMATE_CALLER, OUTCOME_ERROR, OUTCOME_SUCCESS, record_call
 
 
 class McpSession(Protocol):
@@ -66,7 +66,8 @@ class IronmateClient:
                 error=str(exc),
                 meta=meta,
                 debug=debug,
-                duration_ms=(time.monotonic() - started) * 1000,
+                duration_ms=round((time.monotonic() - started) * 1000, 3),
+                event=EVENT_IRONMATE_CALLER,
             )
             raise
         record_call(
@@ -76,6 +77,7 @@ class IronmateClient:
             result=result,
             meta=meta,
             debug=debug,
-            duration_ms=(time.monotonic() - started) * 1000,
+            duration_ms=round((time.monotonic() - started) * 1000, 3),
+                event=EVENT_IRONMATE_CALLER,
         )
         return result
