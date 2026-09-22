@@ -114,7 +114,11 @@ def benchmark_summary(rows: list[dict[str, Any]]) -> dict[str, int | float]:
         "cases": total,
         "llm_calls_avoided": sum(bool(row.get("llm_avoided")) for row in rows),
         "wrong_routes": wrong_routes,
-        "fallbacks": sum(bool(row.get("fallback_reason")) or bool(row.get("llm_used")) for row in rows),
+        "policy_fallbacks": sum(bool(row.get("fallback_reason")) for row in rows),
+        "out_of_scope_family": sum(
+            bool(row.get("llm_used")) and not bool(row.get("fallback_reason"))
+            for row in rows
+        ),
         "decision_ms": round(sum(float(row.get("decision_ms", 0.0)) for row in rows), 3),
         "llm_ms": round(sum(float(row.get("llm_ms", 0.0)) for row in rows), 3),
         "tool_ms": round(sum(float(row.get("tool_ms", 0.0)) for row in rows), 3),
