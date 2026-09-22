@@ -7,8 +7,8 @@ This is the opt-in/live counterpart to the deterministic scenario benchmark from
 The runner deliberately measures **routing only**. It does not execute Ironmate, Wikipedia, or mock MCP tools. Therefore:
 
 - `wrong_routes` is measured against the labeled expected family;
-- `llm_selector_calls_avoided_estimate` means a confident non-fallback route could skip the existing selector LLM;
-- it is an estimate, not a measured end-to-end LLM-call reduction;
+- `selector_calls_skipped_by_policy` counts every confident non-fallback route where policy would skip the existing selector LLM, including confident **wrong** routes;
+- it is a policy-count, not a benefit/correctness claim and not a measured end-to-end LLM-call reduction;
 - tool success and MCP latency belong to the execution benchmark, not this report;
 - calibration remains separated by `prob_source`.
 
