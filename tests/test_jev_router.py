@@ -71,3 +71,15 @@ def test_calibration_never_pools_probability_sources() -> None:
     assert set(result) == {"fixture", "self_reported"}
     assert result["fixture"]["n"] == 1
     assert result["self_reported"]["n"] == 1
+
+
+def test_none_from_tool_family_is_contradiction_fallback() -> None:
+    backend = FixtureBackend(fixtures={
+        "needs_tool": {"type": "noul", "noul": 0.95},
+        "tool_family": {"type": "choice", "choice": "none", "confidence": 0.9,
+                        "probabilities": {"ironmate": 0.02, "wikipedia": 0.03, "mock": 0.05, "none": 0.9}},
+    })
+    decision = decide_route(backend, "ambiguous tool request")
+    assert decision.needs_tool is True
+    assert decision.tool_family == "none"
+    assert decision.fallback_reason == "needs_tool_but_no_family"
