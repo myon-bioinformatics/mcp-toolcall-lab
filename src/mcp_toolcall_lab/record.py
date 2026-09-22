@@ -30,11 +30,15 @@ EVENT_INITIALIZE = "initialize"
 EVENT_INITIALIZED = "notifications/initialized"
 EVENT_TOOLS_LIST = "tools/list"
 EVENT_TOOLS_CALL = "tools/call"
+# Caller-side observation of a downstream Ironmate tools/call. Kept distinct
+# so server-side tool-call counts do not double-count one logical execution.
+EVENT_IRONMATE_CALLER = "ironmate-client/tools/call"
 
 __all__ = [
     "CHAT_ID_HEADER_KEYS",
     "EVENT_INITIALIZE",
     "EVENT_INITIALIZED",
+    "EVENT_IRONMATE_CALLER",
     "EVENT_TOOLS_CALL",
     "EVENT_TOOLS_LIST",
     "MESSAGE_ID_HEADER_KEYS",
