@@ -14,6 +14,7 @@ This repository deliberately does **not** call the Ministry of Land, Infrastruct
 - LibreChat / Open WebUI as clients under test; a stdlib markdown stub as a reference front.
 - Protocol tests (curl / httpx / SDK) plus chat/direct tracing through one JSONL log.
 - `jev_shim` / `jev_typesafe`: an offline calibration study plus a real request/response client for TypeSafe's actual `/v1/systemone` "Jev" wire format, reconstructed from public source (see [`docs/jev_shim.md`](docs/jev_shim.md) for exact citations and what has/hasn't been verified against the live API).
+- `jev_backend`: a minimal `fixture` / `typesafe_mock` backend-switch + JSONL trace skeleton (issue #36/#37, step 1) that later Jev-assisted routing experiments (issue #39) build on. See [`docs/jev_backend.md`](docs/jev_backend.md).
 
 ## Requirements
 
