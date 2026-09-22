@@ -85,6 +85,23 @@ def test_non_ironmate_family_stays_on_existing_flow_in_first_slice():
     assert result.result == "existing-flow"
 
 
+def test_low_confidence_no_tool_preserves_existing_fallback():
+    session = FakeSession()
+    result = execute_jev_assisted(
+        backend(.4),
+        "maybe no tool",
+        ironmate_client=IronmateClient(session),
+        ironmate_tool="unused",
+        ironmate_arguments={},
+        fallback=lambda state: {"llm": state},
+    )
+    assert result.llm_used is True
+    assert result.tool_called is False
+    assert result.decision.fallback_reason == "low_confidence"
+    assert result.result == {"llm": "maybe no tool"}
+    assert session.calls == []
+
+
 def test_high_confidence_no_tool_avoids_llm_without_calling_tool():
     session = FakeSession()
     result = execute_jev_assisted(
@@ -127,6 +144,34 @@ def test_benchmark_surface_counts_avoided_wrong_fallback_and_success():
     assert summary["cases"] == 2
     assert summary["llm_calls_avoided"] == 1
     assert summary["wrong_routes"] == 0
-    assert summary["fallbacks"] == 1
+    assert summary["policy_fallbacks"] == 1
+    assert summary["out_of_scope_family"] == 0
     assert summary["tool_successes"] == 1
     assert summary["tool_attempts"] == 1
+
+
+def test_benchmark_separates_policy_fallback_from_out_of_scope_family():
+    session = FakeSession()
+    wikipedia = execute_jev_assisted(
+        backend(.98, family="wikipedia"),
+        "Wikipedia please",
+        ironmate_client=IronmateClient(session),
+        ironmate_tool="unused",
+        ironmate_arguments={},
+        fallback=lambda state: "existing-flow",
+    )
+    policy = execute_jev_assisted(
+        backend(.6, confidence=.6),
+        "ambiguous",
+        ironmate_client=IronmateClient(session),
+        ironmate_tool="unused",
+        ironmate_arguments={},
+        fallback=lambda state: "existing-flow",
+    )
+    summary = benchmark_summary([
+        benchmark_row(wikipedia, expected_tool_family="wikipedia"),
+        benchmark_row(policy, expected_tool_family="ironmate"),
+    ])
+    assert summary["policy_fallbacks"] == 1
+    assert summary["out_of_scope_family"] == 1
+    assert summary["wrong_routes"] == 0
