@@ -139,10 +139,13 @@ jobs:
             curl -sf http://127.0.0.1:4173/ >/dev/null && break
             sleep 1
           done
-          npx --yes playwright@1.55.0 install --with-deps chromium
-          npx --yes playwright@1.55.0 screenshot --device="Desktop Chrome" --full-page \
+          # The screenshot CLI maps iPhone device profiles to WebKit. Install both
+          # engines explicitly so desktop Chromium + mobile WebKit use the same
+          # Playwright version and browser cache.
+          npx --yes playwright@1.55.0 install --with-deps chromium webkit
+          npx --yes playwright@1.55.0 screenshot --browser=chromium --device="Desktop Chrome" --full-page \
             "http://127.0.0.1:4173/#pixiv" test-results/pixiv-pages-desktop.png
-          npx --yes playwright@1.55.0 screenshot --device="iPhone 13" --full-page \
+          npx --yes playwright@1.55.0 screenshot --browser=webkit --device="iPhone 13" --full-page \
             "http://127.0.0.1:4173/#pixiv" test-results/pixiv-pages-mobile.png
 
       - name: Upload observations
