@@ -345,6 +345,8 @@ PAGES_HASH_JS_SOURCE = STATIC_DIR / "pages_hash.js"
 PAGES_HASH_JS_NAME = "pages-hash.js"
 PAGES_WIKI_JS_SOURCE = STATIC_DIR / "pages_wiki.js"
 PAGES_WIKI_JS_NAME = "pages-wiki.js"
+PAGES_PIXIV_JS_SOURCE = STATIC_DIR / "pages_pixiv.js"
+PAGES_PIXIV_JS_NAME = "pages-pixiv.js"
 
 
 def _asset_cache_bust(path: Path) -> str:
@@ -431,7 +433,7 @@ def pages_summary(
 
 
 PAGES_OUTPUT_NAME = "_site"
-WEB_UI_SHA = "a0867e454bb2f7ecb4f69da9a46a2361b2438305"
+WEB_UI_SHA = "e7d16a2ce0cee76b7744a4b6a8f8ce374491a4db"
 
 
 def _git_output(args: list[str]) -> str | None:
@@ -702,7 +704,7 @@ def _pages_wiki_app_html(*, cache_bust: str = "") -> str:
         '<p data-testid="pages-wiki-error" hidden></p>'
         '<p data-testid="pages-wiki-canonical" hidden></p>'
         f'<p data-testid="pages-wiki-extract-note">{html.escape(WIKI_EXTRACT_NOTE)}</p>'
-        '<pre data-testid="pages-wiki-extract" hidden></pre>'
+        '<pre class="ui-output" data-testid="pages-wiki-extract" hidden></pre>'
         "</div>"
         f'<script src="{PAGES_WIKI_JS_NAME}{cache_bust}"></script>'
     )
@@ -821,15 +823,25 @@ def write_pages(
         )
     wiki_inner = wiki_inner + _pages_wiki_app_html(cache_bust=_asset_cache_bust(PAGES_WIKI_JS_SOURCE))
     pixiv_inner = (
-        "<h2>Pixiv Encyclopedia MCP tools</h2>"
-        "<p>The Pixiv tools are MCP-backed rather than a browser scraper on GitHub Pages. "
-        "Use this panel to discover the two catalog entries and run them through the local "
-        "stub / MCP server.</p>"
+        "<h2>Pixiv Encyclopedia search</h2>"
+        "<p>Pixiv Encyclopedia fetching stays MCP/local-server owned. GitHub Pages provides "
+        "the same search/result workspace without pretending that a static host can run MCP.</p>"
+        '<div id="pages-pixiv-app" data-testid="pages-pixiv-app">'
+        '<form id="pages-pixiv-form" data-testid="pages-pixiv-form">'
+        '<p><label for="pages-pixiv-title">Pixiv Encyclopedia title</label> '
+        '<input id="pages-pixiv-title" name="title" value="" placeholder="Article title" '
+        'data-testid="pages-pixiv-title"> '
+        '<button type="submit" data-testid="pages-pixiv-fetch">Search</button></p>'
+        "</form>"
+        '<p class="ui-muted" data-testid="pages-pixiv-status">Run the local stub to execute the MCP-backed search.</p>'
+        '<pre class="ui-output" data-testid="pages-pixiv-extract" hidden></pre>'
+        "</div>"
         "<ul>"
         f"<li><code>fetch_pixiv_dictionary_section</code> — {html.escape(TOOL_DESCRIPTIONS['fetch_pixiv_dictionary_section'])}</li>"
         f"<li><code>fetch_pixiv_dictionary_article</code> — {html.escape(TOOL_DESCRIPTIONS['fetch_pixiv_dictionary_article'])}</li>"
         "</ul>"
-        "<pre>python -m mcp_toolcall_lab.stub_front serve --port 8765</pre>"
+        '<pre class="ui-output">python -m mcp_toolcall_lab.stub_front serve --port 8765</pre>'
+        f'<script src="{PAGES_PIXIV_JS_NAME}{_asset_cache_bust(PAGES_PIXIV_JS_SOURCE)}"></script>'
     )
     # Hide/show uses the HTML hidden attribute. Converted Markdown CSS comes
     # from vendor/markdown.py (default_stylesheet), not a lab-authored copy.
@@ -869,6 +881,9 @@ def write_pages(
     )
     (out_dir / PAGES_WIKI_JS_NAME).write_text(
         PAGES_WIKI_JS_SOURCE.read_text(encoding="utf-8"), encoding="utf-8"
+    )
+    (out_dir / PAGES_PIXIV_JS_NAME).write_text(
+        PAGES_PIXIV_JS_SOURCE.read_text(encoding="utf-8"), encoding="utf-8"
     )
     (out_dir / "summary.json").write_text(summary_text + "\n", encoding="utf-8")
     (out_dir / BUILD_META_NAME).write_text(
