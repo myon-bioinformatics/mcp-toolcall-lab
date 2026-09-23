@@ -84,6 +84,22 @@ there is logged as `CPU_LLM_COMPLETION_FAILED`, distinct from
 `CPU_LLM_UNREACHABLE`. `cpu_llm_backend` (`lite-stub` / `real-gguf`) is
 in the published summary so the Pages report says honestly which one ran.
 
+## Shared web-ui workspace
+
+The published Pages shell uses the shared `myon-bioinformatics/web-ui` v1
+tool workspace pinned to
+`a0867e454bb2f7ecb4f69da9a46a2361b2438305`, the same revision used by
+Ironmate. The wide layout keeps the primary report/wiki view beside supporting
+tool-catalog/provenance cards; web-ui's `720px` fallback stacks the primary
+content first on narrow screens.
+
+The supporting catalog is generated directly from Python's `AVAILABLE_TOOLS`
+and `TOOL_DESCRIPTIONS`, so Pages exposes the current seven tools, including
+`fetch_pixiv_dictionary_section` and `fetch_pixiv_dictionary_article`,
+without maintaining a second hand-written list. MCP protocol behavior,
+fixtures, trace/log semantics, and execution remain owned by this repository;
+web-ui supplies presentation only.
+
 ## What the published page is
 
 Converted Markdown on this page (headings, lists, fenced JSON, …) is

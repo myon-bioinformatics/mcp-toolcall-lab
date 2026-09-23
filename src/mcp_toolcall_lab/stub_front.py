@@ -39,7 +39,7 @@ from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qs, urlparse
 
-from mcp_toolcall_lab.catalog import dispatch_tool
+from mcp_toolcall_lab.catalog import AVAILABLE_TOOLS, TOOL_DESCRIPTIONS, dispatch_tool
 from mcp_toolcall_lab.frontends import LIBRECHAT, OPENWEBUI, STUB
 from mcp_toolcall_lab.markdown_lib import (
     Section,
@@ -431,6 +431,7 @@ def pages_summary(
 
 
 PAGES_OUTPUT_NAME = "_site"
+WEB_UI_SHA = "a0867e454bb2f7ecb4f69da9a46a2361b2438305"
 
 
 def _git_output(args: list[str]) -> str | None:
@@ -823,12 +824,28 @@ def write_pages(
         "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
         "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
         f"{_vendor_style_tag(md)}"
+        f'<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/myon-bioinformatics/web-ui@{WEB_UI_SHA}/css/tokens.css">'
+        f'<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/myon-bioinformatics/web-ui@{WEB_UI_SHA}/css/base.css">'
+        f'<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/myon-bioinformatics/web-ui@{WEB_UI_SHA}/css/components.css">'
+        f'<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/myon-bioinformatics/web-ui@{WEB_UI_SHA}/css/stub.css">'
         "<title>mcp-toolcall-lab stub</title>"
-        "</head><body>"
-        "<h1>mcp-toolcall-lab stub</h1>"
+        '</head><body><main class="ui-page stub-shell" data-ui-theme="modern">'
+        '<header class="stub-header"><div><h1 class="ui-title">mcp-toolcall-lab stub</h1>'
+        '<p class="ui-muted">Static Pages evidence for MCP tool-call experiments.</p></div>'
+        f'<div class="stub-meta"><span class="ui-tag">mcp</span><span class="ui-tag">{len(AVAILABLE_TOOLS)} tools</span></div></header>'
         f"{_pages_nav_html()}"
+        '<div class="stub-workspace"><section class="ui-panel stub-result">'
         f"{_pages_panel_html(view='home', inner=_revision_html(meta) + home_inner)}"
         f"{_pages_panel_html(view='wiki', inner=wiki_inner + _pages_wiki_back_html(), hidden=True)}"
+        '</section><aside aria-label="Supporting information">'
+        '<section class="ui-card stub-evidence"><h2>Tool catalog</h2>'
+        '<ul id="tool-catalog">' + "".join(
+            f'<li><code>{html.escape(name)}</code> — {html.escape(TOOL_DESCRIPTIONS[name])}</li>'
+            for name in AVAILABLE_TOOLS
+        ) + '</ul></section>'
+        '<section class="ui-card stub-history"><h2>Workspace provenance</h2>'
+        f'<p>web-ui contract pinned to <code>{WEB_UI_SHA}</code>.</p></section>'
+        '</aside></div></main>'
         f'<script src="{PAGES_HASH_JS_NAME}{_asset_cache_bust(PAGES_HASH_JS_SOURCE)}"></script>'
         "</body></html>\n"
     )
