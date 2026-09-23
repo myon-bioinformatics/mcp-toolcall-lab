@@ -334,6 +334,13 @@ def test_write_pages_has_hash_routed_home_and_wiki_panels(tmp_path: Path) -> Non
     assert 'href="#wiki"' in html
     assert 'data-pages-nav="wiki"' in html
     assert 'data-testid="pages-nav-wiki"' in html
+    assert 'href="#pixiv"' in html
+    assert 'data-pages-nav="pixiv"' in html
+    assert 'data-testid="pages-nav-pixiv"' in html
+    assert 'data-pages-view="pixiv"' in html
+    assert 'data-testid="pages-pixiv"' in html
+    assert "fetch_pixiv_dictionary_section" in html
+    assert "fetch_pixiv_dictionary_article" in html
     assert 'id="home"' in html
     assert 'id="wiki"' in html
     assert 'data-pages-view="home"' in html
@@ -378,6 +385,7 @@ assert.strictEqual(pages.viewFromLocation("", ""), "home");
 assert.strictEqual(pages.viewFromLocation("#", ""), "home");
 assert.strictEqual(pages.viewFromLocation("#home", ""), "home");
 assert.strictEqual(pages.viewFromLocation("#wiki", ""), "wiki");
+assert.strictEqual(pages.viewFromLocation("#pixiv", ""), "pixiv");
 assert.strictEqual(pages.viewFromLocation("#wiki?x=1", ""), "wiki");
 assert.strictEqual(pages.viewFromLocation("", "?view=wiki"), "wiki");
 assert.strictEqual(pages.viewFromLocation("#", "?view=wiki"), "wiki");
