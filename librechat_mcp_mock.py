@@ -332,7 +332,12 @@ def load_ascii_artist() -> ModuleType | None:
 
 
 def to_web_ui_v1_html(text: str, *, title: str = "MCP article") -> str:
-    """Emit a web-ui v1 fragment via ascii_artist, safe pre fallback otherwise.\n\n    Theme selection belongs to the enclosing document ``<body>``. This helper\n    returns only a ``<main>`` fragment, so it must not pretend to activate a\n    body-scoped theme itself.\n    """
+    """Emit a web-ui v1 fragment via ascii_artist, safe pre fallback otherwise.
+
+    Theme selection belongs to the enclosing document ``<body>``. This helper
+    returns only a ``<main>`` fragment, so it must not pretend to activate a
+    body-scoped theme itself.
+    """
     artist = load_ascii_artist()
     if artist is not None and hasattr(artist, "to_web_ui_v1_html"):
         try:
