@@ -25,6 +25,7 @@ def test_stub_pages_captures_real_pixiv_result_in_chromium_and_webkit() -> None:
     assert "pixiv-live-desktop.png" in workflow
     assert "pixiv-live-mobile.png" in workflow
     assert "test -s test-results/pixiv-pages-mobile.png" in workflow
+    assert 'od -An -tx1 -N8 test-results/pixiv-pages-mobile.png' in workflow
     assert "test -s test-results/pixiv-live-mobile.png" in workflow
     assert "static WebKit exit status: $WEBKIT_STATUS" in workflow
     assert "live WebKit exit status: $LIVE_WEBKIT_STATUS" in workflow
@@ -102,3 +103,17 @@ def test_pixiv_success_without_cache_reports_unknown(monkeypatch) -> None:
     assert status == 200
     assert headers["X-Pixiv-Cache"] == "unknown"
     assert 'data-testid="pixiv-result"' in body
+
+
+def test_pixiv_error_is_kept_in_body_not_wire_headers(monkeypatch) -> None:
+    def boom(name, arguments):
+        raise PixivDictionaryFetchError(
+            f"article {arguments['title']!r} returned HTTP 403",
+            stage="upstream_http",
+            upstream_status=403,
+        )
+
+    monkeypatch.setattr("mcp_toolcall_lab.stub_front.dispatch_tool", boom)
+    _status, body, headers = pixiv_page_response(title="テスト記事")
+    assert "X-Pixiv-Error" not in headers
+    assert "テスト記事" in body
