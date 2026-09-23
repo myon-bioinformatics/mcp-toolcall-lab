@@ -156,6 +156,7 @@ jobs:
           echo "static WebKit exit status: $WEBKIT_STATUS"
           ls -l test-results/pixiv-pages-mobile.png || true
           test -s test-results/pixiv-pages-mobile.png
+          test "$(od -An -tx1 -N8 test-results/pixiv-pages-mobile.png | tr -d ' \\n')" = "89504e470d0a1a0a"
 
       - name: Live Pixiv fetch (stub-front -> dic.pixiv.net)
         id: pixiv_live
