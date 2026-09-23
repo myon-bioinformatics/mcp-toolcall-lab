@@ -902,6 +902,36 @@ def _heading_option_label(section: Section) -> str:
     return f"{'#' * level} {section.title}"
 
 
+
+def render_pixiv_page(*, title: str = "") -> str:
+    """Server-rendered Pixiv Encyclopedia title form backed by the catalog tool."""
+    title = title.strip()
+    error = ""
+    result: Any = None
+    if title:
+        try:
+            result = dispatch_tool("fetch_pixiv_dictionary_article", {"title": title})
+        except Exception as exc:  # external fetch/parser failures are rendered, not fatal to the stub
+            error = str(exc)
+    payload = ""
+    if result is not None:
+        payload = json.dumps(result, ensure_ascii=False, indent=2) if not isinstance(result, str) else result
+    return (
+        '<!doctype html><html lang="en"><head><meta charset="utf-8">'
+        '<meta name="viewport" content="width=device-width, initial-scale=1">'
+        f'<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/myon-bioinformatics/web-ui@{WEB_UI_SHA}/css/tokens.css">'
+        f'<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/myon-bioinformatics/web-ui@{WEB_UI_SHA}/css/base.css">'
+        f'<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/myon-bioinformatics/web-ui@{WEB_UI_SHA}/css/components.css">'
+        '<title>Pixiv Encyclopedia search</title></head>'
+        '<body><main class="ui-page" data-ui-theme="modern"><h1>Pixiv Encyclopedia search</h1>'
+        '<form method="get" action="/pixiv"><label for="pixiv-title">Title</label> '
+        f'<input class="ui-input" id="pixiv-title" name="title" value="{html.escape(title)}"> '
+        '<button class="ui-button" type="submit">Search</button></form>'
+        + (f'<p role="alert">{html.escape(error)}</p>' if error else "")
+        + (f'<pre class="ui-output" data-testid="pixiv-result">{html.escape(payload)}</pre>' if payload else "")
+        + '</main></body></html>'
+    )
+
 def render_wiki_page(
     *,
     title: str = "",
@@ -1072,6 +1102,11 @@ def make_handler(state: StubState) -> type[BaseHTTPRequestHandler]:
             path = parsed.path.rstrip("/") or "/"
             if path == "/health":
                 self._send(200, b'{"ok":true}\n', "application/json")
+                return
+            if path == "/pixiv":
+                query = parse_qs(parsed.query)
+                page = render_pixiv_page(title=(query.get("title") or [""])[0])
+                self._send(200, page.encode("utf-8"), "text/html; charset=utf-8")
                 return
             if path == "/wiki":
                 query = parse_qs(parsed.query)
