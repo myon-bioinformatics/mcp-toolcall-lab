@@ -31,6 +31,8 @@ import html
 import json
 import os
 import subprocess
+import sys
+import time
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass, field
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -49,6 +51,7 @@ from mcp_toolcall_lab.markdown_lib import (
     slugify,
 )
 from mcp_toolcall_lab.mcp_http import McpStdlibSession
+from mcp_toolcall_lab.pixiv_dictionary_tool import PixivDictionaryFetchError
 from mcp_toolcall_lab.record import (
     OUTCOME_EMPTY,
     OUTCOME_ERROR,
@@ -903,19 +906,30 @@ def _heading_option_label(section: Section) -> str:
 
 
 
-def render_pixiv_page(*, title: str = "") -> str:
-    """Server-rendered Pixiv Encyclopedia title form backed by the catalog tool."""
-    title = title.strip()
-    error = ""
-    result: Any = None
-    if title:
-        try:
-            result = dispatch_tool("fetch_pixiv_dictionary_article", {"title": title})
-        except Exception as exc:  # external fetch/parser failures are rendered, not fatal to the stub
-            error = str(exc)
-    payload = ""
-    if result is not None:
-        payload = json.dumps(result, ensure_ascii=False, indent=2) if not isinstance(result, str) else result
+# Stage -> HTTP status for a failed /pixiv fetch. "upstream_http" is not
+# listed here because its status depends on the upstream code it carries
+# (see _pixiv_status_for): a 429/503 from dic.pixiv.net is retriable (503),
+# anything else upstream (403 included) is a bad-gateway (502).
+PIXIV_STAGE_STATUS = {
+    "input": 400,
+    "upstream_network": 502,
+    "convert": 500,
+    "render": 500,
+    "internal": 500,
+}
+
+
+def _pixiv_status_for(stage: str, upstream_status: int | None) -> int:
+    if stage == "upstream_http":
+        return 503 if upstream_status in (429, 503) else 502
+    return PIXIV_STAGE_STATUS.get(stage, 500)
+
+
+def _pixiv_page_html(*, title: str, error: str, stage: str, payload: str) -> str:
+    if error:
+        body = f'<p role="alert" data-testid="pixiv-error" data-stage="{html.escape(stage)}">{html.escape(error)}</p>'
+    else:
+        body = f'<pre class="ui-output" data-testid="pixiv-result">{html.escape(payload)}</pre>' if payload else ""
     return (
         '<!doctype html><html lang="en"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width, initial-scale=1">'
@@ -927,10 +941,59 @@ def render_pixiv_page(*, title: str = "") -> str:
         '<form method="get" action="/pixiv"><label for="pixiv-title">Title</label> '
         f'<input class="ui-input" id="pixiv-title" name="title" value="{html.escape(title)}"> '
         '<button class="ui-button" type="submit">Search</button></form>'
-        + (f'<p role="alert">{html.escape(error)}</p>' if error else "")
-        + (f'<pre class="ui-output" data-testid="pixiv-result">{html.escape(payload)}</pre>' if payload else "")
+        + body
         + '</main></body></html>'
     )
+
+
+def pixiv_page_response(*, title: str = "") -> tuple[int, str, dict[str, str]]:
+    """Server-rendered Pixiv Encyclopedia page plus the real fetch status/headers.
+
+    A caller that only wants the HTML (the pre-existing ``render_pixiv_page``
+    contract) can ignore the status/headers; ``/pixiv`` uses all three so a
+    blocked or rate-limited upstream is visible on the wire instead of being
+    silently flattened into an HTTP 200.
+    """
+    title = title.strip()
+    error = ""
+    stage = ""
+    upstream_status: int | None = None
+    cache: str | None = None
+    result: Any = None
+    status = 200
+    if title:
+        try:
+            result = dispatch_tool("fetch_pixiv_dictionary_article", {"title": title})
+            if isinstance(result, dict):
+                cache = result.get("cache")
+        except PixivDictionaryFetchError as exc:
+            error = str(exc)
+            stage = exc.stage
+            upstream_status = exc.upstream_status
+            status = _pixiv_status_for(stage, upstream_status)
+        except Exception as exc:  # unexpected failure outside the adapter's own error type
+            error = str(exc)
+            stage = "internal"
+            status = 500
+    payload = ""
+    if result is not None:
+        payload = json.dumps(result, ensure_ascii=False, indent=2) if not isinstance(result, str) else result
+    body = _pixiv_page_html(title=title, error=error, stage=stage, payload=payload)
+    headers: dict[str, str] = {}
+    if error:
+        headers["X-Pixiv-Stage"] = stage
+        headers["X-Pixiv-Error"] = error
+        if upstream_status is not None:
+            headers["X-Pixiv-Upstream-Status"] = str(upstream_status)
+    else:
+        headers["X-Pixiv-Cache"] = cache or "miss"
+    return status, body, headers
+
+
+def render_pixiv_page(*, title: str = "") -> str:
+    """Compatibility wrapper over ``pixiv_page_response()`` -- HTML only."""
+    _, body, _ = pixiv_page_response(title=title)
+    return body
 
 def render_wiki_page(
     *,
@@ -1084,10 +1147,18 @@ def make_handler(state: StubState) -> type[BaseHTTPRequestHandler]:
         def log_message(self, format: str, *args: Any) -> None:  # noqa: A002
             return
 
-        def _send(self, status: int, body: bytes, content_type: str) -> None:
+        def _send(
+            self,
+            status: int,
+            body: bytes,
+            content_type: str,
+            extra_headers: dict[str, str] | None = None,
+        ) -> None:
             self.send_response(status)
             self.send_header("Content-Type", content_type)
             self.send_header("Content-Length", str(len(body)))
+            for key, value in (extra_headers or {}).items():
+                self.send_header(key, value)
             self.end_headers()
             self.wfile.write(body)
 
@@ -1105,8 +1176,29 @@ def make_handler(state: StubState) -> type[BaseHTTPRequestHandler]:
                 return
             if path == "/pixiv":
                 query = parse_qs(parsed.query)
-                page = render_pixiv_page(title=(query.get("title") or [""])[0])
-                self._send(200, page.encode("utf-8"), "text/html; charset=utf-8")
+                title = (query.get("title") or [""])[0]
+                start = time.monotonic()
+                status, page, extra_headers = pixiv_page_response(title=title)
+                elapsed_ms = round((time.monotonic() - start) * 1000, 1)
+                upstream_status = extra_headers.get("X-Pixiv-Upstream-Status")
+                print(
+                    json.dumps(
+                        {
+                            "msg": "pixiv request",
+                            "title": title,
+                            "status": status,
+                            "stage": extra_headers.get("X-Pixiv-Stage"),
+                            "upstream_status": int(upstream_status) if upstream_status else None,
+                            "error": extra_headers.get("X-Pixiv-Error"),
+                            "cache": extra_headers.get("X-Pixiv-Cache"),
+                            "elapsed_ms": elapsed_ms,
+                        },
+                        ensure_ascii=False,
+                    ),
+                    file=sys.stderr,
+                    flush=True,
+                )
+                self._send(status, page.encode("utf-8"), "text/html; charset=utf-8", extra_headers)
                 return
             if path == "/wiki":
                 query = parse_qs(parsed.query)

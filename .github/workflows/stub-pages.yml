@@ -159,32 +159,65 @@ jobs:
           ls -l test-results/pixiv-pages-mobile.png || true
           test -s test-results/pixiv-pages-mobile.png
 
+      - name: Live Pixiv fetch (stub-front -> dic.pixiv.net)
+        id: pixiv_live
+        run: |
           # The local /pixiv route is not a fixture: it dispatches the real
           # fetch_pixiv_dictionary_article tool, which reads dic.pixiv.net.
           # Keep the request deliberately low-rate and retry transient failures.
+          # /pixiv now answers with the real fetch layer's HTTP status and
+          # X-Pixiv-* headers, so a blocked/rate-limited upstream can be told
+          # apart from a genuine stub or conversion failure.
           PIXIV_URL="http://127.0.0.1:8765/pixiv?title=NARUTO"
           sleep 3
           PIXIV_OK=0
+          PIXIV_SKIP=0
+          SKIP_REASON=""
           for i in 1 2 3; do
             echo "Pixiv live fetch attempt $i/3: $PIXIV_URL"
-            HTTP_STATUS=$(curl --silent --show-error \
+            CURL_STATUS=0
+            HTTP_STATUS=$(curl --silent --show-error --max-time 30 \
+              --dump-header test-results/pixiv-live-headers.txt \
               --output test-results/pixiv-live.html \
               --write-out '%{http_code}' "$PIXIV_URL") || CURL_STATUS=$?
-            CURL_STATUS=${CURL_STATUS:-0}
-            echo "curl exit status: $CURL_STATUS; HTTP status: $HTTP_STATUS"
+            # bash -e / pipefail: a grep with no match must not abort this step,
+            # it just means the response carried no X-Pixiv-* diagnostics.
+            STAGE=$(grep -i '^X-Pixiv-Stage:' test-results/pixiv-live-headers.txt | tail -n1 | cut -d: -f2- | tr -d '\r ' || true)
+            UPSTREAM_STATUS=$(grep -i '^X-Pixiv-Upstream-Status:' test-results/pixiv-live-headers.txt | tail -n1 | cut -d: -f2- | tr -d '\r ' || true)
+            echo "curl exit status: $CURL_STATUS; HTTP status: $HTTP_STATUS; stage: ${STAGE:-none}; upstream: ${UPSTREAM_STATUS:-none}"
             echo "--- pixiv-live.html (first 120 lines) ---"
             sed -n '1,120p' test-results/pixiv-live.html || true
             echo "--- stub-front logs (tail) ---"
-            docker compose -f docker/stub-pages/docker-compose.yml logs --tail=120 stub-front || true
+            docker compose -f docker/stub-pages/docker-compose.yml logs --tail=200 stub-front || true
+            echo "--- pixiv request log (tail) ---"
+            docker compose -f docker/stub-pages/docker-compose.yml logs --tail=200 stub-front 2>/dev/null | grep 'pixiv request' | tail -n1 || true
             if [ "$CURL_STATUS" -eq 0 ] && [ "$HTTP_STATUS" = "200" ]; then
               PIXIV_OK=1
               break
             fi
-            unset CURL_STATUS
+            # Only these two upstream layers are treated as an expected,
+            # non-failing outcome (pixiv blocking/rate-limiting bot traffic).
+            # Every other status -- 503, 404, internal errors, anything
+            # unexpected -- keeps failing the job.
+            if [ "$HTTP_STATUS" = "502" ] && [ "$STAGE" = "upstream_http" ] && [ "$UPSTREAM_STATUS" = "403" ]; then
+              SKIP_REASON="upstream-http-403"
+              PIXIV_SKIP=1
+              break
+            fi
+            if [ "$HTTP_STATUS" = "503" ] && [ "$STAGE" = "upstream_http" ] && [ "$UPSTREAM_STATUS" = "429" ]; then
+              SKIP_REASON="upstream-rate-limited-429"
+              PIXIV_SKIP=1
+              break
+            fi
             sleep $((i * 3))
           done
+          if [ "$PIXIV_SKIP" -eq 1 ]; then
+            echo "::warning::live Pixiv fetch classified $SKIP_REASON at dic.pixiv.net; skipping live screenshots"
+            echo "live=skipped" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           if [ "$PIXIV_OK" -ne 1 ]; then
-            echo "live Pixiv evidence fetch failed after 3 attempts" >&2
+            echo "live Pixiv evidence fetch failed after 3 attempts (HTTP status: $HTTP_STATUS, stage: ${STAGE:-none})" >&2
             exit 1
           fi
           if ! grep -q 'data-testid="pixiv-result"' test-results/pixiv-live.html; then
@@ -197,6 +230,12 @@ jobs:
             docker compose -f docker/stub-pages/docker-compose.yml logs --tail=200 stub-front || true
             exit 1
           fi
+          echo "live=ok" >> "$GITHUB_OUTPUT"
+
+      - name: Capture live Pixiv screenshots
+        if: steps.pixiv_live.outputs.live == 'ok'
+        run: |
+          PIXIV_URL="http://127.0.0.1:8765/pixiv?title=NARUTO"
           npx --yes playwright@1.55.0 screenshot --browser=chromium --device="Desktop Chrome" --full-page \
             "$PIXIV_URL" test-results/pixiv-live-desktop.png
           set +e

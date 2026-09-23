@@ -20,6 +20,7 @@ from mcp_toolcall_lab.markdown_lib import (
     markdown_py_path,
 )
 from mcp_toolcall_lab.catalog import TOOL_DESCRIPTIONS
+from mcp_toolcall_lab.pixiv_dictionary_tool import PixivDictionaryFetchError
 from mcp_toolcall_lab.stub_front import (
     AVAILABLE_TOOLS,
     BUILD_META_KEYS,
@@ -44,6 +45,7 @@ from mcp_toolcall_lab.stub_front import (
     parse_sections,
     render_rows,
     render_pixiv_page,
+    pixiv_page_response,
     write_pages,
     write_stub_demo_page,
 )
@@ -353,6 +355,91 @@ def test_render_pixiv_page_outputs_catalog_result(monkeypatch) -> None:
     assert 'class="ui-output"' in html
     assert "canonical_title" in html
     assert "# sample" in html
+
+
+def test_pixiv_page_response_success_reports_cache_status(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "mcp_toolcall_lab.stub_front.dispatch_tool",
+        lambda name, arguments: {
+            "canonical_title": arguments["title"],
+            "markdown": "# sample",
+            "headings": [],
+            "source_url": "https://dic.pixiv.net/a/sample",
+            "cache": "miss",
+        },
+    )
+    status, body, headers = pixiv_page_response(title="sample")
+    assert status == 200
+    assert headers["X-Pixiv-Cache"] == "miss"
+    assert "X-Pixiv-Stage" not in headers
+    assert 'data-testid="pixiv-result"' in body
+
+
+def test_pixiv_page_response_maps_upstream_http_403_to_bad_gateway(monkeypatch) -> None:
+    def boom(name, arguments):
+        raise PixivDictionaryFetchError("blocked", stage="upstream_http", upstream_status=403)
+
+    monkeypatch.setattr("mcp_toolcall_lab.stub_front.dispatch_tool", boom)
+    status, body, headers = pixiv_page_response(title="NARUTO")
+    assert status == 502
+    assert headers["X-Pixiv-Stage"] == "upstream_http"
+    assert headers["X-Pixiv-Upstream-Status"] == "403"
+    assert 'data-testid="pixiv-error"' in body
+    assert 'data-stage="upstream_http"' in body
+    assert 'data-testid="pixiv-result"' not in body
+
+
+def test_pixiv_page_response_maps_upstream_http_429_to_service_unavailable(monkeypatch) -> None:
+    def boom(name, arguments):
+        raise PixivDictionaryFetchError("rate limited", stage="upstream_http", upstream_status=429)
+
+    monkeypatch.setattr("mcp_toolcall_lab.stub_front.dispatch_tool", boom)
+    status, _body, headers = pixiv_page_response(title="NARUTO")
+    assert status == 503
+    assert headers["X-Pixiv-Upstream-Status"] == "429"
+
+
+def test_pixiv_page_response_maps_upstream_network_to_bad_gateway(monkeypatch) -> None:
+    def boom(name, arguments):
+        raise PixivDictionaryFetchError("timed out", stage="upstream_network")
+
+    monkeypatch.setattr("mcp_toolcall_lab.stub_front.dispatch_tool", boom)
+    status, _body, headers = pixiv_page_response(title="NARUTO")
+    assert status == 502
+    assert headers["X-Pixiv-Stage"] == "upstream_network"
+    assert "X-Pixiv-Upstream-Status" not in headers
+
+
+def test_pixiv_page_response_maps_input_stage_to_bad_request(monkeypatch) -> None:
+    def boom(name, arguments):
+        raise PixivDictionaryFetchError("article title is required", stage="input")
+
+    monkeypatch.setattr("mcp_toolcall_lab.stub_front.dispatch_tool", boom)
+    status, _body, headers = pixiv_page_response(title="anything")
+    assert status == 400
+    assert headers["X-Pixiv-Stage"] == "input"
+
+
+def test_pixiv_page_response_maps_convert_error_to_internal_error(monkeypatch) -> None:
+    def boom(name, arguments):
+        raise PixivDictionaryFetchError("bad markdown", stage="convert")
+
+    monkeypatch.setattr("mcp_toolcall_lab.stub_front.dispatch_tool", boom)
+    status, _body, headers = pixiv_page_response(title="NARUTO")
+    assert status == 500
+    assert headers["X-Pixiv-Stage"] == "convert"
+
+
+def test_pixiv_page_response_maps_unexpected_exception_to_internal_error(monkeypatch) -> None:
+    def boom(name, arguments):
+        raise ValueError("boom")
+
+    monkeypatch.setattr("mcp_toolcall_lab.stub_front.dispatch_tool", boom)
+    status, body, headers = pixiv_page_response(title="NARUTO")
+    assert status == 500
+    assert headers["X-Pixiv-Stage"] == "internal"
+    assert 'data-testid="pixiv-error"' in body
+    assert 'data-testid="pixiv-result"' not in body
 
 
 def test_pixiv_pages_tools_are_complete_catalog_entries() -> None:
