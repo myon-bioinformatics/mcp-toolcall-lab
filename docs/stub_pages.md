@@ -172,3 +172,8 @@ script, opt-in workflow_dispatch wiring, a real `/v1/chat/completions`
 smoke check (not just `/health`) for both backends, and
 `cpu_llm_backend` in the published summary. Accuracy still does not
 matter. No second log schema was added.
+
+
+## Terminal-lite single-CSS prototype
+
+The next UI experiment is intentionally scoped to this repository. The goal is to replace the multi-file web-ui theme chain with one small lab-owned stylesheet, while keeping semantic HTML, readable output, and desktop/iPhone screenshot regression coverage. `ascii_artist` may enhance text presentation when available but is not a required UI dependency. Shared `web-ui` is deliberately unchanged; reusable pieces can be reverse-imported only after this prototype proves useful.
