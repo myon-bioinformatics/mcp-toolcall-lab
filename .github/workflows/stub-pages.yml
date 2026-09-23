@@ -144,6 +144,8 @@ jobs:
           npx --yes playwright@1.55.0 install --with-deps chromium webkit
           npx --yes playwright@1.55.0 screenshot --browser=chromium --device="Desktop Chrome" --full-page \
             "http://127.0.0.1:4173/#pixiv" test-results/pixiv-pages-desktop.png
+          # Playwright WebKit can report a non-zero shutdown after writing the PNG;
+          # validate the artifact itself, including its PNG signature.
           set +e
           npx --yes playwright@1.55.0 screenshot --browser=webkit --device="iPhone 13" --full-page \
             "http://127.0.0.1:4173/#pixiv" test-results/pixiv-pages-mobile.png \
@@ -204,10 +206,6 @@ jobs:
             grep -o '<p[^>]*data-testid="pixiv-error"[^>]*>[^<]*</p>' test-results/pixiv-live.html || true
             if [ "$CLASSIFICATION" = "ok" ]; then break; fi
             if [ "$CLASSIFICATION" = "upstream-http-403" ]; then break; fi
-            if [ "$CLASSIFICATION" = "upstream-rate-limited-429" ]; then
-              [ "$i" -lt 3 ] && sleep $((i * 3))
-              continue
-            fi
             if [ "$CLASSIFICATION" = "stub-unreachable" ] || [ "$CLASSIFICATION" = "upstream-network" ] || [[ "$CLASSIFICATION" = upstream-rate-limited-* ]]; then
               [ "$i" -lt 3 ] && sleep $((i * 3))
               continue
@@ -254,6 +252,7 @@ jobs:
           echo "live WebKit exit status: $LIVE_WEBKIT_STATUS"
           ls -l test-results/pixiv-live-mobile.png || true
           test -s test-results/pixiv-live-mobile.png
+          test "$(od -An -tx1 -N8 test-results/pixiv-live-mobile.png | tr -d ' \n')" = "89504e470d0a1a0a"
 
       - name: Upload observations
         if: always()
