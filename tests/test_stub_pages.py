@@ -19,6 +19,7 @@ from mcp_toolcall_lab.markdown_lib import (
     load_markdown,
     markdown_py_path,
 )
+from mcp_toolcall_lab.catalog import TOOL_DESCRIPTIONS
 from mcp_toolcall_lab.stub_front import (
     AVAILABLE_TOOLS,
     BUILD_META_KEYS,
@@ -322,6 +323,16 @@ def test_write_pages_does_not_embed_the_static_try_it_demo(tmp_path: Path) -> No
     assert (out / PAGES_WIKI_JS_NAME).read_text(encoding="utf-8") == (
         PAGES_WIKI_JS_SOURCE.read_text(encoding="utf-8")
     )
+
+
+def test_pixiv_pages_tools_are_complete_catalog_entries() -> None:
+    pixiv_tools = {
+        "fetch_pixiv_dictionary_section",
+        "fetch_pixiv_dictionary_article",
+    }
+    assert pixiv_tools <= set(AVAILABLE_TOOLS)
+    assert pixiv_tools <= set(TOOL_DESCRIPTIONS)
+    assert all(TOOL_DESCRIPTIONS[name].strip() for name in pixiv_tools)
 
 
 def test_write_pages_has_hash_routed_home_and_wiki_panels(tmp_path: Path) -> None:
