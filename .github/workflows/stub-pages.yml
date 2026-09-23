@@ -146,8 +146,12 @@ jobs:
           npx --yes playwright@1.55.0 install --with-deps chromium webkit
           npx --yes playwright@1.55.0 screenshot --browser=chromium --device="Desktop Chrome" --full-page \
             "http://127.0.0.1:4173/#pixiv" test-results/pixiv-pages-desktop.png
+          # WebKit can return a non-zero close status on the runner after the
+          # screenshot has already been written. Treat the artifact itself as
+          # the contract; a missing/empty PNG still fails the job.
           npx --yes playwright@1.55.0 screenshot --browser=webkit --device="iPhone 13" --full-page \
-            "http://127.0.0.1:4173/#pixiv" test-results/pixiv-pages-mobile.png
+            "http://127.0.0.1:4173/#pixiv" test-results/pixiv-pages-mobile.png || \
+            test -s test-results/pixiv-pages-mobile.png
 
           # The local /pixiv route is not a fixture: it dispatches the real
           # fetch_pixiv_dictionary_article tool, which reads dic.pixiv.net.
@@ -170,7 +174,8 @@ jobs:
           npx --yes playwright@1.55.0 screenshot --browser=chromium --device="Desktop Chrome" --full-page \
             "$PIXIV_URL" test-results/pixiv-live-desktop.png
           npx --yes playwright@1.55.0 screenshot --browser=webkit --device="iPhone 13" --full-page \
-            "$PIXIV_URL" test-results/pixiv-live-mobile.png
+            "$PIXIV_URL" test-results/pixiv-live-mobile.png || \
+            test -s test-results/pixiv-live-mobile.png
 
       - name: Upload observations
         if: always()
