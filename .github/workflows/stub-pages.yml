@@ -139,14 +139,36 @@ jobs:
             curl -sf http://127.0.0.1:4173/ >/dev/null && break
             sleep 1
           done
-          # The screenshot CLI maps iPhone device profiles to WebKit. Install both
-          # engines explicitly so desktop Chromium + mobile WebKit use the same
-          # Playwright version and browser cache.
+          # Use Chromium for desktop and WebKit with an iPhone device profile
+          # to approximate Safari. Install both explicitly at the same version.
           npx --yes playwright@1.55.0 install --with-deps chromium webkit
           npx --yes playwright@1.55.0 screenshot --browser=chromium --device="Desktop Chrome" --full-page \
             "http://127.0.0.1:4173/#pixiv" test-results/pixiv-pages-desktop.png
           npx --yes playwright@1.55.0 screenshot --browser=webkit --device="iPhone 13" --full-page \
             "http://127.0.0.1:4173/#pixiv" test-results/pixiv-pages-mobile.png
+
+          # The local /pixiv route is not a fixture: it dispatches the real
+          # fetch_pixiv_dictionary_article tool, which reads dic.pixiv.net.
+          # Keep the request deliberately low-rate and retry transient failures.
+          PIXIV_URL="http://127.0.0.1:8765/pixiv?title=NARUTO"
+          sleep 3
+          for i in 1 2 3; do
+            if curl --fail --silent --show-error "$PIXIV_URL" \
+              --output test-results/pixiv-live.html; then
+              break
+            fi
+            if [ "$i" = 3 ]; then
+              echo "live Pixiv evidence fetch failed after 3 attempts" >&2
+              exit 1
+            fi
+            sleep $((i * 3))
+          done
+          grep -q 'data-testid="pixiv-result"' test-results/pixiv-live.html
+          grep -q 'https://dic.pixiv.net/a/NARUTO' test-results/pixiv-live.html
+          npx --yes playwright@1.55.0 screenshot --browser=chromium --device="Desktop Chrome" --full-page \
+            "$PIXIV_URL" test-results/pixiv-live-desktop.png
+          npx --yes playwright@1.55.0 screenshot --browser=webkit --device="iPhone 13" --full-page \
+            "$PIXIV_URL" test-results/pixiv-live-mobile.png
 
       - name: Upload observations
         if: always()
