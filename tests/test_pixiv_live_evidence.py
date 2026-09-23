@@ -29,7 +29,43 @@ def test_stub_pages_captures_real_pixiv_result_in_chromium_and_webkit() -> None:
     assert "pixiv-live-webkit.log" in workflow
     assert "HTTP status: $HTTP_STATUS" in workflow
     assert "pixiv-live.html (first 120 lines)" in workflow
-    assert "logs --tail=120 stub-front" in workflow
+    assert "logs --tail=200 stub-front" in workflow\n    assert "logs --tail=120 stub-front" not in workflow
     assert "missing pixiv-result marker" in workflow
     assert "missing expected Pixiv source URL" in workflow
     assert workflow.count('"src/mcp_toolcall_lab/pixiv_dictionary_tool.py"') == 2
+
+
+def test_live_pixiv_fetch_is_split_and_strictly_classified() -> None:
+    workflow = (ROOT / ".github" / "workflows" / "stub-pages.yml").read_text(encoding="utf-8")
+    assert "name: Live Pixiv fetch (stub-front -> dic.pixiv.net)" in workflow
+    assert "id: pixiv_live" in workflow
+    assert "name: Capture live Pixiv screenshots" in workflow
+    assert "if: steps.pixiv_live.outputs.live == 'ok'" in workflow
+    assert "--max-time 30" in workflow
+    assert "--dump-header test-results/pixiv-live.headers" in workflow
+    assert "X-Pixiv-Stage" in workflow
+    assert "X-Pixiv-Upstream-Status" in workflow
+    assert "classification: $CLASSIFICATION" in workflow
+    assert "::warning title=Pixiv live skipped: $CLASSIFICATION::$DETAIL" in workflow
+    assert "::error title=Pixiv live: $1::$2" in workflow
+    assert "GITHUB_STEP_SUMMARY" in workflow
+    for category in (
+        "stub-unreachable",
+        "upstream-rate-limited-",
+        "upstream-http-",
+        "upstream-network",
+        "stub-internal-",
+        "bad-request",
+        "unexpected-http-",
+        "result-marker-missing",
+        "source-url-missing",
+    ):
+        assert category in workflow
+    # Only the two explicitly accepted upstream conditions may produce a skip.
+    skip_condition = (
+        '[ "$CLASSIFICATION" = "upstream-http-403" ] || '
+        '[ "$CLASSIFICATION" = "upstream-rate-limited-429" ]'
+    )
+    assert skip_condition in workflow
+    assert workflow.count('echo "live=skipped" >> "$GITHUB_OUTPUT"') == 1
+    assert 'echo "live=ok" >> "$GITHUB_OUTPUT"' in workflow
