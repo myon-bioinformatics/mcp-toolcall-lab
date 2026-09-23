@@ -460,6 +460,15 @@ request/response wire round-trips correctly. **No test here has verified
 the request shape against a real llama.cpp (or other) server** — that
 confirmation is still open. See `docs/jev_shim.md`.
 
+
+### Related reading (external)
+
+External write-ups useful while working on the Jev lanes in this lab (not
+affiliated; linked for reference only):
+
+- [JevでRAG検索の爆速化＆コスト削減は実現できるのか検証してみた](https://qiita.com/kikuziro/items/2be9091b328d8b844640) (Qiita) — RAG pipeline measurements with Jev for rerank / "cannot answer" gating / out-of-scope prefilter. Shared via [@suh_sunaneko](https://x.com/suh_sunaneko/status/2102377535493509504).
+- [Stagehand v4 + Jev thread](https://x.com/Dontgiveup_26/status/2102286564521111687) (@Dontgiveup_26) — community thread on Stagehand v4 browser automation paired with Jev (claimed LLM-call reduction / speedup). Thread itself; no separate article URL.
+
 ## Next increments
 
 1. Add a versioned mock catalogue modeled on public REINFOLIB documentation, without API keys.
