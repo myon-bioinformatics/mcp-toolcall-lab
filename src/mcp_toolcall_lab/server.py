@@ -275,6 +275,14 @@ def create_mcp() -> FastMCP:
     def fetch_wikipedia_article(title: str, lang: str = "en") -> dict[str, Any]:
         return dispatch_tool("fetch_wikipedia_article", {"title": title, "lang": lang})
 
+    @mcp.tool(description=TOOL_DESCRIPTIONS["fetch_pixiv_dictionary_section"])
+    def fetch_pixiv_dictionary_section(title: str, heading: str = "") -> list[dict[str, str]]:
+        return dispatch_tool("fetch_pixiv_dictionary_section", {"title": title, "heading": heading})
+
+    @mcp.tool(description=TOOL_DESCRIPTIONS["fetch_pixiv_dictionary_article"])
+    def fetch_pixiv_dictionary_article(title: str) -> dict[str, Any]:
+        return dispatch_tool("fetch_pixiv_dictionary_article", {"title": title})
+
     return mcp
 
 
