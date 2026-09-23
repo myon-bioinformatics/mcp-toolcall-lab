@@ -19,6 +19,7 @@ from mcp_toolcall_lab.markdown_lib import (
     load_markdown,
     markdown_py_path,
 )
+from mcp_toolcall_lab.catalog import TOOL_DESCRIPTIONS
 from mcp_toolcall_lab.stub_front import (
     AVAILABLE_TOOLS,
     BUILD_META_KEYS,
@@ -324,6 +325,16 @@ def test_write_pages_does_not_embed_the_static_try_it_demo(tmp_path: Path) -> No
     )
 
 
+def test_pixiv_pages_tools_are_complete_catalog_entries() -> None:
+    pixiv_tools = {
+        "fetch_pixiv_dictionary_section",
+        "fetch_pixiv_dictionary_article",
+    }
+    assert pixiv_tools <= set(AVAILABLE_TOOLS)
+    assert pixiv_tools <= set(TOOL_DESCRIPTIONS)
+    assert all(TOOL_DESCRIPTIONS[name].strip() for name in pixiv_tools)
+
+
 def test_write_pages_has_hash_routed_home_and_wiki_panels(tmp_path: Path) -> None:
     """Published index stays one endpoint: #wiki is an in-page transition."""
     html = write_pages(tmp_path / "site", revision=_FAKE_REVISION).read_text(encoding="utf-8")
@@ -334,6 +345,13 @@ def test_write_pages_has_hash_routed_home_and_wiki_panels(tmp_path: Path) -> Non
     assert 'href="#wiki"' in html
     assert 'data-pages-nav="wiki"' in html
     assert 'data-testid="pages-nav-wiki"' in html
+    assert 'href="#pixiv"' in html
+    assert 'data-pages-nav="pixiv"' in html
+    assert 'data-testid="pages-nav-pixiv"' in html
+    assert 'data-pages-view="pixiv"' in html
+    assert 'data-testid="pages-pixiv"' in html
+    assert "fetch_pixiv_dictionary_section" in html
+    assert "fetch_pixiv_dictionary_article" in html
     assert 'id="home"' in html
     assert 'id="wiki"' in html
     assert 'data-pages-view="home"' in html
@@ -378,6 +396,7 @@ assert.strictEqual(pages.viewFromLocation("", ""), "home");
 assert.strictEqual(pages.viewFromLocation("#", ""), "home");
 assert.strictEqual(pages.viewFromLocation("#home", ""), "home");
 assert.strictEqual(pages.viewFromLocation("#wiki", ""), "wiki");
+assert.strictEqual(pages.viewFromLocation("#pixiv", ""), "pixiv");
 assert.strictEqual(pages.viewFromLocation("#wiki?x=1", ""), "wiki");
 assert.strictEqual(pages.viewFromLocation("", "?view=wiki"), "wiki");
 assert.strictEqual(pages.viewFromLocation("#", "?view=wiki"), "wiki");
