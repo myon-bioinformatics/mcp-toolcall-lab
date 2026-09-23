@@ -975,7 +975,29 @@ def fetch_pixiv_dictionary_section(title: str, heading: str = "") -> list[dict[s
     section = lookup_heading(heading, sections, fuzzy=True)
     if section is None:
         return []
-    return [{"heading": section.title, "level": str(section.level), "body": section.body}]
+    # parse_sections() may include nested descendants in a parent body. For a
+    # selected heading, recover the exact heading from the normalized Markdown
+    # and return only its own prose up to the next heading of any level.
+    lines = article.markdown.splitlines()
+    target = section.title.casefold()
+    start = None
+    for index, line in enumerate(lines):
+        stripped = line.lstrip()
+        if stripped.startswith("#"):
+            title_text = stripped.lstrip("#").strip().rstrip("#").strip()
+            if title_text.casefold() == target:
+                start = index + 1
+                break
+    if start is None:
+        body = section.body
+    else:
+        own_body: list[str] = []
+        for line in lines[start:]:
+            if line.lstrip().startswith("#"):
+                break
+            own_body.append(line)
+        body = "\n".join(own_body).strip()
+    return [{"heading": section.title, "level": str(section.level), "body": body}]
 
 # --- catalog.py ---
 """Pure-Python mock data used by the FastMCP server and unit tests.
