@@ -132,11 +132,16 @@ def test_write_pages_is_static(tmp_path: Path) -> None:
     assert f"web-ui@{WEB_UI_SHA}/css/stub.css" in html
     assert f"web-ui contract pinned to <code>{WEB_UI_SHA}</code>" in html
     assert html.index('class="ui-panel stub-result"') < html.index('<aside aria-label="Supporting information">')
+    pixiv_tools = {tool for tool in AVAILABLE_TOOLS if tool.startswith("fetch_pixiv_dictionary_")}
+    other_tools = set(AVAILABLE_TOOLS) - pixiv_tools
     assert len(AVAILABLE_TOOLS) == 7
+    assert pixiv_tools == {
+        "fetch_pixiv_dictionary_section",
+        "fetch_pixiv_dictionary_article",
+    }
+    assert len(other_tools) == 5
     for tool in AVAILABLE_TOOLS:
         assert f"<code>{tool}</code>" in html
-    assert "fetch_pixiv_dictionary_section" in html
-    assert "fetch_pixiv_dictionary_article" in html
     assert not (tmp_path / "site" / "last-run.json").exists()
 
 
