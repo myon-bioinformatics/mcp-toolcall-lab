@@ -21,4 +21,6 @@ def test_stub_pages_captures_real_pixiv_result_in_chromium_and_webkit() -> None:
     assert '--browser=webkit --device="iPhone 13"' in workflow
     assert "pixiv-live-desktop.png" in workflow
     assert "pixiv-live-mobile.png" in workflow
+    assert "test -s test-results/pixiv-pages-mobile.png" in workflow
+    assert "test -s test-results/pixiv-live-mobile.png" in workflow
     assert workflow.count('"src/mcp_toolcall_lab/pixiv_dictionary_tool.py"') == 2
