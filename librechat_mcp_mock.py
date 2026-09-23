@@ -858,6 +858,7 @@ from collections import OrderedDict
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+from urllib.error import HTTPError
 
 
 PIXIV_ARTICLE = "https://dic.pixiv.net/a/{title}"
@@ -870,7 +871,18 @@ CACHE_MAXSIZE = 8
 
 
 class PixivDictionaryFetchError(RuntimeError):
-    pass
+    """Raised when an article cannot be fetched, converted, or was requested with a bad title.
+
+    ``stage`` tells callers which layer failed (``input`` / ``upstream_http`` /
+    ``upstream_network`` / ``convert``) so an HTTP front end can map it to a
+    status code without re-deriving it from the message text. ``upstream_status``
+    carries the origin HTTP status when ``stage`` is ``upstream_http``.
+    """
+
+    def __init__(self, message: str, *, stage: str, upstream_status: int | None = None) -> None:
+        super().__init__(message)
+        self.stage = stage
+        self.upstream_status = upstream_status
 
 
 @dataclass(frozen=True)
@@ -918,17 +930,29 @@ def _article_html(title: str) -> tuple[str, str]:
         with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
             charset = response.headers.get_content_charset() or "utf-8"
             return response.read().decode(charset, errors="replace"), url
+    except HTTPError as exc:
+        raise PixivDictionaryFetchError(
+            f"pixiv Encyclopedia article {title!r} returned HTTP {exc.code}",
+            stage="upstream_http",
+            upstream_status=exc.code,
+        ) from exc
     except Exception as exc:
-        raise PixivDictionaryFetchError(f"could not fetch pixiv Encyclopedia article {title!r}: {exc}") from exc
+        raise PixivDictionaryFetchError(
+            f"could not fetch pixiv Encyclopedia article {title!r}: {exc}",
+            stage="upstream_network",
+        ) from exc
 
 
 def _html_to_markdown(raw_html: str) -> str:
     md = load_markdown()
     if md is None or not hasattr(md, "html_to_markdown"):
-        raise PixivDictionaryFetchError("vendor/markdown.py with html_to_markdown() is required")
-    converted = str(md.html_to_markdown(raw_html)).strip()
+        raise PixivDictionaryFetchError("vendor/markdown.py with html_to_markdown() is required", stage="convert")
+    try:
+        converted = str(md.html_to_markdown(raw_html)).strip()
+    except Exception as exc:
+        raise PixivDictionaryFetchError(f"failed to convert pixiv Encyclopedia HTML: {exc}", stage="convert") from exc
     if not converted:
-        raise PixivDictionaryFetchError("pixiv Encyclopedia HTML produced no Markdown")
+        raise PixivDictionaryFetchError("pixiv Encyclopedia HTML produced no Markdown", stage="convert")
     return converted
 
 
@@ -943,7 +967,7 @@ def _canonical_title(markdown: str, requested: str) -> str:
 def load_pixiv_dictionary_article(title: str) -> tuple[PixivDictionaryArticle, str]:
     cleaned = title.strip()
     if not cleaned:
-        raise PixivDictionaryFetchError("article title is required")
+        raise PixivDictionaryFetchError("article title is required", stage="input")
     key = cleaned.casefold()
     now = time.monotonic()
     cached = _CACHE.get(key)

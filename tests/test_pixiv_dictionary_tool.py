@@ -1,4 +1,7 @@
 from pathlib import Path
+from urllib.error import HTTPError
+
+import pytest
 
 from mcp_toolcall_lab import pixiv_dictionary_tool as pt
 
@@ -63,3 +66,52 @@ def test_pixiv_fetch_uses_one_encoded_article_url(monkeypatch):
     assert len(seen) == 1
     assert seen[0].startswith("https://dic.pixiv.net/a/")
     assert "%E3%83%A6" in seen[0]
+
+
+def test_http_error_from_upstream_carries_stage_and_status(monkeypatch):
+    monkeypatch.delenv(pt.FIXTURE_ENV, raising=False)
+    pt.reset_pixiv_dictionary_cache()
+
+    def fake_urlopen(request, timeout):
+        raise HTTPError(request.full_url, 403, "Forbidden", None, None)
+
+    monkeypatch.setattr(pt.urllib.request, "urlopen", fake_urlopen)
+    with pytest.raises(pt.PixivDictionaryFetchError) as exc_info:
+        pt.fetch_pixiv_dictionary_article("NARUTO")
+    assert exc_info.value.stage == "upstream_http"
+    assert exc_info.value.upstream_status == 403
+
+
+def test_network_error_from_upstream_is_upstream_network_stage(monkeypatch):
+    monkeypatch.delenv(pt.FIXTURE_ENV, raising=False)
+    pt.reset_pixiv_dictionary_cache()
+
+    def fake_urlopen(request, timeout):
+        raise TimeoutError("timed out")
+
+    monkeypatch.setattr(pt.urllib.request, "urlopen", fake_urlopen)
+    with pytest.raises(pt.PixivDictionaryFetchError) as exc_info:
+        pt.fetch_pixiv_dictionary_article("NARUTO")
+    assert exc_info.value.stage == "upstream_network"
+    assert exc_info.value.upstream_status is None
+
+
+def test_empty_title_raises_input_stage_error():
+    with pytest.raises(pt.PixivDictionaryFetchError) as exc_info:
+        pt.fetch_pixiv_dictionary_article("   ")
+    assert exc_info.value.stage == "input"
+    assert exc_info.value.upstream_status is None
+
+
+def test_empty_markdown_conversion_is_convert_stage(monkeypatch):
+    monkeypatch.setenv(pt.FIXTURE_ENV, str(FIXTURE))
+    pt.reset_pixiv_dictionary_cache()
+
+    class BlankMarkdown:
+        def html_to_markdown(self, raw_html):
+            return "   "
+
+    monkeypatch.setattr(pt, "load_markdown", lambda: BlankMarkdown())
+    with pytest.raises(pt.PixivDictionaryFetchError) as exc_info:
+        pt.fetch_pixiv_dictionary_article("テスト記事")
+    assert exc_info.value.stage == "convert"
