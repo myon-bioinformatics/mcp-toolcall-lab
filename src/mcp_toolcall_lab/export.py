@@ -26,7 +26,7 @@ LIBRECHAT_STANDALONE_PATH = REPO_ROOT / "librechat_mcp_mock.py"
 # defined by an earlier chunk once stripped. mock/common.py first for
 # record.py; markdown_lib.py then wikipedia_tool.py before catalog.py
 # (fetch_wikipedia_section's Section/lookup_heading/parse_sections).
-INLINE_MODULES = ("mock/common.py", "markdown_lib.py", "wikipedia_tool.py", "catalog.py", "record.py", "server.py")
+INLINE_MODULES = ("mock/common.py", "markdown_lib.py", "wikipedia_tool.py", "pixiv_dictionary_tool.py", "catalog.py", "record.py", "server.py")
 
 
 def _header(run_command: str, audience: str) -> str:

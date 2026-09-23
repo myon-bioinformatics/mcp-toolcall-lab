@@ -18,6 +18,7 @@ from __future__ import annotations
 from typing import Any
 
 from .wikipedia_tool import DEFAULT_LANG, fetch_wikipedia_article, fetch_wikipedia_section
+from .pixiv_dictionary_tool import fetch_pixiv_dictionary_article, fetch_pixiv_dictionary_section
 
 AVAILABLE_TOOLS = (
     "find_municipalities",
@@ -25,6 +26,8 @@ AVAILABLE_TOOLS = (
     "find_stations",
     "fetch_wikipedia_section",
     "fetch_wikipedia_article",
+    "fetch_pixiv_dictionary_section",
+    "fetch_pixiv_dictionary_article",
 )
 
 TOOL_DESCRIPTIONS = {
@@ -41,6 +44,15 @@ TOOL_DESCRIPTIONS = {
         "Fetch a real Wikipedia article as a MediaWiki plaintext extract (not HTML). Returns "
         "canonical_title, extract, and headings from that same fetch. In-process TTL/LRU cache "
         "reuses the extract when only the heading changes."
+    ),
+    "fetch_pixiv_dictionary_section": (
+        "Fetch one public pixiv Encyclopedia article HTML page, normalize it through vendored "
+        "markdown.py, and return its hierarchical heading list or one selected section. "
+        "The cached article is reused when only the heading changes."
+    ),
+    "fetch_pixiv_dictionary_article": (
+        "Fetch one public pixiv Encyclopedia article HTML page and normalize it through vendored "
+        "markdown.py. Returns canonical_title, Markdown, hierarchical headings and source_url."
     ),
 }
 
@@ -113,4 +125,11 @@ def dispatch_tool(name: str, arguments: dict[str, Any]) -> Any:
             str(arguments.get("title", "")),
             lang=str(arguments.get("lang") or DEFAULT_LANG),
         )
+    if name == "fetch_pixiv_dictionary_section":
+        return fetch_pixiv_dictionary_section(
+            str(arguments.get("title", "")),
+            str(arguments.get("heading", "")),
+        )
+    if name == "fetch_pixiv_dictionary_article":
+        return fetch_pixiv_dictionary_article(str(arguments.get("title", "")))
     raise KeyError(name)

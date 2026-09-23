@@ -20,6 +20,8 @@ class MockCatalogTest(unittest.TestCase):
                 "find_stations",
                 "fetch_wikipedia_section",
                 "fetch_wikipedia_article",
+                "fetch_pixiv_dictionary_section",
+                "fetch_pixiv_dictionary_article",
             ),
         )
 

@@ -124,7 +124,7 @@ def test_pr23_wire_fixtures_are_jsonrpc_sse_not_lab_events() -> None:
                     _advertised(tool)
                     for tool in sorted(tools, key=lambda item: item["name"])
                 ]
-                assert specs == EXPECTED_TOOL_SPECS
+                # PR #23 fixtures are historical wire captures, not the live catalog.\n                # Keep validating their JSON-RPC/SSE envelope without requiring newly\n                # added tools to be retroactively present in those recordings.\n                expected_by_name = {spec["name"]: spec for spec in EXPECTED_TOOL_SPECS}\n                assert specs == [expected_by_name[spec["name"]] for spec in specs]\n                assert all(spec["name"] in expected_by_name for spec in specs)
             if method == MCP_TOOLS_CALL:
                 result = hop_response(hop)["result"]
                 assert "isError" in result
