@@ -989,6 +989,12 @@ def pixiv_page_response(*, title: str = "") -> tuple[int, str, dict[str, str]]:
     return status, body, headers
 
 
+def _pixiv_error_from_body(body: str) -> str | None:
+    """Extract the already-escaped Pixiv error for internal diagnostics only."""
+    match = re.search(r'data-testid="pixiv-error"[^>]*>([^<]*)</p>', body)
+    return html.unescape(match.group(1)) if match else None
+
+
 def render_pixiv_page(*, title: str = "") -> str:
     """Compatibility wrapper over ``pixiv_page_response()`` -- HTML only."""
     _, body, _ = pixiv_page_response(title=title)
@@ -1188,7 +1194,7 @@ def make_handler(state: StubState) -> type[BaseHTTPRequestHandler]:
                             "status": status,
                             "stage": extra_headers.get("X-Pixiv-Stage"),
                             "upstream_status": int(upstream_status) if upstream_status else None,
-                            "error": extra_headers.get("X-Pixiv-Error"),
+                            "error": _pixiv_error_from_body(page),
                             "cache": extra_headers.get("X-Pixiv-Cache"),
                             "elapsed_ms": elapsed_ms,
                         },
