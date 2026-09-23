@@ -132,4 +132,13 @@ def fetch_pixiv_dictionary_section(title: str, heading: str = "") -> list[dict[s
     section = lookup_heading(heading, sections, fuzzy=True)
     if section is None:
         return []
-    return [{"heading": section.title, "level": str(section.level), "body": section.body}]
+    # parse_sections() intentionally gives parent sections their nested children.
+    # A direct child-heading selection should expose only that heading's own prose,
+    # stopping before the next heading of any level (Wikipedia-style selector UX).
+    lines = section.body.splitlines()
+    own_body: list[str] = []
+    for line in lines:
+        if line.lstrip().startswith("#"):
+            break
+        own_body.append(line)
+    return [{"heading": section.title, "level": str(section.level), "body": "\n".join(own_body).strip()}]
