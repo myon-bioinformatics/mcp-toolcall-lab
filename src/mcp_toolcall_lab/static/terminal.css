@@ -1,0 +1,231 @@
+/*
+ * terminal-lite: the lab's one small CSS surface.
+ *
+ * Replaces the five-link myon-bioinformatics/web-ui CDN chain (tokens.css,
+ * base.css, components.css, stub.css, themes/modern.css) on the published
+ * Pages report and the local /wiki and /pixiv surfaces. web-ui itself is
+ * unchanged; this file is lab-owned and intentionally small. Converted
+ * Markdown content (tables, alerts, footnotes, ...) keeps its own styling
+ * from vendor/markdown.py's default_stylesheet() -- that is a separate,
+ * content-scoped concern and stays untouched here.
+ *
+ * Dark ASCII/terminal presentation: borders instead of shadows or rounded
+ * corners, `#`/`>` glyphs for headings and prompts, status text instead of
+ * colored pills. Readability over decoration.
+ */
+
+:root {
+  --term-bg: #0a0e10;
+  --term-bg-alt: #11171a;
+  --term-bg-inset: #05080a;
+  --term-fg: #d5dee0;
+  --term-fg-muted: #7c8a8d;
+  --term-border: #2b3436;
+  --term-accent: #5fd7a7;
+  --term-warn: #f2b880;
+  --term-danger: #ff8080;
+  --term-font: ui-monospace, "SFMono-Regular", "JetBrains Mono", Consolas, "Liberation Mono", Menlo, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 1.5rem;
+  background: var(--term-bg);
+  color: var(--term-fg);
+  font-family: var(--term-font);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+a {
+  color: var(--term-accent);
+}
+
+a:hover,
+a:focus {
+  text-decoration: none;
+}
+
+code,
+pre {
+  font-family: var(--term-font);
+}
+
+h1,
+h2,
+h3 {
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.term-page,
+.term-shell {
+  max-width: 60rem;
+  margin: 0 auto;
+}
+
+.term-title::before {
+  content: "# ";
+  color: var(--term-accent);
+}
+
+.term-muted {
+  color: var(--term-fg-muted);
+}
+
+.term-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border-bottom: 1px solid var(--term-border);
+  padding-bottom: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.term-meta {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.term-tag {
+  border: 1px solid var(--term-border);
+  color: var(--term-fg-muted);
+  padding: 0.1rem 0.5rem;
+  font-size: 0.85em;
+}
+
+.term-tag::before {
+  content: "[";
+}
+
+.term-tag::after {
+  content: "]";
+}
+
+#pages-nav a {
+  border: 1px solid transparent;
+  padding: 0.1rem 0.4rem;
+}
+
+#pages-nav a[aria-current="page"] {
+  border-color: var(--term-border);
+  color: var(--term-accent);
+}
+
+#pages-nav a[aria-current="page"]::before {
+  content: "> ";
+}
+
+.term-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: 1.5rem;
+  align-items: start;
+}
+
+@media (max-width: 720px) {
+  .term-workspace {
+    grid-template-columns: 1fr;
+  }
+}
+
+.term-panel,
+.term-card {
+  border: 1px solid var(--term-border);
+  background: var(--term-bg-alt);
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.term-panel > h1:first-child,
+.term-panel > h2:first-child,
+.term-card > h2:first-child {
+  margin-top: 0;
+}
+
+.term-output {
+  background: var(--term-bg-inset);
+  border: 1px solid var(--term-border);
+  color: var(--term-fg);
+  padding: 0.75rem;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+label {
+  display: inline-block;
+  color: var(--term-fg-muted);
+  margin-right: 0.4rem;
+}
+
+input,
+select,
+textarea,
+.term-input {
+  background: var(--term-bg-inset);
+  border: 1px solid var(--term-border);
+  color: var(--term-fg);
+  font-family: var(--term-font);
+  padding: 0.35rem 0.5rem;
+}
+
+textarea {
+  width: 100%;
+  min-height: 4rem;
+}
+
+select {
+  width: 100%;
+  margin: 0.4rem 0;
+}
+
+button,
+.term-button {
+  background: var(--term-bg-alt);
+  border: 1px solid var(--term-border);
+  color: var(--term-fg);
+  font-family: var(--term-font);
+  padding: 0.35rem 0.75rem;
+  cursor: pointer;
+}
+
+button::before,
+.term-button::before {
+  content: "> ";
+  color: var(--term-accent);
+}
+
+button:hover,
+.term-button:hover {
+  border-color: var(--term-accent);
+}
+
+[data-cache="hit"] {
+  color: var(--term-accent);
+}
+
+[data-cache="miss"] {
+  color: var(--term-warn);
+}
+
+[data-cache="error"] {
+  color: var(--term-danger);
+}
+
+[role="alert"] {
+  border: 1px solid var(--term-danger);
+  color: var(--term-danger);
+  padding: 0.5rem;
+}
+
+#build-meta {
+  color: var(--term-fg-muted);
+  font-size: 0.9em;
+}
