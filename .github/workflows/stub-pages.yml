@@ -146,12 +146,18 @@ jobs:
           npx --yes playwright@1.55.0 install --with-deps chromium webkit
           npx --yes playwright@1.55.0 screenshot --browser=chromium --device="Desktop Chrome" --full-page \
             "http://127.0.0.1:4173/#pixiv" test-results/pixiv-pages-desktop.png
-          # WebKit can return a non-zero close status on the runner after the
-          # screenshot has already been written. Treat the artifact itself as
-          # the contract; a missing/empty PNG still fails the job.
+          # Capture WebKit diagnostics separately from the artifact contract.
+          # Do not let `bash -e` abort before we can inspect what Playwright wrote.
+          set +e
           npx --yes playwright@1.55.0 screenshot --browser=webkit --device="iPhone 13" --full-page \
-            "http://127.0.0.1:4173/#pixiv" test-results/pixiv-pages-mobile.png || \
-            test -s test-results/pixiv-pages-mobile.png
+            "http://127.0.0.1:4173/#pixiv" test-results/pixiv-pages-mobile.png \
+            >test-results/pixiv-pages-webkit.log 2>&1
+          WEBKIT_STATUS=$?
+          set -e
+          cat test-results/pixiv-pages-webkit.log
+          echo "static WebKit exit status: $WEBKIT_STATUS"
+          ls -l test-results/pixiv-pages-mobile.png || true
+          test -s test-results/pixiv-pages-mobile.png
 
           # The local /pixiv route is not a fixture: it dispatches the real
           # fetch_pixiv_dictionary_article tool, which reads dic.pixiv.net.
@@ -173,9 +179,16 @@ jobs:
           grep -q 'https://dic.pixiv.net/a/NARUTO' test-results/pixiv-live.html
           npx --yes playwright@1.55.0 screenshot --browser=chromium --device="Desktop Chrome" --full-page \
             "$PIXIV_URL" test-results/pixiv-live-desktop.png
+          set +e
           npx --yes playwright@1.55.0 screenshot --browser=webkit --device="iPhone 13" --full-page \
-            "$PIXIV_URL" test-results/pixiv-live-mobile.png || \
-            test -s test-results/pixiv-live-mobile.png
+            "$PIXIV_URL" test-results/pixiv-live-mobile.png \
+            >test-results/pixiv-live-webkit.log 2>&1
+          LIVE_WEBKIT_STATUS=$?
+          set -e
+          cat test-results/pixiv-live-webkit.log
+          echo "live WebKit exit status: $LIVE_WEBKIT_STATUS"
+          ls -l test-results/pixiv-live-mobile.png || true
+          test -s test-results/pixiv-live-mobile.png
 
       - name: Upload observations
         if: always()
