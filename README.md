@@ -137,6 +137,17 @@ python -m mcp_toolcall_lab.docker_logs timeline \
   --dir test-results -o test-results/timeline.jsonl
 ```
 
+### Shared Pages tool catalog
+
+The published Pages workspace derives its tool catalog directly from
+`mcp_toolcall_lab.catalog.AVAILABLE_TOOLS` and `TOOL_DESCRIPTIONS`; it is
+not a frozen, separately maintained UI list. Adding or removing a catalog tool
+therefore changes the generated Pages catalog and intentionally trips the
+seven-tool regression guard until the expected catalog contract is reviewed.
+The shell is presentation-only and is pinned to web-ui
+`a0867e454bb2f7ecb4f69da9a46a2361b2438305`; MCP execution, fixtures,
+trace/log semantics, and protocol behavior remain owned here.
+
 ### Serverless stub try (Actions + Pages)
 
 GitHub Pages is static:
