@@ -437,7 +437,7 @@ def pages_summary(
 
 
 PAGES_OUTPUT_NAME = "_site"
-WEB_UI_SHA = "e7d16a2ce0cee76b7744a4b6a8f8ce374491a4db"
+WEB_UI_SHA = "a0867e454bb2f7ecb4f69da9a46a2361b2438305"
 
 
 def _git_output(args: list[str]) -> str | None:
@@ -857,8 +857,9 @@ def write_pages(
         f'<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/myon-bioinformatics/web-ui@{WEB_UI_SHA}/css/base.css">'
         f'<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/myon-bioinformatics/web-ui@{WEB_UI_SHA}/css/components.css">'
         f'<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/myon-bioinformatics/web-ui@{WEB_UI_SHA}/css/stub.css">'
+        f'<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/myon-bioinformatics/web-ui@{WEB_UI_SHA}/css/themes/modern.css">'
         "<title>mcp-toolcall-lab stub</title>"
-        '</head><body><main class="ui-page stub-shell" data-ui-theme="modern">'
+        '</head><body data-ui-theme="modern"><main class="ui-page stub-shell">'
         '<header class="stub-header"><div><h1 class="ui-title">mcp-toolcall-lab stub</h1>'
         '<p class="ui-muted">Static Pages evidence for MCP tool-call experiments.</p></div>'
         f'<div class="stub-meta"><span class="ui-tag">mcp</span><span class="ui-tag">{len(AVAILABLE_TOOLS)} tools</span></div></header>'
