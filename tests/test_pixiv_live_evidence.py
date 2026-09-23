@@ -2,6 +2,9 @@
 
 from pathlib import Path
 
+from mcp_toolcall_lab.pixiv_dictionary_tool import PixivDictionaryFetchError
+from mcp_toolcall_lab.stub_front import pixiv_page_response
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -70,3 +73,32 @@ def test_live_pixiv_fetch_is_split_and_strictly_classified() -> None:
     assert skip_condition in workflow
     assert workflow.count('echo "live=skipped" >> "$GITHUB_OUTPUT"') == 1
     assert 'echo "live=ok" >> "$GITHUB_OUTPUT"' in workflow
+
+
+def test_pixiv_error_headers_are_ascii_safe_for_japanese_title(monkeypatch) -> None:
+    def boom(name, arguments):
+        raise PixivDictionaryFetchError(
+            f"article {arguments['title']!r} returned HTTP 403",
+            stage="upstream_http",
+            upstream_status=403,
+        )
+
+    monkeypatch.setattr("mcp_toolcall_lab.stub_front.dispatch_tool", boom)
+    status, body, headers = pixiv_page_response(title="ナルト")
+    assert status == 502
+    assert 'data-testid="pixiv-error"' in body
+    assert 'data-testid="pixiv-result"' not in body
+    assert "X-Pixiv-Error" not in headers
+    for value in headers.values():
+        value.encode("latin-1")
+
+
+def test_pixiv_success_without_cache_reports_unknown(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "mcp_toolcall_lab.stub_front.dispatch_tool",
+        lambda name, arguments: {"canonical_title": arguments["title"], "markdown": "ok"},
+    )
+    status, body, headers = pixiv_page_response(title="NARUTO")
+    assert status == 200
+    assert headers["X-Pixiv-Cache"] == "unknown"
+    assert 'data-testid="pixiv-result"' in body
