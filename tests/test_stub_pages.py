@@ -45,6 +45,7 @@ from mcp_toolcall_lab.stub_front import (
     parse_sections,
     render_rows,
     render_pixiv_page,
+    render_wiki_page,
     pixiv_page_response,
     write_pages,
     write_stub_demo_page,
@@ -134,6 +135,8 @@ def test_write_pages_is_static(tmp_path: Path) -> None:
     assert 'class="ui-card stub-history"' in html
     assert '<aside aria-label="Supporting information">' in html
     assert f"web-ui@{WEB_UI_SHA}/css/stub.css" in html
+    assert f"web-ui@{WEB_UI_SHA}/css/themes/modern.css" in html
+    assert '<body data-ui-theme="modern">' in html
     assert f"web-ui contract pinned to <code>{WEB_UI_SHA}</code>" in html
     assert html.index('class="ui-panel stub-result"') < html.index('<aside aria-label="Supporting information">')
     pixiv_tools = {tool for tool in AVAILABLE_TOOLS if tool.startswith("fetch_pixiv_dictionary_")}
@@ -355,6 +358,15 @@ def test_render_pixiv_page_outputs_catalog_result(monkeypatch) -> None:
     assert 'class="ui-output"' in html
     assert "canonical_title" in html
     assert "# sample" in html
+    assert f"web-ui@{WEB_UI_SHA}/css/themes/modern.css" in html
+    assert '<body data-ui-theme="modern">' in html
+
+
+def test_local_wiki_uses_shared_modern_theme() -> None:
+    html = render_wiki_page()
+    assert f"web-ui@{WEB_UI_SHA}/css/themes/modern.css" in html
+    assert '<body data-ui-theme="modern">' in html
+    assert '<main class="ui-page">' in html
 
 
 def test_pixiv_page_response_success_reports_cache_status(monkeypatch) -> None:
