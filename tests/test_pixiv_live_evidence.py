@@ -27,4 +27,9 @@ def test_stub_pages_captures_real_pixiv_result_in_chromium_and_webkit() -> None:
     assert "live WebKit exit status: $LIVE_WEBKIT_STATUS" in workflow
     assert "pixiv-pages-webkit.log" in workflow
     assert "pixiv-live-webkit.log" in workflow
+    assert "HTTP status: $HTTP_STATUS" in workflow
+    assert "pixiv-live.html (first 120 lines)" in workflow
+    assert "logs --tail=120 stub-front" in workflow
+    assert "missing pixiv-result marker" in workflow
+    assert "missing expected Pixiv source URL" in workflow
     assert workflow.count('"src/mcp_toolcall_lab/pixiv_dictionary_tool.py"') == 2
