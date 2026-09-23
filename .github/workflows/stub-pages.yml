@@ -31,6 +31,7 @@ on:
       - "vendor/markdown.py"
       - "vendor/markdown.provenance.json"
       - "src/mcp_toolcall_lab/stub_front.py"
+      - "src/mcp_toolcall_lab/static/pages_pixiv.js"
       - "src/mcp_toolcall_lab/markdown_lib.py"
       - "scripts/stub_pages_smoke.py"
       - "scripts/fetch_tiny_cpu_gguf.py"
@@ -45,6 +46,7 @@ on:
       - "vendor/markdown.py"
       - "vendor/markdown.provenance.json"
       - "src/mcp_toolcall_lab/stub_front.py"
+      - "src/mcp_toolcall_lab/static/pages_pixiv.js"
       - "src/mcp_toolcall_lab/markdown_lib.py"
       - "scripts/stub_pages_smoke.py"
       - "scripts/fetch_tiny_cpu_gguf.py"
@@ -127,6 +129,24 @@ jobs:
           python -m mcp_toolcall_lab.stub_front pages --out _site \
             --last-run test-results/last-run.json \
             --observations test-results/antipatterns.jsonl
+
+      - name: Capture Pages screenshots with Playwright CLI
+        run: |
+          python -m http.server 4173 --directory _site >test-results/pages-http.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill $SERVER_PID 2>/dev/null || true' EXIT
+          for i in $(seq 1 20); do
+            curl -sf http://127.0.0.1:4173/ >/dev/null && break
+            sleep 1
+          done
+          # The screenshot CLI maps iPhone device profiles to WebKit. Install both
+          # engines explicitly so desktop Chromium + mobile WebKit use the same
+          # Playwright version and browser cache.
+          npx --yes playwright@1.55.0 install --with-deps chromium webkit
+          npx --yes playwright@1.55.0 screenshot --browser=chromium --device="Desktop Chrome" --full-page \
+            "http://127.0.0.1:4173/#pixiv" test-results/pixiv-pages-desktop.png
+          npx --yes playwright@1.55.0 screenshot --browser=webkit --device="iPhone 13" --full-page \
+            "http://127.0.0.1:4173/#pixiv" test-results/pixiv-pages-mobile.png
 
       - name: Upload observations
         if: always()
