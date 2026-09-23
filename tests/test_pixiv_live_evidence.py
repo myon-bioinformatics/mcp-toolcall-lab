@@ -23,4 +23,8 @@ def test_stub_pages_captures_real_pixiv_result_in_chromium_and_webkit() -> None:
     assert "pixiv-live-mobile.png" in workflow
     assert "test -s test-results/pixiv-pages-mobile.png" in workflow
     assert "test -s test-results/pixiv-live-mobile.png" in workflow
+    assert "static WebKit exit status: $WEBKIT_STATUS" in workflow
+    assert "live WebKit exit status: $LIVE_WEBKIT_STATUS" in workflow
+    assert "pixiv-pages-webkit.log" in workflow
+    assert "pixiv-live-webkit.log" in workflow
     assert workflow.count('"src/mcp_toolcall_lab/pixiv_dictionary_tool.py"') == 2
