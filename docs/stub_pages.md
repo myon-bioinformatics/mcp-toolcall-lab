@@ -88,8 +88,10 @@ in the published summary so the Pages report says honestly which one ran.
 
 The published Pages shell uses the shared `myon-bioinformatics/web-ui` v1
 tool workspace pinned to
-`a0867e454bb2f7ecb4f69da9a46a2361b2438305`, the same revision used by
-Ironmate. The wide layout keeps the primary report/wiki view beside supporting
+`e7d16a2ce0cee76b7744a4b6a8f8ce374491a4db`. This intentionally keeps the
+newer shared `.ui-output` readability styling while applying the same Modern
+theme contract (`themes/modern.css` + `body[data-ui-theme="modern"]`) across
+Pages, local `/pixiv`, and local `/wiki`. The wide layout keeps the primary report/wiki view beside supporting
 tool-catalog/provenance cards; web-ui's `720px` fallback stacks the primary
 content first on narrow screens.
 
