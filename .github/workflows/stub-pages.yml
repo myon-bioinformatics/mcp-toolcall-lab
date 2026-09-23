@@ -164,19 +164,39 @@ jobs:
           # Keep the request deliberately low-rate and retry transient failures.
           PIXIV_URL="http://127.0.0.1:8765/pixiv?title=NARUTO"
           sleep 3
+          PIXIV_OK=0
           for i in 1 2 3; do
-            if curl --fail --silent --show-error "$PIXIV_URL" \
-              --output test-results/pixiv-live.html; then
+            echo "Pixiv live fetch attempt $i/3: $PIXIV_URL"
+            HTTP_STATUS=$(curl --silent --show-error \
+              --output test-results/pixiv-live.html \
+              --write-out '%{http_code}' "$PIXIV_URL") || CURL_STATUS=$?
+            CURL_STATUS=${CURL_STATUS:-0}
+            echo "curl exit status: $CURL_STATUS; HTTP status: $HTTP_STATUS"
+            echo "--- pixiv-live.html (first 120 lines) ---"
+            sed -n '1,120p' test-results/pixiv-live.html || true
+            echo "--- stub-front logs (tail) ---"
+            docker compose -f docker/stub-pages/docker-compose.yml logs --tail=120 stub-front || true
+            if [ "$CURL_STATUS" -eq 0 ] && [ "$HTTP_STATUS" = "200" ]; then
+              PIXIV_OK=1
               break
             fi
-            if [ "$i" = 3 ]; then
-              echo "live Pixiv evidence fetch failed after 3 attempts" >&2
-              exit 1
-            fi
+            unset CURL_STATUS
             sleep $((i * 3))
           done
-          grep -q 'data-testid="pixiv-result"' test-results/pixiv-live.html
-          grep -q 'https://dic.pixiv.net/a/NARUTO' test-results/pixiv-live.html
+          if [ "$PIXIV_OK" -ne 1 ]; then
+            echo "live Pixiv evidence fetch failed after 3 attempts" >&2
+            exit 1
+          fi
+          if ! grep -q 'data-testid="pixiv-result"' test-results/pixiv-live.html; then
+            echo "missing pixiv-result marker after successful HTTP response" >&2
+            docker compose -f docker/stub-pages/docker-compose.yml logs --tail=200 stub-front || true
+            exit 1
+          fi
+          if ! grep -q 'https://dic.pixiv.net/a/NARUTO' test-results/pixiv-live.html; then
+            echo "missing expected Pixiv source URL after successful HTTP response" >&2
+            docker compose -f docker/stub-pages/docker-compose.yml logs --tail=200 stub-front || true
+            exit 1
+          fi
           npx --yes playwright@1.55.0 screenshot --browser=chromium --device="Desktop Chrome" --full-page \
             "$PIXIV_URL" test-results/pixiv-live-desktop.png
           set +e
