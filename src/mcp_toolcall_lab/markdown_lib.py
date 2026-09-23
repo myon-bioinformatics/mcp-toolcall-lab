@@ -230,7 +230,12 @@ def load_ascii_artist() -> ModuleType | None:
 
 
 def to_web_ui_v1_html(text: str, *, title: str = "MCP article") -> str:
-    """Emit web-ui v1 HTML via ascii_artist when available, safe pre fallback otherwise."""
+    """Emit a web-ui v1 fragment via ascii_artist, safe pre fallback otherwise.
+
+    Theme selection belongs to the enclosing document ``<body>``. This helper
+    returns only a ``<main>`` fragment, so it must not pretend to activate a
+    body-scoped theme itself.
+    """
     artist = load_ascii_artist()
     if artist is not None and hasattr(artist, "to_web_ui_v1_html"):
         try:
@@ -239,7 +244,7 @@ def to_web_ui_v1_html(text: str, *, title: str = "MCP article") -> str:
             return str(artist.to_web_ui_v1_html(text))
     import html as _html
     return (
-        '<main class="ui-page" data-ui-theme="modern">'
+        '<main class="ui-page">'
         f'<section class="ui-panel"><h1 class="ui-title">{_html.escape(title)}</h1>'
         f'<pre class="ui-output">{_html.escape(text)}</pre></section></main>'
     )
