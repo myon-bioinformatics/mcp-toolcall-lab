@@ -29,15 +29,19 @@ from mcp_toolcall_lab.stub_front import (
     PAGES_FORBIDDEN_NAMES,
     PAGES_HASH_JS_NAME,
     PAGES_HASH_JS_SOURCE,
+    PAGES_PIXIV_JS_NAME,
+    PAGES_PIXIV_JS_SOURCE,
     PAGES_SUMMARY_KEYS,
     PAGES_WIKI_BROWSER_NOTE,
     PAGES_WIKI_JS_NAME,
     PAGES_WIKI_JS_SOURCE,
     PAGES_WIKI_SERVE,
+    PIXIV_LOCAL_SERVE,
     STUB_DEMO_DATA_NAME,
     STUB_DEMO_JS_NAME,
     STUB_DEMO_JS_SOURCE,
-    WEB_UI_SHA,
+    TERMINAL_CSS_NAME,
+    TERMINAL_CSS_SOURCE,
     _status_is_dirty,
     collect_revision,
     load_corpus,
@@ -127,22 +131,23 @@ def test_write_pages_is_static(tmp_path: Path) -> None:
     assert 'id="build-meta"' in html
     assert (tmp_path / "site" / "summary.json").is_file()
     assert (tmp_path / "site" / BUILD_META_NAME).is_file()
-    assert 'class="ui-page stub-shell"' in html
-    assert 'class="stub-header"' in html
-    assert 'class="stub-workspace"' in html
-    assert 'class="ui-panel stub-result"' in html
-    assert 'class="ui-card stub-evidence"' in html
-    assert 'class="ui-card stub-history"' in html
+    assert 'class="term-page term-shell"' in html
+    assert 'class="term-header"' in html
+    assert 'class="term-workspace"' in html
+    assert 'class="term-panel term-result"' in html
+    assert 'class="term-card term-evidence"' in html
+    assert 'class="term-card term-history"' in html
     assert '<aside aria-label="Supporting information">' in html
-    assert f"web-ui@{WEB_UI_SHA}/css/stub.css" in html
-    assert f"web-ui@{WEB_UI_SHA}/css/themes/modern.css" in html
-    assert '<body data-ui-theme="modern">' in html
-    assert f"web-ui contract pinned to <code>{WEB_UI_SHA}</code>" in html
-    assert html.index('class="ui-panel stub-result"') < html.index('<aside aria-label="Supporting information">')
+    # Single CSS contract: one lab-owned stylesheet, no web-ui CDN chain.
+    assert (tmp_path / "site" / TERMINAL_CSS_NAME).is_file()
+    assert f'<link rel="stylesheet" href="{TERMINAL_CSS_NAME}?v=' in html
+    assert "web-ui" not in html
+    assert f"Styling: single lab-owned <code>{TERMINAL_CSS_NAME}</code>" in html
+    assert html.index('class="term-panel term-result"') < html.index('<aside aria-label="Supporting information">')
     pixiv_tools = {tool for tool in AVAILABLE_TOOLS if tool.startswith("fetch_pixiv_dictionary_")}
     other_tools = set(AVAILABLE_TOOLS) - pixiv_tools
     assert len(AVAILABLE_TOOLS) == 7
-    assert f"<span class=\"ui-tag\">{len(AVAILABLE_TOOLS)} tools</span>" in html
+    assert f"<span class=\"term-tag\">{len(AVAILABLE_TOOLS)} tools</span>" in html
     assert pixiv_tools == {
         "fetch_pixiv_dictionary_section",
         "fetch_pixiv_dictionary_article",
@@ -164,6 +169,25 @@ def test_write_pages_embeds_vendor_stylesheet_not_lab_css(tmp_path: Path) -> Non
     assert html.index("<style>") < html.index("<title>")
     # Lab must not ship a second markdown-feature stylesheet next to Pages.
     assert not (ROOT / "src" / "mcp_toolcall_lab" / "static" / "markdown.css").exists()
+
+
+def test_single_css_contract_across_pages_wiki_and_pixiv(tmp_path: Path) -> None:
+    """Pages, local /wiki, and local /pixiv share one lab-owned stylesheet.
+
+    Terminal-lite prototype (#58): no myon-bioinformatics/web-ui CDN chain
+    anywhere in these three rendered surfaces, and exactly one
+    ``terminal.css`` link per page (the inlined vendor markdown stylesheet
+    is a separate, content-scoped concern and is not "the CSS chain").
+    """
+    assert TERMINAL_CSS_SOURCE.is_file()
+    pages_html = write_pages(tmp_path / "site", revision=_FAKE_REVISION).read_text(encoding="utf-8")
+    wiki_html = render_wiki_page()
+    pixiv_html = render_pixiv_page()
+    for html in (pages_html, wiki_html, pixiv_html):
+        assert "web-ui" not in html
+        assert "cdn.jsdelivr.net" not in html
+        assert "data-ui-theme" not in html
+        assert html.count(f'href="{TERMINAL_CSS_NAME}') + html.count(f'href="/{TERMINAL_CSS_NAME}') == 1
 
 
 _VENDOR_OWNED_NAMES = (
@@ -338,9 +362,38 @@ def test_pixiv_pages_has_search_and_output_workspace(tmp_path: Path) -> None:
     assert 'data-testid="pages-pixiv-title"' in html
     assert 'data-testid="pages-pixiv-fetch"' in html
     assert 'data-testid="pages-pixiv-extract"' in html
-    assert 'class="ui-output"' in html
+    assert 'data-testid="pages-pixiv-error"' in html
+    assert 'data-testid="pages-pixiv-fallback"' in html
+    assert 'class="term-output"' in html
     assert "pages-pixiv.js?v=" in html
     assert (tmp_path / "site" / "pages-pixiv.js").is_file()
+
+
+def test_pixiv_pages_panel_never_regresses_to_localhost_dead_end(tmp_path: Path) -> None:
+    """Blocking fix: submitting the public #pixiv panel must not tell the user
+    to visit http://127.0.0.1:8765 as if that were reachable from GitHub Pages.
+
+    The panel attempts a real browser-side fetch of the actual upstream
+    (dic.pixiv.net) instead, same as #wiki does for MediaWiki. A fallback
+    command is only shown *after* that fetch fails, and only as a plain
+    ``<pre>`` command block -- never as a clickable/actionable localhost URL.
+    """
+    out = write_pages(tmp_path / "site", revision=_FAKE_REVISION).parent
+    html = (out / "index.html").read_text(encoding="utf-8")
+    js = (out / PAGES_PIXIV_JS_NAME).read_text(encoding="utf-8")
+    # Scope the index.html check to the #pixiv panel: the #wiki panel above it
+    # legitimately prints "http://127.0.0.1:8765/wiki" as a local-run command.
+    pixiv_html = html[html.index('data-pages-view="pixiv"') :]
+    for surface in (pixiv_html, js):
+        assert "MCP execution is local-only" not in surface
+        assert "Local result URL" not in surface
+        assert "http://127.0.0.1:8765" not in surface
+    assert "dic.pixiv.net" in js
+    assert "doFetch(url" in js
+    assert PIXIV_LOCAL_SERVE.splitlines()[0] in pixiv_html
+    assert (out / PAGES_PIXIV_JS_NAME).read_text(encoding="utf-8") == (
+        PAGES_PIXIV_JS_SOURCE.read_text(encoding="utf-8")
+    )
 
 
 def test_render_pixiv_page_outputs_catalog_result(monkeypatch) -> None:
@@ -355,18 +408,16 @@ def test_render_pixiv_page_outputs_catalog_result(monkeypatch) -> None:
     )
     html = render_pixiv_page(title="sample")
     assert 'data-testid="pixiv-result"' in html
-    assert 'class="ui-output"' in html
+    assert 'class="term-output"' in html
     assert "canonical_title" in html
     assert "# sample" in html
-    assert f"web-ui@{WEB_UI_SHA}/css/themes/modern.css" in html
-    assert '<body data-ui-theme="modern">' in html
+    assert f'href="/{TERMINAL_CSS_NAME}"' in html
 
 
-def test_local_wiki_uses_shared_modern_theme() -> None:
+def test_local_wiki_uses_terminal_stylesheet() -> None:
     html = render_wiki_page()
-    assert f"web-ui@{WEB_UI_SHA}/css/themes/modern.css" in html
-    assert '<body data-ui-theme="modern">' in html
-    assert '<main class="ui-page">' in html
+    assert f'href="/{TERMINAL_CSS_NAME}"' in html
+    assert '<main class="term-page">' in html
 
 
 def test_pixiv_page_response_success_reports_cache_status(monkeypatch) -> None:

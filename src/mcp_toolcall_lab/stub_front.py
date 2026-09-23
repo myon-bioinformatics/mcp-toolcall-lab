@@ -352,6 +352,18 @@ PAGES_WIKI_JS_NAME = "pages-wiki.js"
 PAGES_PIXIV_JS_SOURCE = STATIC_DIR / "pages_pixiv.js"
 PAGES_PIXIV_JS_NAME = "pages-pixiv.js"
 
+# The lab's one small CSS surface (terminal-lite). Replaces the five-link
+# web-ui CDN chain on Pages and the local /wiki and /pixiv surfaces; web-ui
+# itself is unchanged. Served locally at /terminal.css, copied next to the
+# published index.html by write_pages().
+TERMINAL_CSS_SOURCE = STATIC_DIR / "terminal.css"
+TERMINAL_CSS_NAME = "terminal.css"
+
+
+def _terminal_css_link(*, href: str = TERMINAL_CSS_NAME, cache_bust: str = "") -> str:
+    """The lab's single page-shell stylesheet -- no web-ui CDN chain."""
+    return f'<link rel="stylesheet" href="{href}{cache_bust}">'
+
 
 def _asset_cache_bust(path: Path) -> str:
     """``?v=<sha256[:10]>`` of ``path``'s current bytes.
@@ -369,6 +381,13 @@ def _asset_cache_bust(path: Path) -> str:
 PAGES_WIKI_SERVE = (
     "python -m mcp_toolcall_lab.stub_front serve --port 8765\n"
     "# then open /wiki  (http://127.0.0.1:8765/wiki)"
+)
+# Fallback shown by the Pages #pixiv panel only when its own browser-side
+# fetch of dic.pixiv.net fails (CORS/static-host limitation) -- a plain
+# command block, not a clickable/actionable localhost link from this page.
+PIXIV_LOCAL_SERVE = (
+    "python -m mcp_toolcall_lab.stub_front serve --port 8765\n"
+    "# then open /pixiv?title=<title>"
 )
 BUILD_META_NAME = "build_meta.json"
 BUILD_META_KEYS = (
@@ -437,7 +456,6 @@ def pages_summary(
 
 
 PAGES_OUTPUT_NAME = "_site"
-WEB_UI_SHA = "e7d16a2ce0cee76b7744a4b6a8f8ce374491a4db"
 
 
 def _git_output(args: list[str]) -> str | None:
@@ -708,7 +726,7 @@ def _pages_wiki_app_html(*, cache_bust: str = "") -> str:
         '<p data-testid="pages-wiki-error" hidden></p>'
         '<p data-testid="pages-wiki-canonical" hidden></p>'
         f'<p data-testid="pages-wiki-extract-note">{html.escape(WIKI_EXTRACT_NOTE)}</p>'
-        '<pre class="ui-output" data-testid="pages-wiki-extract" hidden></pre>'
+        '<pre class="term-output" data-testid="pages-wiki-extract" hidden></pre>'
         "</div>"
         f'<script src="{PAGES_WIKI_JS_NAME}{cache_bust}"></script>'
     )
@@ -828,8 +846,11 @@ def write_pages(
     wiki_inner = wiki_inner + _pages_wiki_app_html(cache_bust=_asset_cache_bust(PAGES_WIKI_JS_SOURCE))
     pixiv_inner = (
         "<h2>Pixiv Encyclopedia search</h2>"
-        "<p>Pixiv Encyclopedia fetching stays MCP/local-server owned. GitHub Pages provides "
-        "the same search/result workspace without pretending that a static host can run MCP.</p>"
+        "<p>Enter a title to fetch <code>https://dic.pixiv.net/a/&lt;title&gt;</code> directly "
+        "from your browser (no MCP call, no server-side proxy) -- the same upstream URL the "
+        "MCP tools use. GitHub Pages is a static host, so this only works if dic.pixiv.net "
+        "allows a cross-origin browser request; if it does not, this panel says so explicitly "
+        "and shows the local/MCP command below instead of a localhost link it cannot reach.</p>"
         '<div id="pages-pixiv-app" data-testid="pages-pixiv-app">'
         '<form id="pages-pixiv-form" data-testid="pages-pixiv-form">'
         '<p><label for="pages-pixiv-title">Pixiv Encyclopedia title</label> '
@@ -837,50 +858,55 @@ def write_pages(
         'data-testid="pages-pixiv-title"> '
         '<button type="submit" data-testid="pages-pixiv-fetch">Search</button></p>'
         "</form>"
-        '<p class="ui-muted" data-testid="pages-pixiv-status">Run the local stub to execute the MCP-backed search.</p>'
-        '<pre class="ui-output" data-testid="pages-pixiv-extract" hidden></pre>'
+        '<p class="term-muted" data-testid="pages-pixiv-status"></p>'
+        '<p role="alert" data-testid="pages-pixiv-error" hidden></p>'
+        '<pre class="term-output" data-testid="pages-pixiv-extract" hidden></pre>'
+        '<div data-testid="pages-pixiv-fallback" hidden>'
+        '<p class="term-muted">Could not fetch from this static host. Run the MCP tool or local stub instead:</p>'
+        f'<pre class="term-output">{html.escape(PIXIV_LOCAL_SERVE)}</pre>'
+        "</div>"
         "</div>"
         "<ul>"
         f"<li><code>fetch_pixiv_dictionary_section</code> — {html.escape(TOOL_DESCRIPTIONS['fetch_pixiv_dictionary_section'])}</li>"
         f"<li><code>fetch_pixiv_dictionary_article</code> — {html.escape(TOOL_DESCRIPTIONS['fetch_pixiv_dictionary_article'])}</li>"
         "</ul>"
-        '<pre class="ui-output">python -m mcp_toolcall_lab.stub_front serve --port 8765</pre>'
         f'<script src="{PAGES_PIXIV_JS_NAME}{_asset_cache_bust(PAGES_PIXIV_JS_SOURCE)}"></script>'
     )
     # Hide/show uses the HTML hidden attribute. Converted Markdown CSS comes
     # from vendor/markdown.py (default_stylesheet), not a lab-authored copy.
+    # The page shell itself is styled by the single lab-owned terminal.css --
+    # no web-ui CDN chain.
     html_page = (
         "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
         "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
         f"{_vendor_style_tag(md)}"
-        f'<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/myon-bioinformatics/web-ui@{WEB_UI_SHA}/css/tokens.css">'
-        f'<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/myon-bioinformatics/web-ui@{WEB_UI_SHA}/css/base.css">'
-        f'<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/myon-bioinformatics/web-ui@{WEB_UI_SHA}/css/components.css">'
-        f'<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/myon-bioinformatics/web-ui@{WEB_UI_SHA}/css/stub.css">'
-        f'<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/myon-bioinformatics/web-ui@{WEB_UI_SHA}/css/themes/modern.css">'
+        f"{_terminal_css_link(cache_bust=_asset_cache_bust(TERMINAL_CSS_SOURCE))}"
         "<title>mcp-toolcall-lab stub</title>"
-        '</head><body data-ui-theme="modern"><main class="ui-page stub-shell">'
-        '<header class="stub-header"><div><h1 class="ui-title">mcp-toolcall-lab stub</h1>'
-        '<p class="ui-muted">Static Pages evidence for MCP tool-call experiments.</p></div>'
-        f'<div class="stub-meta"><span class="ui-tag">mcp</span><span class="ui-tag">{len(AVAILABLE_TOOLS)} tools</span></div></header>'
+        '</head><body><main class="term-page term-shell">'
+        '<header class="term-header"><div><h1 class="term-title">mcp-toolcall-lab stub</h1>'
+        '<p class="term-muted">Static Pages evidence for MCP tool-call experiments.</p></div>'
+        f'<div class="term-meta"><span class="term-tag">mcp</span><span class="term-tag">{len(AVAILABLE_TOOLS)} tools</span></div></header>'
         f"{_pages_nav_html()}"
-        '<div class="stub-workspace"><section class="ui-panel stub-result">'
+        '<div class="term-workspace"><section class="term-panel term-result">'
         f"{_pages_panel_html(view='home', inner=_revision_html(meta) + home_inner)}"
         f"{_pages_panel_html(view='wiki', inner=wiki_inner + _pages_wiki_back_html(), hidden=True)}"
         f"{_pages_panel_html(view='pixiv', inner=pixiv_inner + _pages_wiki_back_html(), hidden=True)}"
         '</section><aside aria-label="Supporting information">'
-        '<section class="ui-card stub-evidence"><h2>Tool catalog</h2>'
+        '<section class="term-card term-evidence"><h2>Tool catalog</h2>'
         '<ul id="tool-catalog">' + "".join(
             f'<li><code>{html.escape(name)}</code> — {html.escape(TOOL_DESCRIPTIONS[name])}</li>'
             for name in AVAILABLE_TOOLS
         ) + '</ul></section>'
-        '<section class="ui-card stub-history"><h2>Workspace provenance</h2>'
-        f'<p>web-ui contract pinned to <code>{WEB_UI_SHA}</code>.</p></section>'
+        '<section class="term-card term-history"><h2>Workspace provenance</h2>'
+        f'<p>Styling: single lab-owned <code>{TERMINAL_CSS_NAME}</code> (no external stylesheet chain).</p></section>'
         '</aside></div></main>'
         f'<script src="{PAGES_HASH_JS_NAME}{_asset_cache_bust(PAGES_HASH_JS_SOURCE)}"></script>'
         "</body></html>\n"
     )
     (out_dir / "index.html").write_text(html_page, encoding="utf-8")
+    (out_dir / TERMINAL_CSS_NAME).write_text(
+        TERMINAL_CSS_SOURCE.read_text(encoding="utf-8"), encoding="utf-8"
+    )
     (out_dir / PAGES_HASH_JS_NAME).write_text(
         PAGES_HASH_JS_SOURCE.read_text(encoding="utf-8"), encoding="utf-8"
     )
@@ -930,20 +956,16 @@ def _pixiv_page_html(*, title: str, error: str, stage: str, payload: str) -> str
     if error:
         body = f'<p role="alert" data-testid="pixiv-error" data-stage="{html.escape(stage)}">{html.escape(error)}</p>'
     else:
-        body = f'<pre class="ui-output" data-testid="pixiv-result">{html.escape(payload)}</pre>' if payload else ""
+        body = f'<pre class="term-output" data-testid="pixiv-result">{html.escape(payload)}</pre>' if payload else ""
     return (
         '<!doctype html><html lang="en"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width, initial-scale=1">'
-        f'<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/myon-bioinformatics/web-ui@{WEB_UI_SHA}/css/tokens.css">'
-        f'<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/myon-bioinformatics/web-ui@{WEB_UI_SHA}/css/base.css">'
-        f'<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/myon-bioinformatics/web-ui@{WEB_UI_SHA}/css/components.css">'
-        f'<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/myon-bioinformatics/web-ui@{WEB_UI_SHA}/css/stub.css">'
-        f'<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/myon-bioinformatics/web-ui@{WEB_UI_SHA}/css/themes/modern.css">'
+        f'{_terminal_css_link(href="/" + TERMINAL_CSS_NAME)}'
         '<title>Pixiv Encyclopedia search</title></head>'
-        '<body data-ui-theme="modern"><main class="ui-page"><h1 class="ui-title">Pixiv Encyclopedia search</h1>'
+        '<body><main class="term-page"><h1 class="term-title">Pixiv Encyclopedia search</h1>'
         '<form method="get" action="/pixiv"><label for="pixiv-title">Title</label> '
-        f'<input class="ui-input" id="pixiv-title" name="title" value="{html.escape(title)}"> '
-        '<button class="ui-button" type="submit">Search</button></form>'
+        f'<input class="term-input" id="pixiv-title" name="title" value="{html.escape(title)}"> '
+        '<button class="term-button" type="submit">Search</button></form>'
         + body
         + '</main></body></html>'
     )
@@ -1074,25 +1096,21 @@ def render_wiki_page(
     if extract:
         article_html += (
             f"<p>{html.escape(WIKI_EXTRACT_NOTE)}</p>"
-            f'<pre class="ui-output" data-testid="wiki-extract">{html.escape(extract)}</pre>'
+            f'<pre class="term-output" data-testid="wiki-extract">{html.escape(extract)}</pre>'
         )
     if section_title:
         article_html += (
             f"<h2>Selected section: {html.escape(section_title)}</h2>"
-            f'<pre class="ui-output" data-testid="wiki-section">{html.escape(section_body)}</pre>'
+            f'<pre class="term-output" data-testid="wiki-section">{html.escape(section_body)}</pre>'
         )
 
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><title>wikipedia article (local stub)</title>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/myon-bioinformatics/web-ui@{WEB_UI_SHA}/css/tokens.css">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/myon-bioinformatics/web-ui@{WEB_UI_SHA}/css/base.css">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/myon-bioinformatics/web-ui@{WEB_UI_SHA}/css/components.css">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/myon-bioinformatics/web-ui@{WEB_UI_SHA}/css/stub.css">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/myon-bioinformatics/web-ui@{WEB_UI_SHA}/css/themes/modern.css">
+{_terminal_css_link(href="/" + TERMINAL_CSS_NAME)}
 </head>
-<body data-ui-theme="modern"><main class="ui-page">
+<body><main class="term-page">
 <p><a href="/">chat stub</a> · Wikipedia article (this server)</p>
-<p class="ui-muted">{html.escape(WIKI_PAGES_DISCLAIMER)}</p>
+<p class="term-muted">{html.escape(WIKI_PAGES_DISCLAIMER)}</p>
 <form method="get" action="/wiki">
 <label for="wiki-title">Wikipedia title</label>
 <input id="wiki-title" name="title" value="{html.escape(title)}" data-testid="wiki-title">
@@ -1123,12 +1141,9 @@ def _page(chat_id: str, turns: list[Turn], prompt: str = "", sections: list[Sect
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><title>stub-front {html.escape(chat_id)}</title>
 {_vendor_style_tag()}
-<style>
- body {{ font-family: sans-serif; max-width: 52rem; margin: 1.5rem auto; }}
- textarea {{ width: 100%; min-height: 4rem; }}
- select {{ width: 100%; margin: .4rem 0; }}
-</style></head>
-<body>
+{_terminal_css_link(href="/" + TERMINAL_CSS_NAME)}
+</head>
+<body class="term-page">
 <p>lab chat_id <code data-testid="chat-id">{html.escape(chat_id)}</code> · stdlib stub
  · <a href="/wiki">Wikipedia article (this server only)</a></p>
 <form method="post" action="/c/{html.escape(chat_id)}">
@@ -1180,6 +1195,9 @@ def make_handler(state: StubState) -> type[BaseHTTPRequestHandler]:
             path = parsed.path.rstrip("/") or "/"
             if path == "/health":
                 self._send(200, b'{"ok":true}\n', "application/json")
+                return
+            if path == "/" + TERMINAL_CSS_NAME:
+                self._send(200, TERMINAL_CSS_SOURCE.read_bytes(), "text/css; charset=utf-8")
                 return
             if path == "/pixiv":
                 query = parse_qs(parsed.query)

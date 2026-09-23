@@ -84,23 +84,28 @@ there is logged as `CPU_LLM_COMPLETION_FAILED`, distinct from
 `CPU_LLM_UNREACHABLE`. `cpu_llm_backend` (`lite-stub` / `real-gguf`) is
 in the published summary so the Pages report says honestly which one ran.
 
-## Shared web-ui workspace
+## Terminal-lite page shell
 
-The published Pages shell uses the shared `myon-bioinformatics/web-ui` v1
-tool workspace pinned to
-`e7d16a2ce0cee76b7744a4b6a8f8ce374491a4db`. This intentionally keeps the
-newer shared `.ui-output` readability styling while applying the same Modern
-theme contract (`themes/modern.css` + `body[data-ui-theme="modern"]`) across
-Pages, local `/pixiv`, and local `/wiki`. The wide layout keeps the primary report/wiki view beside supporting
-tool-catalog/provenance cards; web-ui's `720px` fallback stacks the primary
-content first on narrow screens.
+The published Pages shell, local `/wiki`, and local `/pixiv` share one
+lab-owned stylesheet, `src/mcp_toolcall_lab/static/terminal.css`
+(`term-*` classes) — a dark, bordered, monospace presentation in place of
+the earlier five-link `myon-bioinformatics/web-ui` CDN chain
+(`tokens.css` / `base.css` / `components.css` / `stub.css` /
+`themes/modern.css`). `web-ui` itself is unchanged and still styles the
+LibreChat/Open WebUI mock backends (`markdown_lib.to_web_ui_v1_html()`);
+this is a lab-scoped prototype, reverse-importable later if it proves
+useful. The wide layout keeps the primary report/wiki view beside
+supporting tool-catalog/provenance cards; `terminal.css`'s own `720px`
+fallback stacks the primary content first on narrow screens.
+`write_pages()` copies `terminal.css` next to `index.html`; the local
+server answers `GET /terminal.css` directly from
+`src/mcp_toolcall_lab/static/terminal.css`.
 
 The supporting catalog is generated directly from Python's `AVAILABLE_TOOLS`
 and `TOOL_DESCRIPTIONS`, so Pages exposes the current seven tools, including
 `fetch_pixiv_dictionary_section` and `fetch_pixiv_dictionary_article`,
 without maintaining a second hand-written list. MCP protocol behavior,
-fixtures, trace/log semantics, and execution remain owned by this repository;
-web-ui supplies presentation only.
+fixtures, trace/log semantics, and execution remain owned by this repository.
 
 ## What the published page is
 
@@ -141,6 +146,19 @@ Actions summary" JSON on the home view is the last `stub-pages` smoke
 snapshot — the actual value of this host — kept thinner than generation
 + the `#wiki` form.
 
+Pages `#pixiv` follows the same pattern: `pages-pixiv.js` fetches the real
+`https://dic.pixiv.net/a/{title}` (the same upstream URL
+`pixiv_dictionary_tool.py` uses) directly from the browser and renders
+curl-like plain text in place — no MCP call, no server-side proxy. Unlike
+MediaWiki's `origin=*`, dic.pixiv.net is not known to send permissive CORS
+headers, so on a GitHub Pages visit that request may be blocked; when it is,
+the panel says so explicitly and prints the local/MCP fallback command
+(`stub_front serve` + `/pixiv?title=...`) as a plain code block. It never
+shows a `127.0.0.1` URL as if this static host could reach it — that was the
+pre-fix behavior and is now a regression test
+(`tests/test_stub_pages.py::test_pixiv_pages_panel_never_regresses_to_localhost_dead_end`,
+`tests/test_pages_pixiv.py`).
+
 ## Local heading-lookup JS (not on Pages)
 
 `src/mcp_toolcall_lab/static/stub_demo.js` still re-implements
@@ -172,3 +190,17 @@ script, opt-in workflow_dispatch wiring, a real `/v1/chat/completions`
 smoke check (not just `/health`) for both backends, and
 `cpu_llm_backend` in the published summary. Accuracy still does not
 matter. No second log schema was added.
+
+
+## Terminal-lite single-CSS prototype
+
+This UI experiment is scoped to this repository (see "Terminal-lite page
+shell" above for the implementation). It replaced the multi-file web-ui
+theme chain with one small lab-owned stylesheet (`terminal.css`), keeping
+semantic HTML, readable output, and desktop/iPhone screenshot regression
+coverage (`.github/workflows/stub-pages.yml`'s chromium/webkit screenshot
+steps, unchanged by this prototype). `ascii_artist` may enhance text
+presentation when available but is not a required UI dependency — it is
+not wired into these three surfaces. Shared `web-ui` is deliberately
+unchanged; reusable pieces can be reverse-imported only after this
+prototype proves useful.
