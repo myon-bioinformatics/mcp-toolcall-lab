@@ -43,6 +43,7 @@ from mcp_toolcall_lab.stub_front import (
     pages_summary,
     parse_sections,
     render_rows,
+    render_pixiv_page,
     write_pages,
     write_stub_demo_page,
 )
@@ -323,6 +324,35 @@ def test_write_pages_does_not_embed_the_static_try_it_demo(tmp_path: Path) -> No
     assert (out / PAGES_WIKI_JS_NAME).read_text(encoding="utf-8") == (
         PAGES_WIKI_JS_SOURCE.read_text(encoding="utf-8")
     )
+
+
+
+def test_pixiv_pages_has_search_and_output_workspace(tmp_path: Path) -> None:
+    html = write_pages(tmp_path / "site", revision=_FAKE_REVISION).read_text(encoding="utf-8")
+    assert 'data-testid="pages-pixiv-form"' in html
+    assert 'data-testid="pages-pixiv-title"' in html
+    assert 'data-testid="pages-pixiv-fetch"' in html
+    assert 'data-testid="pages-pixiv-extract"' in html
+    assert 'class="ui-output"' in html
+    assert "pages-pixiv.js?v=" in html
+    assert (tmp_path / "site" / "pages-pixiv.js").is_file()
+
+
+def test_render_pixiv_page_outputs_catalog_result(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "mcp_toolcall_lab.stub_front.dispatch_tool",
+        lambda name, arguments: {
+            "canonical_title": arguments["title"],
+            "markdown": "# sample\\nbody",
+            "headings": ["sample"],
+            "source_url": "https://dic.pixiv.net/a/sample",
+        },
+    )
+    html = render_pixiv_page(title="sample")
+    assert 'data-testid="pixiv-result"' in html
+    assert 'class="ui-output"' in html
+    assert "canonical_title" in html
+    assert "# sample" in html
 
 
 def test_pixiv_pages_tools_are_complete_catalog_entries() -> None:
