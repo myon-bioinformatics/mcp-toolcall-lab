@@ -437,7 +437,7 @@ def pages_summary(
 
 
 PAGES_OUTPUT_NAME = "_site"
-WEB_UI_SHA = "a0867e454bb2f7ecb4f69da9a46a2361b2438305"
+WEB_UI_SHA = "e7d16a2ce0cee76b7744a4b6a8f8ce374491a4db"
 
 
 def _git_output(args: list[str]) -> str | None:
@@ -937,8 +937,10 @@ def _pixiv_page_html(*, title: str, error: str, stage: str, payload: str) -> str
         f'<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/myon-bioinformatics/web-ui@{WEB_UI_SHA}/css/tokens.css">'
         f'<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/myon-bioinformatics/web-ui@{WEB_UI_SHA}/css/base.css">'
         f'<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/myon-bioinformatics/web-ui@{WEB_UI_SHA}/css/components.css">'
+        f'<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/myon-bioinformatics/web-ui@{WEB_UI_SHA}/css/stub.css">'
+        f'<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/myon-bioinformatics/web-ui@{WEB_UI_SHA}/css/themes/modern.css">'
         '<title>Pixiv Encyclopedia search</title></head>'
-        '<body><main class="ui-page" data-ui-theme="modern"><h1>Pixiv Encyclopedia search</h1>'
+        '<body data-ui-theme="modern"><main class="ui-page"><h1 class="ui-title">Pixiv Encyclopedia search</h1>'
         '<form method="get" action="/pixiv"><label for="pixiv-title">Title</label> '
         f'<input class="ui-input" id="pixiv-title" name="title" value="{html.escape(title)}"> '
         '<button class="ui-button" type="submit">Search</button></form>'
@@ -1072,26 +1074,25 @@ def render_wiki_page(
     if extract:
         article_html += (
             f"<p>{html.escape(WIKI_EXTRACT_NOTE)}</p>"
-            f'<pre data-testid="wiki-extract">{html.escape(extract)}</pre>'
+            f'<pre class="ui-output" data-testid="wiki-extract">{html.escape(extract)}</pre>'
         )
     if section_title:
         article_html += (
             f"<h2>Selected section: {html.escape(section_title)}</h2>"
-            f'<pre data-testid="wiki-section">{html.escape(section_body)}</pre>'
+            f'<pre class="ui-output" data-testid="wiki-section">{html.escape(section_body)}</pre>'
         )
 
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><title>wikipedia article (local stub)</title>
-<style>
- body {{ font-family: sans-serif; max-width: 52rem; margin: 1.5rem auto; }}
- input, select {{ width: 100%; margin: .4rem 0; display: block; }}
- label, button {{ display: block; margin: .4rem 0; }}
- pre {{ white-space: pre-wrap; border: 1px solid #ccc; padding: .6rem; }}
- .disclaimer {{ background: #f4f4f4; padding: .6rem .8rem; }}
-</style></head>
-<body>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/myon-bioinformatics/web-ui@{WEB_UI_SHA}/css/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/myon-bioinformatics/web-ui@{WEB_UI_SHA}/css/base.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/myon-bioinformatics/web-ui@{WEB_UI_SHA}/css/components.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/myon-bioinformatics/web-ui@{WEB_UI_SHA}/css/stub.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/myon-bioinformatics/web-ui@{WEB_UI_SHA}/css/themes/modern.css">
+</head>
+<body data-ui-theme="modern"><main class="ui-page">
 <p><a href="/">chat stub</a> · Wikipedia article (this server)</p>
-<p class="disclaimer">{html.escape(WIKI_PAGES_DISCLAIMER)}</p>
+<p class="ui-muted">{html.escape(WIKI_PAGES_DISCLAIMER)}</p>
 <form method="get" action="/wiki">
 <label for="wiki-title">Wikipedia title</label>
 <input id="wiki-title" name="title" value="{html.escape(title)}" data-testid="wiki-title">
@@ -1101,7 +1102,7 @@ def render_wiki_page(
 {heading_select}
 </form>
 {article_html}
-</body></html>
+</main></body></html>
 """
 
 
