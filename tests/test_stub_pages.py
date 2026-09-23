@@ -20,6 +20,7 @@ from mcp_toolcall_lab.markdown_lib import (
     markdown_py_path,
 )
 from mcp_toolcall_lab.stub_front import (
+    AVAILABLE_TOOLS,
     BUILD_META_KEYS,
     BUILD_META_NAME,
     MCP_PATTERNS,
@@ -31,6 +32,7 @@ from mcp_toolcall_lab.stub_front import (
     PAGES_WIKI_JS_NAME,
     PAGES_WIKI_JS_SOURCE,
     PAGES_WIKI_SERVE,
+    WEB_UI_SHA,
     STUB_DEMO_DATA_NAME,
     STUB_DEMO_JS_NAME,
     STUB_DEMO_JS_SOURCE,
@@ -120,6 +122,21 @@ def test_write_pages_is_static(tmp_path: Path) -> None:
     assert 'id="build-meta"' in html
     assert (tmp_path / "site" / "summary.json").is_file()
     assert (tmp_path / "site" / BUILD_META_NAME).is_file()
+    assert 'class="ui-page stub-shell"' in html
+    assert 'class="stub-header"' in html
+    assert 'class="stub-workspace"' in html
+    assert 'class="ui-panel stub-result"' in html
+    assert 'class="ui-card stub-evidence"' in html
+    assert 'class="ui-card stub-history"' in html
+    assert '<aside aria-label="Supporting information">' in html
+    assert f"web-ui@{WEB_UI_SHA}/css/stub.css" in html
+    assert f"web-ui contract pinned to <code>{WEB_UI_SHA}</code>" in html
+    assert html.index('class="ui-panel stub-result"') < html.index('<aside aria-label="Supporting information">')
+    assert len(AVAILABLE_TOOLS) == 7
+    for tool in AVAILABLE_TOOLS:
+        assert f"<code>{tool}</code>" in html
+    assert "fetch_pixiv_dictionary_section" in html
+    assert "fetch_pixiv_dictionary_article" in html
     assert not (tmp_path / "site" / "last-run.json").exists()
 
 
