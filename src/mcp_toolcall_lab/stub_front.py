@@ -606,13 +606,15 @@ def _revision_html(revision: Mapping[str, Any]) -> str:
 
 
 def _pages_nav_html() -> str:
-    """Always-visible Home / #wiki controls. Hash only — github.io /wiki stays 404."""
+    """Always-visible Home / #wiki / #pixiv controls. Hash only — Pages stays one endpoint."""
     return (
         '<p id="pages-nav">'
         '<a href="#" data-pages-nav="home" data-testid="pages-nav-home">Home</a>'
         " · "
         '<a href="#wiki" data-pages-nav="wiki" data-testid="pages-nav-wiki">'
         "Wiki</a>"
+        " · "
+        '<a href="#pixiv" data-pages-nav="pixiv" data-testid="pages-nav-pixiv">Pixiv</a>'
         "</p>"
     )
 
@@ -818,6 +820,17 @@ def write_pages(
             "<pre>" + html.escape(PAGES_WIKI_SERVE) + "</pre>"
         )
     wiki_inner = wiki_inner + _pages_wiki_app_html(cache_bust=_asset_cache_bust(PAGES_WIKI_JS_SOURCE))
+    pixiv_inner = (
+        "<h2>Pixiv Encyclopedia MCP tools</h2>"
+        "<p>The Pixiv tools are MCP-backed rather than a browser scraper on GitHub Pages. "
+        "Use this panel to discover the two catalog entries and run them through the local "
+        "stub / MCP server.</p>"
+        "<ul>"
+        f"<li><code>fetch_pixiv_dictionary_section</code> — {html.escape(TOOL_DESCRIPTIONS['fetch_pixiv_dictionary_section'])}</li>"
+        f"<li><code>fetch_pixiv_dictionary_article</code> — {html.escape(TOOL_DESCRIPTIONS['fetch_pixiv_dictionary_article'])}</li>"
+        "</ul>"
+        "<pre>python -m mcp_toolcall_lab.stub_front serve --port 8765</pre>"
+    )
     # Hide/show uses the HTML hidden attribute. Converted Markdown CSS comes
     # from vendor/markdown.py (default_stylesheet), not a lab-authored copy.
     html_page = (
@@ -837,6 +850,7 @@ def write_pages(
         '<div class="stub-workspace"><section class="ui-panel stub-result">'
         f"{_pages_panel_html(view='home', inner=_revision_html(meta) + home_inner)}"
         f"{_pages_panel_html(view='wiki', inner=wiki_inner + _pages_wiki_back_html(), hidden=True)}"
+        f"{_pages_panel_html(view='pixiv', inner=pixiv_inner + _pages_wiki_back_html(), hidden=True)}"
         '</section><aside aria-label="Supporting information">'
         '<section class="ui-card stub-evidence"><h2>Tool catalog</h2>'
         '<ul id="tool-catalog">' + "".join(
