@@ -16,6 +16,29 @@ ROOT = Path(__file__).resolve().parents[1]
 
 EXPECTED_TOOL_SPECS = [
     {
+        "name": "fetch_pixiv_dictionary_article",
+        "description": TOOL_DESCRIPTIONS["fetch_pixiv_dictionary_article"],
+        "inputSchema": {
+            "additionalProperties": False,
+            "properties": {"title": {"type": "string"}},
+            "required": ["title"],
+            "type": "object",
+        },
+    },
+    {
+        "name": "fetch_pixiv_dictionary_section",
+        "description": TOOL_DESCRIPTIONS["fetch_pixiv_dictionary_section"],
+        "inputSchema": {
+            "additionalProperties": False,
+            "properties": {
+                "title": {"type": "string"},
+                "heading": {"type": "string", "default": ""},
+            },
+            "required": ["title"],
+            "type": "object",
+        },
+    },
+    {
         "name": "fetch_wikipedia_article",
         "description": TOOL_DESCRIPTIONS["fetch_wikipedia_article"],
         "inputSchema": {
