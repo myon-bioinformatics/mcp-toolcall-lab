@@ -128,7 +128,7 @@ def lookup_heading(query: str, sections: list[Section], *, fuzzy: bool = True) -
     slug = slugify(needle)
     folded = needle.casefold()
     for section in sections:
-        if section.title == needle or section.title.casefold() == folded or section.slug == slug:
+        if section.title == needle or section.title.casefold() == folded or (slug and section.slug == slug):
             return section
     if not fuzzy:
         return None
