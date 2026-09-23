@@ -832,7 +832,7 @@ def write_pages(
         '</head><body><main class="ui-page stub-shell" data-ui-theme="modern">'
         '<header class="stub-header"><div><h1 class="ui-title">mcp-toolcall-lab stub</h1>'
         '<p class="ui-muted">Static Pages evidence for MCP tool-call experiments.</p></div>'
-        '<div class="stub-meta"><span class="ui-tag">mcp</span><span class="ui-tag">7 tools</span></div></header>'
+        f'<div class="stub-meta"><span class="ui-tag">mcp</span><span class="ui-tag">{len(AVAILABLE_TOOLS)} tools</span></div></header>'
         f"{_pages_nav_html()}"
         '<div class="stub-workspace"><section class="ui-panel stub-result">'
         f"{_pages_panel_html(view='home', inner=_revision_html(meta) + home_inner)}"
