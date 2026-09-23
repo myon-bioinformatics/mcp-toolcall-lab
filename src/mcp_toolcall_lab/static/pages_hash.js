@@ -23,6 +23,7 @@
 
   var HOME = "home";
   var WIKI = "wiki";
+  var PIXIV = "pixiv";
 
   function fragmentName(hash) {
     var raw = String(hash || "");
@@ -57,6 +58,9 @@
   function viewFromLocation(hash, search) {
     if (fragmentName(hash) === WIKI || queryHasWikiView(search)) {
       return WIKI;
+    }
+    if (fragmentName(hash) === PIXIV) {
+      return PIXIV;
     }
     return HOME;
   }
@@ -134,6 +138,7 @@
   return {
     HOME: HOME,
     WIKI: WIKI,
+    PIXIV: PIXIV,
     viewFromLocation: viewFromLocation,
     applyView: applyView,
     syncFromLocation: syncFromLocation,
