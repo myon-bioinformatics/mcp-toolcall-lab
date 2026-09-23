@@ -32,10 +32,10 @@ from mcp_toolcall_lab.stub_front import (
     PAGES_WIKI_JS_NAME,
     PAGES_WIKI_JS_SOURCE,
     PAGES_WIKI_SERVE,
-    WEB_UI_SHA,
     STUB_DEMO_DATA_NAME,
     STUB_DEMO_JS_NAME,
     STUB_DEMO_JS_SOURCE,
+    WEB_UI_SHA,
     _status_is_dirty,
     collect_revision,
     load_corpus,
@@ -135,6 +135,7 @@ def test_write_pages_is_static(tmp_path: Path) -> None:
     pixiv_tools = {tool for tool in AVAILABLE_TOOLS if tool.startswith("fetch_pixiv_dictionary_")}
     other_tools = set(AVAILABLE_TOOLS) - pixiv_tools
     assert len(AVAILABLE_TOOLS) == 7
+    assert f"<span class=\"ui-tag\">{len(AVAILABLE_TOOLS)} tools</span>" in html
     assert pixiv_tools == {
         "fetch_pixiv_dictionary_section",
         "fetch_pixiv_dictionary_article",
