@@ -3,7 +3,7 @@
 from pathlib import Path
 
 from mcp_toolcall_lab.pixiv_dictionary_tool import PixivDictionaryFetchError
-from mcp_toolcall_lab.stub_front import pixiv_page_response
+from mcp_toolcall_lab.stub_front import _pixiv_error_from_body, pixiv_page_response
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -117,3 +117,19 @@ def test_pixiv_error_is_kept_in_body_not_wire_headers(monkeypatch) -> None:
     _status, body, headers = pixiv_page_response(title="テスト記事")
     assert "X-Pixiv-Error" not in headers
     assert "テスト記事" in body
+
+
+def test_pixiv_error_log_extraction_preserves_unescaped_japanese_text(monkeypatch) -> None:
+    expected = "article 'ナルト & テスト' returned HTTP 403"
+
+    def boom(name, arguments):
+        raise PixivDictionaryFetchError(
+            expected,
+            stage="upstream_http",
+            upstream_status=403,
+        )
+
+    monkeypatch.setattr("mcp_toolcall_lab.stub_front.dispatch_tool", boom)
+    _status, body, _headers = pixiv_page_response(title="ナルト & テスト")
+    assert _pixiv_error_from_body(body) == expected
+    assert _pixiv_error_from_body("<p>no pixiv error marker</p>") is None
