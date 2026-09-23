@@ -199,3 +199,47 @@ def assert_markdown_provenance(path: Path | None = None) -> dict[str, str]:
             f"blob={blob} sha256={digest} recorded={recorded}"
         )
     return recorded
+
+
+def ascii_artist_py_path() -> Path | None:
+    """Locate the optional stdlib ascii_artist presentation adapter."""
+    candidates = [REPO_ROOT / "vendor" / "ascii_artist.py", Path("/app/vendor/ascii_artist.py")]
+    return next((path for path in candidates if path.is_file()), None)
+
+
+def load_ascii_artist() -> ModuleType | None:
+    """Load vendored ascii_artist.py; article parsing never depends on it."""
+    path = ascii_artist_py_path()
+    if path is None:
+        return None
+    spec = importlib.util.spec_from_file_location("lab_vendored_ascii_artist", path)
+    if spec is None or spec.loader is None:
+        return None
+    module = importlib.util.module_from_spec(spec)
+    previous = sys.modules.get(spec.name)
+    sys.modules[spec.name] = module
+    try:
+        spec.loader.exec_module(module)
+    except Exception:
+        if previous is None:
+            sys.modules.pop(spec.name, None)
+        else:
+            sys.modules[spec.name] = previous
+        raise
+    return module
+
+
+def to_web_ui_v1_html(text: str, *, title: str = "MCP article") -> str:
+    """Emit web-ui v1 HTML via ascii_artist when available, safe pre fallback otherwise."""
+    artist = load_ascii_artist()
+    if artist is not None and hasattr(artist, "to_web_ui_v1_html"):
+        try:
+            return str(artist.to_web_ui_v1_html(text, title=title))
+        except TypeError:
+            return str(artist.to_web_ui_v1_html(text))
+    import html as _html
+    return (
+        '<main class="ui-page" data-ui-theme="modern">'
+        f'<section class="ui-panel"><h1 class="ui-title">{_html.escape(title)}</h1>'
+        f'<pre class="ui-output">{_html.escape(text)}</pre></section></main>'
+    )
