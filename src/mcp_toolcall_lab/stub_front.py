@@ -915,7 +915,6 @@ PIXIV_STAGE_STATUS = {
     "input": 400,
     "upstream_network": 502,
     "convert": 500,
-    "render": 500,
     "internal": 500,
 }
 
