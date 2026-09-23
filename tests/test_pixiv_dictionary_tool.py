@@ -17,6 +17,14 @@ def test_pixiv_html_uses_markdown_py_and_exposes_hierarchical_toc(monkeypatch):
     assert {"heading": "来歴", "level": 3} in article["headings"]
 
 
+def test_japanese_heading_does_not_alias_empty_ascii_slug(monkeypatch):
+    monkeypatch.setenv(pt.FIXTURE_ENV, str(FIXTURE))
+    pt.reset_pixiv_dictionary_cache()
+    result = pt.fetch_pixiv_dictionary_section("テスト記事", "来歴")
+    assert result[0]["heading"] == "来歴"
+    assert result[0]["body"] == "1999年に活動を開始した。"
+
+
 def test_heading_switch_reuses_cached_html(monkeypatch):
     monkeypatch.setenv(pt.FIXTURE_ENV, str(FIXTURE))
     pt.reset_pixiv_dictionary_cache()
