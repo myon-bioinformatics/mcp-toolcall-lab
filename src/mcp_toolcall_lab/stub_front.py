@@ -982,11 +982,10 @@ def pixiv_page_response(*, title: str = "") -> tuple[int, str, dict[str, str]]:
     headers: dict[str, str] = {}
     if error:
         headers["X-Pixiv-Stage"] = stage
-        headers["X-Pixiv-Error"] = error
         if upstream_status is not None:
             headers["X-Pixiv-Upstream-Status"] = str(upstream_status)
     else:
-        headers["X-Pixiv-Cache"] = cache or "miss"
+        headers["X-Pixiv-Cache"] = cache or "unknown"
     return status, body, headers
 
 
