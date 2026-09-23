@@ -382,6 +382,13 @@ PAGES_WIKI_SERVE = (
     "python -m mcp_toolcall_lab.stub_front serve --port 8765\n"
     "# then open /wiki  (http://127.0.0.1:8765/wiki)"
 )
+# Fallback shown by the Pages #pixiv panel only when its own browser-side
+# fetch of dic.pixiv.net fails (CORS/static-host limitation) -- a plain
+# command block, not a clickable/actionable localhost link from this page.
+PIXIV_LOCAL_SERVE = (
+    "python -m mcp_toolcall_lab.stub_front serve --port 8765\n"
+    "# then open /pixiv?title=<title>"
+)
 BUILD_META_NAME = "build_meta.json"
 BUILD_META_KEYS = (
     "version",
@@ -839,8 +846,11 @@ def write_pages(
     wiki_inner = wiki_inner + _pages_wiki_app_html(cache_bust=_asset_cache_bust(PAGES_WIKI_JS_SOURCE))
     pixiv_inner = (
         "<h2>Pixiv Encyclopedia search</h2>"
-        "<p>Pixiv Encyclopedia fetching stays MCP/local-server owned. GitHub Pages provides "
-        "the same search/result workspace without pretending that a static host can run MCP.</p>"
+        "<p>Enter a title to fetch <code>https://dic.pixiv.net/a/&lt;title&gt;</code> directly "
+        "from your browser (no MCP call, no server-side proxy) -- the same upstream URL the "
+        "MCP tools use. GitHub Pages is a static host, so this only works if dic.pixiv.net "
+        "allows a cross-origin browser request; if it does not, this panel says so explicitly "
+        "and shows the local/MCP command below instead of a localhost link it cannot reach.</p>"
         '<div id="pages-pixiv-app" data-testid="pages-pixiv-app">'
         '<form id="pages-pixiv-form" data-testid="pages-pixiv-form">'
         '<p><label for="pages-pixiv-title">Pixiv Encyclopedia title</label> '
@@ -848,14 +858,18 @@ def write_pages(
         'data-testid="pages-pixiv-title"> '
         '<button type="submit" data-testid="pages-pixiv-fetch">Search</button></p>'
         "</form>"
-        '<p class="term-muted" data-testid="pages-pixiv-status">Run the local stub to execute the MCP-backed search.</p>'
+        '<p class="term-muted" data-testid="pages-pixiv-status"></p>'
+        '<p role="alert" data-testid="pages-pixiv-error" hidden></p>'
         '<pre class="term-output" data-testid="pages-pixiv-extract" hidden></pre>'
+        '<div data-testid="pages-pixiv-fallback" hidden>'
+        '<p class="term-muted">Could not fetch from this static host. Run the MCP tool or local stub instead:</p>'
+        f'<pre class="term-output">{html.escape(PIXIV_LOCAL_SERVE)}</pre>'
+        "</div>"
         "</div>"
         "<ul>"
         f"<li><code>fetch_pixiv_dictionary_section</code> — {html.escape(TOOL_DESCRIPTIONS['fetch_pixiv_dictionary_section'])}</li>"
         f"<li><code>fetch_pixiv_dictionary_article</code> — {html.escape(TOOL_DESCRIPTIONS['fetch_pixiv_dictionary_article'])}</li>"
         "</ul>"
-        '<pre class="term-output">python -m mcp_toolcall_lab.stub_front serve --port 8765</pre>'
         f'<script src="{PAGES_PIXIV_JS_NAME}{_asset_cache_bust(PAGES_PIXIV_JS_SOURCE)}"></script>'
     )
     # Hide/show uses the HTML hidden attribute. Converted Markdown CSS comes

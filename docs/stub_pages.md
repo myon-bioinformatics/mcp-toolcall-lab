@@ -146,6 +146,19 @@ Actions summary" JSON on the home view is the last `stub-pages` smoke
 snapshot — the actual value of this host — kept thinner than generation
 + the `#wiki` form.
 
+Pages `#pixiv` follows the same pattern: `pages-pixiv.js` fetches the real
+`https://dic.pixiv.net/a/{title}` (the same upstream URL
+`pixiv_dictionary_tool.py` uses) directly from the browser and renders
+curl-like plain text in place — no MCP call, no server-side proxy. Unlike
+MediaWiki's `origin=*`, dic.pixiv.net is not known to send permissive CORS
+headers, so on a GitHub Pages visit that request may be blocked; when it is,
+the panel says so explicitly and prints the local/MCP fallback command
+(`stub_front serve` + `/pixiv?title=...`) as a plain code block. It never
+shows a `127.0.0.1` URL as if this static host could reach it — that was the
+pre-fix behavior and is now a regression test
+(`tests/test_stub_pages.py::test_pixiv_pages_panel_never_regresses_to_localhost_dead_end`,
+`tests/test_pages_pixiv.py`).
+
 ## Local heading-lookup JS (not on Pages)
 
 `src/mcp_toolcall_lab/static/stub_demo.js` still re-implements

@@ -29,11 +29,14 @@ from mcp_toolcall_lab.stub_front import (
     PAGES_FORBIDDEN_NAMES,
     PAGES_HASH_JS_NAME,
     PAGES_HASH_JS_SOURCE,
+    PAGES_PIXIV_JS_NAME,
+    PAGES_PIXIV_JS_SOURCE,
     PAGES_SUMMARY_KEYS,
     PAGES_WIKI_BROWSER_NOTE,
     PAGES_WIKI_JS_NAME,
     PAGES_WIKI_JS_SOURCE,
     PAGES_WIKI_SERVE,
+    PIXIV_LOCAL_SERVE,
     STUB_DEMO_DATA_NAME,
     STUB_DEMO_JS_NAME,
     STUB_DEMO_JS_SOURCE,
@@ -359,9 +362,38 @@ def test_pixiv_pages_has_search_and_output_workspace(tmp_path: Path) -> None:
     assert 'data-testid="pages-pixiv-title"' in html
     assert 'data-testid="pages-pixiv-fetch"' in html
     assert 'data-testid="pages-pixiv-extract"' in html
+    assert 'data-testid="pages-pixiv-error"' in html
+    assert 'data-testid="pages-pixiv-fallback"' in html
     assert 'class="term-output"' in html
     assert "pages-pixiv.js?v=" in html
     assert (tmp_path / "site" / "pages-pixiv.js").is_file()
+
+
+def test_pixiv_pages_panel_never_regresses_to_localhost_dead_end(tmp_path: Path) -> None:
+    """Blocking fix: submitting the public #pixiv panel must not tell the user
+    to visit http://127.0.0.1:8765 as if that were reachable from GitHub Pages.
+
+    The panel attempts a real browser-side fetch of the actual upstream
+    (dic.pixiv.net) instead, same as #wiki does for MediaWiki. A fallback
+    command is only shown *after* that fetch fails, and only as a plain
+    ``<pre>`` command block -- never as a clickable/actionable localhost URL.
+    """
+    out = write_pages(tmp_path / "site", revision=_FAKE_REVISION).parent
+    html = (out / "index.html").read_text(encoding="utf-8")
+    js = (out / PAGES_PIXIV_JS_NAME).read_text(encoding="utf-8")
+    # Scope the index.html check to the #pixiv panel: the #wiki panel above it
+    # legitimately prints "http://127.0.0.1:8765/wiki" as a local-run command.
+    pixiv_html = html[html.index('data-pages-view="pixiv"') :]
+    for surface in (pixiv_html, js):
+        assert "MCP execution is local-only" not in surface
+        assert "Local result URL" not in surface
+        assert "http://127.0.0.1:8765" not in surface
+    assert "dic.pixiv.net" in js
+    assert "doFetch(url" in js
+    assert PIXIV_LOCAL_SERVE.splitlines()[0] in pixiv_html
+    assert (out / PAGES_PIXIV_JS_NAME).read_text(encoding="utf-8") == (
+        PAGES_PIXIV_JS_SOURCE.read_text(encoding="utf-8")
+    )
 
 
 def test_render_pixiv_page_outputs_catalog_result(monkeypatch) -> None:
