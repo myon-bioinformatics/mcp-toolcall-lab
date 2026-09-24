@@ -25,7 +25,7 @@ from __future__ import annotations
 
 import re
 
-from .markdown_lib import load_markdown
+from .markdown_lib import load_markdown, parse_sections
 
 _LIST_DASH_RE = re.compile(r"^([ \t]*)-(?=\[\[)", re.MULTILINE)
 _NEXT_ARROW_RE = re.compile(r"NEXT▶︎(?=\[\[)")
@@ -82,3 +82,13 @@ def normalize_pixiv_markup(markdown: str) -> str:
     text = _WIKILINK_RE.sub(_wikilink_repl, text)
 
     return text
+
+
+def pixiv_to_markdown(source: str) -> str:
+    """Convert observed Pixiv source syntax to Markdown consumable by markdown.py."""
+    return normalize_pixiv_markup(source)
+
+
+def pixiv_sections(source: str):
+    """Normalize Pixiv source then expose the shared markdown.py-backed sections."""
+    return parse_sections(pixiv_to_markdown(source))
