@@ -211,6 +211,49 @@
     return { title: title, reading: reading };
   }
 
+  // Browser mirror of the narrow #61/#62 Pixiv normalization contract.
+  // Keep this deliberately small: Pages cannot import Python/vendor/markdown.py,
+  // so these builders reproduce only make_link/make_image/heading output.
+  function escapeLinkUrl(url) {
+    return String(url).replace(/\(/g, "%28").replace(/\)/g, "%29").replace(/ /g, "%20");
+  }
+
+  function normalizePixivMarkup(source) {
+    var text = normalizeLineBreaks(source);
+    text = text.replace(/^([ \t]*)-(?=\[\[)/gm, "$1- ");
+    text = text.replace(/NEXT▶︎(?=\[\[)/g, "NEXT ▶︎ ");
+    text = text.replace(/\[pixivimage:(\d+)(?::([A-Za-z0-9]+))?\]/g, function (_all, id, size) {
+      var title = size ? ' "' + size + '"' : "";
+      return "![pixiv image " + id + "](pixivimage:" + id + title + ")";
+    });
+    text = text.replace(/\[\[([^\[\]>]+)(?:>([^\[\]]+))?\]\]/g, function (_all, label, anchor) {
+      label = label.trim();
+      anchor = String(anchor || label).trim();
+      return "[" + label + "](" + escapeLinkUrl(anchor) + ")";
+    });
+    return text;
+  }
+
+  function pixivToMarkdown(source) {
+    return normalizePixivMarkup(source).replace(
+      /^(\*{1,6})(【[^\n】]+】(?:[／/][^\n]+)?)\s*$/gm,
+      function (_all, stars, title) {
+        return "#".repeat(stars.length) + " " + title;
+      }
+    );
+  }
+
+  function scanMarkdownHeadings(markdown) {
+    var out = [];
+    String(markdown || "").split("\n").forEach(function (line) {
+      var match = /^(#{1,6})\s+(.+?)\s*$/.exec(line);
+      if (match) {
+        out.push({ level: match[1].length, heading: match[2] });
+      }
+    });
+    return out;
+  }
+
   // Normalizes pasted Pixiv source/plain text into a stable structured
   // extract: title / reading / overview / headings / body. HTML input (the
   // 原文表示 page's markup, or a saved copy of it) yields real headings via
@@ -235,10 +278,15 @@
 
     var looksHtml = /<[a-z!][\s\S]*>/i.test(rawText);
     var matches = looksHtml ? scanHeadings(rawText) : [];
-    var headings = matches.map(function (m) {
-      return { level: m.level, heading: m.heading };
-    });
-    var bodyLines = looksHtml ? normalizeLines(rawText) : normalizeLines(rawText.replace(/[ \t]+/g, " "));
+    var normalizedPlain = looksHtml ? "" : pixivToMarkdown(rawText);
+    var headings = looksHtml
+      ? matches.map(function (m) { return { level: m.level, heading: m.heading }; })
+      : scanMarkdownHeadings(normalizedPlain);
+    var bodyLines = looksHtml
+      ? normalizeLines(rawText)
+      : normalizeLineBreaks(normalizedPlain).split("\n").map(function (line) {
+          return line.replace(/[ \t]+$/g, "");
+        }).filter(function (line) { return line.length > 0; });
     if (!bodyLines.length) {
       return { ok: false, error: EMPTY_SOURCE };
     }
@@ -446,6 +494,8 @@
     parseSourceUrl: parseSourceUrl,
     stripHtml: stripHtml,
     extractHeadingsFromHtml: extractHeadingsFromHtml,
+    normalizePixivMarkup: normalizePixivMarkup,
+    pixivToMarkdown: pixivToMarkdown,
     extractSource: extractSource,
     mount: mount,
     autoMount: autoMount,
