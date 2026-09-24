@@ -258,9 +258,10 @@
   // extract: title / reading / overview / headings / body. HTML input (the
   // 原文表示 page's markup, or a saved copy of it) yields real headings via
   // its own <h1>..<h6> tags, the same signal html_to_markdown() reads
-  // server-side. Plain pasted text has no reliable heading markers, so it
-  // only yields title/reading/body -- headings/overview stay empty rather
-  // than guessing at pixiv's undocumented wiki markup.
+  // server-side. Plain pasted text first runs through the narrow Pixiv
+  // normalization adapter; recognized labelled star headings are then exposed
+  // through scanMarkdownHeadings(). Overview stays empty for plain text rather
+  // than guessing section prose from Pixiv-specific source syntax.
   function extractSource(input) {
     input = input || {};
     // Budget-before-decode: the raw, untrimmed, un-normalized paste is what
@@ -292,7 +293,8 @@
     }
 
     var titleMatch = matches.length ? matches[0] : null;
-    var split = splitReading((titleMatch && titleMatch.heading) || bodyLines[0]);
+    var normalizedTitleHeading = !looksHtml && headings.length ? headings[0].heading : "";
+    var split = splitReading((titleMatch && titleMatch.heading) || normalizedTitleHeading || bodyLines[0]);
     var title = String(input.title || "").trim() || split.title;
     var reading = split.reading;
 
