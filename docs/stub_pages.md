@@ -146,18 +146,27 @@ Actions summary" JSON on the home view is the last `stub-pages` smoke
 snapshot — the actual value of this host — kept thinner than generation
 + the `#wiki` form.
 
-Pages `#pixiv` follows the same pattern: `pages-pixiv.js` fetches the real
-`https://dic.pixiv.net/a/{title}` (the same upstream URL
-`pixiv_dictionary_tool.py` uses) directly from the browser and renders
-curl-like plain text in place — no MCP call, no server-side proxy. Unlike
-MediaWiki's `origin=*`, dic.pixiv.net is not known to send permissive CORS
-headers, so on a GitHub Pages visit that request may be blocked; when it is,
-the panel says so explicitly and prints the local/MCP fallback command
-(`stub_front serve` + `/pixiv?title=...`) as a plain code block. It never
-shows a `127.0.0.1` URL as if this static host could reach it — that was the
-pre-fix behavior and is now a regression test
-(`tests/test_stub_pages.py::test_pixiv_pages_panel_never_regresses_to_localhost_dead_end`,
-`tests/test_pages_pixiv.py`).
+Pages `#pixiv` is the iPhone-validated **Open → Source → Extract** workflow,
+not a search box: unlike MediaWiki's `origin=*`, `dic.pixiv.net` is not known
+to send permissive CORS headers, so `pages-pixiv.js` makes **no** browser
+fetch of it at all (the earlier CORS-fetch attempt from this same panel is
+retired). Instead it generates and validates the real `https://dic.pixiv.net`
+URLs from a title — `/a/{title}` (article), `/history/{title}` (history), and
+`/history/{title}/{numeric_revision_id}/source` (a specific revision's
+"原文表示" / view-source page, e.g. `BLEACH/8852559/source`) — so a visitor
+can open them in a new tab. Pasting that revision's source text back into the
+panel runs Extract entirely client-side, normalizing it into a stable
+`{title, reading, overview, headings, body}` shape (HTML-shaped paste text
+yields real headings from its own `<h1>`–`<h6>` tags, mirroring the
+h-level-to-`#`-heading model `pixiv_dictionary_tool.py` already gets from
+`vendor/markdown.py`'s `html_to_markdown()`; plain-text paste yields
+title/body only rather than guessing at pixiv's undocumented wiki markup).
+The panel still points at the local/MCP path (`stub_front serve` +
+`/pixiv?title=...`, `fetch_pixiv_dictionary_article`) as a plain code block
+for an automatic, authoritative fetch, and never shows a `127.0.0.1` URL as
+if this static host could reach it — regression-tested by
+`tests/test_stub_pages.py::test_pixiv_pages_panel_never_regresses_to_localhost_dead_end`,
+`test_pixiv_pages_search_is_retired`, and `tests/test_pages_pixiv.py`.
 
 ## Local heading-lookup JS (not on Pages)
 
@@ -206,6 +215,9 @@ unchanged; reusable pieces can be reverse-imported only after this
 prototype proves useful.
 
 
-## Pixiv history-source experiment
+## Pixiv history-source workflow
 
-The next Pixiv Pages iteration retires browser-side Search/fetch and targets the iPhone-validated `History -> Source -> Extract` workflow. The tested URL shapes are `/a/{title}`, `/history/{title}`, and `/history/{title}/{numeric_revision_id}/source` (for example `BLEACH/8852559/source`). Static Pages must not claim it can cross-origin fetch the source; URL metadata and user-visible source text are inputs to Extract. CI remains fixture-based.
+Implemented: see "Terminal-lite page shell" above for the current `#pixiv`
+Open → Source → Extract panel (`pages_pixiv.js`). CI stays fixture-based;
+there is no mandatory live `dic.pixiv.net` dependency for the default
+`pytest -q` run.

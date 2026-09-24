@@ -382,9 +382,9 @@ PAGES_WIKI_SERVE = (
     "python -m mcp_toolcall_lab.stub_front serve --port 8765\n"
     "# then open /wiki  (http://127.0.0.1:8765/wiki)"
 )
-# Fallback shown by the Pages #pixiv panel only when its own browser-side
-# fetch of dic.pixiv.net fails (CORS/static-host limitation) -- a plain
-# command block, not a clickable/actionable localhost link from this page.
+# Pointer shown by the Pages #pixiv panel to the local/MCP path that can
+# fetch dic.pixiv.net automatically -- a plain command block, not a
+# clickable/actionable localhost link from this static page.
 PIXIV_LOCAL_SERVE = (
     "python -m mcp_toolcall_lab.stub_front serve --port 8765\n"
     "# then open /pixiv?title=<title>"
@@ -845,27 +845,39 @@ def write_pages(
         )
     wiki_inner = wiki_inner + _pages_wiki_app_html(cache_bust=_asset_cache_bust(PAGES_WIKI_JS_SOURCE))
     pixiv_inner = (
-        "<h2>Pixiv Encyclopedia search</h2>"
-        "<p>Enter a title to fetch <code>https://dic.pixiv.net/a/&lt;title&gt;</code> directly "
-        "from your browser (no MCP call, no server-side proxy) -- the same upstream URL the "
-        "MCP tools use. GitHub Pages is a static host, so this only works if dic.pixiv.net "
-        "allows a cross-origin browser request; if it does not, this panel says so explicitly "
-        "and shows the local/MCP command below instead of a localhost link it cannot reach.</p>"
+        "<h2>Pixiv Encyclopedia: Open → Source → Extract</h2>"
+        "<p>GitHub Pages is a static host with no server-side proxy, and "
+        "<code>dic.pixiv.net</code> does not opt in to cross-origin browser requests the way "
+        "Wikipedia does -- so this panel no longer searches or fetches dic.pixiv.net from your "
+        "browser. Open the article or its history in a new tab, open a revision's "
+        "<strong>原文表示</strong> (view source) page there, copy its text, and paste it below "
+        "to Extract a stable title / reading / overview / headings / body locally.</p>"
         '<div id="pages-pixiv-app" data-testid="pages-pixiv-app">'
-        '<form id="pages-pixiv-form" data-testid="pages-pixiv-form">'
         '<p><label for="pages-pixiv-title">Pixiv Encyclopedia title</label> '
         '<input id="pages-pixiv-title" name="title" value="" placeholder="Article title" '
-        'data-testid="pages-pixiv-title"> '
-        '<button type="submit" data-testid="pages-pixiv-fetch">Search</button></p>'
+        'data-testid="pages-pixiv-title"></p>'
+        "<p>"
+        '<button type="button" data-testid="pages-pixiv-open-article">Open article</button> '
+        '<button type="button" data-testid="pages-pixiv-open-history">Open history</button>'
+        "</p>"
+        '<form id="pages-pixiv-source-form" data-testid="pages-pixiv-source-form">'
+        '<p><label for="pages-pixiv-source-url">Revision source URL (optional)</label> '
+        '<input id="pages-pixiv-source-url" name="source-url" value="" '
+        'placeholder="https://dic.pixiv.net/history/&lt;title&gt;/&lt;revision_id&gt;/source" '
+        'data-testid="pages-pixiv-source-url"></p>'
+        '<p><label for="pages-pixiv-source-text">Pasted 原文表示 source text</label><br>'
+        '<textarea id="pages-pixiv-source-text" name="source-text" rows="8" '
+        'data-testid="pages-pixiv-source-text"></textarea></p>'
+        '<p><button type="submit" data-testid="pages-pixiv-extract-submit">Extract</button></p>'
         "</form>"
         '<p class="term-muted" data-testid="pages-pixiv-status"></p>'
         '<p role="alert" data-testid="pages-pixiv-error" hidden></p>'
         '<pre class="term-output" data-testid="pages-pixiv-extract" hidden></pre>'
-        '<div data-testid="pages-pixiv-fallback" hidden>'
-        '<p class="term-muted">Could not fetch from this static host. Run the MCP tool or local stub instead:</p>'
+        "</div>"
+        '<p class="term-muted">Want an automatic fetch instead of a manual paste? The '
+        "local/MCP path already resolves <code>/a/&lt;title&gt;</code> directly and normalizes "
+        "it with the vendored markdown.py:</p>"
         f'<pre class="term-output">{html.escape(PIXIV_LOCAL_SERVE)}</pre>'
-        "</div>"
-        "</div>"
         "<ul>"
         f"<li><code>fetch_pixiv_dictionary_section</code> — {html.escape(TOOL_DESCRIPTIONS['fetch_pixiv_dictionary_section'])}</li>"
         f"<li><code>fetch_pixiv_dictionary_article</code> — {html.escape(TOOL_DESCRIPTIONS['fetch_pixiv_dictionary_article'])}</li>"

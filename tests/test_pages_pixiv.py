@@ -1,10 +1,13 @@
 """Browser pixiv Encyclopedia client for published Pages #pixiv — no live network.
 
-Regression coverage for the Blocking fix in PR #58: submitting the public
-#pixiv panel must attempt a real fetch of the actual upstream
-(https://dic.pixiv.net/a/{title}) and, on failure, say so honestly instead of
-pointing the user at http://127.0.0.1:8765 as if that were reachable from
-GitHub Pages.
+This PR retires the old browser-side Search/fetch of ``dic.pixiv.net`` (which
+depended on a CORS allowance that site never grants) in favor of the
+iPhone-validated Open -> Source -> Extract workflow: the panel generates and
+validates the real ``/a/{title}``, ``/history/{title}``, and
+``/history/{title}/{revision_id}/source`` URLs so a visitor can open them,
+then normalizes source text pasted back from Pixiv's own 原文表示 (view
+source) page into a stable structured extract. Everything below runs
+against pasted text only; ``pages_pixiv.js`` makes no ``fetch()`` call.
 """
 
 from __future__ import annotations
@@ -20,6 +23,7 @@ _PAGES_PIXIV_CONTRACT = r"""
 const pixiv = require(process.argv[1]);
 const assert = require("assert");
 
+// -- URL generation --------------------------------------------------
 assert.strictEqual(pixiv.buildArticleUrl("Bleach"), "https://dic.pixiv.net/a/Bleach");
 assert.strictEqual(
   pixiv.buildArticleUrl("ブリーチ"),
@@ -28,71 +32,90 @@ assert.strictEqual(
 assert.strictEqual(pixiv.buildArticleUrl(""), "");
 assert.strictEqual(pixiv.buildArticleUrl("  "), "");
 
-const stripped = pixiv.stripHtml(
-  "<html><head><style>.x{}</style></head><body>" +
-    "<h1>Bleach</h1><p>A shinigami story.</p>" +
-    "<script>evil()</script>" +
-    "<p>Second&nbsp;paragraph &amp; more</p>" +
-    "</body></html>"
+assert.strictEqual(pixiv.buildHistoryUrl("BLEACH"), "https://dic.pixiv.net/history/BLEACH");
+assert.strictEqual(pixiv.buildHistoryUrl(""), "");
+
+assert.strictEqual(
+  pixiv.buildSourceUrl("BLEACH", "8852559"),
+  "https://dic.pixiv.net/history/BLEACH/8852559/source"
 );
-assert.ok(stripped.includes("Bleach"));
-assert.ok(stripped.includes("A shinigami story."));
-assert.ok(stripped.includes("Second paragraph & more"));
-assert.ok(!stripped.includes("evil()"));
-assert.ok(!stripped.includes("<"));
-assert.strictEqual(pixiv.stripHtml(""), "");
-assert.strictEqual(pixiv.stripHtml("<p></p><p>   </p>"), "");
+assert.strictEqual(pixiv.buildSourceUrl("BLEACH", "not-a-number"), "");
+assert.strictEqual(pixiv.buildSourceUrl("", "8852559"), "");
 
-pixiv.loadArticle("", null).then((empty) => {
-  assert.strictEqual(empty.ok, false);
-  assert.strictEqual(empty.error, pixiv.MISSING_TITLE);
+// -- URL recognition/validation ---------------------------------------
+const validUrl = pixiv.parseSourceUrl("https://dic.pixiv.net/history/BLEACH/8852559/source");
+assert.strictEqual(validUrl.ok, true);
+assert.strictEqual(validUrl.title, "BLEACH");
+assert.strictEqual(validUrl.revisionId, "8852559");
 
-  let fetchCalls = 0;
-  const fakeFetch = (url, init) => {
-    fetchCalls += 1;
-    assert.strictEqual(url, "https://dic.pixiv.net/a/Bleach");
-    assert.strictEqual(init.mode, "cors");
-    return Promise.resolve({ ok: true, text: () => Promise.resolve("<h1>Bleach</h1><p>body text</p>") });
-  };
-  return pixiv.loadArticle("Bleach", fakeFetch).then((result) => {
-    assert.strictEqual(fetchCalls, 1);
-    assert.strictEqual(result.ok, true);
-    assert.strictEqual(result.url, "https://dic.pixiv.net/a/Bleach");
-    assert.ok(result.text.includes("Bleach"));
-    assert.ok(result.text.includes("body text"));
+// Unicode title, raw (not percent-encoded) in the URL string.
+const unicodeUrl = pixiv.parseSourceUrl(
+  "https://dic.pixiv.net/history/ブリーチ/8852559/source"
+);
+assert.strictEqual(unicodeUrl.ok, true);
+assert.strictEqual(unicodeUrl.title, "ブリーチ");
 
-    // A real network/CORS failure (what a browser throws when a static host
-    // like Pages is blocked from calling a non-CORS-enabled origin) must
-    // produce an honest error -- never a fake success, never a claim that
-    // 127.0.0.1 is reachable from here.
-    return pixiv.loadArticle("Bleach", () => Promise.reject(new TypeError("Failed to fetch")));
-  }).then((corsErr) => {
-    assert.strictEqual(corsErr.ok, false);
-    assert.strictEqual(corsErr.staticHost, true);
-    assert.ok(corsErr.error.includes("GitHub Pages is a static host"));
-    assert.ok(corsErr.error.includes("Failed to fetch"));
-    assert.ok(!corsErr.error.includes("127.0.0.1"));
+// Percent-encoded (URL-encoded) title also recognized.
+const encodedUrl = pixiv.parseSourceUrl(
+  "https://dic.pixiv.net/history/" + encodeURIComponent("ブリーチ") + "/8852559/source"
+);
+assert.strictEqual(encodedUrl.ok, true);
+assert.strictEqual(encodedUrl.title, "ブリーチ");
 
-    return pixiv.loadArticle("Bleach", () => Promise.resolve({ ok: false, status: 403 }));
-  }).then((httpErr) => {
-    assert.strictEqual(httpErr.ok, false);
-    assert.ok(httpErr.error.includes("HTTP 403"));
+// Non-numeric revision id rejected.
+const badRevision = pixiv.parseSourceUrl("https://dic.pixiv.net/history/BLEACH/latest/source");
+assert.strictEqual(badRevision.ok, false);
+assert.strictEqual(badRevision.error, pixiv.INVALID_SOURCE_URL);
 
-    return pixiv.loadArticle("Bleach", () => Promise.resolve({ ok: true, text: () => Promise.resolve("") }));
-  }).then((emptyBody) => {
-    assert.strictEqual(emptyBody.ok, false);
-    assert.ok(emptyBody.error.includes("no readable text"));
-    console.log("ok");
-  });
-}).catch((err) => {
-  console.error(err);
-  process.exit(1);
+// Non-pixiv host rejected -- never treated as a trusted pixiv URL.
+const wrongHost = pixiv.parseSourceUrl(
+  "https://evil.example/history/BLEACH/8852559/source"
+);
+assert.strictEqual(wrongHost.ok, false);
+
+// Plain article/history URLs (no /source) are not revision-source URLs.
+assert.strictEqual(pixiv.parseSourceUrl("https://dic.pixiv.net/a/BLEACH").ok, false);
+assert.strictEqual(pixiv.parseSourceUrl("https://dic.pixiv.net/history/BLEACH").ok, false);
+assert.strictEqual(pixiv.parseSourceUrl("").ok, false);
+assert.strictEqual(pixiv.parseSourceUrl("not a url").ok, false);
+
+// -- Extract: HTML-shaped pasted source --------------------------------
+const htmlExtract = pixiv.extractSource({
+  sourceText:
+    "<h1>テスト記事（てすときじ）</h1><p>これは概要本文。</p>" +
+    "<h2>来歴</h2><p>1999年に活動を開始した。</p>",
 });
+assert.strictEqual(htmlExtract.ok, true);
+assert.strictEqual(htmlExtract.title, "テスト記事");
+assert.strictEqual(htmlExtract.reading, "てすときじ");
+assert.ok(htmlExtract.overview.includes("これは概要本文。"));
+assert.deepStrictEqual(htmlExtract.headings, [
+  { level: 1, heading: "テスト記事（てすときじ）" },
+  { level: 2, heading: "来歴" },
+]);
+assert.ok(htmlExtract.body.includes("1999年に活動を開始した。"));
+
+// -- Extract: plain pasted text (no HTML heading markers available) ---
+const plainExtract = pixiv.extractSource({
+  title: "BLEACH",
+  sourceText: "BLEACH\nA shinigami story.\nSecond paragraph.",
+});
+assert.strictEqual(plainExtract.ok, true);
+assert.strictEqual(plainExtract.title, "BLEACH");
+assert.deepStrictEqual(plainExtract.headings, []);
+assert.ok(plainExtract.body.includes("A shinigami story."));
+
+// -- Extract: missing/empty input never fakes success ------------------
+assert.strictEqual(pixiv.extractSource({ sourceText: "" }).ok, false);
+assert.strictEqual(pixiv.extractSource({ sourceText: "" }).error, pixiv.MISSING_SOURCE);
+assert.strictEqual(pixiv.extractSource({ sourceText: "<p></p>" }).ok, false);
+
+console.log("ok");
 """
 
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="node not installed in this environment")
-def test_pages_pixiv_js_fetch_and_error_contracts() -> None:
+def test_pages_pixiv_js_open_source_extract_contracts() -> None:
     result = subprocess.run(
         ["node", "-e", _PAGES_PIXIV_CONTRACT, str(PAGES_PIXIV_JS_SOURCE)],
         capture_output=True,
@@ -109,6 +132,21 @@ def test_pages_pixiv_js_is_valid_javascript() -> None:
         ["node", "--check", str(PAGES_PIXIV_JS_SOURCE)], capture_output=True, text=True
     )
     assert result.returncode == 0, result.stderr
+
+
+def test_pages_pixiv_js_search_is_retired() -> None:
+    """Regression: this is a retire-Search PR, not a fix-Search PR.
+
+    The panel must no longer call ``fetch()`` against dic.pixiv.net, and the
+    old Search-button contract (``loadArticle`` / a "Search" affordance /
+    CORS fetch attempt) must not reappear.
+    """
+    source = PAGES_PIXIV_JS_SOURCE.read_text(encoding="utf-8")
+    assert "fetch(" not in source
+    assert "loadArticle" not in source
+    assert '"cors"' not in source
+    assert "mode:" not in source
+    assert "Search" not in source
 
 
 def test_pages_pixiv_js_never_claims_localhost_is_reachable() -> None:
