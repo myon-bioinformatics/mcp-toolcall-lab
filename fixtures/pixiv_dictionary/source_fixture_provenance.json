@@ -1,0 +1,23 @@
+{
+  "_provenance": "All three HTML fixtures below are fully synthetic: no dic.pixiv.net article body/prose is reproduced anywhere in this repo. Their h1/h2/h3 + single-<p>-per-heading shape mirrors fixtures/pixiv_dictionary/sample_article.html (#59), which is itself the same shape pixiv_dictionary_tool.py already gets from vendor/markdown.py's html_to_markdown() for the /a/{title} article page. This PR (#60) does not yet have a confirmed real /history/{title}/{revisionId}/source page capture to build a fixture from -- only the URL shape itself was manually verified (see fixtures/pixiv_dictionary/history_source_urls.json and docs/stub_pages.md), not the revision-source page's internal markup -- so these fixtures document plausible article-shape coverage (title+reading, heading nesting/duplication, labeled fields) rather than a byte-for-byte capture of the source view.",
+  "fixtures": [
+    {
+      "file": "source_ja_reading_nested.html",
+      "synthetic": true,
+      "observed_shape_basis": "Japanese title followed by a parenthesized reading, e.g. サンプル項目（さんぷるこうもく）, matching the h1 shape already proven by sample_article.html's テスト記事 test coverage.",
+      "notes": "Exercises an H1 -> H3 heading-level jump (no intervening H2) to prove overview extraction (own_body) stops at the very next heading regardless of level, while parse_sections still returns headings out of strict nesting order."
+    },
+    {
+      "file": "source_ascii_flat_duplicate.html",
+      "synthetic": true,
+      "observed_shape_basis": "Non-Japanese/ASCII title with no parenthesized reading -- the alternate-title case called out in docs/pixiv_source_fixture_contract.md.",
+      "notes": "Two sibling H2 sections reuse the exact same heading text ('Notes') to cover duplicate/repeated section-like structures. Carries no English/parent-article labeled line, so both new fields are expected to extract as empty rather than guessed."
+    },
+    {
+      "file": "source_english_parent_labels.html",
+      "synthetic": true,
+      "observed_shape_basis": "No confirmed dic.pixiv.net markup exists for an English-title or parent-article field (see docs/pixiv_source_fixture_contract.md); the 'English: ...' / 'Parent article: ...' lines here are placeholder labels invented for this fixture, not observed source markup.",
+      "notes": "Extraction only recognizes an explicit label line ('English:'/'英語表記：' or 'Parent article:'/'親記事：') and leaves the field empty when absent -- it does not guess a position or markup convention for these two fields."
+    }
+  ]
+}

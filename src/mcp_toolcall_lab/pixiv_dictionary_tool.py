@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError
 
-from .markdown_lib import Section, load_markdown, lookup_heading, parse_sections
+from .markdown_lib import Section, load_markdown, lookup_heading, own_body, parse_sections
 
 PIXIV_ARTICLE = "https://dic.pixiv.net/a/{title}"
 TIMEOUT = 10.0
@@ -157,25 +157,8 @@ def fetch_pixiv_dictionary_section(title: str, heading: str = "") -> list[dict[s
     if section is None:
         return []
     # parse_sections() may include nested descendants in a parent body. For a
-    # selected heading, recover the exact heading from the normalized Markdown
-    # and return only its own prose up to the next heading of any level.
-    lines = article.markdown.splitlines()
-    target = section.title.casefold()
-    start = None
-    for index, line in enumerate(lines):
-        stripped = line.lstrip()
-        if stripped.startswith("#"):
-            title_text = stripped.lstrip("#").strip().rstrip("#").strip()
-            if title_text.casefold() == target:
-                start = index + 1
-                break
-    if start is None:
-        body = section.body
-    else:
-        own_body: list[str] = []
-        for line in lines[start:]:
-            if line.lstrip().startswith("#"):
-                break
-            own_body.append(line)
-        body = "\n".join(own_body).strip()
+    # selected heading, own_body() recovers the exact heading from the
+    # normalized Markdown and returns only its own prose up to the next
+    # heading of any level.
+    body = own_body(article.markdown, section)
     return [{"heading": section.title, "level": str(section.level), "body": body}]
