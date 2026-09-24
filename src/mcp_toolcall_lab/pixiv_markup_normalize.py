@@ -20,8 +20,9 @@ or unrecognized tokens -- passes through unchanged; see the SUPPORTED /
 UNSUPPORTED sections of ``docs/pixiv_markup_normalization.md`` for the full
 contract.
 
-Not wired into ``pixiv_source_extract.py`` or the MCP fetch tools yet --
-that is a later phase.
+Wired into the MCP Pixiv dictionary article/section fetch path by #62. It is
+still not wired into ``pixiv_source_extract.py``; source/history extraction
+remains a separate later phase.
 """
 
 from __future__ import annotations
