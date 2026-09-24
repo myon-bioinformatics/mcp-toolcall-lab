@@ -38,11 +38,11 @@ def test_normalization_reuses_markdown_lib_make_link_and_make_image() -> None:
     assert "import html.parser" not in source
 
 
-def test_not_yet_wired_into_source_extract_or_dictionary_tool() -> None:
+def test_normalizer_is_wired_into_dictionary_tool_but_not_source_extract() -> None:
     extract_source = (ROOT / "src" / "mcp_toolcall_lab" / "pixiv_source_extract.py").read_text(encoding="utf-8")
     tool_source = (ROOT / "src" / "mcp_toolcall_lab" / "pixiv_dictionary_tool.py").read_text(encoding="utf-8")
     assert "pixiv_markup_normalize" not in extract_source
-    assert "pixiv_markup_normalize" not in tool_source
+    assert "pixiv_markup_normalize" in tool_source
 
 
 # -- Fixture provenance is documented and stays in sync ---------------------
