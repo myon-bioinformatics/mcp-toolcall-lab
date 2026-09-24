@@ -30,7 +30,7 @@ Do not wire this into `fetch_pixiv_dictionary_article` or `fetch_pixiv_dictionar
 
 ## Implementation
 
-`src/mcp_toolcall_lab/pixiv_markup_normalize.py` implements `normalize_pixiv_markup(markdown: str) -> str`. It reuses vendor `markdown.py`'s own `make_link()` / `make_image()` builders rather than hand-formatting Markdown strings, and adds a thin regex layer only for the tokens vendor `markdown.py` has no notion of at all. Fixtures live in `fixtures/pixiv_dictionary/markup_normalization_cases.json` (input/expected pairs, each tagged with the observed token category); tests are in `tests/test_pixiv_markup_normalize.py`, covering regression, idempotence/stability, and the error path when vendor `markdown.py` is unavailable.
+`src/mcp_toolcall_lab/pixiv_markup_normalize.py` keeps two boundaries: `normalize_pixiv_markup()` performs conservative token-level normalization, while `pixiv_to_markdown()` promotes only the observed Pixiv star-heading form using vendor `markdown.py`'s `heading()` builder. `pixiv_sections()` then delegates the converted text to the shared `parse_sections()` path. Link/image normalization likewise reuses vendor `make_link()` / `make_image()` rather than hand-formatting Markdown. Fixtures live in `fixtures/pixiv_dictionary/markup_normalization_cases.json` (input/expected pairs, each tagged with the observed token category); tests are in `tests/test_pixiv_markup_normalize.py`, covering regression, idempotence/stability, and the error path when vendor `markdown.py` is unavailable.
 
 Not yet wired into `pixiv_source_extract.py`'s `body`/`extract_pixiv_source()` pipeline or the MCP fetch tools -- this PR is the normalization-layer phase only.
 
