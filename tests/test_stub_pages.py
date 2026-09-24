@@ -356,27 +356,49 @@ def test_write_pages_does_not_embed_the_static_try_it_demo(tmp_path: Path) -> No
 
 
 
-def test_pixiv_pages_has_search_and_output_workspace(tmp_path: Path) -> None:
+def test_pixiv_pages_has_open_source_extract_workspace(tmp_path: Path) -> None:
     html = write_pages(tmp_path / "site", revision=_FAKE_REVISION).read_text(encoding="utf-8")
-    assert 'data-testid="pages-pixiv-form"' in html
     assert 'data-testid="pages-pixiv-title"' in html
-    assert 'data-testid="pages-pixiv-fetch"' in html
+    assert 'data-testid="pages-pixiv-open-article"' in html
+    assert 'data-testid="pages-pixiv-open-history"' in html
+    assert 'data-testid="pages-pixiv-source-form"' in html
+    assert 'data-testid="pages-pixiv-source-url"' in html
+    assert 'data-testid="pages-pixiv-source-text"' in html
+    assert 'data-testid="pages-pixiv-extract-submit"' in html
     assert 'data-testid="pages-pixiv-extract"' in html
     assert 'data-testid="pages-pixiv-error"' in html
-    assert 'data-testid="pages-pixiv-fallback"' in html
     assert 'class="term-output"' in html
     assert "pages-pixiv.js?v=" in html
     assert (tmp_path / "site" / "pages-pixiv.js").is_file()
 
 
-def test_pixiv_pages_panel_never_regresses_to_localhost_dead_end(tmp_path: Path) -> None:
-    """Blocking fix: submitting the public #pixiv panel must not tell the user
-    to visit http://127.0.0.1:8765 as if that were reachable from GitHub Pages.
+def test_pixiv_pages_search_is_retired(tmp_path: Path) -> None:
+    """This PR retires browser-side Search/fetch of dic.pixiv.net entirely --
+    it is not a fix for the previous CORS-blocked Search flow (PR #58's
+    ``pages-pixiv-fetch`` Search button / ``pages-pixiv-form`` /
+    ``pages-pixiv-fallback`` contract). The public panel now only builds and
+    validates the History -> Source -> Extract URLs and normalizes pasted
+    source text; it never claims it can fetch dic.pixiv.net itself.
+    """
+    out = write_pages(tmp_path / "site", revision=_FAKE_REVISION).parent
+    html = (out / "index.html").read_text(encoding="utf-8")
+    js = (out / PAGES_PIXIV_JS_NAME).read_text(encoding="utf-8")
+    pixiv_html = html[html.index('data-pages-view="pixiv"') :]
+    assert 'data-testid="pages-pixiv-form"' not in pixiv_html
+    assert 'data-testid="pages-pixiv-fetch"' not in pixiv_html
+    assert 'data-testid="pages-pixiv-fallback"' not in pixiv_html
+    assert ">Search<" not in pixiv_html
+    assert "fetch(" not in js
+    assert "loadArticle" not in js
 
-    The panel attempts a real browser-side fetch of the actual upstream
-    (dic.pixiv.net) instead, same as #wiki does for MediaWiki. A fallback
-    command is only shown *after* that fetch fails, and only as a plain
-    ``<pre>`` command block -- never as a clickable/actionable localhost URL.
+
+def test_pixiv_pages_panel_never_regresses_to_localhost_dead_end(tmp_path: Path) -> None:
+    """Blocking fix from PR #58: the public #pixiv panel must not tell the
+    user to visit http://127.0.0.1:8765 as if that were reachable from
+    GitHub Pages. This PR replaces the CORS-blocked browser fetch with a
+    History -> Source -> Extract workflow instead, but the same guarantee
+    holds: the local/MCP pointer is only ever a plain ``<pre>`` command
+    block, never a clickable/actionable localhost URL.
     """
     out = write_pages(tmp_path / "site", revision=_FAKE_REVISION).parent
     html = (out / "index.html").read_text(encoding="utf-8")
@@ -389,7 +411,6 @@ def test_pixiv_pages_panel_never_regresses_to_localhost_dead_end(tmp_path: Path)
         assert "Local result URL" not in surface
         assert "http://127.0.0.1:8765" not in surface
     assert "dic.pixiv.net" in js
-    assert "doFetch(url" in js
     assert PIXIV_LOCAL_SERVE.splitlines()[0] in pixiv_html
     assert (out / PAGES_PIXIV_JS_NAME).read_text(encoding="utf-8") == (
         PAGES_PIXIV_JS_SOURCE.read_text(encoding="utf-8")
