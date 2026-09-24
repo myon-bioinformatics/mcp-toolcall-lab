@@ -36,7 +36,7 @@ Not yet wired into `pixiv_source_extract.py`'s `body`/`extract_pixiv_source()` p
 
 ### SUPPORTED
 
-- Observed Pixiv line-leading `*{1,6}【LABEL】／title` (and `/` separator variant) is promoted to the equivalent ATX heading level before the shared `markdown.py` section parser runs. Other star-prefixed lines and ordinary emphasis remain untouched.
+- Observed Pixiv line-leading `*{1,6}【LABEL】／title` (and `/` separator variant) is promoted to the equivalent ATX heading level before the shared `markdown.py` section parser runs. A bare labelled form such as `*【TAG】` is also promoted without inventing title text. Other star-prefixed lines and ordinary emphasis remain untouched.
 
 - `[[label>anchor]]` and `[[label]]` wiki links → Markdown links via `make_link()`. A `>`-less link uses the label itself as the target. Anchors containing `(`, `)`, or a space are percent-encoded (`%28`/`%29`/`%20`) because vendor `markdown.py`'s own `_INLINE_LINK_RE` matches a URL with `[^)\s]+` -- a literal `)` there would truncate the link on re-parse. This is exactly the case for the observed `[[死神>死神(BLEACH)]]` anchor.
 - `[pixivimage:ID]` and `[pixivimage:ID:size]` → Markdown images via `make_image()`, using a `pixivimage:ID` pseudo-URL (no real CDN URL is known at this layer) and the size suffix (e.g. `ms`) as the image title when present.
