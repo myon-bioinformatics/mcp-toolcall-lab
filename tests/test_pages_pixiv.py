@@ -111,6 +111,34 @@ assert.strictEqual(plainExtract.title, "BLEACH");
 assert.deepStrictEqual(plainExtract.headings, []);
 assert.ok(plainExtract.body.includes("A shinigami story."));
 
+
+// -- Pages mirrors the #61/#62 conservative Pixiv normalization ----------
+const observedShape = [
+  "*【INFORMATION】／作品情報",
+  "-[[黒崎一護]]",
+  "[pixivimage:61456650]",
+  "NEXT▶︎[[獄頤鳴鳴篇]]",
+  "[[死神>死神(BLEACH)]]",
+].join("\n");
+const normalizedShape = pixiv.pixivToMarkdown(observedShape);
+assert.ok(normalizedShape.includes("# 【INFORMATION】／作品情報"));
+assert.ok(normalizedShape.includes("- [黒崎一護](黒崎一護)"));
+assert.ok(normalizedShape.includes("![pixiv image 61456650](pixivimage:61456650)"));
+assert.ok(normalizedShape.includes("NEXT ▶︎ [獄頤鳴鳴篇](獄頤鳴鳴篇)"));
+assert.ok(normalizedShape.includes("[死神](死神%28BLEACH%29)"));
+assert.strictEqual(pixiv.pixivToMarkdown(normalizedShape), normalizedShape);
+
+const normalizedExtract = pixiv.extractSource({
+  title: "synthetic",
+  sourceText: observedShape,
+});
+assert.strictEqual(normalizedExtract.ok, true);
+assert.deepStrictEqual(normalizedExtract.headings, [
+  { level: 1, heading: "【INFORMATION】／作品情報" },
+]);
+assert.ok(normalizedExtract.body.includes("- [黒崎一護](黒崎一護)"));
+assert.ok(normalizedExtract.body.includes("![pixiv image 61456650](pixivimage:61456650)"));
+
 // -- Extract: missing/empty input never fakes success ------------------
 assert.strictEqual(pixiv.extractSource({ sourceText: "" }).ok, false);
 assert.strictEqual(pixiv.extractSource({ sourceText: "" }).error, pixiv.MISSING_SOURCE);
