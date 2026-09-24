@@ -115,3 +115,36 @@ def test_empty_markdown_conversion_is_convert_stage(monkeypatch):
     with pytest.raises(pt.PixivDictionaryFetchError) as exc_info:
         pt.fetch_pixiv_dictionary_article("テスト記事")
     assert exc_info.value.stage == "convert"
+
+
+def test_article_pipeline_applies_pixiv_normalization_before_sections(monkeypatch):
+    monkeypatch.setenv(pt.FIXTURE_ENV, str(FIXTURE))
+    pt.reset_pixiv_dictionary_cache()
+    seen = []
+
+    def fake_pixiv_to_markdown(markdown):
+        seen.append(markdown)
+        return markdown + "\n\n# 【TAG】\nnormalized body"
+
+    monkeypatch.setattr(pt, "pixiv_to_markdown", fake_pixiv_to_markdown)
+    article = pt.fetch_pixiv_dictionary_article("テスト記事")
+    assert len(seen) == 1
+    assert {"heading": "【TAG】", "level": 1} in article["headings"]
+    result = pt.fetch_pixiv_dictionary_section("テスト記事", "【TAG】")
+    assert result == [{"heading": "【TAG】", "level": "1", "body": "normalized body"}]
+    assert len(seen) == 1
+
+
+def test_article_pipeline_normalizes_observed_pixiv_tokens(monkeypatch):
+    monkeypatch.setenv(pt.FIXTURE_ENV, str(FIXTURE))
+    pt.reset_pixiv_dictionary_cache()
+
+    def fake_html_to_markdown(raw_html):
+        return "*【INFORMATION】／作品情報\n本文\n-[[黒崎一護]]"
+
+    monkeypatch.setattr(pt, "_html_to_markdown", fake_html_to_markdown)
+    article = pt.fetch_pixiv_dictionary_article("テスト記事")
+    assert article["markdown"].startswith("# 【INFORMATION】／作品情報")
+    assert "- [黒崎一護](黒崎一護)" in article["markdown"]
+    section = pt.fetch_pixiv_dictionary_section("テスト記事", "【INFORMATION】／作品情報")
+    assert section[0]["body"] == "本文\n- [黒崎一護](黒崎一護)"
