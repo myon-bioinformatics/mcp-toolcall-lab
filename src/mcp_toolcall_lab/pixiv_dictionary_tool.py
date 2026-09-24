@@ -17,6 +17,7 @@ from typing import Any
 from urllib.error import HTTPError
 
 from .markdown_lib import Section, load_markdown, lookup_heading, own_body, parse_sections
+from .pixiv_markup_normalize import pixiv_to_markdown
 
 PIXIV_ARTICLE = "https://dic.pixiv.net/a/{title}"
 TIMEOUT = 10.0
@@ -132,7 +133,7 @@ def load_pixiv_dictionary_article(title: str) -> tuple[PixivDictionaryArticle, s
         _CACHE.move_to_end(key)
         return cached[1], "hit"
     raw_html, url = _article_html(cleaned)
-    markdown = _html_to_markdown(raw_html)
+    markdown = pixiv_to_markdown(_html_to_markdown(raw_html))
     article = PixivDictionaryArticle(_canonical_title(markdown, cleaned), markdown, url)
     _CACHE[key] = (now + _ttl(), article)
     _CACHE.move_to_end(key)
