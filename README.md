@@ -469,6 +469,14 @@ affiliated; linked for reference only):
 - [JevでRAG検索の爆速化＆コスト削減は実現できるのか検証してみた](https://qiita.com/kikuziro/items/2be9091b328d8b844640) (Qiita) — RAG pipeline measurements with Jev for rerank / "cannot answer" gating / out-of-scope prefilter. Shared via [@suh_sunaneko](https://x.com/suh_sunaneko/status/2102377535493509504).
 - [Stagehand v4 + Jev thread](https://x.com/Dontgiveup_26/status/2102286564521111687) (@Dontgiveup_26) — community thread on Stagehand v4 browser automation paired with Jev (claimed LLM-call reduction / speedup). Thread itself; no separate article URL.
 
+### Jev fit summary and candidate uses in this lab
+
+The external [fit guide](https://github.com/mizchi/jev-playground/blob/main/docs/fit.md) describes Jev as a structured-judgment model, not a free-form text generator. It is a better fit when the answer space is explicit (for example, choosing among advertised tools), when decisions have an ordered shape such as `allow < confirm < block`, or when several independent predicates must be evaluated for the same input. The guide reports strong results for enumerated game actions (489 MOBA decisions and 37 chess moves with no illegal action) and for named-task selection (90% from names alone, 100% after adding one-line descriptions). These are results reported by that external project; they have not been reproduced by this lab.
+
+A useful, bounded experiment here would be to route a request among tools that are actually present in the MCP `tools/list` catalogue, or to classify a mock action as `allow`, `confirm`, or `block`. Keep a generic “none of these / uncertain” question beside any class-specific checks: the guide reports that enumerated predicates can help on known classes, while a generic question can catch classes omitted from the list. Record the selected tool/action, whether it was advertised, raw argument-schema validity, server acceptance, and the resulting trace in the existing offline fixtures and logs.
+
+Jev is not a replacement for deterministic computation, argument construction, API knowledge, schema validation, or tests. Do not ask it to generate free-form MCP arguments or calculate measurable values; keep those in code. Avoid automatic decisions near a confidence boundary and route uncertain cases to a safe fallback or human review. Spatial judgments also depend on how the state is represented and were mixed in the guide. This lab should evaluate these ideas against mocks and recorded fixtures only; this section does not authorize or imply live MLIT API calls or API keys.
+
 ## Next increments
 
 1. Add a versioned mock catalogue modeled on public REINFOLIB documentation, without API keys.
