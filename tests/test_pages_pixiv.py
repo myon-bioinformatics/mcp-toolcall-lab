@@ -28,12 +28,14 @@ from mcp_toolcall_lab.stub_front import PAGES_PIXIV_JS_SOURCE
 
 ROOT = Path(__file__).resolve().parents[1]
 URL_FIXTURE = ROOT / "fixtures" / "pixiv_dictionary" / "history_source_urls.json"
+NORMALIZATION_FIXTURE = ROOT / "fixtures" / "pixiv_dictionary" / "markup_normalization_cases.json"
 
 _PAGES_PIXIV_CONTRACT = r"""
 const fs = require("fs");
 const pixiv = require(process.argv[1]);
 const assert = require("assert");
 const fixtures = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
+const normalizationFixtures = JSON.parse(fs.readFileSync(process.argv[3], "utf8"));
 
 // -- URL generation --------------------------------------------------
 assert.strictEqual(pixiv.buildArticleUrl("Bleach"), "https://dic.pixiv.net/a/Bleach");
@@ -111,6 +113,50 @@ assert.strictEqual(plainExtract.title, "BLEACH");
 assert.deepStrictEqual(plainExtract.headings, []);
 assert.ok(plainExtract.body.includes("A shinigami story."));
 
+
+// -- Shared fixture pins browser/Python normalization parity ---------------
+normalizationFixtures.cases.forEach(function (c) {
+  var actual = pixiv.pixivToMarkdown(c.input);
+  assert.strictEqual(actual, c.expected, c.name);
+  assert.strictEqual(pixiv.pixivToMarkdown(actual), actual, c.name + " idempotence");
+});
+
+// -- Pages mirrors the #61/#62 conservative Pixiv normalization ----------
+const observedShape = [
+  "*【INFORMATION】／作品情報",
+  "-[[黒崎一護]]",
+  "[pixivimage:61456650]",
+  "NEXT▶︎[[獄頤鳴鳴篇]]",
+  "[[死神>死神(BLEACH)]]",
+].join("\n");
+const normalizedShape = pixiv.pixivToMarkdown(observedShape);
+assert.ok(normalizedShape.includes("# 【INFORMATION】／作品情報"));
+assert.ok(normalizedShape.includes("- [黒崎一護](黒崎一護)"));
+assert.ok(normalizedShape.includes("![pixiv image 61456650](pixivimage:61456650)"));
+assert.ok(normalizedShape.includes("NEXT ▶︎ [獄頤鳴鳴篇](獄頤鳴鳴篇)"));
+assert.ok(normalizedShape.includes("[死神](死神%28BLEACH%29)"));
+assert.strictEqual(pixiv.pixivToMarkdown(normalizedShape), normalizedShape);
+
+const normalizedExtract = pixiv.extractSource({
+  title: "synthetic",
+  sourceText: observedShape,
+});
+assert.strictEqual(normalizedExtract.ok, true);
+assert.deepStrictEqual(normalizedExtract.headings, [
+  { level: 1, heading: "【INFORMATION】／作品情報" },
+]);
+assert.ok(normalizedExtract.body.includes("- [黒崎一護](黒崎一護)"));
+assert.ok(normalizedExtract.body.includes("![pixiv image 61456650](pixivimage:61456650)"));
+
+const autoTitleExtract = pixiv.extractSource({
+  sourceText: "*【INFORMATION】／作品情報\n本文",
+});
+assert.strictEqual(autoTitleExtract.ok, true);
+assert.strictEqual(autoTitleExtract.title, "【INFORMATION】／作品情報");
+assert.deepStrictEqual(autoTitleExtract.headings, [
+  { level: 1, heading: "【INFORMATION】／作品情報" },
+]);
+
 // -- Extract: missing/empty input never fakes success ------------------
 assert.strictEqual(pixiv.extractSource({ sourceText: "" }).ok, false);
 assert.strictEqual(pixiv.extractSource({ sourceText: "" }).error, pixiv.MISSING_SOURCE);
@@ -183,7 +229,14 @@ console.log("ok");
 @pytest.mark.skipif(shutil.which("node") is None, reason="node not installed in this environment")
 def test_pages_pixiv_js_open_source_extract_contracts() -> None:
     result = subprocess.run(
-        ["node", "-e", _PAGES_PIXIV_CONTRACT, str(PAGES_PIXIV_JS_SOURCE), str(URL_FIXTURE)],
+        [
+            "node",
+            "-e",
+            _PAGES_PIXIV_CONTRACT,
+            str(PAGES_PIXIV_JS_SOURCE),
+            str(URL_FIXTURE),
+            str(NORMALIZATION_FIXTURE),
+        ],
         capture_output=True,
         text=True,
         check=False,
