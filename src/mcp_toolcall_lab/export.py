@@ -24,9 +24,9 @@ STANDALONE_PATH = REPO_ROOT / "openwebui_mcp_mock.py"
 LIBRECHAT_STANDALONE_PATH = REPO_ROOT / "librechat_mcp_mock.py"
 # Order matters: each module's own `from .x import ...` must already be
 # defined by an earlier chunk once stripped. mock/common.py first for
-# record.py; markdown_lib.py then wikipedia_tool.py before catalog.py
+# record.py; markdown_lib.py then wikipedia_tool.py / pixiv_markup_normalize.py before pixiv_dictionary_tool.py and catalog.py
 # (fetch_wikipedia_section's Section/lookup_heading/parse_sections).
-INLINE_MODULES = ("mock/common.py", "markdown_lib.py", "wikipedia_tool.py", "pixiv_dictionary_tool.py", "catalog.py", "record.py", "server.py")
+INLINE_MODULES = ("mock/common.py", "markdown_lib.py", "wikipedia_tool.py", "pixiv_markup_normalize.py", "pixiv_dictionary_tool.py", "catalog.py", "record.py", "server.py")
 
 
 def _header(run_command: str, audience: str) -> str:
