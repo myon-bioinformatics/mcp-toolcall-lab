@@ -851,7 +851,7 @@ def write_pages(
         "Wikipedia does -- so this panel no longer searches or fetches dic.pixiv.net from your "
         "browser. Open the article or its history in a new tab, open a revision's "
         "<strong>原文表示</strong> (view source) page there, copy its text, and paste it below "
-        "to Extract a stable title / reading / overview / headings / body locally.</p>"
+        "to Extract a stable title / reading / overview / headings / body locally. Plain Pixiv source is also passed through the same conservative normalization contract as the MCP path: labelled star headings, wiki links, pixivimage tokens, unspaced list items, and NEXT navigation are converted to Markdown-compatible forms without inventing unsupported semantics.</p>"
         '<div id="pages-pixiv-app" data-testid="pages-pixiv-app">'
         '<p><label for="pages-pixiv-title">Pixiv Encyclopedia title</label> '
         '<input id="pages-pixiv-title" name="title" value="" placeholder="Article title" '
