@@ -119,6 +119,37 @@ def parse_sections(markdown: str) -> list[Section]:
     return sections
 
 
+def own_body(markdown: str, section: Section) -> str:
+    """A heading's own prose, stopping at the next heading of any level.
+
+    ``Section.body`` (from ``parse_sections``) is inclusive of nested child
+    headings, so a caller that wants only the prose directly under one
+    heading -- e.g. an article's overview, sitting between its H1 and the
+    first H2 -- needs this narrower cut instead. Locates the heading by its
+    exact text in the raw Markdown rather than trusting ``section.line``, the
+    same approach ``pixiv_dictionary_tool.fetch_pixiv_dictionary_section``
+    already uses for a selected heading's body.
+    """
+    lines = markdown.splitlines()
+    target = section.title.casefold()
+    start = None
+    for index, line in enumerate(lines):
+        stripped = line.lstrip()
+        if stripped.startswith("#"):
+            title_text = stripped.lstrip("#").strip().rstrip("#").strip()
+            if title_text.casefold() == target:
+                start = index + 1
+                break
+    if start is None:
+        return section.body
+    own: list[str] = []
+    for line in lines[start:]:
+        if line.lstrip().startswith("#"):
+            break
+        own.append(line)
+    return "\n".join(own).strip()
+
+
 def lookup_heading(query: str, sections: list[Section], *, fuzzy: bool = True) -> Section | None:
     needle = query.strip()
     if needle.startswith("#"):
