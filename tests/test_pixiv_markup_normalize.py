@@ -17,6 +17,8 @@ import pytest
 from mcp_toolcall_lab.pixiv_markup_normalize import (
     PixivMarkupNormalizeError,
     normalize_pixiv_markup,
+    pixiv_sections,
+    pixiv_to_markdown,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -143,3 +145,31 @@ def test_markdown_py_missing_make_link_raises_normalize_error(monkeypatch) -> No
     monkeypatch.setattr(pmn, "load_markdown", lambda: NoLinkMarkdown())
     with pytest.raises(PixivMarkupNormalizeError):
         normalize_pixiv_markup("[[久保帯人]]")
+
+
+def test_pixiv_heading_adapter_feeds_shared_section_parser() -> None:
+    source = "*【INFORMATION】／作品情報\n本文\n**【DETAIL】／詳細\n子本文"
+    converted = pixiv_to_markdown(source)
+    assert converted.startswith("# 【INFORMATION】／作品情報")
+    sections = pixiv_sections(source)
+    assert [(s.level, s.title) for s in sections] == [
+        (1, "【INFORMATION】／作品情報"),
+        (2, "【DETAIL】／詳細"),
+    ]
+    assert "子本文" in sections[0].body
+
+
+def test_pixiv_heading_adapter_does_not_reinterpret_emphasis() -> None:
+    source = "***我等は***　***姿無きが故に***\n*ordinary emphasis*"
+    assert pixiv_to_markdown(source) == source
+
+
+def test_pixiv_heading_adapter_preserves_unrecognized_star_line() -> None:
+    source = "*not a pixiv labelled heading"
+    assert pixiv_to_markdown(source) == source
+
+
+def test_pixiv_to_markdown_is_idempotent_with_headings() -> None:
+    source = "*【TAG】／関連タグ\n-[[BLEACH]]"
+    once = pixiv_to_markdown(source)
+    assert pixiv_to_markdown(once) == once
