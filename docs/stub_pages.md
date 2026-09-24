@@ -204,3 +204,8 @@ presentation when available but is not a required UI dependency — it is
 not wired into these three surfaces. Shared `web-ui` is deliberately
 unchanged; reusable pieces can be reverse-imported only after this
 prototype proves useful.
+
+
+## Pixiv history-source experiment
+
+The next Pixiv Pages iteration retires browser-side Search/fetch and targets the iPhone-validated `History -> Source -> Extract` workflow. The tested URL shapes are `/a/{title}`, `/history/{title}`, and `/history/{title}/{numeric_revision_id}/source` (for example `BLEACH/8852559/source`). Static Pages must not claim it can cross-origin fetch the source; URL metadata and user-visible source text are inputs to Extract. CI remains fixture-based.
