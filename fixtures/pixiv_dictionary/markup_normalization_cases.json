@@ -1,0 +1,159 @@
+{
+  "_provenance": "Every case below is a minimal synthetic reproduction of a structural token observed in a real Pixiv Encyclopedia BLEACH history/source revision (see docs/pixiv_markup_normalization.md). No article prose from that page is reproduced here -- only the bracket/pipe/marker shapes themselves, rebuilt around placeholder or already-public wiki-linkable terms (character/author names, a generic pixivimage id).",
+  "cases": [
+    {
+      "name": "heading_marker_single_star_supported",
+      "category": "heading",
+      "input": "*【INFORMATION】／作品情報",
+      "expected": "# 【INFORMATION】／作品情報",
+      "note": "SUPPORTED: observed Pixiv level-1 marker is promoted to an ATX H1 for the shared markdown.py section parser."
+    },
+    {
+      "name": "heading_marker_double_star_supported",
+      "category": "heading",
+      "input": "**【OVERVIEW】／概要",
+      "expected": "## 【OVERVIEW】／概要",
+      "note": "SUPPORTED: observed Pixiv level-2 marker is promoted to an ATX H2 for the shared markdown.py section parser."
+    },
+    {
+      "name": "heading_marker_ascii_slash_supported",
+      "category": "heading",
+      "input": "*【INFORMATION】/作品情報",
+      "expected": "# 【INFORMATION】/作品情報",
+      "note": "SUPPORTED compatibility variant: ASCII slash is accepted without changing the title text."
+    },
+    {
+      "name": "duplicate_heading_markers_promoted_without_dedup",
+      "category": "duplicate",
+      "input": "*【INFORMATION】／作品情報\n*【INFORMATION】／作品情報",
+      "expected": "# 【INFORMATION】／作品情報\n# 【INFORMATION】／作品情報",
+      "note": "SUPPORTED promotion applies independently; duplicate headings are not deduplicated or renumbered."
+    },
+    {
+      "name": "piped_wikilink_with_parenthesized_anchor",
+      "category": "pixiv_link",
+      "input": "[[死神>死神(BLEACH)]]",
+      "expected": "[死神](死神%28BLEACH%29)",
+      "note": "SUPPORTED via make_link(). The anchor's parentheses are percent-encoded because vendor markdown.py's own _INLINE_LINK_RE matches a URL with [^)\\s]+ -- a literal ')' would truncate the link on re-parse."
+    },
+    {
+      "name": "plain_wikilink_no_anchor",
+      "category": "pixiv_link",
+      "input": "[[久保帯人]]",
+      "expected": "[久保帯人](久保帯人)",
+      "note": "SUPPORTED. No '>' separator means the label doubles as the link target."
+    },
+    {
+      "name": "duplicate_wikilinks_both_converted",
+      "category": "duplicate",
+      "input": "[[黒崎一護]]、[[黒崎一護]]",
+      "expected": "[黒崎一護](黒崎一護)、[黒崎一護](黒崎一護)",
+      "note": "Both occurrences convert independently; normalization does not deduplicate repeated links."
+    },
+    {
+      "name": "pixivimage_token_no_size",
+      "category": "pixivimage",
+      "input": "[pixivimage:61456650]",
+      "expected": "![pixiv image 61456650](pixivimage:61456650)",
+      "note": "SUPPORTED via make_image(). No real CDN URL is known at this layer, so the URL stays a pixivimage:ID pseudo-URL; wiring an actual asset URL is later MCP-integration work."
+    },
+    {
+      "name": "pixivimage_token_with_size_suffix",
+      "category": "pixivimage",
+      "input": "[pixivimage:61456650:ms]",
+      "expected": "![pixiv image 61456650](pixivimage:61456650 \"ms\")",
+      "note": "SUPPORTED. The observed :ms size suffix is preserved as the image title rather than dropped."
+    },
+    {
+      "name": "pixivimage_malformed_missing_id",
+      "category": "malformed",
+      "input": "[pixivimage:]",
+      "expected": "[pixivimage:]",
+      "note": "UNSUPPORTED/malformed: no digits after the colon, so the token does not match and is preserved verbatim rather than guessed."
+    },
+    {
+      "name": "pixivimage_malformed_non_numeric_id",
+      "category": "malformed",
+      "input": "[pixivimage:abc]",
+      "expected": "[pixivimage:abc]",
+      "note": "UNSUPPORTED/malformed: a non-numeric id is preserved verbatim."
+    },
+    {
+      "name": "table_header_cell_marker_unsupported",
+      "category": "table",
+      "input": "|^作者|[[久保帯人]]|",
+      "expected": "|^作者|[久保帯人](久保帯人)|",
+      "note": "The row/'^' structure is UNSUPPORTED as a rendered table (vendor markdown.py's _is_table_start requires a '| --- |' delimiter row, which this single-line Pixiv form never has, so it safely degrades to a paragraph; no delimiter is synthesized here). The nested [[...]] wiki link inside the cell is still normalized like anywhere else in the text."
+    },
+    {
+      "name": "unspaced_list_link_line",
+      "category": "list",
+      "input": "-[[黒崎一護]]",
+      "expected": "- [黒崎一護](黒崎一護)",
+      "note": "SUPPORTED: a space is inserted after the unspaced '-' so vendor markdown.py's own _LIST_ITEM_RE (which requires \\s+ after the marker) recognizes it as a list item, then the link converts as usual."
+    },
+    {
+      "name": "spaced_list_link_line_already_valid",
+      "category": "list",
+      "input": "- [[黒崎一護]]",
+      "expected": "- [黒崎一護](黒崎一護)",
+      "note": "An already-spaced list line is untouched by the list-dash fix (no-op) and only the link converts."
+    },
+    {
+      "name": "next_navigation_link",
+      "category": "next_link",
+      "input": "NEXT▶︎[[獄頤鳴鳴篇]]",
+      "expected": "NEXT ▶︎ [獄頤鳴鳴篇](獄頤鳴鳴篇)",
+      "note": "SUPPORTED: spacing is inserted around ▶︎ so the same link conversion applies; the 'NEXT ▶︎' label text itself is preserved verbatim, not translated or dropped."
+    },
+    {
+      "name": "next_without_arrow_unsupported",
+      "category": "malformed",
+      "input": "NEXT[[獄頤鳴鳴篇]]",
+      "expected": "NEXT[獄頤鳴鳴篇](獄頤鳴鳴篇)",
+      "note": "Malformed NEXT form missing the ▶︎ marker: the NEXT-spacing fix does not apply (no match), but the nested [[...]] link still converts independently, same as any other wiki link in the text."
+    },
+    {
+      "name": "native_emphasis_untouched",
+      "category": "emphasis",
+      "input": "*em* and **strong**",
+      "expected": "*em* and **strong**",
+      "note": "Standard matched-pair Markdown emphasis is left byte-for-byte untouched; vendor markdown.py's own inline renderer already understands it natively, so this layer performs no action here."
+    },
+    {
+      "name": "unterminated_wikilink_malformed",
+      "category": "malformed",
+      "input": "[[unterminated",
+      "expected": "[[unterminated",
+      "note": "No closing ]] on the line: preserved verbatim rather than guessed."
+    },
+    {
+      "name": "empty_wikilink_malformed",
+      "category": "malformed",
+      "input": "[[]]",
+      "expected": "[[]]",
+      "note": "Empty label: preserved verbatim rather than guessed."
+    },
+    {
+      "name": "unicode_and_blank_line_run",
+      "category": "unicode_whitespace",
+      "input": "テスト見出し\n\n\n[[久保帯人]]",
+      "expected": "テスト見出し\n\n\n[久保帯人](久保帯人)",
+      "note": "Multi-blank-line runs are left untouched (no collapsing); only the recognized wiki-link token on its own line converts."
+    },
+    {
+      "name": "crlf_line_endings_normalized",
+      "category": "unicode_whitespace",
+      "input": "見出し\r\n[[久保帯人]]\r\n",
+      "expected": "見出し\n[久保帯人](久保帯人)\n",
+      "note": "SUPPORTED: CRLF/CR line endings are normalized to LF via literal replacement, not a splitlines()/join() round-trip -- so line count and trailing-newline presence are preserved exactly as in the input, just with \\r removed."
+    },
+    {
+      "name": "lone_cr_line_endings_normalized",
+      "category": "unicode_whitespace",
+      "input": "見出し\r[[久保帯人]]",
+      "expected": "見出し\n[久保帯人](久保帯人)",
+      "note": "SUPPORTED: a lone \\r (old Mac-style line ending) is also normalized to LF, matching pixiv_source_extract._labeled_field's existing CR tolerance."
+    }
+  ]
+}
