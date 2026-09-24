@@ -61,7 +61,7 @@ def test_markup_cases_fixture_has_provenance_and_unique_names() -> None:
 
 @pytest.mark.parametrize("case", CASES, ids=[case["name"] for case in CASES])
 def test_fixture_case_matches_expected_normalization(case: dict) -> None:
-    assert normalize_pixiv_markup(case["input"]) == case["expected"]
+    assert pixiv_to_markdown(case["input"]) == case["expected"]
 
 
 # -- Idempotence / stability: normalizing twice equals normalizing once ----
@@ -69,15 +69,15 @@ def test_fixture_case_matches_expected_normalization(case: dict) -> None:
 
 @pytest.mark.parametrize("case", CASES, ids=[case["name"] for case in CASES])
 def test_fixture_case_normalization_is_idempotent(case: dict) -> None:
-    once = normalize_pixiv_markup(case["input"])
-    twice = normalize_pixiv_markup(once)
+    once = pixiv_to_markdown(case["input"])
+    twice = pixiv_to_markdown(once)
     assert twice == once
 
 
 @pytest.mark.parametrize("case", CASES, ids=[case["name"] for case in CASES])
 def test_fixture_case_normalization_is_deterministic_across_repeated_calls(case: dict) -> None:
-    first = normalize_pixiv_markup(case["input"])
-    second = normalize_pixiv_markup(case["input"])
+    first = pixiv_to_markdown(case["input"])
+    second = pixiv_to_markdown(case["input"])
     assert first == second
 
 
@@ -173,3 +173,28 @@ def test_pixiv_to_markdown_is_idempotent_with_headings() -> None:
     source = "*【TAG】／関連タグ\n-[[BLEACH]]"
     once = pixiv_to_markdown(source)
     assert pixiv_to_markdown(once) == once
+
+
+def test_token_normalizer_does_not_promote_pixiv_heading() -> None:
+    source = "*【INFORMATION】／作品情報"
+    assert normalize_pixiv_markup(source) == source
+    assert pixiv_to_markdown(source) == "# 【INFORMATION】／作品情報"
+
+
+def test_pixiv_heading_adapter_reuses_vendor_heading_builder(monkeypatch) -> None:
+    import mcp_toolcall_lab.pixiv_markup_normalize as pmn
+    real = pmn.load_markdown()
+    calls = []
+
+    class Proxy:
+        make_link = staticmethod(real.make_link)
+        make_image = staticmethod(real.make_image)
+
+        @staticmethod
+        def heading(text, level=1):
+            calls.append((text, level))
+            return real.heading(text, level)
+
+    monkeypatch.setattr(pmn, "load_markdown", lambda: Proxy())
+    assert pmn.pixiv_to_markdown("**【OVERVIEW】／概要") == "## 【OVERVIEW】／概要"
+    assert calls == [("【OVERVIEW】／概要", 2)]
