@@ -198,3 +198,9 @@ def test_pixiv_heading_adapter_reuses_vendor_heading_builder(monkeypatch) -> Non
     monkeypatch.setattr(pmn, "load_markdown", lambda: Proxy())
     assert pmn.pixiv_to_markdown("**【OVERVIEW】／概要") == "## 【OVERVIEW】／概要"
     assert calls == [("【OVERVIEW】／概要", 2)]
+
+
+def test_bare_pixiv_label_heading_is_supported_without_invented_title() -> None:
+    source = "*【TAG】"
+    assert normalize_pixiv_markup(source) == source
+    assert pixiv_to_markdown(source) == "# 【TAG】"
