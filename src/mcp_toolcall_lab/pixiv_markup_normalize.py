@@ -29,6 +29,7 @@ from .markdown_lib import load_markdown, parse_sections
 
 _LIST_DASH_RE = re.compile(r"^([ \t]*)-(?=\[\[)", re.MULTILINE)
 _NEXT_ARROW_RE = re.compile(r"NEXT▶︎(?=\[\[)")
+_PIXIV_HEADING_RE = re.compile(r"^(\*{1,6})(【[^\n】]+】(?:[／/][^\n]+)?)\s*$", re.MULTILINE)
 _PIXIVIMAGE_RE = re.compile(r"\[pixivimage:(\d+)(?::([A-Za-z0-9]+))?\]")
 _WIKILINK_RE = re.compile(r"\[\[([^\[\]>]+)(?:>([^\[\]]+))?\]\]")
 
@@ -64,6 +65,7 @@ def normalize_pixiv_markup(markdown: str) -> str:
         raise PixivMarkupNormalizeError("vendor/markdown.py with make_link()/make_image() is required")
 
     text = markdown.replace("\r\n", "\n").replace("\r", "\n")
+    text = _PIXIV_HEADING_RE.sub(lambda m: ("#" * len(m.group(1))) + " " + m.group(2), text)
 
     text = _LIST_DASH_RE.sub(r"\1- ", text)
     text = _NEXT_ARROW_RE.sub("NEXT ▶︎ ", text)
