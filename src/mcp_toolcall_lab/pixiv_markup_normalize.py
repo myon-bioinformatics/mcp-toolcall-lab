@@ -65,8 +65,6 @@ def normalize_pixiv_markup(markdown: str) -> str:
         raise PixivMarkupNormalizeError("vendor/markdown.py with make_link()/make_image() is required")
 
     text = markdown.replace("\r\n", "\n").replace("\r", "\n")
-    text = _PIXIV_HEADING_RE.sub(lambda m: ("#" * len(m.group(1))) + " " + m.group(2), text)
-
     text = _LIST_DASH_RE.sub(r"\1- ", text)
     text = _NEXT_ARROW_RE.sub("NEXT ▶︎ ", text)
 
@@ -87,8 +85,16 @@ def normalize_pixiv_markup(markdown: str) -> str:
 
 
 def pixiv_to_markdown(source: str) -> str:
-    """Convert observed Pixiv source syntax to Markdown consumable by markdown.py."""
-    return normalize_pixiv_markup(source)
+    """Normalize Pixiv tokens and promote observed star headings to ATX."""
+    text = normalize_pixiv_markup(source)
+    md = load_markdown()
+    if md is None or not hasattr(md, "heading"):
+        raise PixivMarkupNormalizeError("vendor/markdown.py with heading() is required")
+
+    def _heading_repl(match: re.Match[str]) -> str:
+        return md.heading(match.group(2), len(match.group(1))).rstrip("\n")
+
+    return _PIXIV_HEADING_RE.sub(_heading_repl, text)
 
 
 def pixiv_sections(source: str):
