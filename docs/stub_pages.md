@@ -146,12 +146,12 @@ Actions summary" JSON on the home view is the last `stub-pages` smoke
 snapshot — the actual value of this host — kept thinner than generation
 + the `#wiki` form.
 
-Pages `#pixiv` is the iPhone-validated **Open → Source → Extract** workflow,
-not a search box: unlike MediaWiki's `origin=*`, `dic.pixiv.net` is not known
-to send permissive CORS headers, so `pages-pixiv.js` makes **no** browser
-fetch of it at all (the earlier CORS-fetch attempt from this same panel is
-retired). Instead it generates and validates the real `https://dic.pixiv.net`
-URLs from a title — `/a/{title}` (article), `/history/{title}` (history), and
+Pages `#pixiv` is the **Open → Source → Extract** workflow, not a search box:
+unlike MediaWiki's `origin=*`, `dic.pixiv.net` is not known to send
+permissive CORS headers, so `pages-pixiv.js` makes **no** browser fetch of it
+at all (the earlier CORS-fetch attempt from this same panel is retired).
+Instead it generates and validates the real `https://dic.pixiv.net` URLs
+from a title — `/a/{title}` (article), `/history/{title}` (history), and
 `/history/{title}/{numeric_revision_id}/source` (a specific revision's
 "原文表示" / view-source page, e.g. `BLEACH/8852559/source`) — so a visitor
 can open them in a new tab. Pasting that revision's source text back into the
@@ -161,12 +161,39 @@ yields real headings from its own `<h1>`–`<h6>` tags, mirroring the
 h-level-to-`#`-heading model `pixiv_dictionary_tool.py` already gets from
 `vendor/markdown.py`'s `html_to_markdown()`; plain-text paste yields
 title/body only rather than guessing at pixiv's undocumented wiki markup).
-The panel still points at the local/MCP path (`stub_front serve` +
-`/pixiv?title=...`, `fetch_pixiv_dictionary_article`) as a plain code block
-for an automatic, authoritative fetch, and never shows a `127.0.0.1` URL as
-if this static host could reach it — regression-tested by
+Paste normalization (CRLF/lone-CR/U+2028/U+2029 line breaks, NBSP/U+3000
+whitespace, trailing whitespace) and an input-size budget (checked before any
+decoding, not after) are tested in `tests/test_pages_pixiv.py`. The
+revision-source URL shape has its own valid/invalid contract table in
+`fixtures/pixiv_dictionary/history_source_urls.json` (JP/raw-Unicode/
+percent-encoded titles, a title containing `/` encoding to `%2F`,
+host/scheme restrictions, query/fragment/trailing-slash handling, and the
+positive-no-leading-zero/15-digit-cap revision id rule) — synthetic data
+only, no pixiv article text. CI stays fixture-based: none of this depends on
+a live `dic.pixiv.net` request in the default `pytest -q` run. The panel
+still points at the local/MCP path (`stub_front serve` + `/pixiv?title=...`,
+`fetch_pixiv_dictionary_article`) as a plain code block for an automatic,
+authoritative fetch — that local/MCP path and the
+`fetch_pixiv_dictionary_section`/`_article` MCP tools are **out of scope**
+for this workflow's replacement, unaffected by it, and continue to fetch
+`dic.pixiv.net` server-side as before. The panel never shows a `127.0.0.1`
+URL as if this static host could reach it — regression-tested by
 `tests/test_stub_pages.py::test_pixiv_pages_panel_never_regresses_to_localhost_dead_end`,
 `test_pixiv_pages_search_is_retired`, and `tests/test_pages_pixiv.py`.
+
+Evidence for the URL shapes above is two separate things, kept distinct
+rather than blended into one "iPhone-validated" claim: (1) a **manual** check
+by @myon-bioinformatics on a real iPhone against live `dic.pixiv.net`
+(2026-09-24, via a screenshot of Safari shared in this PR's thread; the
+iOS/Safari version was not recorded and is not guessed here), which is what
+confirmed the `/a/{title}`, `/history/{title}`, and
+`/history/{title}/{revision_id}/source` shapes and the `BLEACH/8852559`
+example; and (2) **CI** coverage in `.github/workflows/stub-pages.yml`, which
+runs Playwright's `webkit` browser under an `"iPhone 13"` **device
+emulation** profile — a real WebKit engine, but not real iOS hardware or
+Safari. CI emulation is what runs on every `stub-pages` build; the manual
+check is a point-in-time confirmation that CI's assumptions about the real
+site match reality.
 
 ## Local heading-lookup JS (not on Pages)
 
@@ -213,11 +240,3 @@ presentation when available but is not a required UI dependency — it is
 not wired into these three surfaces. Shared `web-ui` is deliberately
 unchanged; reusable pieces can be reverse-imported only after this
 prototype proves useful.
-
-
-## Pixiv history-source workflow
-
-Implemented: see "Terminal-lite page shell" above for the current `#pixiv`
-Open → Source → Extract panel (`pages_pixiv.js`). CI stays fixture-based;
-there is no mandatory live `dic.pixiv.net` dependency for the default
-`pytest -q` run.

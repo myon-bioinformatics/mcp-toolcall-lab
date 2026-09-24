@@ -1,0 +1,76 @@
+{
+  "_provenance": "Synthetic URL contract fixture, not sourced from a live dic.pixiv.net page. The one real example (BLEACH/8852559) is a title + revision id only, taken from docs/stub_pages.md's manually-verified URL shape -- no article body/content is reproduced here. Percent-encoded titles are built by the test script via encodeURIComponent(rawTitle), not hand-computed, so this file never hardcodes a percent-encoding byte sequence.",
+  "build_source_url": [
+    { "title": "BLEACH", "revisionId": "8852559", "expected": "https://dic.pixiv.net/history/BLEACH/8852559/source" },
+    { "title": "A/B", "revisionId": "8852559", "expectedEncodeTitle": true, "reason": "title with a slash is percent-encoded as %2F" },
+    { "title": "BLEACH", "revisionId": "0", "expected": "", "reason": "revision id must not be zero" },
+    { "title": "BLEACH", "revisionId": "0000", "expected": "", "reason": "revision id must not have a leading zero" },
+    { "title": "BLEACH", "revisionId": "not-a-number", "expected": "", "reason": "revision id must be numeric" },
+    { "title": "", "revisionId": "8852559", "expected": "", "reason": "title required" }
+  ],
+  "valid_source_urls": [
+    {
+      "label": "real revision id, ascii title",
+      "url": "https://dic.pixiv.net/history/BLEACH/8852559/source",
+      "title": "BLEACH",
+      "revisionId": "8852559"
+    },
+    {
+      "label": "raw Unicode title (not percent-encoded)",
+      "url": "https://dic.pixiv.net/history/ブリーチ/8852559/source",
+      "title": "ブリーチ",
+      "revisionId": "8852559"
+    },
+    {
+      "label": "percent-encoded Unicode title",
+      "rawTitle": "ブリーチ",
+      "encodeTitleInUrl": true,
+      "title": "ブリーチ",
+      "revisionId": "8852559"
+    },
+    {
+      "label": "title containing a slash, percent-encoded as %2F",
+      "rawTitle": "A/B",
+      "encodeTitleInUrl": true,
+      "title": "A/B",
+      "revisionId": "8852559"
+    },
+    {
+      "label": "trailing slash after /source is tolerated",
+      "url": "https://dic.pixiv.net/history/BLEACH/8852559/source/",
+      "title": "BLEACH",
+      "revisionId": "8852559"
+    },
+    {
+      "label": "query string is tolerated and ignored",
+      "url": "https://dic.pixiv.net/history/BLEACH/8852559/source?utm_source=share",
+      "title": "BLEACH",
+      "revisionId": "8852559"
+    },
+    {
+      "label": "fragment is tolerated and ignored",
+      "url": "https://dic.pixiv.net/history/BLEACH/8852559/source#note",
+      "title": "BLEACH",
+      "revisionId": "8852559"
+    },
+    {
+      "label": "max digit-count revision id (15 digits) is accepted",
+      "url": "https://dic.pixiv.net/history/BLEACH/123456789012345/source",
+      "title": "BLEACH",
+      "revisionId": "123456789012345"
+    }
+  ],
+  "invalid_source_urls": [
+    { "label": "wrong host is never trusted as pixiv", "url": "https://evil.example/history/BLEACH/8852559/source" },
+    { "label": "host suffix trick is rejected", "url": "https://dic.pixiv.net.evil.example/history/BLEACH/8852559/source" },
+    { "label": "http (not https) is rejected", "url": "http://dic.pixiv.net/history/BLEACH/8852559/source" },
+    { "label": "revision id must not be zero", "url": "https://dic.pixiv.net/history/BLEACH/0/source" },
+    { "label": "revision id must not have a leading zero", "url": "https://dic.pixiv.net/history/BLEACH/0008852559/source" },
+    { "label": "revision id over the 15-digit cap is rejected", "url": "https://dic.pixiv.net/history/BLEACH/1234567890123456/source" },
+    { "label": "non-numeric revision id", "url": "https://dic.pixiv.net/history/BLEACH/latest/source" },
+    { "label": "article URL is not a revision-source URL", "url": "https://dic.pixiv.net/a/BLEACH" },
+    { "label": "history URL without a revision is not a revision-source URL", "url": "https://dic.pixiv.net/history/BLEACH" },
+    { "label": "empty string", "url": "" },
+    { "label": "not a URL at all", "url": "not a url" }
+  ]
+}

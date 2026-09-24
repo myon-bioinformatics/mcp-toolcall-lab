@@ -38,7 +38,27 @@
     "https://dic.pixiv.net/history/<title>/<numeric revision id>/source.";
   var EMPTY_SOURCE = "Pasted Pixiv source had no readable text.";
 
-  var HISTORY_SOURCE_RE = /^https:\/\/dic\.pixiv\.net\/history\/([^/?#]+)\/(\d+)\/source\/?(?:[?#].*)?$/i;
+  // Bounded well above any single Pixiv Encyclopedia revision's rendered
+  // 原文表示 HTML/text so real pastes are never rejected, while a
+  // multi-megabyte paste (whole tab dump, wrong clipboard contents) is
+  // rejected before any regex/decoding work runs on it.
+  var MAX_SOURCE_LENGTH = 200000;
+  var SOURCE_TOO_LARGE =
+    "Pasted Pixiv source is too large (over " + MAX_SOURCE_LENGTH +
+    " characters). Paste a single revision's 原文表示 text, not a whole page dump.";
+
+  // Revision ids observed on real dic.pixiv.net history pages (e.g. 8852559)
+  // are positive decimal integers with no leading zero. Capped at 15 digits
+  // (comfortably inside Number.MAX_SAFE_INTEGER) so an absurd digit string
+  // is rejected rather than silently accepted as "numeric".
+  var REVISION_ID_RE = /^[1-9]\d{0,14}$/;
+
+  var HISTORY_SOURCE_RE = new RegExp(
+    "^https:\\/\\/dic\\.pixiv\\.net\\/history\\/([^/?#]+)\\/(" +
+      REVISION_ID_RE.source.replace(/^\^|\$$/g, "") +
+      ")\\/source\\/?(?:[?#].*)?$",
+    "i"
+  );
 
   function buildArticleUrl(title) {
     var cleaned = String(title || "").trim();
@@ -59,7 +79,7 @@
   function buildSourceUrl(title, revisionId) {
     var cleaned = String(title || "").trim();
     var revision = String(revisionId || "").trim();
-    if (!cleaned || !/^[0-9]+$/.test(revision)) {
+    if (!cleaned || !REVISION_ID_RE.test(revision)) {
       return "";
     }
     return PIXIV_ORIGIN + "/history/" + encodeURIComponent(cleaned) + "/" + revision + "/source";
@@ -89,9 +109,37 @@
     return { ok: true, title: title, revisionId: match[2], url: raw };
   }
 
+  // Built from code points, not literal characters or \u escapes inside a
+  // regex literal: U+2028/U+2029 are themselves ECMAScript source line
+  // terminators, so writing them literally inside a regex literal would
+  // break this script's own syntax rather than just matching those chars.
+  var LINE_SEPARATOR_CHAR = String.fromCharCode(0x2028);
+  var PARAGRAPH_SEPARATOR_CHAR = String.fromCharCode(0x2029);
+  var NBSP_CHAR = String.fromCharCode(0x00a0);
+  var FULLWIDTH_SPACE_CHAR = String.fromCharCode(0x3000);
+
+  // iOS/Safari clipboard paste can carry CRLF, a lone CR, or the Unicode
+  // line/paragraph separators (U+2028/U+2029) in place of LF -- all four are
+  // treated as one line break so paragraph structure survives the paste.
+  function normalizeLineBreaks(text) {
+    return String(text || "")
+      .split("\r\n").join("\n")
+      .split("\r").join("\n")
+      .split(LINE_SEPARATOR_CHAR).join("\n")
+      .split(PARAGRAPH_SEPARATOR_CHAR).join("\n");
+  }
+
+  // NBSP (U+00A0) and the full-width space (U+3000, common in Japanese IME
+  // output) are presentation whitespace, not content -- folded to a normal
+  // space so line-trimming/collapsing treats them like any other space
+  // rather than leaving "empty-looking" lines that aren't actually empty.
+  function normalizeSpaces(text) {
+    return String(text || "").split(NBSP_CHAR).join(" ").split(FULLWIDTH_SPACE_CHAR).join(" ");
+  }
+
   // Curl-like plain text, not a reproduction of pixiv's page layout.
   function stripHtml(rawHtml) {
-    var text = String(rawHtml || "")
+    var text = normalizeSpaces(normalizeLineBreaks(String(rawHtml || "")))
       .replace(/<script[\s\S]*?<\/script>/gi, "")
       .replace(/<style[\s\S]*?<\/style>/gi, "")
       .replace(/<[^>]+>/g, "\n")
@@ -102,7 +150,7 @@
       .replace(/&quot;/gi, '"')
       .replace(/&#0*39;/gi, "'");
     return text
-      .split(/\r?\n+/)
+      .split(/\n+/)
       .map(function (line) {
         return line.replace(/[ \t]+/g, " ").trim();
       })
@@ -172,7 +220,15 @@
   // than guessing at pixiv's undocumented wiki markup.
   function extractSource(input) {
     input = input || {};
-    var rawText = String(input.sourceText || "").trim();
+    // Budget-before-decode: the raw, untrimmed, un-normalized paste is what
+    // gets measured, before any regex/entity-decoding work runs on it, so an
+    // oversized paste is rejected up front rather than after doing the work
+    // it was trying to avoid.
+    var original = String(input.sourceText || "");
+    if (original.length > MAX_SOURCE_LENGTH) {
+      return { ok: false, error: SOURCE_TOO_LARGE };
+    }
+    var rawText = original.trim();
     if (!rawText) {
       return { ok: false, error: MISSING_SOURCE };
     }
@@ -381,6 +437,9 @@
     MISSING_SOURCE: MISSING_SOURCE,
     INVALID_SOURCE_URL: INVALID_SOURCE_URL,
     EMPTY_SOURCE: EMPTY_SOURCE,
+    SOURCE_TOO_LARGE: SOURCE_TOO_LARGE,
+    MAX_SOURCE_LENGTH: MAX_SOURCE_LENGTH,
+    REVISION_ID_RE: REVISION_ID_RE,
     buildArticleUrl: buildArticleUrl,
     buildHistoryUrl: buildHistoryUrl,
     buildSourceUrl: buildSourceUrl,
