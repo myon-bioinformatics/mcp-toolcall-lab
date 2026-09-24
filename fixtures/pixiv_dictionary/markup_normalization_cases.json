@@ -2,25 +2,32 @@
   "_provenance": "Every case below is a minimal synthetic reproduction of a structural token observed in a real Pixiv Encyclopedia BLEACH history/source revision (see docs/pixiv_markup_normalization.md). No article prose from that page is reproduced here -- only the bracket/pipe/marker shapes themselves, rebuilt around placeholder or already-public wiki-linkable terms (character/author names, a generic pixivimage id).",
   "cases": [
     {
-      "name": "heading_marker_single_star_unsupported",
+      "name": "heading_marker_single_star_supported",
       "category": "heading",
       "input": "*【INFORMATION】／作品情報",
-      "expected": "*【INFORMATION】／作品情報",
-      "note": "UNSUPPORTED: not promoted to an ATX heading. The single leading * has no closing * on the same line, so it already falls through vendor markdown.py's own emphasis regex as literal text; this layer adds no heading-level mapping for it."
+      "expected": "# 【INFORMATION】／作品情報",
+      "note": "SUPPORTED: observed Pixiv level-1 marker is promoted to an ATX H1 for the shared markdown.py section parser."
     },
     {
-      "name": "heading_marker_double_star_unsupported",
+      "name": "heading_marker_double_star_supported",
       "category": "heading",
       "input": "**【OVERVIEW】／概要",
-      "expected": "**【OVERVIEW】／概要",
-      "note": "UNSUPPORTED, same reasoning as the single-star case, at the observed second heading level."
+      "expected": "## 【OVERVIEW】／概要",
+      "note": "SUPPORTED: observed Pixiv level-2 marker is promoted to an ATX H2 for the shared markdown.py section parser."
     },
     {
-      "name": "duplicate_heading_markers_pass_through",
+      "name": "heading_marker_ascii_slash_supported",
+      "category": "heading",
+      "input": "*【INFORMATION】/作品情報",
+      "expected": "# 【INFORMATION】/作品情報",
+      "note": "SUPPORTED compatibility variant: ASCII slash is accepted without changing the title text."
+    },
+    {
+      "name": "duplicate_heading_markers_promoted_without_dedup",
       "category": "duplicate",
       "input": "*【INFORMATION】／作品情報\n*【INFORMATION】／作品情報",
-      "expected": "*【INFORMATION】／作品情報\n*【INFORMATION】／作品情報",
-      "note": "Duplicate/nested headings are left to vendor markdown.py's own heading handling; this layer performs no dedup or renumbering."
+      "expected": "# 【INFORMATION】／作品情報\n# 【INFORMATION】／作品情報",
+      "note": "SUPPORTED promotion applies independently; duplicate headings are not deduplicated or renumbered."
     },
     {
       "name": "piped_wikilink_with_parenthesized_anchor",
