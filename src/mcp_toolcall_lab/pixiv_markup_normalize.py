@@ -4,9 +4,12 @@ Follow-up to #60/#61 (see ``docs/pixiv_markup_normalization.md``). A real
 BLEACH history/source sample was manually observed; only its *structural*
 syntax -- never article prose -- is reproduced anywhere in this repo.
 
-This module does **not** implement a Pixiv renderer. It reuses vendor
-``markdown.py``'s own link/image builders (``make_link``/``make_image``) and
-its own conversion rules wherever Pixiv's syntax already degrades safely
+This module does **not** implement a Pixiv renderer. Token-level cleanup stays
+in ``normalize_pixiv_markup()``; ``pixiv_to_markdown()`` additionally promotes
+observed Pixiv star headings through vendor ``markdown.py.heading()``; and
+``pixiv_sections()`` delegates the result to the shared section parser. It
+reuses vendor ``markdown.py``'s link/image builders (``make_link``/``make_image``)
+and its own conversion rules wherever Pixiv's syntax already degrades safely
 through them (e.g. an unmatched leading ``*`` marker, or a pipe row with no
 ``| --- |`` delimiter). A thin normalization layer is added only for the
 handful of Pixiv-specific tokens vendor ``markdown.py`` has no notion of at
