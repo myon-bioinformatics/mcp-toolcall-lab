@@ -126,8 +126,7 @@ def test_article_pipeline_applies_pixiv_normalization_before_sections(monkeypatc
         seen.append(markdown)
         return markdown + "\n\n# 【TAG】\nnormalized body"
 
-    import mcp_toolcall_lab.pixiv_markup_normalize as pmn
-    monkeypatch.setattr(pmn, "pixiv_to_markdown", fake_pixiv_to_markdown)
+    monkeypatch.setattr(pt, "pixiv_to_markdown", fake_pixiv_to_markdown)
     article = pt.fetch_pixiv_dictionary_article("テスト記事")
     assert len(seen) == 1
     assert {"heading": "【TAG】", "level": 1} in article["headings"]
