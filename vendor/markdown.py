@@ -1,5 +1,5 @@
 # markdown.py
-# metadata: __all__=98 | base_sha=cae5618bd940ded29d4b61f71e4a11ee51faa9d9 | updated_at=2026-09-21T15:05:00Z
+# metadata: __all__=99 | base_sha=cae5618bd940ded29d4b61f71e4a11ee51faa9d9 | updated_at=2026-09-21T15:05:00Z
 """Stdlib-only Markdown utility functions.
 
 This module is intentionally a single file with no CLI / ``main`` entry point.
@@ -37,8 +37,11 @@ __all__ = [
     "markdown_link_to_html",
     "html_to_markdown",
     "markdown_to_html",
+    "markdown_to_web_ui_v1",
     "HtmlNode",
     "parse_html_dom",
+    "html_text_content",
+    "find_html_text",
     "dom_to_html",
     "dom_to_markdown",
     "markdown_to_dom",
@@ -132,7 +135,7 @@ import unicodedata
 from dataclasses import dataclass
 from html.parser import HTMLParser
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 from urllib.parse import urljoin, urlparse
 
 try:
@@ -189,6 +192,7 @@ SUPPORTED = {
         "kramdown_to_markdown: strip known heading/paragraph IAL back to plain Markdown "
         "(attributes dropped; {:toc} / {::extensions} / Liquid / front matter left as-is)",
         "alert_stylesheet / default_stylesheet (compact CSS strings for markdown_to_html output)",
+        "markdown_to_web_ui_v1 (web-ui HTML contract v1 document wrapper; no CSS/runtime dependency)",
     ],
     "generation": [
         "heading / bold / italic / strikethrough / blockquote / horizontal_rule",
@@ -3363,6 +3367,49 @@ def parse_html_dom(html: str) -> HtmlNode:
     return parser.root
 
 
+def html_text_content(node: HtmlNode) -> str:
+    """Return decoded descendant text from a lightweight DOM node."""
+    if node.kind == "text":
+        return node.text
+    return "".join(html_text_content(child) for child in (node.children or []))
+
+
+def find_html_text(html: str, *, tag: str | None = None, attrs: dict[str, str] | None = None) -> str | None:
+    """Return textContent-like decoded text for the first matching safe element.
+
+    Matching is depth-first pre-order and attribute values use exact equality.
+    No separators are inserted between descendant text nodes. Filters apply to
+    the sanitized lightweight DOM; unsupported tags or filtered attributes
+    raise ValueError instead of being confused with a missing element.
+    """
+    wanted_tag = tag.lower() if tag is not None else None
+    wanted_attrs = attrs or {}
+    normalized_attrs = {key.lower(): value for key, value in wanted_attrs.items()}
+    if wanted_tag is not None and wanted_tag not in _DOM_SAFE_TAGS:
+        raise ValueError(f"unsupported HTML tag filter: {tag!r}")
+    unsupported_attrs = [key for key in wanted_attrs if key.lower() not in _DOM_COMMON_ATTRS and not key.lower().startswith("data-")]
+    if unsupported_attrs:
+        raise ValueError(f"unsupported HTML attribute filter(s): {', '.join(unsupported_attrs)}")
+    if wanted_tag == "input" and normalized_attrs and normalized_attrs.get("type", "").lower() != "checkbox":
+        raise ValueError("attribute filters for input require type=checkbox")
+    root = parse_html_dom(html)
+
+    def walk(node: HtmlNode) -> HtmlNode | None:
+        if node.kind == "element":
+            node_attrs = node.attrs or {}
+            if ((wanted_tag is None or node.tag == wanted_tag)
+                    and all(node_attrs.get(key.lower()) == value for key, value in wanted_attrs.items())):
+                return node
+        for child in node.children or []:
+            found = walk(child)
+            if found is not None:
+                return found
+        return None
+
+    found = walk(root)
+    return None if found is None else html_text_content(found)
+
+
 def dom_to_html(node: HtmlNode) -> str:
     """Serialize a lightweight DOM tree to sanitized HTML."""
 
@@ -3895,6 +3942,46 @@ def _html_to_markdown_impl(html: str) -> str:
     parser.close()
     return parser.output()
 
+
+
+def markdown_to_web_ui_v1(
+    content: str,
+    *,
+    title: str | None = None,
+    theme: Literal["modern", "github-like"] = "modern",
+) -> str:
+    """Render Markdown inside the stable web-ui HTML contract v1 surface.
+
+    This emits semantic HTML only. It does not fetch or embed web-ui CSS and
+    therefore preserves this module's single-file, standard-library-only
+    runtime contract. Consumers may load their pinned web-ui assets separately.
+
+    ``theme`` is case-sensitive and limited to the currently frozen v1 theme values.
+    ``title`` is escaped as text. Markdown body conversion follows
+    ``markdown_to_html`` and its documented supported subset.
+    """
+    if theme not in {"modern", "github-like"}:
+        raise ValueError("theme must be 'modern' or 'github-like'")
+    body = markdown_to_html(content)
+    parts = [
+        "<!doctype html>",
+        '<html lang="en">',
+        '<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>',
+        f'<body data-ui-theme="{theme}">',
+        '<main class="ui-page">',
+    ]
+    # The title is optional by contract; the body wrapper is always emitted.
+    if title is not None:
+        parts.append(f'<h1 class="ui-title">{html_module.escape(title)}</h1>')
+    parts.extend([
+        '<section class="ui-panel">',
+        body,
+        "</section>",
+        "</main>",
+        "</body>",
+        "</html>",
+    ])
+    return "\n".join(parts)
 
 def html_to_markdown(html: str) -> str:
     """Conservatively convert common HTML tags to Markdown.
