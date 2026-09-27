@@ -7,22 +7,26 @@ It never accepts credentials and never turns an unobserved resource into
 from __future__ import annotations
 
 from datetime import UTC, datetime
+import http.client
 import re
 from typing import Any, Callable
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote
 from urllib.request import Request, urlopen
 
-_REPO = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
+_OWNER = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$")
+_NAME = re.compile(r"^[A-Za-z0-9_.-]+$")
 _REF = re.compile(r"^[A-Za-z0-9._/-]+$")
 
 
 def _repo(value: str) -> str:
-    if not isinstance(value, str) or not _REPO.fullmatch(value):
+    if not isinstance(value, str) or value.count("/") != 1:
         raise ValueError("repo must be owner/name")
     owner, name = value.split("/", 1)
-    if owner in {".", ".."} or name in {".", ".."}:
-        raise ValueError("repo owner/name cannot be dot segments")
+    if not _OWNER.fullmatch(owner):
+        raise ValueError("repo owner must use GitHub-safe alphanumeric/hyphen form")
+    if not _NAME.fullmatch(name) or name in {".", ".."}:
+        raise ValueError("repo name is invalid")
     return value
 
 
@@ -37,10 +41,15 @@ def candidate_urls(repo: str, *, ref: str = "main", path: str | None = None) -> 
     repo = _repo(repo)
     ref = _ref(ref)
     owner, name = repo.split("/", 1)
+    pages = (
+        f"https://{owner}.github.io/"
+        if name.lower() == f"{owner.lower()}.github.io"
+        else f"https://{owner}.github.io/{name}/"
+    )
     out = [
         {"kind": "repository", "url": f"https://github.com/{repo}"},
         {"kind": "api", "url": f"https://api.github.com/repos/{repo}"},
-        {"kind": "pages", "url": f"https://{owner}.github.io/{name}/"},
+        {"kind": "pages", "url": pages},
     ]
     if path is not None:
         if not isinstance(path, str) or not path or path.startswith("/") or ".." in path.split("/"):
@@ -53,13 +62,29 @@ def candidate_urls(repo: str, *, ref: str = "main", path: str | None = None) -> 
     return out
 
 
-def _rate_limited(headers: Any) -> bool:
+def _header(headers: Any, name: str) -> str | None:
     if headers is None:
-        return False
+        return None
     try:
-        return str(headers.get("X-RateLimit-Remaining", "")).strip() == "0"
+        value = headers.get(name)
+        if value is not None:
+            return str(value)
     except (AttributeError, TypeError):
-        return False
+        pass
+    try:
+        for key, value in headers.items():
+            if str(key).lower() == name.lower():
+                return str(value)
+    except (AttributeError, TypeError):
+        pass
+    return None
+
+
+def _rate_limited(headers: Any) -> bool:
+    return (
+        (_header(headers, "X-RateLimit-Remaining") or "").strip() == "0"
+        or _header(headers, "Retry-After") is not None
+    )
 
 
 def _status(code: int, headers: Any = None) -> str:
@@ -96,7 +121,7 @@ def probe_url(
         code = exc.code
         final_url = exc.geturl()
         headers = exc.headers
-    except (URLError, TimeoutError, OSError):
+    except (URLError, TimeoutError, OSError, http.client.HTTPException):
         return {
             "status": "unverified",
             "url": url,

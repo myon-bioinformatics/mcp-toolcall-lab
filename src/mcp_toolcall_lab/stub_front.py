@@ -666,6 +666,10 @@ def _pages_home_markdown(md: Any, summary_text: str) -> str:
             "(MediaWiki Action API, CORS `origin=*`, no MCP). The MCP tools and "
             "local `GET /wiki` form still need compose or `stub_front serve`.",
             "",
+            "[Repository diagnostics](repository-diagnostics.html) · "
+            "[JSON](repository-diagnostics.json) · "
+            "[JSONL](repository-diagnostics.jsonl)",
+            "",
             md.heading("Last Actions summary", 2),
             "Allowlisted snapshot from the last `stub-pages` GitHub Actions run "
             "(stub + MCP mock + CPU-class model on one compose network). "
