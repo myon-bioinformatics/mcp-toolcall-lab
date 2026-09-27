@@ -507,3 +507,16 @@ async def test_gh_ops_client_reads_token_only_from_environment(monkeypatch):
     monkeypatch.setenv("GITHUB_TOKEN", "env-token")
     client = gh_ops.Client()
     assert client._token == "env-token"
+
+
+# --- public resolver ---------------------------------------------------------------
+
+async def test_public_resolver_tool_can_build_candidates_without_network(wired):
+    mcp, _ = wired
+    result = await _call(mcp, "resolve_public", {"repo": REPO, "path": "README.md", "probe": False})
+    data = _data(result)
+    assert data["status"] == "not_checked"
+    assert data["auth"] == "anonymous"
+    assert data["observations"] == []
+    kinds = {item["kind"] for item in data["candidates"]}
+    assert {"repository", "api", "pages", "raw", "contents_api"} <= kinds
