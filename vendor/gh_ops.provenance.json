@@ -1,7 +1,7 @@
 {
   "repository": "https://github.com/myon-bioinformatics/browser-test-kit",
   "path": "scripts/gh_ops.py",
-  "commit": "679c05e46227bf0901c53f1356cabacdb54be751",
+  "commit": "dce15333d100d1163b1b706d8e8de769a1e116be",
   "blob_sha": "e4bd079300087a275c4fe577399e3230e5cd5b54",
   "sha256": "482a8e5f6d267d476d5675e548815d2588fb2256572fc154107180385e837689",
   "date": "2026-09-27"
