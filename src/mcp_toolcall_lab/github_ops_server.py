@@ -3,10 +3,10 @@
 ``vendor/gh_ops.py`` (see ``vendor/gh_ops.provenance.json`` and
 ``docs/github_ops_mcp.md``) is a stdlib-only client for a handful of GitHub
 REST endpoints, built for the ``browser-test-kit`` repo's own PR/CI workflow
-(myon-bioinformatics/browser-test-kit#10, merged as ``dce1533``). Every
-tool below is a thin wrapper that calls one of its functions and returns its
-result dict unchanged -- no new GitHub behavior is invented here, per this
-lab's "wrap an existing API, don't invent one" policy.
+(myon-bioinformatics/browser-test-kit#10, merged as ``dce1533``). Most tools below are thin wrappers over those functions. The exception is
+``resolve_public``: it intentionally owns a small anonymous resolver that
+combines GitHub UI/API/raw candidates with GitHub Pages and direct HTTP
+evidence. It never reads or accepts a token.
 
 v1 is read-only. ``gh_ops`` also has write operations (``pr_merge``,
 ``pr_body_replace``, ``pr_body_set``, ``pr_edit``, ``workflow_dispatch``,
@@ -32,6 +32,8 @@ from typing import Annotated, Any
 
 from fastmcp import FastMCP
 from pydantic import Field
+
+from .github_public_resolver import resolve_public_github
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 GH_OPS_PATH = REPO_ROOT / "vendor" / "gh_ops.py"
@@ -287,6 +289,28 @@ def create_mcp() -> FastMCP:
     )
     def url_search(query: str, kind: str = "code") -> dict[str, Any]:
         return _safe(gh_ops.url_search, query, kind=kind)
+
+    @mcp.tool(
+        description=(
+            "Resolve public GitHub repository/API/Pages and optional raw-content locations, "
+            "then anonymously probe them for direct HTTP evidence. Distinguishes reachable, "
+            "not_found, auth_required, rate_limited, http_error, and unverified network errors. "
+            "No token is accepted or attached; set probe=false to build candidates only."
+        )
+    )
+    def resolve_public(
+        repo: Annotated[str, Field(description="Public GitHub repository in owner/name form.")],
+        ref: Annotated[str, Field(description="Git ref used for raw/contents candidates.")] = "main",
+        path: Annotated[
+            str | None,
+            Field(description="Optional relative repository path to resolve as raw/contents URLs."),
+        ] = None,
+        probe: Annotated[
+            bool,
+            Field(description="When true, anonymously probe each candidate and return HTTP evidence."),
+        ] = True,
+    ) -> dict[str, Any]:
+        return _safe(resolve_public_github, repo, ref=ref, path=path, probe=probe)
 
     @mcp.tool(
         description=(

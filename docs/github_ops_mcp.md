@@ -5,9 +5,10 @@ exposes vendored [`gh_ops.py`](../vendor/gh_ops.py) — stdlib-only GitHub REST
 operations from `myon-bioinformatics/browser-test-kit` (`scripts/gh_ops.py`,
 [#9](https://github.com/myon-bioinformatics/browser-test-kit/issues/9),
 [#10](https://github.com/myon-bioinformatics/browser-test-kit/pull/10),
-merged as `dce1533`) — as MCP tools. Every tool is a thin wrapper: it
-calls one `gh_ops` function and returns its result dict unchanged, per this
-lab's policy of wrapping an existing API rather than inventing one.
+merged as `dce1533`) — as MCP tools. Most tools are thin wrappers around
+`gh_ops`. The exception is `resolve_public`: it is an intentionally small,
+stdlib-only anonymous resolver owned by this lab because it combines GitHub
+UI/API/raw URLs with GitHub Pages and records direct HTTP observations.
 
 This is its own MCP endpoint, not a tool added to the real-estate/Wikipedia/
 pixiv mock in `server.py`/`catalog.py`. It is also not part of
@@ -80,6 +81,7 @@ even if a response body contains one.
 | `url_runs(repo, workflow=None, branch=None, event=None, status=None)` | `gh_ops.url_runs` | Pure string building; no network. |
 | `url_search(query, kind="code")` | `gh_ops.url_search` | Pure string building; no network. |
 | `url_raw(repo, ref, path)` | `gh_ops.url_raw` | Pure string building; no network. |
+| `resolve_public(repo, ref="main", path=None, probe=True)` | lab public resolver | Builds repository/API/Pages and optional raw/contents candidates. With `probe=True`, performs anonymous HTTPS observations only and distinguishes reachable/not-found/auth-required/rate-limited/unverified states. No token argument. |
 
 ## Out of scope for v1 (follow-ups)
 

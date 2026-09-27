@@ -507,3 +507,39 @@ async def test_gh_ops_client_reads_token_only_from_environment(monkeypatch):
     monkeypatch.setenv("GITHUB_TOKEN", "env-token")
     client = gh_ops.Client()
     assert client._token == "env-token"
+
+
+# --- public resolver ---------------------------------------------------------------
+
+async def test_public_resolver_tool_can_build_candidates_without_network(wired):
+    mcp, _ = wired
+    result = await _call(mcp, "resolve_public", {"repo": REPO, "path": "README.md", "probe": False})
+    data = _data(result)
+    assert data["status"] == "not_checked"
+    assert data["auth"] == "anonymous"
+    assert data["observations"] == []
+    kinds = {item["kind"] for item in data["candidates"]}
+    assert {"repository", "api", "pages", "raw", "contents_api"} <= kinds
+
+
+async def test_public_resolver_invalid_input_is_ok_false(wired):
+    mcp, _ = wired
+    result = await _call(mcp, "resolve_public", {"repo": "demo", "probe": False})
+    assert result.is_error is False
+    data = _data(result)
+    assert data["ok"] is False
+    assert "error" in data
+
+
+async def test_public_resolver_schema_describes_arguments(wired):
+    mcp, _ = wired
+    tools = {tool.name: tool for tool in await mcp.list_tools()}
+    schema = tools["resolve_public"].parameters["properties"]
+    for field in ("repo", "ref", "path", "probe"):
+        description = schema[field].get("description")
+        if description is None:
+            description = next(
+                (item.get("description") for item in schema[field].get("anyOf", []) if item.get("description")),
+                None,
+            )
+        assert description
