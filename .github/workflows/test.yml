@@ -24,3 +24,24 @@ jobs:
         run: deno test --allow-env --allow-read deploy/wikipedia-mcp
       - name: Test
         run: pytest -q
+
+
+  public-resolver-python310:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - name: Compile and import vendorable public resolver
+        run: |
+          python -m py_compile src/mcp_toolcall_lab/github_public_resolver.py
+          python - <<'PY'
+          import importlib.util
+          from pathlib import Path
+          path = Path("src/mcp_toolcall_lab/github_public_resolver.py")
+          spec = importlib.util.spec_from_file_location("github_public_resolver_py310", path)
+          module = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(module)
+          print(module.candidate_urls("octo/example", ref="main")[0]["url"])
+          PY
