@@ -7,10 +7,11 @@ from mcp_toolcall_lab.github_public_resolver import candidate_urls, probe_url, r
 
 
 class Response(BytesIO):
-    def __init__(self, status=200, url="https://example.test/final"):
+    def __init__(self, status=200, url="https://example.test/final", headers=None):
         super().__init__(b"")
         self.status = status
         self._url = url
+        self.headers = headers or {}
     def getcode(self):
         return self.status
     def geturl(self):
@@ -36,6 +37,26 @@ def test_probe_classifies_observed_http_status(code, status):
     assert result["evidence"] == "http_response"
 
 
+def test_anonymous_github_403_with_exhausted_rate_limit_is_rate_limited():
+    def opener(request, timeout):
+        raise HTTPError(
+            request.full_url,
+            403,
+            "rate limit exceeded",
+            {"X-RateLimit-Remaining": "0"},
+            None,
+        )
+    result = probe_url("https://api.github.com/repos/octo/demo", opener=opener)
+    assert result["status"] == "rate_limited"
+    assert result["http_status"] == 403
+
+
+def test_plain_403_remains_auth_required():
+    def opener(request, timeout):
+        raise HTTPError(request.full_url, 403, "forbidden", {}, None)
+    assert probe_url("https://example.test/private", opener=opener)["status"] == "auth_required"
+
+
 def test_network_failure_is_unverified_not_inaccessible():
     def opener(request, timeout):
         raise URLError("offline")
@@ -52,7 +73,7 @@ def test_not_checked_is_explicit_and_makes_no_observation():
     assert result["auth"] == "anonymous"
 
 
-@pytest.mark.parametrize("repo", ["demo", "../demo", "octo/demo/extra"])
+@pytest.mark.parametrize("repo", ["demo", "../demo", "octo/..", "octo/.", "octo/demo/extra"])
 def test_repo_validation(repo):
     with pytest.raises(ValueError):
         candidate_urls(repo)
