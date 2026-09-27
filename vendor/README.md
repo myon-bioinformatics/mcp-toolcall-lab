@@ -69,5 +69,6 @@ Pinned stdlib-only public repository metadata contract v1 from
 `myon-bioinformatics/Ironmate`. It is consumed by
 `mcp_toolcall_lab.repository_diagnostics` to emit the same canonical JSON/JSONL
 shape used by Ironmate Pages. Provenance is recorded in
-`repository_metadata_contract.provenance.json`; refresh by an explicit commit,
-never by an unpinned `main`.
+`repository_metadata_contract.provenance.json` with the source commit and local
+`sha256`; CI verifies the vendored bytes against that digest. Refresh by an
+explicit commit, never by an unpinned `main`.
