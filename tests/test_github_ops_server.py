@@ -520,3 +520,26 @@ async def test_public_resolver_tool_can_build_candidates_without_network(wired):
     assert data["observations"] == []
     kinds = {item["kind"] for item in data["candidates"]}
     assert {"repository", "api", "pages", "raw", "contents_api"} <= kinds
+
+
+async def test_public_resolver_invalid_input_is_ok_false(wired):
+    mcp, _ = wired
+    result = await _call(mcp, "resolve_public", {"repo": "demo", "probe": False})
+    assert result.is_error is False
+    data = _data(result)
+    assert data["ok"] is False
+    assert "error" in data
+
+
+async def test_public_resolver_schema_describes_arguments(wired):
+    mcp, _ = wired
+    tools = {tool.name: tool for tool in await mcp.list_tools()}
+    schema = tools["resolve_public"].parameters["properties"]
+    for field in ("repo", "ref", "path", "probe"):
+        description = schema[field].get("description")
+        if description is None:
+            description = next(
+                (item.get("description") for item in schema[field].get("anyOf", []) if item.get("description")),
+                None,
+            )
+        assert description
