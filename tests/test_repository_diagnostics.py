@@ -1,3 +1,5 @@
+import hashlib
+import http.client
 import json
 from io import BytesIO
 from pathlib import Path
@@ -42,6 +44,7 @@ def test_vendored_contract_provenance_matches_pin():
     assert provenance["source_repository"] == "myon-bioinformatics/Ironmate"
     assert provenance["source_commit"] == "afdeb34026e7471dc01ece4eb9a75ca779bb207f"
     assert provenance["schema_version"] == "1.0"
+    assert hashlib.sha256(diagnostics.CONTRACT_PATH.read_bytes()).hexdigest() == provenance["sha256"]
 
 
 def test_payload_reuses_public_resolver_without_probe():
@@ -95,3 +98,20 @@ def test_lowercase_rate_limit_header_and_retry_after_are_rate_limited():
         raise HTTPError(request.full_url, 403, "limited", {"retry-after": "60"}, None)
 
     assert probe_url("https://api.github.com/x", opener=retry_opener)["status"] == "rate_limited"
+
+
+@pytest.mark.parametrize(
+    "exc",
+    [
+        http.client.BadStatusLine("garbled"),
+        http.client.IncompleteRead(b"partial", 10),
+    ],
+)
+def test_http_protocol_failures_are_unverified(exc):
+    def opener(request, timeout):
+        raise exc
+
+    result = probe_url("https://example.test/x", opener=opener)
+    assert result["status"] == "unverified"
+    assert result["http_status"] is None
+    assert result["evidence"] == "network_error"
