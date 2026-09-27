@@ -82,3 +82,11 @@ def test_repo_validation(repo):
 def test_path_traversal_is_rejected():
     with pytest.raises(ValueError):
         candidate_urls("octo/demo", path="../secret")
+
+
+def test_synthetic_http_error_without_fp_keeps_requested_url():
+    def opener(request, timeout):
+        raise HTTPError(request.full_url, 404, "missing", {}, None)
+    result = probe_url("https://example.test/missing", opener=opener)
+    assert result["status"] == "not_found"
+    assert result["resolved_url"] == "https://example.test/missing"

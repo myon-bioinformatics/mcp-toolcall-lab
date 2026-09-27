@@ -24,3 +24,55 @@ jobs:
         run: deno test --allow-env --allow-read deploy/wikipedia-mcp
       - name: Test
         run: pytest -q
+
+
+  public-resolver-compat:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.9", "3.10"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Compile, import, and execute vendorable public resolver
+        run: |
+          python -m py_compile src/mcp_toolcall_lab/github_public_resolver.py
+          python - <<'PY'
+          import importlib.util
+          from io import BytesIO
+          from pathlib import Path
+          from urllib.error import HTTPError
+
+          path = Path("src/mcp_toolcall_lab/github_public_resolver.py")
+          spec = importlib.util.spec_from_file_location("github_public_resolver_compat", path)
+          module = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(module)
+
+          class Response(BytesIO):
+              def __init__(self, url):
+                  super().__init__(b"")
+                  self.status = 200
+                  self._url = url
+                  self.headers = {}
+              def getcode(self):
+                  return self.status
+              def geturl(self):
+                  return self._url
+
+          def ok_opener(request, timeout):
+              return Response(request.full_url)
+
+          success = module.probe_url("https://example.test/x", opener=ok_opener)
+          assert success["status"] == "reachable"
+          assert success["checked_at"].endswith("+00:00")
+
+          def error_opener(request, timeout):
+              raise HTTPError(request.full_url, 404, "missing", {}, None)
+
+          missing = module.probe_url("https://example.test/missing", opener=error_opener)
+          assert missing["status"] == "not_found"
+          assert missing["resolved_url"] == "https://example.test/missing"
+          print(success["checked_at"], missing["status"])
+          PY

@@ -6,7 +6,7 @@ It never accepts credentials and never turns an unobserved resource into
 """
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 import http.client
 import re
 from typing import Any, Callable
@@ -110,7 +110,7 @@ def probe_url(
     """Observe one public HTTPS URL. No token/cookie is accepted or attached."""
     if not isinstance(url, str) or not url.startswith("https://"):
         raise ValueError("url must use https")
-    checked_at = datetime.now(UTC).isoformat()
+    checked_at = datetime.now(timezone.utc).isoformat()
     request = Request(url, headers={"User-Agent": "mcp-toolcall-lab-public-resolver/1"})
     try:
         with opener(request, timeout=timeout) as response:
@@ -119,7 +119,7 @@ def probe_url(
             headers = getattr(response, "headers", None)
     except HTTPError as exc:
         code = exc.code
-        final_url = exc.geturl()
+        final_url = exc.filename or url
         headers = exc.headers
     except (URLError, TimeoutError, OSError, http.client.HTTPException):
         return {
