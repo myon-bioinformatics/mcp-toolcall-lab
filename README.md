@@ -16,6 +16,7 @@ This repository deliberately does **not** call the Ministry of Land, Infrastruct
 - A stable anti-pattern catalog spanning runtime classifier IDs and broader design/integration traps; see [`docs/antipatterns.md`](docs/antipatterns.md).
 - `jev_shim` / `jev_typesafe`: an offline calibration study plus a real request/response client for TypeSafe's actual `/v1/systemone` "Jev" wire format, reconstructed from public source (see [`docs/jev_shim.md`](docs/jev_shim.md) for exact citations and what has/hasn't been verified against the live API).
 - `jev_backend`: a minimal `fixture` / `typesafe_mock` backend-switch + JSONL trace skeleton (issue #36/#37, step 1) that later Jev-assisted routing experiments (issue #39) build on. See [`docs/jev_backend.md`](docs/jev_backend.md).
+- A separate, read-only FastMCP server exposing vendored `gh_ops.py` (stdlib GitHub REST operations from `browser-test-kit`) as MCP tools: `pr_status`, `pr_for_branch`, `open_prs`, `issue_comments_digest`, `check_runs`, `workflow_runs`, and pure `url_*` builders. See [`docs/github_ops_mcp.md`](docs/github_ops_mcp.md).
 
 ## Requirements
 
