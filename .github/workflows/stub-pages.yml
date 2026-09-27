@@ -34,6 +34,10 @@ on:
       - "src/mcp_toolcall_lab/pixiv_dictionary_tool.py"
       - "src/mcp_toolcall_lab/static/pages_pixiv.js"
       - "src/mcp_toolcall_lab/markdown_lib.py"
+      - "src/mcp_toolcall_lab/github_public_resolver.py"
+      - "src/mcp_toolcall_lab/repository_diagnostics.py"
+      - "vendor/repository_metadata_contract.py"
+      - "vendor/repository_metadata_contract.provenance.json"
       - "scripts/stub_pages_smoke.py"
       - "scripts/fetch_tiny_cpu_gguf.py"
       - "scripts/fetch_tiny_cpu_gguf.sh"
@@ -50,6 +54,10 @@ on:
       - "src/mcp_toolcall_lab/pixiv_dictionary_tool.py"
       - "src/mcp_toolcall_lab/static/pages_pixiv.js"
       - "src/mcp_toolcall_lab/markdown_lib.py"
+      - "src/mcp_toolcall_lab/github_public_resolver.py"
+      - "src/mcp_toolcall_lab/repository_diagnostics.py"
+      - "vendor/repository_metadata_contract.py"
+      - "vendor/repository_metadata_contract.provenance.json"
       - "scripts/stub_pages_smoke.py"
       - "scripts/fetch_tiny_cpu_gguf.py"
       - "scripts/fetch_tiny_cpu_gguf.sh"
@@ -131,6 +139,7 @@ jobs:
           python -m mcp_toolcall_lab.stub_front pages --out _site \
             --last-run test-results/last-run.json \
             --observations test-results/antipatterns.jsonl
+          python -m mcp_toolcall_lab.repository_diagnostics _site
 
       - name: Capture Pages screenshots with Playwright CLI
         run: |
@@ -144,6 +153,8 @@ jobs:
           npx --yes playwright@1.55.0 install --with-deps chromium webkit
           npx --yes playwright@1.55.0 screenshot --browser=chromium --device="Desktop Chrome" --full-page \
             "http://127.0.0.1:4173/#pixiv" test-results/pixiv-pages-desktop.png
+          npx --yes playwright@1.55.0 screenshot --browser=chromium --device="Desktop Chrome" --full-page \
+            "http://127.0.0.1:4173/repository-diagnostics.html" test-results/repository-diagnostics-desktop.png
           # Playwright WebKit can report a non-zero shutdown after writing the PNG;
           # validate the artifact itself, including its PNG signature.
           set +e
