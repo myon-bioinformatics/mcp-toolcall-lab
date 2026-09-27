@@ -33,6 +33,8 @@ from typing import Annotated, Any
 from fastmcp import FastMCP
 from pydantic import Field
 
+from .github_public_resolver import resolve_public_github
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 GH_OPS_PATH = REPO_ROOT / "vendor" / "gh_ops.py"
 
@@ -287,6 +289,22 @@ def create_mcp() -> FastMCP:
     )
     def url_search(query: str, kind: str = "code") -> dict[str, Any]:
         return _safe(gh_ops.url_search, query, kind=kind)
+
+    @mcp.tool(
+        description=(
+            "Resolve public GitHub repository/API/Pages and optional raw-content locations, "
+            "then anonymously probe them for direct HTTP evidence. Distinguishes reachable, "
+            "not_found, auth_required, rate_limited, http_error, and unverified network errors. "
+            "No token is accepted or attached; set probe=false to build candidates only."
+        )
+    )
+    def resolve_public(
+        repo: str,
+        ref: str = "main",
+        path: str | None = None,
+        probe: bool = True,
+    ) -> dict[str, Any]:
+        return resolve_public_github(repo, ref=ref, path=path, probe=probe)
 
     @mcp.tool(
         description=(
