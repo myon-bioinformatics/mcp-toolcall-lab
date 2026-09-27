@@ -3,10 +3,10 @@
 ``vendor/gh_ops.py`` (see ``vendor/gh_ops.provenance.json`` and
 ``docs/github_ops_mcp.md``) is a stdlib-only client for a handful of GitHub
 REST endpoints, built for the ``browser-test-kit`` repo's own PR/CI workflow
-(myon-bioinformatics/browser-test-kit#10, merged as ``dce1533``). Every
-tool below is a thin wrapper that calls one of its functions and returns its
-result dict unchanged -- no new GitHub behavior is invented here, per this
-lab's "wrap an existing API, don't invent one" policy.
+(myon-bioinformatics/browser-test-kit#10, merged as ``dce1533``). Most tools below are thin wrappers over those functions. The exception is
+``resolve_public``: it intentionally owns a small anonymous resolver that
+combines GitHub UI/API/raw candidates with GitHub Pages and direct HTTP
+evidence. It never reads or accepts a token.
 
 v1 is read-only. ``gh_ops`` also has write operations (``pr_merge``,
 ``pr_body_replace``, ``pr_body_set``, ``pr_edit``, ``workflow_dispatch``,
@@ -299,12 +299,18 @@ def create_mcp() -> FastMCP:
         )
     )
     def resolve_public(
-        repo: str,
-        ref: str = "main",
-        path: str | None = None,
-        probe: bool = True,
+        repo: Annotated[str, Field(description="Public GitHub repository in owner/name form.")],
+        ref: Annotated[str, Field(description="Git ref used for raw/contents candidates.")] = "main",
+        path: Annotated[
+            str | None,
+            Field(description="Optional relative repository path to resolve as raw/contents URLs."),
+        ] = None,
+        probe: Annotated[
+            bool,
+            Field(description="When true, anonymously probe each candidate and return HTTP evidence."),
+        ] = True,
     ) -> dict[str, Any]:
-        return resolve_public_github(repo, ref=ref, path=path, probe=probe)
+        return _safe(resolve_public_github, repo, ref=ref, path=path, probe=probe)
 
     @mcp.tool(
         description=(
