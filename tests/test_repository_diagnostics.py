@@ -43,6 +43,8 @@ def test_vendored_contract_provenance_matches_pin():
     provenance = json.loads(diagnostics.CONTRACT_PROVENANCE_PATH.read_text(encoding="utf-8"))
     assert provenance["source_repository"] == "myon-bioinformatics/Ironmate"
     assert provenance["source_commit"] == "afdeb34026e7471dc01ece4eb9a75ca779bb207f"
+    assert provenance["blob_sha"] == "bcf1bc2f0a21d8461cacde185a1e73b2574e52c6"
+    assert provenance["sha256"] == "9f37fc31b1dd118ede4ddd492a5d1c91e39a596bd62ac90b458e35dc90bdee64"
     assert provenance["schema_version"] == "1.0"
     assert hashlib.sha256(diagnostics.CONTRACT_PATH.read_bytes()).hexdigest() == provenance["sha256"]
 
@@ -115,3 +117,14 @@ def test_http_protocol_failures_are_unverified(exc):
     assert result["status"] == "unverified"
     assert result["http_status"] is None
     assert result["evidence"] == "network_error"
+
+
+@pytest.mark.parametrize("branch", ["feat+x", "renovate/@types-node", "fix/日本語"])
+def test_unsupported_ref_degrades_to_not_checked(branch):
+    record = sample_record()
+    record["head"]["branch"] = branch
+    payload = diagnostics.build_payload(record, probe=True)
+    assert payload["resolver"]["status"] == "not_checked"
+    assert payload["resolver"]["reason"] == "unsupported_ref"
+    assert payload["resolver"]["observations"] == []
+    assert payload["resolver"]["candidates"] == []
