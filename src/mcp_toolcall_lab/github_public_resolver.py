@@ -20,6 +20,9 @@ _REF = re.compile(r"^[A-Za-z0-9._/-]+$")
 def _repo(value: str) -> str:
     if not isinstance(value, str) or not _REPO.fullmatch(value):
         raise ValueError("repo must be owner/name")
+    owner, name = value.split("/", 1)
+    if owner in {".", ".."} or name in {".", ".."}:
+        raise ValueError("repo owner/name cannot be dot segments")
     return value
 
 
@@ -50,9 +53,20 @@ def candidate_urls(repo: str, *, ref: str = "main", path: str | None = None) -> 
     return out
 
 
-def _status(code: int) -> str:
+def _rate_limited(headers: Any) -> bool:
+    if headers is None:
+        return False
+    try:
+        return str(headers.get("X-RateLimit-Remaining", "")).strip() == "0"
+    except (AttributeError, TypeError):
+        return False
+
+
+def _status(code: int, headers: Any = None) -> str:
     if 200 <= code < 400:
         return "reachable"
+    if code == 403 and _rate_limited(headers):
+        return "rate_limited"
     if code in (401, 403):
         return "auth_required"
     if code == 404:
@@ -77,9 +91,11 @@ def probe_url(
         with opener(request, timeout=timeout) as response:
             code = int(getattr(response, "status", response.getcode()))
             final_url = response.geturl()
+            headers = getattr(response, "headers", None)
     except HTTPError as exc:
         code = exc.code
         final_url = exc.geturl()
+        headers = exc.headers
     except (URLError, TimeoutError, OSError):
         return {
             "status": "unverified",
@@ -90,7 +106,7 @@ def probe_url(
             "evidence": "network_error",
         }
     return {
-        "status": _status(code),
+        "status": _status(code, headers),
         "url": url,
         "resolved_url": final_url,
         "http_status": code,
