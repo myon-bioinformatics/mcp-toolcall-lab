@@ -1,0 +1,7 @@
+{
+  "source_repository": "myon-bioinformatics/Ironmate",
+  "source_path": "repository_metadata_contract.py",
+  "source_commit": "afdeb34026e7471dc01ece4eb9a75ca779bb207f",
+  "schema_version": "1.0",
+  "purpose": "Canonical stdlib-only public repository metadata contract v1"
+}
