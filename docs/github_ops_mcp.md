@@ -102,17 +102,17 @@ wired up here:
 
 `vendor/gh_ops.py` is a byte-identical snapshot of
 `scripts/gh_ops.py` at commit
-[`679c05e46227bf0901c53f1356cabacdb54be751`](https://github.com/myon-bioinformatics/browser-test-kit/commit/679c05e46227bf0901c53f1356cabacdb54be751)
-on branch `claude/gh-ops-cli` (open PR
-[#10](https://github.com/myon-bioinformatics/browser-test-kit/pull/10), not
-merged as of that commit). `vendor/gh_ops.provenance.json` records that
+[`dce15333d100d1163b1b706d8e8de769a1e116be`](https://github.com/myon-bioinformatics/browser-test-kit/commit/dce15333d100d1163b1b706d8e8de769a1e116be),
+the squash-merge of browser-test-kit PR
+[#10](https://github.com/myon-bioinformatics/browser-test-kit/pull/10) on `main`
+(the file is byte-identical to the PR head `679c05e` it was first vendored from).
+`vendor/gh_ops.provenance.json` records that
 commit, its git blob SHA, and the file's SHA-256; `tests/test_gh_ops_provenance.py`
 fails the build if the vendored file drifts from that record. See
 [`vendor/README.md`](../vendor/README.md) for the refresh command — the same
 shape as the existing `markdown.py` refresh, pointed at
-`myon-bioinformatics/browser-test-kit` instead. Once PR #10 merges to `main`,
-refresh to the merge commit (not `main` itself, so a later unrelated push to
-`main` can't silently change what this repo vendors).
+`myon-bioinformatics/browser-test-kit` instead. Pin a commit, not `main` itself,
+so a later unrelated push to `main` can't silently change what this repo vendors.
 
 ## Tests
 

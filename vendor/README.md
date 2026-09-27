@@ -42,8 +42,8 @@ wrappers over `Client`/`pr_status`/`pr_for_branch`/`open_prs`/`issue_comments`/
 Provenance is in [`gh_ops.provenance.json`](gh_ops.provenance.json)
 (`commit` + git `blob_sha` + `sha256`). Source PR:
 [myon-bioinformatics/browser-test-kit#10](https://github.com/myon-bioinformatics/browser-test-kit/pull/10)
-(branch `claude/gh-ops-cli`, open, not merged as of the pinned commit).
-Refresh **that commit**, not `main`, once the upstream PR lands:
+(squash-merged to `main` as the pinned commit). To refresh, update `commit` to
+a newer upstream commit (never `main` itself) and re-fetch:
 
 ```bash
 COMMIT=$(python3 -c "import json; print(json.load(open('vendor/gh_ops.provenance.json'))['commit'])")
