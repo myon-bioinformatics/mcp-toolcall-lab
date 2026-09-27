@@ -112,7 +112,21 @@ def build_payload(
     }
     if opener is not None:
         kwargs["opener"] = opener
-    resolver = resolve_public_github(record["repository"]["full_name"], **kwargs)
+    try:
+        resolver = resolve_public_github(record["repository"]["full_name"], **kwargs)
+    except ValueError as exc:
+        if "ref must be a simple Git ref" not in str(exc):
+            raise
+        resolver = {
+            "repository": record["repository"]["full_name"],
+            "ref": record["head"]["branch"],
+            "path": "README.md",
+            "auth": "anonymous",
+            "candidates": [],
+            "observations": [],
+            "status": "not_checked",
+            "reason": "unsupported_ref",
+        }
     return {
         "schema_version": "1.0",
         "metadata": record,
