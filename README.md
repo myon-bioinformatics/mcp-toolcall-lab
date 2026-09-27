@@ -153,6 +153,12 @@ trace/log semantics, and protocol behavior remain owned here.
 
 GitHub Pages is static:
 https://myon-bioinformatics.github.io/mcp-toolcall-lab/
+
+The same Pages artifact also publishes canonical repository diagnostics at
+`repository-diagnostics.html`, with machine-readable `repository-diagnostics.json`
+and one-record `repository-diagnostics.jsonl`. The metadata shape is pinned from
+Ironmate's stdlib-only contract v1; URL observations reuse this repository's
+anonymous public GitHub resolver.
 Actions (`stub-pages`) starts Docker — stub UI + MCP mock + CPU-class
 model on one network — then writes anti-pattern JSONL and publishes the
 report. The published page is generation identity (Commit / optional
