@@ -119,7 +119,7 @@ def probe_url(
             headers = getattr(response, "headers", None)
     except HTTPError as exc:
         code = exc.code
-        final_url = exc.geturl()
+        final_url = exc.filename or url
         headers = exc.headers
     except (URLError, TimeoutError, OSError, http.client.HTTPException):
         return {
