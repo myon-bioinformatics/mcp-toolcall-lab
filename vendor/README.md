@@ -53,5 +53,11 @@ a newer upstream commit (never `main` itself) and re-fetch:
 COMMIT=$(python3 -c "import json; print(json.load(open('vendor/gh_ops.provenance.json'))['commit'])")
 gh api "repos/myon-bioinformatics/browser-test-kit/contents/scripts/gh_ops.py?ref=${COMMIT}" --jq .content \
   | base64 -d > vendor/gh_ops.py
+# the recorded blob must really be what that commit holds (CI only checks file == JSON):
+gh api "repos/myon-bioinformatics/browser-test-kit/contents/scripts/gh_ops.py?ref=${COMMIT}" --jq .sha
 pytest -q tests/test_gh_ops_provenance.py
 ```
+
+In `gh_ops.provenance.json`, `date` is the day the current `commit` was pinned
+(update it on every refresh); the hard pins in `tests/test_gh_ops_provenance.py`
+change together with the JSON.
