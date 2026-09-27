@@ -54,13 +54,14 @@ The token comes **only** from the `GITHUB_TOKEN` / `GH_TOKEN` environment
 variables — exactly how `gh_ops.Client()` already resolves it when
 constructed with no explicit token. No tool below takes a `token` argument,
 returns one, or logs one; `tests/test_github_ops_server.py` asserts no tool's
-schema has a `token` property. Every tool call goes through `_safe()`, which
-catches `gh_ops.GhOpsError`/`ValueError`/`KeyError` and returns
-`{"ok": False, "error": ...}` with the text passed through `gh_ops.scrub()` —
-the same scrub the vendored CLI applies to its own stdout/stderr — so a
-GitHub 403/401 (or any future error path) surfaces as a normal `ok: False`
-tool result, never an unhandled exception, and never echoes the token even
-if a response body somehow contained it.
+schema has a `token` property. `_safe()` catches `gh_ops.GhOpsError`,
+`ValueError`, and `KeyError`, scrubs their messages, and returns
+`{"ok": False, "error": ...}`. An unexpected exception (for example, a
+malformed successful HTTP response that violates the expected response shape)
+is left as a FastMCP tool error rather than being reported as an ordinary
+`ok: False` result. This keeps implementation defects visible; a tool error
+does not terminate the server. Tokens in handled GitHub error text are scrubbed
+even if a response body contains one.
 
 ## Tools (v1, read-only)
 
@@ -68,10 +69,10 @@ if a response body somehow contained it.
 | --- | --- | --- |
 | `pr_status(repo, number)` | `gh_ops.pr_status` | One-line PR state, mergeability, head/base, sizes. |
 | `pr_for_branch(repo, branch, state="all")` | `gh_ops.pr_for_branch` | `ok` is False when no PR has that head. |
-| `open_prs(owner, org=False, repos=[], limit=50)` | `gh_ops.open_prs` | Search-based by default; `repos=[...]` reads each repo's own `/pulls` instead, for tokens/proxies without search access. |
-| `issue_comments_digest(repo, number, since=None, last=None, author=None, preview=110, show=[])` | `gh_ops.issue_comments` | Preview rows for every comment; full bodies **only** for the indexes listed in `show`. The `save`-to-file option is not exposed — this server has no reason to write to the host filesystem. |
-| `check_runs(repo, sha, min_checks=1)` | `gh_ops._check_runs` + `gh_ops._summarize_checks` | A single non-waiting read (total/pending/failed/succeeded + per-run detail). Unlike `gh_ops`'s own `checks-wait` CLI command, this never polls or sleeps inside the tool call. |
-| `workflow_runs(repo, sha=None, workflow=None, limit=30)` | `gh_ops.runs` | Exactly one of `sha`/`workflow` must be set (enforced by `gh_ops.runs` itself). |
+| `open_prs(owner, org=False, repos=[], limit=50)` | `gh_ops.open_prs` | Search-based by default; `repos=[...]` reads each repo's own `/pulls` instead, for tokens/proxies without search access. `limit` is 1–100. |
+| `issue_comments_digest(repo, number, since=None, last=None, author=None, preview=110, show=[])` | `gh_ops.issue_comments` | Preview rows for every comment; full bodies **only** for the indexes listed in `show`. The `save`-to-file option is not exposed — this server has no reason to write to the host filesystem. `last` is 1–100 when set; `preview` is 1–1000 characters. |
+| `check_runs(repo, sha, min_checks=1)` | `gh_ops._check_runs` + `gh_ops._summarize_checks` | A single non-waiting read (total/pending/failed/succeeded + per-run detail). Unlike `gh_ops`'s own `checks-wait` CLI command, this never polls or sleeps inside the tool call. `min_checks` is 1–100. |
+| `workflow_runs(repo, sha=None, workflow=None, limit=30)` | `gh_ops.runs` | Exactly one of `sha`/`workflow` must be set (enforced by `gh_ops.runs` itself). `limit` is 1–100. |
 | `url_pr(repo, number, tab=None)` | `gh_ops.url_pr` | Pure string building; no network. |
 | `url_compare(repo, base, head)` | `gh_ops.url_compare` | Pure string building; no network. |
 | `url_blame(repo, ref, path, line=None)` | `gh_ops.url_blame` | Pure string building; no network. |
@@ -126,4 +127,7 @@ through FastMCP's in-memory `Client(transport=mcp)`, the same in-process
 pattern `tests/test_schema.py` uses via `mcp.list_tools()`. Coverage
 includes each tool, the URL builders' exact strings, a stubbed 403 surfacing
 as `ok: False` rather than a raised exception, and that no tool argument or
-result ever contains a token.
+result ever contains a token. The MCP input schemas publish numeric bounds and
+reject values outside them before calling GitHub. A malformed successful
+response is also tested to remain a protocol-level tool error while a later
+valid call still succeeds.

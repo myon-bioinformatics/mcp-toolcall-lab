@@ -17,9 +17,8 @@ list.
 Auth: the token comes only from the ``GITHUB_TOKEN`` / ``GH_TOKEN``
 environment variables, exactly as ``gh_ops.Client()`` already reads them when
 constructed with no explicit token. No tool below accepts a token argument,
-returns one, or logs one -- errors are passed through ``gh_ops.scrub()``
-before they leave this module, the same scrubbing the vendored CLI applies to
-its own stderr/stdout.
+returns one, or logs one. Known operational/input errors are scrubbed before
+they leave this module; unexpected exceptions remain FastMCP tool errors.
 """
 
 from __future__ import annotations
@@ -29,9 +28,10 @@ import os
 import sys
 from pathlib import Path
 from types import ModuleType
-from typing import Any
+from typing import Annotated, Any
 
 from fastmcp import FastMCP
+from pydantic import Field
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 GH_OPS_PATH = REPO_ROOT / "vendor" / "gh_ops.py"
@@ -85,14 +85,15 @@ def _client() -> Any:
 
 
 def _safe(fn, *args: Any, **kwargs: Any) -> dict[str, Any]:
-    """Run one gh_ops function; turn a raised GhOpsError into ``{"ok": False, "error": ...}``.
+    """Run one gh_ops function; turn known operational/input errors into a result.
 
     ``gh_ops.Client.request`` already scrubs the token out of HTTP-error
     messages (a 401/403/404 becomes ``GhOpsError`` with hint text, never the
     raw token); ``scrub`` runs again here as a second pass over the exception
     text so a stubbed or future error path can't leak a token into a tool
-    result either. This is what keeps a GitHub 403 an ``ok: False`` result
-    instead of an unhandled exception reaching the FastMCP dispatcher.
+    result either. Known GitHub/input errors become ``ok: False``; unexpected
+    exceptions remain FastMCP tool errors so programming defects or malformed
+    upstream responses are not disguised as normal results.
     """
     try:
         return fn(*args, **kwargs)
@@ -141,7 +142,8 @@ def create_mcp() -> FastMCP:
     @mcp.tool(
         description=(
             "Open PRs across every repository of `owner`, most recently updated first. "
-            "Uses GitHub code search (`org=True` for `org:OWNER`, else `user:OWNER`) unless "
+            "Uses GitHub issue search (`is:pr is:open`, `org=True` for `org:OWNER`, "
+            "else `user:OWNER`) unless "
             "`repos` is given, in which case each named repository is read through its own "
             "/repos/OWNER/NAME/pulls endpoint instead -- for tokens/proxies that allow "
             "repository-scoped reads but not search. `ok` is False when nothing is open."
@@ -151,7 +153,7 @@ def create_mcp() -> FastMCP:
         owner: str,
         org: bool = False,
         repos: list[str] | None = None,
-        limit: int = 50,
+        limit: Annotated[int, Field(ge=1, le=100)] = 50,
     ) -> dict[str, Any]:
         return _safe(
             gh_ops.open_prs,
@@ -177,9 +179,9 @@ def create_mcp() -> FastMCP:
         repo: str,
         number: int,
         since: str | None = None,
-        last: int | None = None,
+        last: Annotated[int | None, Field(ge=1, le=100)] = None,
         author: str | None = None,
-        preview: int = 110,
+        preview: Annotated[int, Field(ge=1, le=1000)] = 110,
         show: list[int] | None = None,
     ) -> dict[str, Any]:
         return _safe(
@@ -202,7 +204,11 @@ def create_mcp() -> FastMCP:
             "sleeps, so it returns immediately whatever the current state is."
         )
     )
-    def check_runs(repo: str, sha: str, min_checks: int = 1) -> dict[str, Any]:
+    def check_runs(
+        repo: str,
+        sha: str,
+        min_checks: Annotated[int, Field(ge=1, le=100)] = 1,
+    ) -> dict[str, Any]:
         def _summary(repo: str, sha: str, *, min_checks: int, client: Any) -> dict[str, Any]:
             repo = gh_ops._repo(repo)
             sha = gh_ops._sha(sha)
@@ -221,7 +227,7 @@ def create_mcp() -> FastMCP:
         repo: str,
         sha: str | None = None,
         workflow: str | None = None,
-        limit: int = 30,
+        limit: Annotated[int, Field(ge=1, le=100)] = 30,
     ) -> dict[str, Any]:
         return _safe(gh_ops.runs, repo, sha=sha, workflow=workflow, limit=limit, client=_client())
 

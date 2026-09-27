@@ -107,7 +107,7 @@ def wired(monkeypatch):
 
 async def _call(mcp, name, arguments):
     async with FastMCPClient(transport=mcp) as client:
-        result = await client.call_tool(name, arguments)
+        result = await client.call_tool(name, arguments, raise_on_error=False)
     return result
 
 
@@ -229,6 +229,74 @@ async def test_open_prs_tool_repo_scoped(wired):
             "url": "https://github.com/octo/demo/pull/7",
         }
     ]
+
+
+@pytest.mark.parametrize(
+    ("name", "arguments"),
+    [
+        ("open_prs", {"owner": "octo", "limit": 0}),
+        ("open_prs", {"owner": "octo", "limit": 101}),
+        ("issue_comments_digest", {"repo": REPO, "number": 24, "last": 0}),
+        ("issue_comments_digest", {"repo": REPO, "number": 24, "last": 101}),
+        ("issue_comments_digest", {"repo": REPO, "number": 24, "preview": 0}),
+        ("issue_comments_digest", {"repo": REPO, "number": 24, "preview": 1001}),
+        ("check_runs", {"repo": REPO, "sha": HEAD, "min_checks": 0}),
+        ("check_runs", {"repo": REPO, "sha": HEAD, "min_checks": 101}),
+        ("workflow_runs", {"repo": REPO, "sha": HEAD, "limit": 0}),
+        ("workflow_runs", {"repo": REPO, "sha": HEAD, "limit": 101}),
+    ],
+)
+async def test_numeric_tool_arguments_are_bounded_before_github_call(wired, name, arguments):
+    mcp, patch_client = wired
+    _, stub = patch_client({})
+
+    result = await _call(mcp, name, arguments)
+
+    assert result.is_error is True
+    assert stub.calls == []
+
+
+async def test_numeric_tool_schemas_publish_bounds(wired):
+    mcp, _ = wired
+    tools = {tool.name: tool for tool in await mcp.list_tools()}
+    expected = [
+        ("open_prs", "limit", 1, 100),
+        ("issue_comments_digest", "last", 1, 100),
+        ("issue_comments_digest", "preview", 1, 1000),
+        ("check_runs", "min_checks", 1, 100),
+        ("workflow_runs", "limit", 1, 100),
+    ]
+    for tool_name, field_name, minimum, maximum in expected:
+        schema = tools[tool_name].parameters
+        field = schema["properties"][field_name]
+        # Optional fields are represented as anyOf by JSON Schema; required fields
+        # carry the constraints directly. Check both shapes without depending on
+        # the order of anyOf branches.
+        candidates = [field, *field.get("anyOf", [])]
+        assert any(candidate.get("minimum") == minimum for candidate in candidates)
+        assert any(candidate.get("maximum") == maximum for candidate in candidates)
+
+
+async def test_unexpected_pr_status_response_is_tool_error_and_server_recovers(wired):
+    mcp, patch_client = wired
+    secret = "unexpected-response-token"
+    patch_client(
+        {
+            ("GET", "/repos/octo/demo/pulls/11"): [
+                reply(["not", "an", "object"]),
+                reply(pr_payload()),
+            ]
+        },
+        token=secret,
+    )
+
+    malformed = await _call(mcp, "pr_status", {"repo": REPO, "number": 11})
+    assert malformed.is_error is True
+    assert secret not in str(malformed)
+
+    valid = await _call(mcp, "pr_status", {"repo": REPO, "number": 11})
+    assert valid.is_error is False
+    assert _data(valid)["ok"] is True
 
 
 # --- issue_comments_digest ----------------------------------------------------------
