@@ -5,7 +5,7 @@ exposes vendored [`gh_ops.py`](../vendor/gh_ops.py) — stdlib-only GitHub REST
 operations from `myon-bioinformatics/browser-test-kit` (`scripts/gh_ops.py`,
 [#9](https://github.com/myon-bioinformatics/browser-test-kit/issues/9),
 [#10](https://github.com/myon-bioinformatics/browser-test-kit/pull/10),
-branch `claude/gh-ops-cli`) — as MCP tools. Every tool is a thin wrapper: it
+merged as `dce1533`) — as MCP tools. Every tool is a thin wrapper: it
 calls one `gh_ops` function and returns its result dict unchanged, per this
 lab's policy of wrapping an existing API rather than inventing one.
 

@@ -3,7 +3,7 @@
 ``vendor/gh_ops.py`` (see ``vendor/gh_ops.provenance.json`` and
 ``docs/github_ops_mcp.md``) is a stdlib-only client for a handful of GitHub
 REST endpoints, built for the ``browser-test-kit`` repo's own PR/CI workflow
-(myon-bioinformatics/browser-test-kit#10, branch ``claude/gh-ops-cli``). Every
+(myon-bioinformatics/browser-test-kit#10, merged as ``dce1533``). Every
 tool below is a thin wrapper that calls one of its functions and returns its
 result dict unchanged -- no new GitHub behavior is invented here, per this
 lab's "wrap an existing API, don't invent one" policy.
