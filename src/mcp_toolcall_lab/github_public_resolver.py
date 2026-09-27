@@ -7,6 +7,7 @@ It never accepts credentials and never turns an unobserved resource into
 from __future__ import annotations
 
 from datetime import UTC, datetime
+import http.client
 import re
 from typing import Any, Callable
 from urllib.error import HTTPError, URLError
@@ -120,7 +121,7 @@ def probe_url(
         code = exc.code
         final_url = exc.geturl()
         headers = exc.headers
-    except (URLError, TimeoutError, OSError):
+    except (URLError, TimeoutError, OSError, http.client.HTTPException):
         return {
             "status": "unverified",
             "url": url,
