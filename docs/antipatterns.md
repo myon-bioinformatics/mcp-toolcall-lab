@@ -61,6 +61,16 @@ These are broader rules that may not map one-to-one to a runtime classifier ID.
 | `ARCHITECTURE_FROM_THIN_FIXTURE` | Design conclusions are drawn from one canned fixture | apparent success may not generalize | expand corpus and record provenance before broad claims |
 | `ANTIPATTERN_WITHOUT_REGRESSION` | Failure is documented but not pinned by a test when testable | the same bug returns silently | promote observed failure to a regression/contract test where practical |
 
+| `HOST_FSTRING_FOREIGN_BRACES` | Python f-string (or another interpolated host string) embeds JavaScript/CSS/JSON braces as literal source | foreign-language `{...}` is parsed as host interpolation, so builders can fail during import/CI collection before page tests run | keep embedded foreign code in a plain literal/template with explicit sentinel replacement (or escape every brace deliberately), and compile/import the builder in CI |
+
+## Cross-repository CI incident: foreign braces inside a host f-string
+
+This was observed while rolling the shared repository-diagnostics Pages builder from Ironmate / mcp-toolcall-lab into `markdown` and `ascii_artist`. The first horizontal rollout used a Python triple-quoted f-string containing a full JavaScript block. JavaScript function/object braces were parsed as Python f-string expressions, producing a `SyntaxError` during test collection in both repositories before the HTML builder could run.
+
+The fix was intentionally boring: make the embedded HTML/JavaScript a normal triple-quoted string and replace only explicit sentinels such as `__REPO__` and `__BASE__` afterward. The lesson is broader than JavaScript: when one language embeds another brace-heavy language, avoid making the entire foreign program a host-language interpolated string just to inject a few values. Keep the interpolation surface narrow and add a compile/import test for generator scripts.
+
+This ID is shared with the sibling `markdown` and `ascii_artist` anti-pattern catalogs so the same failure class can be searched across repositories.
+
 ## Layer model
 
 When diagnosing a failed chat-to-MCP turn, do not collapse the whole path into
@@ -96,6 +106,8 @@ final UI lacks the expected text.
 ## Lessons imported from sibling repositories
 
 From `markdown`:
+
+- `HOST_FSTRING_FOREIGN_BRACES`: embedded JavaScript in a Python f-string broke CI collection during repository-diagnostics rollout; prefer plain foreign-language literals plus explicit placeholders.
 
 - make supported/unsupported boundaries explicit;
 - do not let a narrow regex silently become a full parser;
