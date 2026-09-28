@@ -24,7 +24,13 @@ on:
       - ".github/workflows/librechat-docker-smoke.yml"
 
 jobs:
+  changes:
+    name: Change detection
+    uses: myon-bioinformatics/myon-bioinformatics/.github/workflows/reusable-change-detection.yml@main
+
   librechat-smoke:
+    needs: changes
+    if: needs.changes.outputs.non_docs_changed == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
