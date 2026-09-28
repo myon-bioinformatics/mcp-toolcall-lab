@@ -60,7 +60,6 @@ These are broader rules that may not map one-to-one to a runtime classifier ID.
 | `BROAD_EXCEPT_PASS` | Diagnostic/cleanup exceptions are swallowed | the evidence for the original failure disappears | log cleanup failures and preserve fixture ordering |
 | `ARCHITECTURE_FROM_THIN_FIXTURE` | Design conclusions are drawn from one canned fixture | apparent success may not generalize | expand corpus and record provenance before broad claims |
 | `ANTIPATTERN_WITHOUT_REGRESSION` | Failure is documented but not pinned by a test when testable | the same bug returns silently | promote observed failure to a regression/contract test where practical |
-
 | `HOST_FSTRING_FOREIGN_BRACES` | Python f-string (or another interpolated host string) embeds JavaScript/CSS/JSON braces as literal source | foreign-language `{...}` is parsed as host interpolation, so builders can fail during import/CI collection before page tests run | keep embedded foreign code in a plain literal/template with explicit sentinel replacement (or escape every brace deliberately), and compile/import the builder in CI |
 
 ## Cross-repository CI incident: foreign braces inside a host f-string
@@ -106,8 +105,6 @@ final UI lacks the expected text.
 ## Lessons imported from sibling repositories
 
 From `markdown`:
-
-- `HOST_FSTRING_FOREIGN_BRACES`: embedded JavaScript in a Python f-string broke CI collection during repository-diagnostics rollout; prefer plain foreign-language literals plus explicit placeholders.
 
 - make supported/unsupported boundaries explicit;
 - do not let a narrow regex silently become a full parser;
