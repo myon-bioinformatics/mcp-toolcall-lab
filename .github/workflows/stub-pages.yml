@@ -150,15 +150,15 @@ jobs:
             curl -sf http://127.0.0.1:4173/ >/dev/null && break
             sleep 1
           done
-          npx --yes playwright@1.55.0 install --with-deps chromium webkit
-          npx --yes playwright@1.55.0 screenshot --browser=chromium --device="Desktop Chrome" --full-page \
+          npx --yes playwright@1.63.0 install --with-deps chromium webkit
+          npx --yes playwright@1.63.0 screenshot --browser=chromium --device="Desktop Chrome" --full-page \
             "http://127.0.0.1:4173/#pixiv" test-results/pixiv-pages-desktop.png
-          npx --yes playwright@1.55.0 screenshot --browser=chromium --device="Desktop Chrome" --full-page \
+          npx --yes playwright@1.63.0 screenshot --browser=chromium --device="Desktop Chrome" --full-page \
             "http://127.0.0.1:4173/repository-diagnostics.html" test-results/repository-diagnostics-desktop.png
           # Playwright WebKit can report a non-zero shutdown after writing the PNG;
           # validate the artifact itself, including its PNG signature.
           set +e
-          npx --yes playwright@1.55.0 screenshot --browser=webkit --device="iPhone 13" --full-page \
+          npx --yes playwright@1.63.0 screenshot --browser=webkit --device="iPhone 13" --full-page \
             "http://127.0.0.1:4173/#pixiv" test-results/pixiv-pages-mobile.png \
             >test-results/pixiv-pages-webkit.log 2>&1
           WEBKIT_STATUS=$?
@@ -252,10 +252,10 @@ jobs:
         if: steps.pixiv_live.outputs.live == 'ok'
         run: |
           PIXIV_URL="http://127.0.0.1:8765/pixiv?title=NARUTO"
-          npx --yes playwright@1.55.0 screenshot --browser=chromium --device="Desktop Chrome" --full-page \
+          npx --yes playwright@1.63.0 screenshot --browser=chromium --device="Desktop Chrome" --full-page \
             "$PIXIV_URL" test-results/pixiv-live-desktop.png
           set +e
-          npx --yes playwright@1.55.0 screenshot --browser=webkit --device="iPhone 13" --full-page \
+          npx --yes playwright@1.63.0 screenshot --browser=webkit --device="iPhone 13" --full-page \
             "$PIXIV_URL" test-results/pixiv-live-mobile.png \
             >test-results/pixiv-live-webkit.log 2>&1
           LIVE_WEBKIT_STATUS=$?
