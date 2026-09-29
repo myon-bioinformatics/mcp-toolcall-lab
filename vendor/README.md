@@ -92,5 +92,7 @@ done
 pytest -q tests/test_repository_diagnostics.py
 ```
 
-The provenance regression test recomputes both the Git blob SHA-1 and SHA-256
-from the vendored bytes, so provenance JSON and source files move together.
+The refresh loop updates each provenance JSON from the same pinned commit,
+including the upstream Git blob SHA and locally recomputed SHA-256. The
+provenance regression test then recomputes both hashes from the vendored bytes,
+so provenance JSON and source files move together.
