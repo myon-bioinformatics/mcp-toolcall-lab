@@ -81,7 +81,7 @@ Example refresh (after deliberately updating `COMMIT`):
 ```bash
 COMMIT=0aee64da2f8d0119a3ef9b955e5c3818f28aaf92
 for FILE in repository_metadata_contract.py repository_metadata_generator.py; do
-  gh api "repos/myon-bioinformatics/Ironmate/contents/$FILE?ref=$COMMIT" --jq .content \\
+  gh api "repos/myon-bioinformatics/Ironmate/contents/$FILE?ref=$COMMIT" --jq .content \
     | base64 -d > "vendor/$FILE"
 done
 pytest -q tests/test_repository_diagnostics.py
