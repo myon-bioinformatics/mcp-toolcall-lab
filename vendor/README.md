@@ -63,12 +63,29 @@ In `gh_ops.provenance.json`, `date` is the day the current `commit` was pinned
 change together with the JSON.
 
 
-# Vendored `repository_metadata_contract.py`
+# Vendored repository metadata producer
 
-Pinned stdlib-only public repository metadata contract v1 from
-`myon-bioinformatics/Ironmate`. It is consumed by
-`mcp_toolcall_lab.repository_diagnostics` to emit the same canonical JSON/JSONL
-shape used by Ironmate Pages. Provenance is recorded in
-`repository_metadata_contract.provenance.json` with the source commit and local
-`sha256`; CI verifies the vendored bytes against that digest. Refresh by an
-explicit commit, never by an unpinned `main`.
+`repository_metadata_contract.py` and `repository_metadata_generator.py` are a
+single stdlib-only producer baseline from `myon-bioinformatics/Ironmate`.
+The contract owns validation/serialization; the generator owns checkout-HEAD
+identity collection. `mcp_toolcall_lab.repository_diagnostics` remains a local
+consumer that adds tracked-byte measurement, resolver evidence, and Pages output.
+
+Each file has a sibling provenance JSON containing `source_repository`,
+`source_path`, `source_commit`, git `blob_sha`, `sha256`, and `schema_version`.
+Both Python files **must be refreshed from the same explicit `source_commit`**;
+never refresh either one independently from an unpinned `main`.
+
+Example refresh (after deliberately updating `COMMIT`):
+
+```bash
+COMMIT=0aee64da2f8d0119a3ef9b955e5c3818f28aaf92
+for FILE in repository_metadata_contract.py repository_metadata_generator.py; do
+  gh api "repos/myon-bioinformatics/Ironmate/contents/$FILE?ref=$COMMIT" --jq .content \\
+    | base64 -d > "vendor/$FILE"
+done
+pytest -q tests/test_repository_diagnostics.py
+```
+
+The provenance regression test recomputes both the Git blob SHA-1 and SHA-256
+from the vendored bytes, so provenance JSON and source files move together.
