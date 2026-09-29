@@ -1,8 +1,14 @@
 import hashlib
 import http.client
 import json
+import os
+import platform
+import shutil
+import subprocess
+import sys
 from io import BytesIO
 from pathlib import Path
+from types import SimpleNamespace
 from urllib.error import HTTPError, URLError
 
 import pytest
@@ -85,6 +91,158 @@ def test_generator_is_bound_to_pinned_vendored_contract():
     generator = diagnostics._load_generator()
     contract_file = Path(generator.build_repository_record.__globals__["__file__"]).resolve()
     assert contract_file == diagnostics.CONTRACT_PATH.resolve()
+
+
+def _git(root, *args, env=None):
+    result = subprocess.run(
+        ["git", *args],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        env=env,
+    )
+    return result.stdout.strip()
+
+
+def _synthetic_checkout(root):
+    root.mkdir()
+    _git(root, "init")
+    _git(root, "config", "user.name", "Repository Metadata Test")
+    _git(root, "config", "user.email", "metadata-test@example.invalid")
+    (root / "README.md").write_text("synthetic checkout\\n", encoding="utf-8")
+    _git(root, "add", "README.md")
+    commit_env = os.environ.copy()
+    commit_env["GIT_AUTHOR_DATE"] = "2026-09-29T01:02:03+00:00"
+    commit_env["GIT_COMMITTER_DATE"] = "2026-09-29T01:02:03+00:00"
+    _git(root, "commit", "-m", "feat: synthetic 日本語", env=commit_env)
+    _git(root, "branch", "-M", "work")
+
+
+def test_build_record_matches_canonical_synthetic_checkout(tmp_path, monkeypatch):
+    checkout = tmp_path / "checkout"
+    _synthetic_checkout(checkout)
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    monkeypatch.chdir(elsewhere)
+    monkeypatch.setattr(diagnostics, "REPO_ROOT", checkout)
+
+    env = {
+        "GITHUB_HEAD_REF": "feature/from-pr",
+        "GITHUB_REF_NAME": "87/merge",
+        "GITHUB_SHA": "f" * 40,
+    }
+    now = "2026-09-29T12:34:56+00:00"
+    working_tree_bytes = 4321
+    record = diagnostics.build_record(
+        env,
+        now=now,
+        working_tree_bytes=working_tree_bytes,
+    )
+
+    contract = diagnostics._load_contract()
+    expected = contract.build_repository_record(
+        full_name=diagnostics.REPOSITORY,
+        sha=_git(checkout, "rev-parse", "HEAD"),
+        branch="feature/from-pr",
+        timestamp=_git(checkout, "show", "-s", "--format=%cI", "HEAD"),
+        subject=_git(checkout, "show", "-s", "--format=%s", "HEAD"),
+        generated_at=now,
+        working_tree_bytes=working_tree_bytes,
+        tooling={"python": platform.python_version()},
+    )
+
+    assert record == expected
+    assert record["head"]["branch"] == "feature/from-pr"
+    assert record["measurements"]["working_tree_bytes"] == working_tree_bytes
+    assert record["tooling"] == {"python": platform.python_version()}
+    assert record["generated_at"] == now
+    assert contract.to_json(record) == contract.to_json(expected)
+    assert contract.to_jsonl(record) == contract.to_jsonl(expected)
+
+
+def test_build_record_measures_tracked_bytes_from_repository_root(tmp_path, monkeypatch):
+    checkout = tmp_path / "checkout"
+    _synthetic_checkout(checkout)
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    monkeypatch.chdir(elsewhere)
+    monkeypatch.setattr(diagnostics, "REPO_ROOT", checkout)
+
+    record = diagnostics.build_record(
+        {},
+        now="2026-09-29T12:34:56+00:00",
+    )
+
+    assert record["head"]["branch"] == "work"
+    assert record["measurements"]["working_tree_bytes"] == len(
+        (checkout / "README.md").read_bytes()
+    )
+
+
+def test_vendored_generator_executes_outside_repository_import_paths(tmp_path):
+    checkout = tmp_path / "checkout"
+    _synthetic_checkout(checkout)
+    standalone = tmp_path / "standalone"
+    standalone.mkdir()
+    generator_path = standalone / diagnostics.GENERATOR_PATH.name
+    contract_path = standalone / diagnostics.CONTRACT_PATH.name
+    shutil.copy2(diagnostics.GENERATOR_PATH, generator_path)
+    shutil.copy2(diagnostics.CONTRACT_PATH, contract_path)
+
+    cwd = tmp_path / "outside"
+    cwd.mkdir()
+    output_dir = tmp_path / "output"
+    env = os.environ.copy()
+    env.pop("PYTHONPATH", None)
+    env["GITHUB_HEAD_REF"] = "feature/direct"
+    env["GITHUB_REF_NAME"] = "87/merge"
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(generator_path),
+            "--repository",
+            diagnostics.REPOSITORY,
+            "--root",
+            str(checkout),
+            "--output-dir",
+            str(output_dir),
+        ],
+        cwd=cwd,
+        env=env,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+
+    json_record = json.loads(
+        (output_dir / "repository-metadata.json").read_text(encoding="utf-8")
+    )
+    jsonl_record = json.loads(
+        (output_dir / "repository-metadata.jsonl").read_text(encoding="utf-8")
+    )
+    assert json_record == jsonl_record
+    assert json_record["head"]["sha"] == _git(checkout, "rev-parse", "HEAD")
+    assert json_record["head"]["branch"] == "feature/direct"
+
+
+def test_build_record_revalidates_after_generated_at_override(monkeypatch):
+    invalid = sample_record()
+    invalid["head"]["short_sha"] = "deadbeef"
+    fake_generator = SimpleNamespace(
+        record_from_checkout=lambda *args, **kwargs: invalid,
+    )
+    monkeypatch.setattr(diagnostics, "_load_generator", lambda: fake_generator)
+
+    with pytest.raises(ValueError, match="short_sha"):
+        diagnostics.build_record(
+            {},
+            now="2026-09-29T12:34:56+00:00",
+            working_tree_bytes=1234,
+        )
 
 
 def test_payload_reuses_public_resolver_without_probe():
