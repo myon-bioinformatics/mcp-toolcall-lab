@@ -81,11 +81,12 @@ def build_record(
 ) -> dict[str, Any]:
     """Build canonical metadata v1 from checkout HEAD via the vendored producer."""
     generator = _load_generator()
+    root = REPO_ROOT
     record = generator.record_from_checkout(
-        REPO_ROOT,
+        root,
         REPOSITORY,
         env=os.environ if env is None else env,
-        working_tree_bytes=_tracked_bytes() if working_tree_bytes is None else working_tree_bytes,
+        working_tree_bytes=_tracked_bytes(root) if working_tree_bytes is None else working_tree_bytes,
         tooling={"python": platform.python_version()},
     )
     if now is not None:
