@@ -1,43 +1,76 @@
-import ast
-from datetime import datetime
+import hashlib
+import importlib.util
+import json
 from pathlib import Path
-import re
 
 
 ROOT = Path(__file__).resolve().parents[1]
 ARTIFACT = ROOT / "vendor" / "ascii_artist.py"
-HEADER_RE = re.compile(
-    r"^# metadata: __all__=(?P<count>[0-9]+) \| "
-    r"base_sha=(?P<sha>(?:[0-9a-f]{40}|[0-9a-f]{64})) \| "
-    r"updated_at=(?P<updated_at>\S+)$"
-)
+ARTIFACT_PROVENANCE = ROOT / "vendor" / "ascii_artist.provenance.json"
+VALIDATOR = ROOT / "vendor" / "python_artifact_provenance.py"
+VALIDATOR_PROVENANCE = ROOT / "vendor" / "python_artifact_provenance.provenance.json"
+
+EXPECTED_ARTIFACT_SOURCE_COMMIT = "24f759916eedd1a3aec8afea83b6852cf3b5afaa"
+EXPECTED_ARTIFACT_BLOB = "ca46470b4a52293d722d59db0a621fec789c3690"
+EXPECTED_ARTIFACT_SHA256 = "a2ea789b38d3f8a3cc15029ec33733d472d25effee3effed795c2519bec249ea"
+EXPECTED_ARTIFACT_BASE_SHA = "7c21bacfac7b60327b77f9b31a87869ef7838a7e"
+
+EXPECTED_VALIDATOR_SOURCE_COMMIT = "b9c079bb55c1349abb47f67a09bbf0dbcf54bca9"
+EXPECTED_VALIDATOR_BLOB = "89b1954f623b8ad596974d59fa4f3728a90341a3"
+EXPECTED_VALIDATOR_SHA256 = "b67a594c5de260697f77f3512332e091a3d0eec9cb5a1d61a10d65c9246c2de3"
 
 
-def test_vendored_ascii_artist_provenance_matches_literal_all():
-    source = ARTIFACT.read_text(encoding="utf-8")
-    header = next(
-        (line for line in source.splitlines()[:8] if line.startswith("# metadata:")),
-        None,
+def _load_validator():
+    spec = importlib.util.spec_from_file_location(
+        "vendored_python_artifact_provenance",
+        VALIDATOR,
     )
-    assert header is not None
-    match = HEADER_RE.fullmatch(header)
-    assert match is not None
+    if spec is None or spec.loader is None:
+        raise RuntimeError("unable to load vendored provenance validator")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
-    tree = ast.parse(source)
-    values = []
-    for node in tree.body:
-        if isinstance(node, ast.Assign) and any(
-            isinstance(target, ast.Name) and target.id == "__all__"
-            for target in node.targets
-        ):
-            values.append(ast.literal_eval(node.value))
 
-    assert len(values) == 1
-    assert isinstance(values[0], list)
-    assert all(isinstance(item, str) for item in values[0])
-    assert int(match.group("count")) == len(values[0])
+def _git_blob_sha1(data: bytes) -> str:
+    payload = b"blob " + str(len(data)).encode("ascii") + b"\0" + data
+    return hashlib.sha1(payload).hexdigest()
 
-    updated = datetime.fromisoformat(
-        match.group("updated_at").replace("Z", "+00:00")
+
+VALIDATOR_MODULE = _load_validator()
+
+
+def test_vendored_validator_matches_recorded_provenance():
+    record = json.loads(VALIDATOR_PROVENANCE.read_text(encoding="utf-8"))
+    data = VALIDATOR.read_bytes()
+
+    assert record["source_repository"] == "myon-bioinformatics/Ironmate"
+    assert record["source_path"] == "python_artifact_provenance.py"
+    assert record["source_commit"] == EXPECTED_VALIDATOR_SOURCE_COMMIT
+    assert record["schema_version"] == "1.0"
+    assert record["blob_sha"] == EXPECTED_VALIDATOR_BLOB
+    assert record["sha256"] == EXPECTED_VALIDATOR_SHA256
+    assert hashlib.sha256(data).hexdigest() == EXPECTED_VALIDATOR_SHA256
+    assert _git_blob_sha1(data) == EXPECTED_VALIDATOR_BLOB
+
+
+def test_vendored_ascii_artist_matches_recorded_provenance():
+    record = json.loads(ARTIFACT_PROVENANCE.read_text(encoding="utf-8"))
+    data = ARTIFACT.read_bytes()
+
+    assert record["source_repository"] == "myon-bioinformatics/ascii_artist"
+    assert record["source_path"] == "ascii_artist.py"
+    assert record["source_commit"] == EXPECTED_ARTIFACT_SOURCE_COMMIT
+    assert record["schema_version"] == "1.0"
+    assert record["blob_sha"] == EXPECTED_ARTIFACT_BLOB
+    assert record["sha256"] == EXPECTED_ARTIFACT_SHA256
+    assert hashlib.sha256(data).hexdigest() == EXPECTED_ARTIFACT_SHA256
+    assert _git_blob_sha1(data) == EXPECTED_ARTIFACT_BLOB
+
+
+def test_vendored_ascii_artist_passes_canonical_validator():
+    metadata = VALIDATOR_MODULE.validate_source_header(
+        ARTIFACT.read_text(encoding="utf-8")
     )
-    assert updated.tzinfo is not None
+    assert metadata["all_count"] == 32
+    assert metadata["base_sha"] == EXPECTED_ARTIFACT_BASE_SHA
