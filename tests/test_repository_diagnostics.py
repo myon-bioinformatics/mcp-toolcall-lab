@@ -111,7 +111,7 @@ def _synthetic_checkout(root):
     _git(root, "init")
     _git(root, "config", "user.name", "Repository Metadata Test")
     _git(root, "config", "user.email", "metadata-test@example.invalid")
-    (root / "README.md").write_text("synthetic checkout\\n", encoding="utf-8")
+    (root / "README.md").write_text("synthetic checkout\n", encoding="utf-8")
     _git(root, "add", "README.md")
     commit_env = os.environ.copy()
     commit_env["GIT_AUTHOR_DATE"] = "2026-09-29T01:02:03+00:00"
