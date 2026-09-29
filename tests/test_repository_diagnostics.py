@@ -48,7 +48,7 @@ def _assert_vendored_provenance(path, provenance_path, source_path, blob_sha, sh
     assert provenance["sha256"] == sha256
     assert provenance["schema_version"] == "1.0"
     data = path.read_bytes()
-    git_blob = hashlib.sha1(b"blob " + str(len(data)).encode("ascii") + b"\\0" + data).hexdigest()
+    git_blob = hashlib.sha1(b"blob " + str(len(data)).encode("ascii") + bytes([0]) + data).hexdigest()
     assert git_blob == provenance["blob_sha"]
     assert hashlib.sha256(data).hexdigest() == provenance["sha256"]
 
