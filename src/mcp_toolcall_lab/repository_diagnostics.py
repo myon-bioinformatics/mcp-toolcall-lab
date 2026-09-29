@@ -91,7 +91,7 @@ def build_record(
     )
     if now is not None:
         record["generated_at"] = now
-        _load_contract().validate_repository_record(record)
+        _load_contract(canonical_name=True).validate_repository_record(record)
     return record
 
 
