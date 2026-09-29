@@ -7,7 +7,6 @@ duplicating resolver semantics.
 """
 from __future__ import annotations
 
-from datetime import UTC, datetime
 import importlib.util
 import json
 import os
@@ -23,6 +22,8 @@ from .github_public_resolver import resolve_public_github
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CONTRACT_PATH = REPO_ROOT / "vendor" / "repository_metadata_contract.py"
 CONTRACT_PROVENANCE_PATH = REPO_ROOT / "vendor" / "repository_metadata_contract.provenance.json"
+GENERATOR_PATH = REPO_ROOT / "vendor" / "repository_metadata_generator.py"
+GENERATOR_PROVENANCE_PATH = REPO_ROOT / "vendor" / "repository_metadata_generator.provenance.json"
 REPOSITORY = "myon-bioinformatics/mcp-toolcall-lab"
 WEB_UI_SHA = "adb23d7ba6ea94672b76457573f6655a081ee054"
 WEB_UI_BASE = f"https://cdn.jsdelivr.net/gh/myon-bioinformatics/web-ui@{WEB_UI_SHA}"
@@ -41,19 +42,17 @@ def _load_contract() -> ModuleType:
     return module
 
 
-def _git(args: list[str]) -> str:
-    result = subprocess.run(
-        ["git", *args],
-        cwd=REPO_ROOT,
-        text=True,
-        capture_output=True,
-        timeout=10,
-        check=False,
-    )
-    if result.returncode != 0:
-        raise RuntimeError(result.stderr.strip() or f"git command failed: {' '.join(args)}")
-    return result.stdout.strip()
-
+def _load_generator() -> ModuleType:
+    vendor_dir = str(GENERATOR_PATH.parent)
+    if vendor_dir not in sys.path:
+        sys.path.insert(0, vendor_dir)
+    spec = importlib.util.spec_from_file_location("repository_metadata_generator_v1", GENERATOR_PATH)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"cannot load repository metadata generator: {GENERATOR_PATH}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
 
 def _tracked_bytes(root: Path = REPO_ROOT) -> int:
     raw = subprocess.check_output(["git", "-C", str(root), "ls-files", "-z"])
@@ -73,30 +72,19 @@ def build_record(
     now: str | None = None,
     working_tree_bytes: int | None = None,
 ) -> dict[str, Any]:
-    """Build one canonical metadata v1 record from the current checkout."""
-    env = os.environ if env is None else env
-    contract = _load_contract()
-    sha = (env.get("GITHUB_SHA") or "").strip() or _git(["rev-parse", "HEAD"])
-    branch = (
-        (env.get("GITHUB_HEAD_REF") or "").strip()
-        or (env.get("GITHUB_REF_NAME") or "").strip()
-        or _git(["branch", "--show-current"])
-        or "detached"
-    )
-    timestamp = _git(["show", "-s", "--format=%cI", "HEAD"])
-    subject = _git(["show", "-s", "--format=%s", "HEAD"])
-    generated_at = now or datetime.now(UTC).isoformat()
-    return contract.build_repository_record(
-        full_name=REPOSITORY,
-        sha=sha,
-        branch=branch,
-        timestamp=timestamp,
-        subject=subject,
-        generated_at=generated_at,
+    """Build canonical metadata v1 from checkout HEAD via the vendored producer."""
+    generator = _load_generator()
+    record = generator.record_from_checkout(
+        REPO_ROOT,
+        REPOSITORY,
+        env=os.environ if env is None else env,
         working_tree_bytes=_tracked_bytes() if working_tree_bytes is None else working_tree_bytes,
         tooling={"python": platform.python_version()},
     )
-
+    if now is not None:
+        record["generated_at"] = now
+        _load_contract().validate_repository_record(record)
+    return record
 
 def build_payload(
     record: dict[str, Any],
