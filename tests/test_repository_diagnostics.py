@@ -237,12 +237,33 @@ def test_build_record_revalidates_after_generated_at_override(monkeypatch):
     )
     monkeypatch.setattr(diagnostics, "_load_generator", lambda: fake_generator)
 
+    original_load_contract = diagnostics._load_contract
+    canonical_flags = []
+
+    def tracked_load_contract(*, canonical_name=False):
+        canonical_flags.append(canonical_name)
+        return original_load_contract(canonical_name=canonical_name)
+
+    monkeypatch.setattr(diagnostics, "_load_contract", tracked_load_contract)
     with pytest.raises(ValueError, match="short_sha"):
         diagnostics.build_record(
             {},
             now="2026-09-29T12:34:56+00:00",
             working_tree_bytes=1234,
         )
+    assert canonical_flags == [True]
+
+
+def test_vendor_readme_refresh_updates_repository_metadata_provenance():
+    readme = (diagnostics.REPO_ROOT / "vendor" / "README.md").read_text(encoding="utf-8")
+    section = readme.split("# Vendored repository metadata producer", 1)[1]
+    assert "BLOB_SHA=$(gh api" in section
+    assert "--jq .sha" in section
+    assert "SHA256=$(python3 -c" in section
+    assert "source_commit" in section
+    assert "blob_sha" in section
+    assert "sha256" in section
+    assert ".provenance.json" in section
 
 
 def test_payload_reuses_public_resolver_without_probe():
@@ -265,7 +286,16 @@ def test_pages_renderer_is_pinned_and_links_json_and_jsonl():
 def test_write_pages_outputs_json_jsonl_and_html(tmp_path, monkeypatch):
     record = sample_record()
     monkeypatch.setattr(diagnostics, "build_record", lambda env=None: record)
+    original_load_contract = diagnostics._load_contract
+    canonical_flags = []
+
+    def tracked_load_contract(*, canonical_name=False):
+        canonical_flags.append(canonical_name)
+        return original_load_contract(canonical_name=canonical_name)
+
+    monkeypatch.setattr(diagnostics, "_load_contract", tracked_load_contract)
     payload = diagnostics.write_pages(tmp_path, probe=False)
+    assert canonical_flags == [True]
     assert payload["metadata"] == record
     parsed = json.loads((tmp_path / diagnostics.JSON_NAME).read_text(encoding="utf-8"))
     assert parsed["metadata"] == record
