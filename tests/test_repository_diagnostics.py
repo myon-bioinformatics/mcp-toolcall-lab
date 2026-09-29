@@ -39,15 +39,42 @@ def sample_record():
     )
 
 
-def test_vendored_contract_provenance_matches_pin():
-    provenance = json.loads(diagnostics.CONTRACT_PROVENANCE_PATH.read_text(encoding="utf-8"))
+def _assert_vendored_provenance(path, provenance_path, source_path, blob_sha, sha256):
+    provenance = json.loads(provenance_path.read_text(encoding="utf-8"))
     assert provenance["source_repository"] == "myon-bioinformatics/Ironmate"
-    assert provenance["source_commit"] == "afdeb34026e7471dc01ece4eb9a75ca779bb207f"
-    assert provenance["blob_sha"] == "bcf1bc2f0a21d8461cacde185a1e73b2574e52c6"
-    assert provenance["sha256"] == "9f37fc31b1dd118ede4ddd492a5d1c91e39a596bd62ac90b458e35dc90bdee64"
+    assert provenance["source_path"] == source_path
+    assert provenance["source_commit"] == "0aee64da2f8d0119a3ef9b955e5c3818f28aaf92"
+    assert provenance["blob_sha"] == blob_sha
+    assert provenance["sha256"] == sha256
     assert provenance["schema_version"] == "1.0"
-    assert hashlib.sha256(diagnostics.CONTRACT_PATH.read_bytes()).hexdigest() == provenance["sha256"]
+    assert hashlib.sha256(path.read_bytes()).hexdigest() == provenance["sha256"]
 
+
+def test_vendored_contract_and_generator_provenance_match_baseline():
+    _assert_vendored_provenance(
+        diagnostics.CONTRACT_PATH,
+        diagnostics.CONTRACT_PROVENANCE_PATH,
+        "repository_metadata_contract.py",
+        "a61a2949e58a42635b0830289e368b4125b1274b",
+        "c8093d806756925b68978b5a40a218e4acd5daf43f2d7fc2e358cabf8dc39e9a",
+    )
+    _assert_vendored_provenance(
+        diagnostics.GENERATOR_PATH,
+        diagnostics.GENERATOR_PROVENANCE_PATH,
+        "repository_metadata_generator.py",
+        "eef572ce64e92bfecf0451235f884aa208044587",
+        "a2edc91cc0a269d8b2fc6a9be1cfa0edbfae18604d53a1b9ebdcb72004be9a06",
+    )
+
+
+def test_build_record_ignores_mismatched_github_sha(monkeypatch):
+    expected = diagnostics._load_generator().git("rev-parse", "HEAD", cwd=diagnostics.REPO_ROOT)
+    record = diagnostics.build_record(
+        {"GITHUB_SHA": "0" * 40, "GITHUB_REF_NAME": "main"},
+        working_tree_bytes=1234,
+    )
+    assert record["head"]["sha"] == expected
+    assert record["head"]["sha"] != "0" * 40
 
 def test_payload_reuses_public_resolver_without_probe():
     payload = diagnostics.build_payload(sample_record(), probe=False)
