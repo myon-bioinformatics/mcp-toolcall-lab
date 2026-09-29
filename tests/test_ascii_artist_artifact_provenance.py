@@ -74,3 +74,46 @@ def test_vendored_ascii_artist_passes_canonical_validator():
     )
     assert metadata["all_count"] == 32
     assert metadata["base_sha"] == EXPECTED_ARTIFACT_BASE_SHA
+
+def _assert_validator_rejects(source: str, expected: str) -> None:
+    try:
+        VALIDATOR_MODULE.validate_source_header(source)
+    except ValueError as exc:
+        assert expected in str(exc)
+    else:
+        raise AssertionError("expected canonical validator to reject mutated source")
+
+
+def test_shared_validator_rejects_augmented_all_mutation():
+    source = (
+        f"# metadata: __all__=1 | base_sha={EXPECTED_ARTIFACT_BASE_SHA} | "
+        "updated_at=2026-09-23T05:39:43Z\n"
+        '__all__ = ["a"]\n'
+        '__all__ += ["b"]\n'
+        "def a(): pass\n"
+        "def b(): pass\n"
+    )
+    _assert_validator_rejects(source, "literal top-level assignment")
+
+
+def test_shared_validator_rejects_private_export():
+    source = (
+        f"# metadata: __all__=2 | base_sha={EXPECTED_ARTIFACT_BASE_SHA} | "
+        "updated_at=2026-09-23T05:39:43Z\n"
+        '__all__ = ["a", "_helper"]\n'
+        "def a(): pass\n"
+        "def _helper(): pass\n"
+    )
+    _assert_validator_rejects(source, "must not be exported")
+
+
+def test_shared_validator_accepts_tuple_all():
+    source = (
+        f"# metadata: __all__=1 | base_sha={EXPECTED_ARTIFACT_BASE_SHA} | "
+        "updated_at=2026-09-23T05:39:43Z\n"
+        '__all__ = ("a",)\n'
+        "def a(): pass\n"
+    )
+    metadata = VALIDATOR_MODULE.validate_source_header(source)
+    assert metadata["all_count"] == 1
+
