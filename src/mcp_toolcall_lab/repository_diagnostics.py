@@ -32,8 +32,13 @@ JSONL_NAME = "repository-diagnostics.jsonl"
 PAGE_NAME = "repository-diagnostics.html"
 
 
-def _load_contract() -> ModuleType:
-    spec = importlib.util.spec_from_file_location("repository_metadata_contract_v1", CONTRACT_PATH)
+def _load_contract(*, canonical_name: bool = false) -> ModuleType:
+    module_name = "repository_metadata_contract" if canonical_name else "repository_metadata_contract_v1"
+    if canonical_name:
+        loaded = sys.modules.get(module_name)
+        if loaded is not None and Path(getattr(loaded, "__file__", "")).resolve() == CONTRACT_PATH.resolve():
+            return loaded
+    spec = importlib.util.spec_from_file_location(module_name, CONTRACT_PATH)
     if spec is None or spec.loader is None:
         raise ImportError(f"cannot load repository metadata contract: {CONTRACT_PATH}")
     module = importlib.util.module_from_spec(spec)
@@ -43,9 +48,10 @@ def _load_contract() -> ModuleType:
 
 
 def _load_generator() -> ModuleType:
-    vendor_dir = str(GENERATOR_PATH.parent)
-    if vendor_dir not in sys.path:
-        sys.path.insert(0, vendor_dir)
+    # The canonical generator imports its sibling contract by bare module name.
+    # Bind that name explicitly to the pinned vendored bytes without leaking a
+    # vendor directory into process-wide sys.path.
+    _load_contract(canonical_name=True)
     spec = importlib.util.spec_from_file_location("repository_metadata_generator_v1", GENERATOR_PATH)
     if spec is None or spec.loader is None:
         raise ImportError(f"cannot load repository metadata generator: {GENERATOR_PATH}")
@@ -53,6 +59,7 @@ def _load_generator() -> ModuleType:
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)
     return module
+
 
 def _tracked_bytes(root: Path = REPO_ROOT) -> int:
     raw = subprocess.check_output(["git", "-C", str(root), "ls-files", "-z"])
@@ -85,6 +92,7 @@ def build_record(
         record["generated_at"] = now
         _load_contract().validate_repository_record(record)
     return record
+
 
 def build_payload(
     record: dict[str, Any],
