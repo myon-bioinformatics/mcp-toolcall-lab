@@ -81,8 +81,13 @@ Example refresh (after deliberately updating `COMMIT`):
 ```bash
 COMMIT=0aee64da2f8d0119a3ef9b955e5c3818f28aaf92
 for FILE in repository_metadata_contract.py repository_metadata_generator.py; do
+  PROVENANCE="vendor/${FILE%.py}.provenance.json"
+  BLOB_SHA=$(gh api "repos/myon-bioinformatics/Ironmate/contents/$FILE?ref=$COMMIT" --jq .sha)
   gh api "repos/myon-bioinformatics/Ironmate/contents/$FILE?ref=$COMMIT" --jq .content \
     | base64 -d > "vendor/$FILE"
+  SHA256=$(python3 -c 'import hashlib,sys; print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest())' "vendor/$FILE")
+  python3 -c 'import json,pathlib,sys; p=pathlib.Path(sys.argv[1]); data=json.loads(p.read_text()); data.update(source_commit=sys.argv[2], blob_sha=sys.argv[3], sha256=sys.argv[4]); p.write_text(json.dumps(data, indent=2) + "\\n")' \
+    "$PROVENANCE" "$COMMIT" "$BLOB_SHA" "$SHA256"
 done
 pytest -q tests/test_repository_diagnostics.py
 ```
