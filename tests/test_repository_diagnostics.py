@@ -47,7 +47,10 @@ def _assert_vendored_provenance(path, provenance_path, source_path, blob_sha, sh
     assert provenance["blob_sha"] == blob_sha
     assert provenance["sha256"] == sha256
     assert provenance["schema_version"] == "1.0"
-    assert hashlib.sha256(path.read_bytes()).hexdigest() == provenance["sha256"]
+    data = path.read_bytes()
+    git_blob = hashlib.sha1(b"blob " + str(len(data)).encode("ascii") + b"\\0" + data).hexdigest()
+    assert git_blob == provenance["blob_sha"]
+    assert hashlib.sha256(data).hexdigest() == provenance["sha256"]
 
 
 def test_vendored_contract_and_generator_provenance_match_baseline():
@@ -67,14 +70,22 @@ def test_vendored_contract_and_generator_provenance_match_baseline():
     )
 
 
-def test_build_record_ignores_mismatched_github_sha(monkeypatch):
+def test_build_record_ignores_mismatched_github_sha():
     expected = diagnostics._load_generator().git("rev-parse", "HEAD", cwd=diagnostics.REPO_ROOT)
     record = diagnostics.build_record(
         {"GITHUB_SHA": "0" * 40, "GITHUB_REF_NAME": "main"},
         working_tree_bytes=1234,
     )
     assert record["head"]["sha"] == expected
+    assert record["head"]["short_sha"] == expected[:8]
     assert record["head"]["sha"] != "0" * 40
+
+
+def test_generator_is_bound_to_pinned_vendored_contract():
+    generator = diagnostics._load_generator()
+    contract_file = Path(generator.build_repository_record.__globals__["__file__"]).resolve()
+    assert contract_file == diagnostics.CONTRACT_PATH.resolve()
+
 
 def test_payload_reuses_public_resolver_without_probe():
     payload = diagnostics.build_payload(sample_record(), probe=False)
