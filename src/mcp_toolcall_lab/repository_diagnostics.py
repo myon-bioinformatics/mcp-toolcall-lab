@@ -213,7 +213,7 @@ def write_pages(
     env: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
     """Write JSON, JSONL, and the reusable diagnostics page into a Pages tree."""
-    contract = _load_contract()
+    contract = _load_contract(canonical_name=True)
     out_dir.mkdir(parents=True, exist_ok=True)
     record = build_record(env)
     payload = build_payload(record, probe=probe)
