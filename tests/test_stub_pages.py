@@ -736,11 +736,11 @@ def _stub_git_status(monkeypatch, porcelain: str) -> None:
     monkeypatch.setattr("mcp_toolcall_lab.stub_front._git_output", fake_git)
 
 
-def test_collect_revision_prefers_github_actions_env(monkeypatch) -> None:
+def test_collect_revision_uses_checkout_head_with_actions_ref(monkeypatch) -> None:
     def fake_git(args: list[str]) -> str | None:
         table = {
-            ("rev-parse", "HEAD"): "gitsha0000000000000000000000000000000000",
-            ("rev-parse", "--short=8", "HEAD"): "gitsha00",
+            ("rev-parse", "HEAD"): "deadbeefcafebabe000000000000000000000000",
+            ("rev-parse", "--short=8", "HEAD"): "deadbeef",
             ("branch", "--show-current"): "local-branch",
             ("show", "-s", "--format=%cI", "HEAD"): "2026-01-01T00:00:00+00:00",
             ("show", "-s", "--format=%s", "HEAD"): "local subject",
@@ -751,18 +751,19 @@ def test_collect_revision_prefers_github_actions_env(monkeypatch) -> None:
     monkeypatch.setattr("mcp_toolcall_lab.stub_front._git_output", fake_git)
     meta = collect_revision(
         {
-            "GITHUB_SHA": "actions1234567890abcdef1234567890abcdef12",
-            "GITHUB_REF_NAME": "main",
+            "GITHUB_SHA": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "GITHUB_HEAD_REF": "feature/pr-head",
+            "GITHUB_REF_NAME": "87/merge",
             "GITHUB_REPOSITORY": "myon-bioinformatics/mcp-toolcall-lab",
             "GITHUB_SERVER_URL": "https://github.com",
         }
     )
-    assert meta["sha"] == "actions1234567890abcdef1234567890abcdef12"
-    assert meta["shortSha"] == "actions1"
-    assert meta["ref"] == "main"
+    assert meta["sha"] == "deadbeefcafebabe000000000000000000000000"
+    assert meta["shortSha"] == "deadbeef"
+    assert meta["ref"] == "feature/pr-head"
     assert meta["commitUrl"] == (
         "https://github.com/myon-bioinformatics/mcp-toolcall-lab/commit/"
-        "actions1234567890abcdef1234567890abcdef12"
+        "deadbeefcafebabe000000000000000000000000"
     )
     assert meta["committedAt"] == "2026-01-01T00:00:00+00:00"
     assert meta["subject"] == "local subject"
