@@ -32,7 +32,7 @@ JSONL_NAME = "repository-diagnostics.jsonl"
 PAGE_NAME = "repository-diagnostics.html"
 
 
-def _load_contract(*, canonical_name: bool = false) -> ModuleType:
+def _load_contract(*, canonical_name: bool = False) -> ModuleType:
     module_name = "repository_metadata_contract" if canonical_name else "repository_metadata_contract_v1"
     if canonical_name:
         loaded = sys.modules.get(module_name)
