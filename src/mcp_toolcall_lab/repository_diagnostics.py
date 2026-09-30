@@ -12,7 +12,6 @@ import json
 import os
 from pathlib import Path
 import platform
-import subprocess
 import sys
 from types import ModuleType
 from typing import Any, Mapping
@@ -24,6 +23,8 @@ CONTRACT_PATH = REPO_ROOT / "vendor" / "repository_metadata_contract.py"
 CONTRACT_PROVENANCE_PATH = REPO_ROOT / "vendor" / "repository_metadata_contract.provenance.json"
 GENERATOR_PATH = REPO_ROOT / "vendor" / "repository_metadata_generator.py"
 GENERATOR_PROVENANCE_PATH = REPO_ROOT / "vendor" / "repository_metadata_generator.provenance.json"
+GIT_INSPECTOR_PATH = REPO_ROOT / "vendor" / "git_inspector.py"
+GIT_INSPECTOR_PROVENANCE_PATH = REPO_ROOT / "vendor" / "git_inspector.provenance.json"
 REPOSITORY = "myon-bioinformatics/mcp-toolcall-lab"
 WEB_UI_SHA = "adb23d7ba6ea94672b76457573f6655a081ee054"
 WEB_UI_BASE = f"https://cdn.jsdelivr.net/gh/myon-bioinformatics/web-ui@{WEB_UI_SHA}"
@@ -61,13 +62,25 @@ def _load_generator() -> ModuleType:
     return module
 
 
+def _load_git_inspector() -> ModuleType:
+    spec = importlib.util.spec_from_file_location(
+        "mcp_toolcall_lab_vendor_git_inspector", GIT_INSPECTOR_PATH
+    )
+    if spec is None or spec.loader is None:
+        raise ImportError(f"cannot load Git inspector: {GIT_INSPECTOR_PATH}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
 def _tracked_bytes(root: Path = REPO_ROOT) -> int:
-    raw = subprocess.check_output(["git", "-C", str(root), "ls-files", "-z"])
+    observation = _load_git_inspector().ls_files(root)
+    if observation["truncated"]:
+        raise RuntimeError("tracked-file inventory was truncated")
     total = 0
-    for item in raw.split(b"\0"):
-        if not item:
-            continue
-        path = root / item.decode("utf-8", errors="surrogateescape")
+    for item in observation["paths"]:
+        path = root / item
         if path.is_file():
             total += path.stat().st_size
     return total
