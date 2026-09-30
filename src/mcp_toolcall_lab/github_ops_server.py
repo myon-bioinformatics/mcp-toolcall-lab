@@ -24,6 +24,7 @@ they leave this module; unexpected exceptions remain FastMCP tool errors.
 from __future__ import annotations
 
 import importlib.util
+from datetime import datetime, timezone
 import os
 import sys
 from pathlib import Path
@@ -116,11 +117,19 @@ def create_mcp() -> FastMCP:
         from .server import ObservabilityMiddleware
 
         mcp.add_middleware(ObservabilityMiddleware())
-    except Exception:
+    except Exception as error:
         # Tracing is best-effort: MCP_TOOLCALL_LOG is unset by default, and a
         # missing/incompatible fastmcp middleware API must never block the
         # GitHub-ops tools themselves from working.
-        pass
+        if os.environ.get("MCP_TOOLCALL_LOG"):
+            stamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+            # Exception text may contain credentials or private paths.
+            print(
+                f"{stamp} WARNING github_ops observability middleware unavailable "
+                f"({type(error).__name__}); GitHub tools remain enabled",
+                file=sys.stderr,
+                flush=True,
+            )
 
     @mcp.tool(
         description=(
