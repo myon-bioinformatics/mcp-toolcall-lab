@@ -75,6 +75,7 @@ def test_vendored_ascii_artist_passes_canonical_validator():
     assert metadata["all_count"] == 32
     assert metadata["base_sha"] == EXPECTED_ARTIFACT_BASE_SHA
 
+
 def _assert_validator_rejects(source: str, expected: str) -> None:
     try:
         VALIDATOR_MODULE.validate_source_header(source)
@@ -116,4 +117,3 @@ def test_shared_validator_accepts_tuple_all():
     )
     metadata = VALIDATOR_MODULE.validate_source_header(source)
     assert metadata["all_count"] == 1
-
