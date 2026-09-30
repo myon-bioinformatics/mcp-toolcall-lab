@@ -500,3 +500,12 @@ Jev is not a replacement for deterministic computation, argument construction, A
 2. Compare schema strictness (raw-valid vs server-accepted) and system prompts in a recorded experiment matrix.
 3. `jev_answerer`: confirm the built request shape (`response_format: json_schema`) against a real llama.cpp (or other OpenAI-compatible) server — every test so far uses either an injected fake or a loopback stdlib server, never a real model backend.
 4. `jev_typesafe`: exercise `TypeSafeClient` against a real `api.typesafe.ai` account once a key is available, to confirm the modeled contract against the live API rather than source alone.
+
+Static Pages and successful live Pixiv capture sets now have distinct receipts
+with explicit mixed Chromium/WebKit bundle names, tested SHA, image bytes/hashes
+and run ID/attempt. The shared validator rejects missing images, hash mismatch,
+stale run identity and failed receipts; CI probes those failures on isolated copies
+of actual evidence. Static coverage cannot be satisfied by live images. 403/429
+live skips write skipped receipts and never count as verified live capture.
+Receipts remain in the always-upload observation artifact. Shared validation
+checks integrity/run provenance, not visible screen semantics.
