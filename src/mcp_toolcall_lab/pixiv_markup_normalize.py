@@ -6,7 +6,8 @@ syntax -- never article prose -- is reproduced anywhere in this repo.
 
 This module does **not** implement a Pixiv renderer. Token-level cleanup stays
 in ``normalize_pixiv_markup()``; ``pixiv_to_markdown()`` additionally promotes
-observed Pixiv star headings through vendor ``markdown.py.heading()``; and
+observed Pixiv star headings through vendor ``markdown.py.heading()`` (with a
+blank line before and after each promoted heading); and
 ``pixiv_sections()`` delegates the result to the shared section parser. It
 reuses vendor ``markdown.py``'s link/image builders (``make_link``/``make_image``)
 and its own conversion rules wherever Pixiv's syntax already degrades safely
@@ -95,10 +96,23 @@ def pixiv_to_markdown(source: str) -> str:
     if md is None or not hasattr(md, "heading"):
         raise PixivMarkupNormalizeError("vendor/markdown.py with heading() is required")
 
-    def _heading_repl(match: re.Match[str]) -> str:
-        return md.heading(match.group(2), len(match.group(1))).rstrip("\n")
-
-    return _PIXIV_HEADING_RE.sub(_heading_repl, text)
+    out: list[str] = []
+    prev_promoted = False
+    for line in text.split("\n"):
+        match = _PIXIV_HEADING_RE.fullmatch(line)
+        if match:
+            # Blank line before a promoted heading (unless already blank / first line).
+            if out and out[-1].strip():
+                out.append("")
+            out.append(md.heading(match.group(2), len(match.group(1))).rstrip("\n"))
+            prev_promoted = True
+            continue
+        # Blank line after a promoted heading, before its body text.
+        if prev_promoted and line.strip():
+            out.append("")
+        prev_promoted = False
+        out.append(line)
+    return "\n".join(out)
 
 
 def pixiv_sections(source: str):

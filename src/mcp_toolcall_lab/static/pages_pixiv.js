@@ -235,12 +235,28 @@
   }
 
   function pixivToMarkdown(source) {
-    return normalizePixivMarkup(source).replace(
-      /^(\*{1,6})(【[^\n】]+】(?:[／/][^\n]+)?)\s*$/gm,
-      function (_all, stars, title) {
-        return "#".repeat(stars.length) + " " + title;
+    // Mirrors Python pixivToMarkdown(): promote star headings and keep one
+    // blank line before and after each promoted heading (idempotent).
+    var starHeading = /^(\*{1,6})(【[^\n】]+】(?:[／/][^\n]+)?)\s*$/;
+    var out = [];
+    var prevPromoted = false;
+    normalizePixivMarkup(source).split("\n").forEach(function (line) {
+      var match = starHeading.exec(line);
+      if (match) {
+        if (out.length && out[out.length - 1].trim()) {
+          out.push("");
+        }
+        out.push("#".repeat(match[1].length) + " " + match[2]);
+        prevPromoted = true;
+        return;
       }
-    );
+      if (prevPromoted && line.trim()) {
+        out.push("");
+      }
+      prevPromoted = false;
+      out.push(line);
+    });
+    return out.join("\n");
   }
 
   function scanMarkdownHeadings(markdown) {
