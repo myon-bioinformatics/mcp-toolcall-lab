@@ -6,7 +6,18 @@ on:
     branches: [main]
 
 jobs:
+  changes:
+    name: Change detection
+    uses: myon-bioinformatics/myon-bioinformatics/.github/workflows/reusable-change-detection.yml@76a9e43fe7469d0e3a5728e0521bc5738afad725
+    with:
+      force_heavy_paths: |-
+        fixtures
+        vendor
+        system_prompts
+
   test:
+    needs: changes
+    if: needs.changes.outputs.non_docs_changed == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -27,6 +38,8 @@ jobs:
 
 
   public-resolver-compat:
+    needs: changes
+    if: needs.changes.outputs.non_docs_changed == 'true'
     runs-on: ubuntu-latest
     strategy:
       matrix:
