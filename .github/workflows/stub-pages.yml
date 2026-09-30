@@ -84,11 +84,13 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - name: Check out pinned browser-test-kit validators
         uses: actions/checkout@v7
         with:
           repository: myon-bioinformatics/browser-test-kit
-          ref: 3a054c777a98300ee272e4458990b849c32a7ef0
+          ref: 6a2e32a4bbe49be5268e6b30040d665a89eecf66
           path: .browser-test-kit
           persist-credentials: false
       - uses: actions/setup-python@v7
@@ -107,6 +109,7 @@ jobs:
           COMPOSE_GGUF_OVERLAY: ${{ github.event.inputs.use_real_gguf == 'true' && '-f docker/stub-pages/docker-compose.gguf.yml' || '' }}
         run: |
           mkdir -p test-results
+          rm -f test-results/*.png test-results/evidence.json test-results/live-evidence.json
           compose_args=()
           if [[ -n "$COMPOSE_GGUF_OVERLAY" ]]; then
             read -r -a compose_args <<< "$COMPOSE_GGUF_OVERLAY"
@@ -157,6 +160,7 @@ jobs:
           python -m mcp_toolcall_lab.repository_diagnostics _site
 
       - name: Capture Pages screenshots with Playwright CLI
+        id: capture_static
         run: |
           python -m http.server 4173 --directory _site >test-results/pages-http.log 2>&1 &
           SERVER_PID=$!
@@ -184,12 +188,21 @@ jobs:
           test -s test-results/pixiv-pages-mobile.png
           test "$(od -An -tx1 -N8 test-results/pixiv-pages-mobile.png | tr -d ' \\n')" = "89504e470d0a1a0a"
 
-      - name: Validate all required static Pages screenshots
-        run: |
-          python3 -S .browser-test-kit/scripts/check_png.py \
-            test-results/pixiv-pages-desktop.png \
-            test-results/repository-diagnostics-desktop.png \
-            test-results/pixiv-pages-mobile.png
+      - name: Seal static-chromium-webkit capture receipt
+        if: always()
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          CAPTURE_STAGE: ${{ steps.capture_static.outcome == 'success' && 'complete' || 'failed' }}
+        run: python3 -S .browser-test-kit/scripts/write_capture_evidence.py test-results --receipt evidence.json --project static-chromium-webkit --stage "$CAPTURE_STAGE" --sha "$EXPECTED_SHA" --run-id "$GITHUB_RUN_ID" --run-attempt "$GITHUB_RUN_ATTEMPT" --captures pixiv-pages-desktop.png,repository-diagnostics-desktop.png,pixiv-pages-mobile.png
+      - name: Require static-chromium-webkit captures, hashes and run identity
+        if: always()
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: python3 -S .browser-test-kit/scripts/check_capture_evidence.py test-results --pattern evidence.json --expect static-chromium-webkit --sha "$EXPECTED_SHA" --run-id "$GITHUB_RUN_ID" --run-attempt "$GITHUB_RUN_ATTEMPT" --captures pixiv-pages-desktop.png,repository-diagnostics-desktop.png,pixiv-pages-mobile.png
+      - name: Prove static-chromium-webkit rejection on real bundle copies
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: python3 -S .browser-test-kit/scripts/probe_capture_rejections.py test-results --pattern evidence.json --expect static-chromium-webkit --sha "$EXPECTED_SHA" --run-id "$GITHUB_RUN_ID" --run-attempt "$GITHUB_RUN_ATTEMPT" --captures pixiv-pages-desktop.png,repository-diagnostics-desktop.png,pixiv-pages-mobile.png
 
       - name: Live Pixiv fetch (stub-front -> dic.pixiv.net)
         id: pixiv_live
@@ -271,6 +284,7 @@ jobs:
           echo "live=ok" >> "$GITHUB_OUTPUT"
 
       - name: Capture live Pixiv screenshots
+        id: capture_live
         if: steps.pixiv_live.outputs.live == 'ok'
         run: |
           PIXIV_URL="http://127.0.0.1:8765/pixiv?title=NARUTO"
@@ -288,11 +302,22 @@ jobs:
           test -s test-results/pixiv-live-mobile.png
           test "$(od -An -tx1 -N8 test-results/pixiv-live-mobile.png | tr -d ' \n')" = "89504e470d0a1a0a"
 
-      - name: Validate live screenshots when the live fetch succeeded
+      - name: Seal live-chromium-webkit capture receipt
+        if: always()
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          CAPTURE_STAGE: ${{ steps.pixiv_live.outputs.live == 'skipped' && 'skipped' || steps.capture_live.outcome == 'success' && 'complete' || 'failed' }}
+        run: python3 -S .browser-test-kit/scripts/write_capture_evidence.py test-results --receipt live-evidence.json --project live-chromium-webkit --stage "$CAPTURE_STAGE" --sha "$EXPECTED_SHA" --run-id "$GITHUB_RUN_ID" --run-attempt "$GITHUB_RUN_ATTEMPT" --captures pixiv-live-desktop.png,pixiv-live-mobile.png
+      - name: Require live-chromium-webkit captures, hashes and run identity
         if: steps.pixiv_live.outputs.live == 'ok'
-        run: |
-          python3 -S .browser-test-kit/scripts/check_png.py \
-            test-results/pixiv-live-desktop.png test-results/pixiv-live-mobile.png
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: python3 -S .browser-test-kit/scripts/check_capture_evidence.py test-results --pattern live-evidence.json --expect live-chromium-webkit --sha "$EXPECTED_SHA" --run-id "$GITHUB_RUN_ID" --run-attempt "$GITHUB_RUN_ATTEMPT" --captures pixiv-live-desktop.png,pixiv-live-mobile.png
+      - name: Prove live-chromium-webkit rejection on real bundle copies
+        if: steps.pixiv_live.outputs.live == 'ok'
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: python3 -S .browser-test-kit/scripts/probe_capture_rejections.py test-results --pattern live-evidence.json --expect live-chromium-webkit --sha "$EXPECTED_SHA" --run-id "$GITHUB_RUN_ID" --run-attempt "$GITHUB_RUN_ATTEMPT" --captures pixiv-live-desktop.png,pixiv-live-mobile.png
 
       - name: Upload observations
         if: always()
