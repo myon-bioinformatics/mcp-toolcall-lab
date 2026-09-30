@@ -552,9 +552,12 @@ def collect_revision(
 
     - ``version``: ``mcp_toolcall_lab.__version__`` if that attribute exists,
       else null. Do not invent a version string from ``pyproject.toml``.
-    - ``sha`` / ``shortSha`` (8): ``GITHUB_SHA`` when set, else ``git rev-parse``.
-    - ``ref``: ``GITHUB_REF_NAME`` when set, else ``git branch --show-current``.
-    - ``committedAt`` / ``subject`` / ``dirty``: git (``%cI``, ``%s``, porcelain).
+    - ``sha`` / ``shortSha`` (8), ``committedAt``, and ``subject``: the
+      same checkout ``HEAD``. ``GITHUB_SHA`` is deliberately ignored so commit
+      identity cannot mix an Actions-reported SHA with local HEAD metadata.
+    - ``ref``: ``GITHUB_HEAD_REF``, then ``GITHUB_REF_NAME``, then
+      ``git branch --show-current``.
+    - ``dirty``: git porcelain.
       ``dirty`` ignores the default ``_site/`` tree and ``ignore_paths`` so the
       generated Pages output cannot mark a clean source tree dirty.
     - ``commitUrl``: ``{server}/{repo}/commit/{sha}`` when sha and
@@ -568,14 +571,19 @@ def collect_revision(
         value = (environ.get(name) or "").strip()
         return value or None
 
-    github_sha = _env("GITHUB_SHA")
-    sha = github_sha or _git_output(["rev-parse", "HEAD"])
+    # Commit identity is always one checkout HEAD. GitHub Actions refs are
+    # presentation context only; GITHUB_SHA must not create mixed identity.
+    sha = _git_output(["rev-parse", "HEAD"])
     if sha:
         short_sha = sha[:8]
     else:
         short_sha = _git_output(["rev-parse", "--short=8", "HEAD"])
 
-    ref = _env("GITHUB_REF_NAME") or _git_output(["branch", "--show-current"])
+    ref = (
+        _env("GITHUB_HEAD_REF")
+        or _env("GITHUB_REF_NAME")
+        or _git_output(["branch", "--show-current"])
+    )
     committed_at = _git_output(["show", "-s", "--format=%cI", "HEAD"])
     subject = _git_output(["show", "-s", "--format=%s", "HEAD"])
     status = _git_output(["status", "--porcelain"])

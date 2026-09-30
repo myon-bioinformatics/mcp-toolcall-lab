@@ -38,6 +38,8 @@ on:
       - "src/mcp_toolcall_lab/repository_diagnostics.py"
       - "vendor/repository_metadata_contract.py"
       - "vendor/repository_metadata_contract.provenance.json"
+      - "vendor/repository_metadata_generator.py"
+      - "vendor/repository_metadata_generator.provenance.json"
       - "scripts/stub_pages_smoke.py"
       - "scripts/fetch_tiny_cpu_gguf.py"
       - "scripts/fetch_tiny_cpu_gguf.sh"
@@ -58,6 +60,8 @@ on:
       - "src/mcp_toolcall_lab/repository_diagnostics.py"
       - "vendor/repository_metadata_contract.py"
       - "vendor/repository_metadata_contract.provenance.json"
+      - "vendor/repository_metadata_generator.py"
+      - "vendor/repository_metadata_generator.provenance.json"
       - "scripts/stub_pages_smoke.py"
       - "scripts/fetch_tiny_cpu_gguf.py"
       - "scripts/fetch_tiny_cpu_gguf.sh"
@@ -96,11 +100,15 @@ jobs:
           COMPOSE_GGUF_OVERLAY: ${{ github.event.inputs.use_real_gguf == 'true' && '-f docker/stub-pages/docker-compose.gguf.yml' || '' }}
         run: |
           mkdir -p test-results
-          docker compose -f docker/stub-pages/docker-compose.yml $COMPOSE_GGUF_OVERLAY up --build -d
+          compose_args=()
+          if [[ -n "$COMPOSE_GGUF_OVERLAY" ]]; then
+            read -r -a compose_args <<< "$COMPOSE_GGUF_OVERLAY"
+          fi
+          docker compose -f docker/stub-pages/docker-compose.yml "${compose_args[@]}" up --build -d
 
       - name: Wait for stub and cpu-llm
         run: |
-          for i in $(seq 1 60); do
+          for _ in {1..60}; do
             curl -sf http://127.0.0.1:8765/health >/dev/null && \
               curl -sf http://127.0.0.1:8080/health >/dev/null && break
             sleep 2
@@ -146,7 +154,7 @@ jobs:
           python -m http.server 4173 --directory _site >test-results/pages-http.log 2>&1 &
           SERVER_PID=$!
           trap 'kill $SERVER_PID 2>/dev/null || true' EXIT
-          for i in $(seq 1 20); do
+          for _ in {1..20}; do
             curl -sf http://127.0.0.1:4173/ >/dev/null && break
             sleep 1
           done
@@ -287,7 +295,12 @@ jobs:
         if: always()
         env:
           COMPOSE_GGUF_OVERLAY: ${{ github.event.inputs.use_real_gguf == 'true' && '-f docker/stub-pages/docker-compose.gguf.yml' || '' }}
-        run: docker compose -f docker/stub-pages/docker-compose.yml $COMPOSE_GGUF_OVERLAY down -v
+        run: |
+          compose_args=()
+          if [[ -n "$COMPOSE_GGUF_OVERLAY" ]]; then
+            read -r -a compose_args <<< "$COMPOSE_GGUF_OVERLAY"
+          fi
+          docker compose -f docker/stub-pages/docker-compose.yml "${compose_args[@]}" down -v
 
   deploy:
     needs: smoke
