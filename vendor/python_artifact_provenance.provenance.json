@@ -1,0 +1,8 @@
+{
+  "source_repository": "myon-bioinformatics/Ironmate",
+  "source_path": "python_artifact_provenance.py",
+  "source_commit": "b9c079bb55c1349abb47f67a09bbf0dbcf54bca9",
+  "schema_version": "1.0",
+  "sha256": "b67a594c5de260697f77f3512332e091a3d0eec9cb5a1d61a10d65c9246c2de3",
+  "blob_sha": "89b1954f623b8ad596974d59fa4f3728a90341a3"
+}
