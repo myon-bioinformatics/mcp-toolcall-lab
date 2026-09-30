@@ -1,8 +1,14 @@
 import hashlib
 import http.client
 import json
+import os
+import platform
+import shutil
+import subprocess
+import sys
 from io import BytesIO
 from pathlib import Path
+from types import SimpleNamespace
 from urllib.error import HTTPError, URLError
 
 import pytest
@@ -39,14 +45,225 @@ def sample_record():
     )
 
 
-def test_vendored_contract_provenance_matches_pin():
-    provenance = json.loads(diagnostics.CONTRACT_PROVENANCE_PATH.read_text(encoding="utf-8"))
+def _assert_vendored_provenance(path, provenance_path, source_path, blob_sha, sha256):
+    provenance = json.loads(provenance_path.read_text(encoding="utf-8"))
     assert provenance["source_repository"] == "myon-bioinformatics/Ironmate"
-    assert provenance["source_commit"] == "afdeb34026e7471dc01ece4eb9a75ca779bb207f"
-    assert provenance["blob_sha"] == "bcf1bc2f0a21d8461cacde185a1e73b2574e52c6"
-    assert provenance["sha256"] == "9f37fc31b1dd118ede4ddd492a5d1c91e39a596bd62ac90b458e35dc90bdee64"
+    assert provenance["source_path"] == source_path
+    assert provenance["source_commit"] == "0aee64da2f8d0119a3ef9b955e5c3818f28aaf92"
+    assert provenance["blob_sha"] == blob_sha
+    assert provenance["sha256"] == sha256
     assert provenance["schema_version"] == "1.0"
-    assert hashlib.sha256(diagnostics.CONTRACT_PATH.read_bytes()).hexdigest() == provenance["sha256"]
+    data = path.read_bytes()
+    git_blob = hashlib.sha1(b"blob " + str(len(data)).encode("ascii") + bytes([0]) + data).hexdigest()
+    assert git_blob == provenance["blob_sha"]
+    assert hashlib.sha256(data).hexdigest() == provenance["sha256"]
+
+
+def test_vendored_contract_and_generator_provenance_match_baseline():
+    _assert_vendored_provenance(
+        diagnostics.CONTRACT_PATH,
+        diagnostics.CONTRACT_PROVENANCE_PATH,
+        "repository_metadata_contract.py",
+        "a61a2949e58a42635b0830289e368b4125b1274b",
+        "c8093d806756925b68978b5a40a218e4acd5daf43f2d7fc2e358cabf8dc39e9a",
+    )
+    _assert_vendored_provenance(
+        diagnostics.GENERATOR_PATH,
+        diagnostics.GENERATOR_PROVENANCE_PATH,
+        "repository_metadata_generator.py",
+        "eef572ce64e92bfecf0451235f884aa208044587",
+        "a2edc91cc0a269d8b2fc6a9be1cfa0edbfae18604d53a1b9ebdcb72004be9a06",
+    )
+
+
+def test_build_record_ignores_mismatched_github_sha():
+    expected = diagnostics._load_generator().git("rev-parse", "HEAD", cwd=diagnostics.REPO_ROOT)
+    record = diagnostics.build_record(
+        {"GITHUB_SHA": "0" * 40, "GITHUB_REF_NAME": "main"},
+        working_tree_bytes=1234,
+    )
+    assert record["head"]["sha"] == expected
+    assert record["head"]["short_sha"] == expected[:8]
+    assert record["head"]["sha"] != "0" * 40
+
+
+def test_generator_is_bound_to_pinned_vendored_contract():
+    generator = diagnostics._load_generator()
+    contract_file = Path(generator.build_repository_record.__globals__["__file__"]).resolve()
+    assert contract_file == diagnostics.CONTRACT_PATH.resolve()
+
+
+def _git(root, *args, env=None):
+    result = subprocess.run(
+        ["git", *args],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        env=env,
+    )
+    return result.stdout.strip()
+
+
+def _synthetic_checkout(root):
+    root.mkdir()
+    _git(root, "init")
+    _git(root, "config", "user.name", "Repository Metadata Test")
+    _git(root, "config", "user.email", "metadata-test@example.invalid")
+    (root / "README.md").write_text("synthetic checkout\n", encoding="utf-8")
+    _git(root, "add", "README.md")
+    commit_env = os.environ.copy()
+    commit_env["GIT_AUTHOR_DATE"] = "2026-09-29T01:02:03+00:00"
+    commit_env["GIT_COMMITTER_DATE"] = "2026-09-29T01:02:03+00:00"
+    _git(root, "commit", "-m", "feat: synthetic 日本語", env=commit_env)
+    _git(root, "branch", "-M", "work")
+
+
+def test_build_record_matches_canonical_synthetic_checkout(tmp_path, monkeypatch):
+    checkout = tmp_path / "checkout"
+    _synthetic_checkout(checkout)
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    monkeypatch.chdir(elsewhere)
+    monkeypatch.setattr(diagnostics, "REPO_ROOT", checkout)
+
+    env = {
+        "GITHUB_HEAD_REF": "feature/from-pr",
+        "GITHUB_REF_NAME": "87/merge",
+        "GITHUB_SHA": "f" * 40,
+    }
+    now = "2026-09-29T12:34:56+00:00"
+    working_tree_bytes = 4321
+    record = diagnostics.build_record(
+        env,
+        now=now,
+        working_tree_bytes=working_tree_bytes,
+    )
+
+    contract = diagnostics._load_contract()
+    expected = contract.build_repository_record(
+        full_name=diagnostics.REPOSITORY,
+        sha=_git(checkout, "rev-parse", "HEAD"),
+        branch="feature/from-pr",
+        timestamp=_git(checkout, "show", "-s", "--format=%cI", "HEAD"),
+        subject=_git(checkout, "show", "-s", "--format=%s", "HEAD"),
+        generated_at=now,
+        working_tree_bytes=working_tree_bytes,
+        tooling={"python": platform.python_version()},
+    )
+
+    assert record == expected
+    assert record["head"]["branch"] == "feature/from-pr"
+    assert record["measurements"]["working_tree_bytes"] == working_tree_bytes
+    assert record["tooling"] == {"python": platform.python_version()}
+    assert record["generated_at"] == now
+    assert contract.to_json(record) == contract.to_json(expected)
+    assert contract.to_jsonl(record) == contract.to_jsonl(expected)
+
+
+def test_build_record_measures_tracked_bytes_from_repository_root(tmp_path, monkeypatch):
+    checkout = tmp_path / "checkout"
+    _synthetic_checkout(checkout)
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    monkeypatch.chdir(elsewhere)
+    monkeypatch.setattr(diagnostics, "REPO_ROOT", checkout)
+
+    record = diagnostics.build_record(
+        {},
+        now="2026-09-29T12:34:56+00:00",
+    )
+
+    assert record["head"]["branch"] == "work"
+    assert record["measurements"]["working_tree_bytes"] == len(
+        (checkout / "README.md").read_bytes()
+    )
+
+
+def test_vendored_generator_executes_outside_repository_import_paths(tmp_path):
+    checkout = tmp_path / "checkout"
+    _synthetic_checkout(checkout)
+    standalone = tmp_path / "standalone"
+    standalone.mkdir()
+    generator_path = standalone / diagnostics.GENERATOR_PATH.name
+    contract_path = standalone / diagnostics.CONTRACT_PATH.name
+    shutil.copy2(diagnostics.GENERATOR_PATH, generator_path)
+    shutil.copy2(diagnostics.CONTRACT_PATH, contract_path)
+
+    cwd = tmp_path / "outside"
+    cwd.mkdir()
+    output_dir = tmp_path / "output"
+    env = os.environ.copy()
+    env.pop("PYTHONPATH", None)
+    env["GITHUB_HEAD_REF"] = "feature/direct"
+    env["GITHUB_REF_NAME"] = "87/merge"
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(generator_path),
+            "--repository",
+            diagnostics.REPOSITORY,
+            "--root",
+            str(checkout),
+            "--output-dir",
+            str(output_dir),
+        ],
+        cwd=cwd,
+        env=env,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+
+    json_record = json.loads(
+        (output_dir / "repository-metadata.json").read_text(encoding="utf-8")
+    )
+    jsonl_record = json.loads(
+        (output_dir / "repository-metadata.jsonl").read_text(encoding="utf-8")
+    )
+    assert json_record == jsonl_record
+    assert json_record["head"]["sha"] == _git(checkout, "rev-parse", "HEAD")
+    assert json_record["head"]["branch"] == "feature/direct"
+
+
+def test_build_record_revalidates_after_generated_at_override(monkeypatch):
+    invalid = sample_record()
+    invalid["head"]["short_sha"] = "deadbeef"
+    fake_generator = SimpleNamespace(
+        record_from_checkout=lambda *args, **kwargs: invalid,
+    )
+    monkeypatch.setattr(diagnostics, "_load_generator", lambda: fake_generator)
+
+    original_load_contract = diagnostics._load_contract
+    canonical_flags = []
+
+    def tracked_load_contract(*, canonical_name=False):
+        canonical_flags.append(canonical_name)
+        return original_load_contract(canonical_name=canonical_name)
+
+    monkeypatch.setattr(diagnostics, "_load_contract", tracked_load_contract)
+    with pytest.raises(ValueError, match="short_sha"):
+        diagnostics.build_record(
+            {},
+            now="2026-09-29T12:34:56+00:00",
+            working_tree_bytes=1234,
+        )
+    assert canonical_flags == [True]
+
+
+def test_vendor_readme_refresh_updates_repository_metadata_provenance():
+    readme = (diagnostics.REPO_ROOT / "vendor" / "README.md").read_text(encoding="utf-8")
+    section = readme.split("# Vendored repository metadata producer", 1)[1]
+    assert "BLOB_SHA=$(gh api" in section
+    assert "--jq .sha" in section
+    assert "SHA256=$(python3 -c" in section
+    assert "source_commit" in section
+    assert "blob_sha" in section
+    assert "sha256" in section
+    assert ".provenance.json" in section
 
 
 def test_payload_reuses_public_resolver_without_probe():
@@ -69,7 +286,16 @@ def test_pages_renderer_is_pinned_and_links_json_and_jsonl():
 def test_write_pages_outputs_json_jsonl_and_html(tmp_path, monkeypatch):
     record = sample_record()
     monkeypatch.setattr(diagnostics, "build_record", lambda env=None: record)
+    original_load_contract = diagnostics._load_contract
+    canonical_flags = []
+
+    def tracked_load_contract(*, canonical_name=False):
+        canonical_flags.append(canonical_name)
+        return original_load_contract(canonical_name=canonical_name)
+
+    monkeypatch.setattr(diagnostics, "_load_contract", tracked_load_contract)
     payload = diagnostics.write_pages(tmp_path, probe=False)
+    assert canonical_flags == [True]
     assert payload["metadata"] == record
     parsed = json.loads((tmp_path / diagnostics.JSON_NAME).read_text(encoding="utf-8"))
     assert parsed["metadata"] == record

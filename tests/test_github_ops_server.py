@@ -10,6 +10,9 @@ the same in-memory pattern ``tests/test_schema.py`` uses via
 from __future__ import annotations
 
 import urllib.parse
+import sys
+from datetime import datetime
+from types import ModuleType
 
 import pytest
 from fastmcp import Client as FastMCPClient
@@ -113,6 +116,73 @@ async def _call(mcp, name, arguments):
 
 def _data(result):
     return result.structured_content["result"] if "result" in (result.structured_content or {}) else result.structured_content
+
+
+@pytest.mark.parametrize("failure_stage", ["import", "register"])
+@pytest.mark.parametrize("trace_path", [None, "", "/private/trace.jsonl"])
+async def test_observability_failure_is_nonfatal_and_warns_only_when_enabled(
+    monkeypatch, capsys, failure_stage, trace_path
+):
+    import mcp_toolcall_lab.github_ops_server as gos
+
+    if trace_path is None:
+        monkeypatch.delenv("MCP_TOOLCALL_LOG", raising=False)
+    else:
+        monkeypatch.setenv("MCP_TOOLCALL_LOG", trace_path)
+    if failure_stage == "import":
+        monkeypatch.setitem(
+            sys.modules, "mcp_toolcall_lab.server", ModuleType("unavailable_server")
+        )
+    else:
+        def fail_registration(self, middleware):
+            raise RuntimeError("secret-token /private/trace.jsonl\nforged log row")
+
+        monkeypatch.setattr(gos.FastMCP, "add_middleware", fail_registration)
+
+    mcp = gos.create_mcp()
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    if trace_path:
+        lines = captured.err.splitlines()
+        assert len(lines) == 1
+        stamp, message = lines[0].split(" ", 1)
+        assert datetime.fromisoformat(stamp.replace("Z", "+00:00")).utcoffset().total_seconds() == 0
+        assert stamp.endswith("Z")
+        assert message.startswith("WARNING github_ops observability middleware unavailable")
+        assert "ImportError" in message if failure_stage == "import" else "RuntimeError" in message
+        assert "secret-token" not in captured.err
+        assert "/private/" not in captured.err
+        assert "forged log row" not in captured.err
+    else:
+        assert captured.err == ""
+
+    # The warning must not replace tool registration or break the MCP transport.
+    async with FastMCPClient(transport=mcp) as client:
+        names = {tool.name for tool in await client.list_tools()}
+        assert {"pr_status", "resolve_public", "url_compare"} <= names
+        result = await client.call_tool(
+            "url_compare", {"repo": REPO, "base": "main", "head": "feature"}
+        )
+        assert result.is_error is False
+        assert _data(result)["web"] == "https://github.com/octo/demo/compare/main...feature"
+
+
+async def test_observability_success_does_not_warn(monkeypatch, capsys):
+    import mcp_toolcall_lab.github_ops_server as gos
+
+    monkeypatch.setenv("MCP_TOOLCALL_LOG", "/private/trace.jsonl")
+    registered = []
+    original = gos.FastMCP.add_middleware
+
+    def record_registration(self, middleware):
+        registered.append(middleware)
+        return original(self, middleware)
+
+    monkeypatch.setattr(gos.FastMCP, "add_middleware", record_registration)
+    gos.create_mcp()
+    assert len(registered) == 1
+    assert registered[0].__class__.__name__ == "ObservabilityMiddleware"
+    assert capsys.readouterr().err == ""
 
 
 # --- pr_status --------------------------------------------------------------------

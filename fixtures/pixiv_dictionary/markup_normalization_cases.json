@@ -26,7 +26,7 @@
       "name": "duplicate_heading_markers_promoted_without_dedup",
       "category": "duplicate",
       "input": "*【INFORMATION】／作品情報\n*【INFORMATION】／作品情報",
-      "expected": "# 【INFORMATION】／作品情報\n# 【INFORMATION】／作品情報",
+      "expected": "# 【INFORMATION】／作品情報\n\n# 【INFORMATION】／作品情報",
       "note": "SUPPORTED promotion applies independently; duplicate headings are not deduplicated or renumbered."
     },
     {

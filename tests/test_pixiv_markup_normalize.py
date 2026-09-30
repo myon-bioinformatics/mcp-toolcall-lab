@@ -204,3 +204,18 @@ def test_bare_pixiv_label_heading_is_supported_without_invented_title() -> None:
     source = "*【TAG】"
     assert normalize_pixiv_markup(source) == source
     assert pixiv_to_markdown(source) == "# 【TAG】"
+
+
+def test_pixiv_to_markdown_separates_heading_and_body_with_blank_lines() -> None:
+    source = "*【A】／a\n本文\n**【B】／b\n本文2"
+    assert pixiv_to_markdown(source) == "# 【A】／a\n\n本文\n\n## 【B】／b\n\n本文2"
+
+
+def test_pixiv_to_markdown_blank_lines_are_not_duplicated() -> None:
+    source = "*【A】／a\n\n本文\n\n**【B】／b\n\n本文2"
+    assert pixiv_to_markdown(source) == "# 【A】／a\n\n本文\n\n## 【B】／b\n\n本文2"
+
+
+def test_pixiv_to_markdown_blank_lines_leave_unrecognized_star_lines_alone() -> None:
+    source = "本文\n*not a pixiv labelled heading\n続き"
+    assert pixiv_to_markdown(source) == source

@@ -24,12 +24,23 @@ on:
       - ".github/workflows/librechat-docker-smoke.yml"
 
 jobs:
+  changes:
+    name: Change detection
+    uses: myon-bioinformatics/myon-bioinformatics/.github/workflows/reusable-change-detection.yml@76a9e43fe7469d0e3a5728e0521bc5738afad725
+    with:
+      force_heavy_paths: |-
+        fixtures
+        vendor
+        system_prompts
+
   librechat-smoke:
+    needs: changes
+    if: needs.changes.outputs.non_docs_changed == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
       - name: Install test + Playwright
@@ -44,7 +55,7 @@ jobs:
 
       - name: Wait for LibreChat
         run: |
-          for i in $(seq 1 90); do
+          for _ in $(seq 1 90); do
             curl -sf http://127.0.0.1:3080 > /dev/null && break
             sleep 2
           done
@@ -88,7 +99,7 @@ jobs:
 
       - name: Upload observations and screenshots
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: librechat-smoke-observations
           path: |
