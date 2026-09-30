@@ -73,6 +73,7 @@ def test_git_inspector_provenance_matches_canonical_baseline():
     assert provenance["source_commit"] == "cffa7017c95634bfb6ed6b269d255d56680a894c"
     assert provenance["blob_sha"] == "abda0ba458c939240b9a9a6f0e4c8d640c76cf43"
     assert blob == provenance["blob_sha"]
+    assert hashlib.sha256(data).hexdigest() == provenance["sha256"]
 
 
 def test_tracked_bytes_uses_canonical_inspector_paths(tmp_path, monkeypatch):
