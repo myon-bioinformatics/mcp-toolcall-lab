@@ -84,6 +84,13 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
+      - name: Check out pinned browser-test-kit validators
+        uses: actions/checkout@v7
+        with:
+          repository: myon-bioinformatics/browser-test-kit
+          ref: 3a054c777a98300ee272e4458990b849c32a7ef0
+          path: .browser-test-kit
+          persist-credentials: false
       - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
@@ -176,6 +183,13 @@ jobs:
           ls -l test-results/pixiv-pages-mobile.png || true
           test -s test-results/pixiv-pages-mobile.png
           test "$(od -An -tx1 -N8 test-results/pixiv-pages-mobile.png | tr -d ' \\n')" = "89504e470d0a1a0a"
+
+      - name: Validate all required static Pages screenshots
+        run: |
+          python3 -S .browser-test-kit/scripts/check_png.py \
+            test-results/pixiv-pages-desktop.png \
+            test-results/repository-diagnostics-desktop.png \
+            test-results/pixiv-pages-mobile.png
 
       - name: Live Pixiv fetch (stub-front -> dic.pixiv.net)
         id: pixiv_live
@@ -273,6 +287,12 @@ jobs:
           ls -l test-results/pixiv-live-mobile.png || true
           test -s test-results/pixiv-live-mobile.png
           test "$(od -An -tx1 -N8 test-results/pixiv-live-mobile.png | tr -d ' \n')" = "89504e470d0a1a0a"
+
+      - name: Validate live screenshots when the live fetch succeeded
+        if: steps.pixiv_live.outputs.live == 'ok'
+        run: |
+          python3 -S .browser-test-kit/scripts/check_png.py \
+            test-results/pixiv-live-desktop.png test-results/pixiv-live-mobile.png
 
       - name: Upload observations
         if: always()
