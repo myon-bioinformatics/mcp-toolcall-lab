@@ -11,6 +11,11 @@ the lightweight HTML DOM text helpers (`find_html_text` / `html_text_content`),
 and the Markdown → web-ui HTML contract v1 wrapper (`markdown_to_web_ui_v1`).
 The lab does not keep a second copy of those converters.
 
+The same snapshot also includes dialect converters (Slack / Org / MediaWiki /
+Jira), chat messages, system formats (email / man / calendar / platform),
+directory tree / scaffold helpers, and LLM I/O helpers such as `split_reasoning`.
+When needed, reuse these vendored helpers rather than reimplementing them in the lab.
+
 Provenance is in [`markdown.provenance.json`](markdown.provenance.json)
 (`commit` + git `blob_sha` + `sha256`). Refresh **that commit**, not `main`:
 
