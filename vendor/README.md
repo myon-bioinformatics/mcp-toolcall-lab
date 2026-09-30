@@ -101,3 +101,15 @@ The refresh loop updates each provenance JSON from the same pinned commit,
 including the upstream Git blob SHA and locally recomputed SHA-256. The
 provenance regression test then recomputes both hashes from the vendored bytes,
 so provenance JSON and source files move together.
+
+## Shared screenshot checks in CI
+
+The stub-pages job checks out browser-test-kit separately at
+`3a054c777a98300ee272e4458990b849c32a7ef0` and runs its stdlib `check_png.py`
+for all three required static Pages PNGs. Live Pixiv PNGs are validated only when
+the existing live-fetch classification succeeds; 403/429 skips keep their warning
+and are not counted as live evidence. Existing WebKit shutdown diagnostics remain.
+See the [shared screenshot guide](https://github.com/myon-bioinformatics/browser-test-kit/blob/3a054c777a98300ee272e4458990b849c32a7ef0/docs/screenshot-evidence.md).
+These structural checks do not yet supply multi-capture/run-identity receipts.
+The current capture lane measures desktop Chromium and mobile WebKit emulation;
+Firefox is not measured. Observations continue to upload under `if: always()`.
