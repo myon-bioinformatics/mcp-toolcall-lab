@@ -146,7 +146,15 @@ jobs:
       - name: Deno test
         run: deno test --allow-env --allow-read deploy/wikipedia-mcp
       - name: Test
-        run: pytest -q
+        run: pytest -q --junitxml=reports/pytest.xml
+      - name: Preserve raw Python JUnit
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: junit-python-3.11
+          path: reports/pytest.xml
+          if-no-files-found: error
+          retention-days: 14
 
 
       - name: Preserve vendor lock used by this run
@@ -176,6 +184,18 @@ jobs:
             vendor/repository_metadata_generator.provenance.json
           if-no-files-found: error
           retention-days: 14
+
+  junit-identity:
+    needs: [changes, test]
+    if: always() && needs.changes.outputs.non_docs_changed == 'true'
+    permissions:
+      contents: read
+      actions: read
+    uses: myon-bioinformatics/myon-bioinformatics/.github/workflows/reusable-junit-identity.yml@4dfda95d6573250477f991a0421fa6acb9bc0258
+    with:
+      artifact-pattern: junit-python-3.11
+      expected-reports: '["junit-python-3.11/pytest.xml"]'
+      output-artifact: python-failure-identity
 
   public-resolver-compat:
     needs: changes
