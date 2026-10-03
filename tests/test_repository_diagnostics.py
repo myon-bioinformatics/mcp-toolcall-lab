@@ -17,6 +17,12 @@ from mcp_toolcall_lab import repository_diagnostics as diagnostics
 from mcp_toolcall_lab.github_public_resolver import candidate_urls, probe_url
 
 
+def _locked(destination):
+    root = Path(__file__).resolve().parents[1]
+    lock = json.loads((root / "vendor.lock.json").read_text(encoding="utf-8"))
+    return next(e for e in lock["files"] if e["destination"] == destination)
+
+
 class Response(BytesIO):
     def __init__(self, status=200, url="https://example.test/final", headers=None):
         super().__init__(b"")
@@ -49,7 +55,7 @@ def _assert_vendored_provenance(path, provenance_path, source_path, blob_sha, sh
     provenance = json.loads(provenance_path.read_text(encoding="utf-8"))
     assert provenance["source_repository"] == "myon-bioinformatics/Ironmate"
     assert provenance["source_path"] == source_path
-    assert provenance["source_commit"] == "0aee64da2f8d0119a3ef9b955e5c3818f28aaf92"
+    assert provenance["source_commit"] == _locked('vendor/repository_metadata_contract.py')['commit']
     assert provenance["blob_sha"] == blob_sha
     assert provenance["sha256"] == sha256
     assert provenance["schema_version"] == "1.0"
@@ -70,8 +76,8 @@ def test_git_inspector_provenance_matches_canonical_baseline():
     ).hexdigest()
     assert provenance["source_repository"] == "myon-bioinformatics/myon-bioinformatics"
     assert provenance["source_path"] == "git_inspector.py"
-    assert provenance["source_commit"] == "cffa7017c95634bfb6ed6b269d255d56680a894c"
-    assert provenance["blob_sha"] == "abda0ba458c939240b9a9a6f0e4c8d640c76cf43"
+    assert provenance["source_commit"] == _locked('vendor/git_inspector.py')['commit']
+    assert provenance["blob_sha"] == _locked('vendor/git_inspector.py')['blob_sha']
     assert blob == provenance["blob_sha"]
     assert hashlib.sha256(data).hexdigest() == provenance["sha256"]
 
@@ -102,15 +108,15 @@ def test_vendored_contract_and_generator_provenance_match_baseline():
         diagnostics.CONTRACT_PATH,
         diagnostics.CONTRACT_PROVENANCE_PATH,
         "repository_metadata_contract.py",
-        "a61a2949e58a42635b0830289e368b4125b1274b",
-        "c8093d806756925b68978b5a40a218e4acd5daf43f2d7fc2e358cabf8dc39e9a",
+        _locked('vendor/repository_metadata_contract.py')['blob_sha'],
+        _locked('vendor/repository_metadata_contract.py')['sha256'],
     )
     _assert_vendored_provenance(
         diagnostics.GENERATOR_PATH,
         diagnostics.GENERATOR_PROVENANCE_PATH,
         "repository_metadata_generator.py",
-        "eef572ce64e92bfecf0451235f884aa208044587",
-        "a2edc91cc0a269d8b2fc6a9be1cfa0edbfae18604d53a1b9ebdcb72004be9a06",
+        _locked('vendor/repository_metadata_generator.py')['blob_sha'],
+        _locked('vendor/repository_metadata_generator.py')['sha256'],
     )
 
 

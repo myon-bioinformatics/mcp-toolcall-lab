@@ -1,0 +1,11 @@
+vendor/ascii_artist.py -text
+vendor/gh_ops.py -text
+vendor/git_inspector.py -text
+vendor/markdown.py -text
+vendor/python_artifact_provenance.py -text
+vendor/repository_metadata_contract.py -text
+vendor/repository_metadata_generator.py -text
+vendor/ascii_artist-LICENSE -text
+vendor/browser-test-kit-LICENSE -text
+vendor/markdown-LICENSE -text
+vendor/Ironmate-LICENSE -text
