@@ -34,7 +34,7 @@ def test_vendored_gh_ops_matches_recorded_provenance():
 
 
 # The verified acquisition lock owns pins; compatibility JSON alone cannot change them.
-PINNED_COMMIT = _locked('vendor/gh_ops.py')['commit']  # browser-test-kit#10 merge
+PINNED_COMMIT = _locked('vendor/gh_ops.py')['commit']  # Source identity follows the verified run lock.
 PINNED_BLOB_SHA = _locked('vendor/gh_ops.py')['blob_sha']
 PINNED_SHA256 = _locked('vendor/gh_ops.py')['sha256']
 

@@ -510,5 +510,4 @@ live skips write skipped receipts and never count as verified live capture.
 Receipts remain in the always-upload observation artifact. Shared validation
 checks integrity/run provenance, not visible screen semantics.
 
-
 Public source placement and automatic Python CI updates: [vendor automation](docs/vendor-automation.md).
