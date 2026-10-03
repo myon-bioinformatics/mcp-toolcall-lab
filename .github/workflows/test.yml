@@ -229,3 +229,72 @@ jobs:
           assert missing["resolved_url"] == "https://example.test/missing"
           print(success["checked_at"], missing["status"])
           PY
+
+  test-locked:
+    permissions:
+      contents: read
+    needs: changes
+    if: needs.changes.outputs.non_docs_changed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v7
+      with:
+        persist-credentials: false
+    - uses: actions/setup-python@v7
+      with:
+        python-version: '3.11'
+    - name: Fetch pinned shared vendor tool
+      uses: actions/checkout@v7
+      with:
+        repository: myon-bioinformatics/myon-bioinformatics
+        ref: 90bc069c33901bd4b5373eb02311026e0acf2e2e
+        path: .vendor-sync-tools
+        persist-credentials: false
+    - name: Verify checked-in vendor copies
+      run: python -S .vendor-sync-tools/vendor_sync.py check --manifest vendor.lock.json
+    - name: Recreate locked vendor files from GitHub
+      shell: bash
+      run: |
+        python -S - <<'PY'
+        import json
+        from pathlib import Path
+        for entry in json.loads(Path('vendor.lock.json').read_text(encoding='utf-8'))['files']:
+            Path(entry['destination']).unlink()
+        PY
+        python -S .vendor-sync-tools/vendor_sync.py materialize --manifest vendor.lock.json
+        python -S .vendor-sync-tools/vendor_sync.py check --manifest vendor.lock.json
+    - name: Refresh legacy provenance from the verified lock
+      run: python -S scripts/sync_vendor_provenance.py
+    - name: Install
+      run: pip install -e ".[test]"
+    - name: Test
+      run: pytest -q
+    - name: Preserve vendor lock used by this run
+      if: always()
+      uses: actions/upload-artifact@v7
+      with:
+        name: locked-vendor-lock-py3.11
+        path: |
+          vendor.lock.json
+          vendor/ascii_artist.py
+          vendor/gh_ops.py
+          vendor/git_inspector.py
+          vendor/markdown.py
+          vendor/python_artifact_provenance.py
+          vendor/repository_metadata_contract.py
+          vendor/repository_metadata_generator.py
+          vendor/ascii_artist-LICENSE
+          vendor/browser-test-kit-LICENSE
+          vendor/markdown-LICENSE
+          vendor/Ironmate-LICENSE
+          vendor/ascii_artist.provenance.json
+          vendor/gh_ops.provenance.json
+          vendor/git_inspector.provenance.json
+          vendor/markdown.provenance.json
+          vendor/python_artifact_provenance.provenance.json
+          vendor/repository_metadata_contract.provenance.json
+          vendor/repository_metadata_generator.provenance.json
+        if-no-files-found: error
+        retention-days: 14
+    name: Locked baseline
+    timeout-minutes: 20
