@@ -55,6 +55,12 @@ from mcp_toolcall_lab.stub_front import (
     write_stub_demo_page,
 )
 
+
+def _locked(destination):
+    root = Path(__file__).resolve().parents[1]
+    lock = json.loads((root / "vendor.lock.json").read_text(encoding="utf-8"))
+    return next(e for e in lock["files"] if e["destination"] == destination)
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -65,9 +71,9 @@ def test_vendored_markdown_py_is_loadable() -> None:
     assert md is not None
     assert md.split_sections("# Yokohama\n\nbody\n")[0]["title"] == "Yokohama"
     recorded = assert_markdown_provenance()
-    assert recorded["commit"] == "c3063e0887c6eb6a531ee774793682ceff8a164d"
-    assert recorded["blob_sha"] == "a20c59e7e28d811e48152b7359275cb0888c304d"
-    assert recorded["sha256"] == "a07648ec6ec6db6b431404e0735cc0b4947c62bc824f9adffbb0bf6c2b92040b"
+    assert recorded["commit"] == _locked('vendor/markdown.py')['commit']
+    assert recorded["blob_sha"] == _locked('vendor/markdown.py')['blob_sha']
+    assert recorded["sha256"] == _locked('vendor/markdown.py')['sha256']
     readme = (ROOT / "vendor" / "README.md").read_text(encoding="utf-8")
     assert "ref=${COMMIT}" in readme
     assert "not `main`" in readme

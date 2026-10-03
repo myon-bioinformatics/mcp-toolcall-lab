@@ -1,0 +1,104 @@
+{
+  "schema": "vendor-lock/1",
+  "files": [
+    {
+      "repository": "myon-bioinformatics/ascii_artist",
+      "ref": "refs/heads/main",
+      "commit": "24f759916eedd1a3aec8afea83b6852cf3b5afaa",
+      "source": "ascii_artist.py",
+      "destination": "vendor/ascii_artist.py",
+      "blob_sha": "ca46470b4a52293d722d59db0a621fec789c3690",
+      "sha256": "a2ea789b38d3f8a3cc15029ec33733d472d25effee3effed795c2519bec249ea"
+    },
+    {
+      "repository": "myon-bioinformatics/browser-test-kit",
+      "ref": "refs/heads/main",
+      "commit": "dce15333d100d1163b1b706d8e8de769a1e116be",
+      "source": "scripts/gh_ops.py",
+      "destination": "vendor/gh_ops.py",
+      "blob_sha": "e4bd079300087a275c4fe577399e3230e5cd5b54",
+      "sha256": "482a8e5f6d267d476d5675e548815d2588fb2256572fc154107180385e837689"
+    },
+    {
+      "repository": "myon-bioinformatics/myon-bioinformatics",
+      "ref": "refs/heads/main",
+      "commit": "cffa7017c95634bfb6ed6b269d255d56680a894c",
+      "source": "git_inspector.py",
+      "destination": "vendor/git_inspector.py",
+      "blob_sha": "abda0ba458c939240b9a9a6f0e4c8d640c76cf43",
+      "sha256": "b445c7c188892c1c2fad7e68a9d9f2174cc2d0e5c7100d27011a414bda1122b8"
+    },
+    {
+      "repository": "myon-bioinformatics/markdown",
+      "ref": "refs/heads/main",
+      "commit": "c3063e0887c6eb6a531ee774793682ceff8a164d",
+      "source": "markdown.py",
+      "destination": "vendor/markdown.py",
+      "blob_sha": "a20c59e7e28d811e48152b7359275cb0888c304d",
+      "sha256": "a07648ec6ec6db6b431404e0735cc0b4947c62bc824f9adffbb0bf6c2b92040b"
+    },
+    {
+      "repository": "myon-bioinformatics/Ironmate",
+      "ref": "refs/heads/main",
+      "commit": "b9c079bb55c1349abb47f67a09bbf0dbcf54bca9",
+      "source": "python_artifact_provenance.py",
+      "destination": "vendor/python_artifact_provenance.py",
+      "blob_sha": "89b1954f623b8ad596974d59fa4f3728a90341a3",
+      "sha256": "b67a594c5de260697f77f3512332e091a3d0eec9cb5a1d61a10d65c9246c2de3"
+    },
+    {
+      "repository": "myon-bioinformatics/Ironmate",
+      "ref": "refs/heads/main",
+      "commit": "0aee64da2f8d0119a3ef9b955e5c3818f28aaf92",
+      "source": "repository_metadata_contract.py",
+      "destination": "vendor/repository_metadata_contract.py",
+      "blob_sha": "a61a2949e58a42635b0830289e368b4125b1274b",
+      "sha256": "c8093d806756925b68978b5a40a218e4acd5daf43f2d7fc2e358cabf8dc39e9a"
+    },
+    {
+      "repository": "myon-bioinformatics/Ironmate",
+      "ref": "refs/heads/main",
+      "commit": "0aee64da2f8d0119a3ef9b955e5c3818f28aaf92",
+      "source": "repository_metadata_generator.py",
+      "destination": "vendor/repository_metadata_generator.py",
+      "blob_sha": "eef572ce64e92bfecf0451235f884aa208044587",
+      "sha256": "a2edc91cc0a269d8b2fc6a9be1cfa0edbfae18604d53a1b9ebdcb72004be9a06"
+    },
+    {
+      "repository": "myon-bioinformatics/ascii_artist",
+      "ref": "refs/heads/main",
+      "commit": "24f759916eedd1a3aec8afea83b6852cf3b5afaa",
+      "source": "LICENSE",
+      "destination": "vendor/ascii_artist-LICENSE",
+      "blob_sha": "4ec4989b801bf1a3df6184d21f79e6e7ed5931f6",
+      "sha256": "15f66204c4a6a1ce0c94f0ed4319ff9400f872e85fd32c95f21695c2f231af59"
+    },
+    {
+      "repository": "myon-bioinformatics/browser-test-kit",
+      "ref": "refs/heads/main",
+      "commit": "dce15333d100d1163b1b706d8e8de769a1e116be",
+      "source": "LICENSE",
+      "destination": "vendor/browser-test-kit-LICENSE",
+      "blob_sha": "4ec4989b801bf1a3df6184d21f79e6e7ed5931f6",
+      "sha256": "15f66204c4a6a1ce0c94f0ed4319ff9400f872e85fd32c95f21695c2f231af59"
+    },
+    {
+      "repository": "myon-bioinformatics/markdown",
+      "ref": "refs/heads/main",
+      "commit": "c3063e0887c6eb6a531ee774793682ceff8a164d",
+      "source": "LICENSE",
+      "destination": "vendor/markdown-LICENSE",
+      "blob_sha": "4ec4989b801bf1a3df6184d21f79e6e7ed5931f6",
+      "sha256": "15f66204c4a6a1ce0c94f0ed4319ff9400f872e85fd32c95f21695c2f231af59"
+    },
+    {
+      "repository": "myon-bioinformatics/Ironmate",
+      "ref": "refs/heads/main",
+      "commit": "b9c079bb55c1349abb47f67a09bbf0dbcf54bca9",
+      "source": "LICENSE",
+      "destination": "vendor/Ironmate-LICENSE",
+      "blob_sha": "4ec4989b801bf1a3df6184d21f79e6e7ed5931f6",
+      "sha256": "15f66204c4a6a1ce0c94f0ed4319ff9400f872e85fd32c95f21695c2f231af59"
+    }
+  ]
+}

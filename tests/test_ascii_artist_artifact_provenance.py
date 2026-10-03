@@ -4,20 +4,26 @@ import json
 from pathlib import Path
 
 
+def _locked(destination):
+    root = Path(__file__).resolve().parents[1]
+    lock = json.loads((root / "vendor.lock.json").read_text(encoding="utf-8"))
+    return next(e for e in lock["files"] if e["destination"] == destination)
+
+
 ROOT = Path(__file__).resolve().parents[1]
 ARTIFACT = ROOT / "vendor" / "ascii_artist.py"
 ARTIFACT_PROVENANCE = ROOT / "vendor" / "ascii_artist.provenance.json"
 VALIDATOR = ROOT / "vendor" / "python_artifact_provenance.py"
 VALIDATOR_PROVENANCE = ROOT / "vendor" / "python_artifact_provenance.provenance.json"
 
-EXPECTED_ARTIFACT_SOURCE_COMMIT = "24f759916eedd1a3aec8afea83b6852cf3b5afaa"
-EXPECTED_ARTIFACT_BLOB = "ca46470b4a52293d722d59db0a621fec789c3690"
-EXPECTED_ARTIFACT_SHA256 = "a2ea789b38d3f8a3cc15029ec33733d472d25effee3effed795c2519bec249ea"
+EXPECTED_ARTIFACT_SOURCE_COMMIT = _locked('vendor/ascii_artist.py')['commit']
+EXPECTED_ARTIFACT_BLOB = _locked('vendor/ascii_artist.py')['blob_sha']
+EXPECTED_ARTIFACT_SHA256 = _locked('vendor/ascii_artist.py')['sha256']
 EXPECTED_ARTIFACT_BASE_SHA = "7c21bacfac7b60327b77f9b31a87869ef7838a7e"
 
-EXPECTED_VALIDATOR_SOURCE_COMMIT = "b9c079bb55c1349abb47f67a09bbf0dbcf54bca9"
-EXPECTED_VALIDATOR_BLOB = "89b1954f623b8ad596974d59fa4f3728a90341a3"
-EXPECTED_VALIDATOR_SHA256 = "b67a594c5de260697f77f3512332e091a3d0eec9cb5a1d61a10d65c9246c2de3"
+EXPECTED_VALIDATOR_SOURCE_COMMIT = _locked('vendor/python_artifact_provenance.py')['commit']
+EXPECTED_VALIDATOR_BLOB = _locked('vendor/python_artifact_provenance.py')['blob_sha']
+EXPECTED_VALIDATOR_SHA256 = _locked('vendor/python_artifact_provenance.py')['sha256']
 
 
 def _load_validator():

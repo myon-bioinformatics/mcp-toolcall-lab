@@ -8,6 +8,12 @@ from pathlib import Path
 
 from mcp_toolcall_lab.markdown_lib import git_blob_sha
 
+
+def _locked(destination):
+    root = Path(__file__).resolve().parents[1]
+    lock = json.loads((root / "vendor.lock.json").read_text(encoding="utf-8"))
+    return next(e for e in lock["files"] if e["destination"] == destination)
+
 ROOT = Path(__file__).resolve().parents[1]
 GH_OPS_PATH = ROOT / "vendor" / "gh_ops.py"
 PROVENANCE_PATH = ROOT / "vendor" / "gh_ops.provenance.json"
@@ -27,14 +33,13 @@ def test_vendored_gh_ops_matches_recorded_provenance():
     assert digest == recorded["sha256"]
 
 
-# Hard pins, like test_stub_pages.py does for markdown.py: rewriting only the
-# JSON must not be enough to change what this repo claims to vendor.
-PINNED_COMMIT = "dce15333d100d1163b1b706d8e8de769a1e116be"  # browser-test-kit#10 merge
-PINNED_BLOB_SHA = "e4bd079300087a275c4fe577399e3230e5cd5b54"
-PINNED_SHA256 = "482a8e5f6d267d476d5675e548815d2588fb2256572fc154107180385e837689"
+# The verified acquisition lock owns pins; compatibility JSON alone cannot change them.
+PINNED_COMMIT = _locked('vendor/gh_ops.py')['commit']  # Source identity follows the verified run lock.
+PINNED_BLOB_SHA = _locked('vendor/gh_ops.py')['blob_sha']
+PINNED_SHA256 = _locked('vendor/gh_ops.py')['sha256']
 
 
-def test_provenance_matches_hard_pins():
+def test_provenance_matches_shared_lock():
     recorded = load_provenance()
     assert recorded["commit"] == PINNED_COMMIT
     assert recorded["blob_sha"] == PINNED_BLOB_SHA
