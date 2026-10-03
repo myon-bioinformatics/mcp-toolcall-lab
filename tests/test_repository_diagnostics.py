@@ -55,7 +55,7 @@ def _assert_vendored_provenance(path, provenance_path, source_path, blob_sha, sh
     provenance = json.loads(provenance_path.read_text(encoding="utf-8"))
     assert provenance["source_repository"] == "myon-bioinformatics/Ironmate"
     assert provenance["source_path"] == source_path
-    assert provenance["source_commit"] == _locked('vendor/repository_metadata_contract.py')['commit']
+    assert provenance["source_commit"] == _locked('vendor/' + source_path)['commit']
     assert provenance["blob_sha"] == blob_sha
     assert provenance["sha256"] == sha256
     assert provenance["schema_version"] == "1.0"
@@ -398,3 +398,18 @@ def test_unsupported_ref_degrades_to_not_checked(branch):
     assert payload["resolver"]["reason"] == "unsupported_ref"
     assert payload["resolver"]["observations"] == []
     assert payload["resolver"]["candidates"] == []
+
+
+def test_generator_commit_does_not_borrow_contract_pin(tmp_path, monkeypatch):
+    destination = 'vendor/repository_metadata_generator.py'
+    entry = dict(_locked(destination), commit='b' * 40)
+    source = tmp_path / 'repository_metadata_generator.py'
+    shutil.copyfile(diagnostics.GENERATOR_PATH, source)
+    record = {'source_repository': entry['repository'], 'source_path': entry['source'],
+              'source_commit': entry['commit'], 'blob_sha': entry['blob_sha'],
+              'sha256': entry['sha256'], 'schema_version': '1.0'}
+    provenance = source.with_suffix('.provenance.json')
+    provenance.write_text(json.dumps(record), encoding='utf-8')
+    original = _locked
+    monkeypatch.setitem(globals(), '_locked', lambda selected: entry if selected == destination else original(selected))
+    _assert_vendored_provenance(source, provenance, entry['source'], entry['blob_sha'], entry['sha256'])
