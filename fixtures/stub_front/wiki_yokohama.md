@@ -10,7 +10,7 @@ Kanagawa Prefecture, south of Tokyo. The mock station is JR Yokohama.
 
 ## History
 
-The lab does not call a live encyclopedia or MLIT. Transaction-price
+The lab does not call a live external provider. Transaction-price
 rows for 14109 are always the same condominium mock.
 
 ## See also
