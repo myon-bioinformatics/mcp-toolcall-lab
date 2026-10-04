@@ -1,4 +1,4 @@
-"""FastMCP server exposing a small, deterministic real-estate-style mock API."""
+"""FastMCP server exposing a small, deterministic mock API."""
 
 from __future__ import annotations
 
