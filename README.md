@@ -2,11 +2,11 @@
 
 Reproducible experiments for reliable LLM-to-MCP tool discovery, initialization, and calls using FastMCP and mock APIs.
 
-This repository deliberately does **not** call the Ministry of Land, Infrastructure, Transport and Tourism (MLIT) Real Estate Information Library API. It is a safe mock target for checking whether a model calls only tools actually advertised by an MCP server.
+This repository uses deterministic mock APIs and does **not** call a live external provider API. It is a safe target for checking whether a model calls only tools actually advertised by an MCP server.
 
 ## What is in the tree
 
-- A FastMCP Streamable HTTP server with three deterministic real-estate-style mock tools.
+- A FastMCP Streamable HTTP server with three deterministic mock tools.
 - A Wikipedia-only Streamable HTTP MCP (Deno Deploy, no API keys) for `fetch_wikipedia_*`.
   Catalog schemas are generated from the Python FastMCP server. Pages `#wiki` is not
   connected to it yet. See [`docs/wikipedia_mcp_deploy.md`](docs/wikipedia_mcp_deploy.md).
@@ -408,7 +408,7 @@ Inputs are official OpenAI Chat Completions `tools` / `tool_calls` plus recorded
 MCP Streamable HTTP hops: JSON-RPC 2.0 request/response on `POST /mcp`
 (`initialize` → `notifications/initialized` → `tools/list`, then
 `tools/call` when the model selected a tool). Replay does not change that
-wire, call a model, or reach MLIT. Comparison JSONL is not a wire log.
+wire, call a model, or reach a live external provider. Comparison JSONL is not a wire log.
 
 Use `system_prompts/strict_tool_selection.md`. The model may only choose among
 the advertised specs. A fictional tool name is a failure even if the intended
@@ -419,7 +419,7 @@ action sounds correct. **raw schema valid** (arguments match advertised
 | id | Model / settings | selected tool | raw schema valid | server accepted | outcome | notes |
 | --- | --- | --- | --- | --- | --- | --- |
 | `available_tool_success` | lab-model / temperature 0, reasoning.effort=low, stop=[] | `find_municipalities` | true | true | success | advertised tool only; UI `chat_id` / message id / `call_*` bind the `tools/call` return to `role:tool` |
-| `fictional_tool_reject` | lab-model / temperature 0, reasoning.effort=low, stop=[] | _(none)_ | — | — | — | refuses `query_reinfoldib`; no sent `tools/call`; server `isError` envelope recorded separately |
+| `fictional_tool_reject` | lab-model / temperature 0, reasoning.effort=low, stop=[] | _(none)_ | — | — | — | refuses `query_unadvertised_tool`; no sent `tools/call`; server `isError` envelope recorded separately |
 
 ```bash
 python -m mcp_toolcall_lab.prompt_experiment replay --out test-results/prompt-experiments.jsonl
@@ -496,7 +496,7 @@ Jev is not a replacement for deterministic computation, argument construction, A
 
 ## Next increments
 
-1. Add a versioned mock catalogue modeled on public REINFOLIB documentation, without API keys.
+1. Keep mock catalogues deterministic and provider-neutral, without API keys.
 2. Compare schema strictness (raw-valid vs server-accepted) and system prompts in a recorded experiment matrix.
 3. `jev_answerer`: confirm the built request shape (`response_format: json_schema`) against a real llama.cpp (or other OpenAI-compatible) server — every test so far uses either an injected fake or a loopback stdlib server, never a real model backend.
 4. `jev_typesafe`: exercise `TypeSafeClient` against a real `api.typesafe.ai` account once a key is available, to confirm the modeled contract against the live API rather than source alone.
