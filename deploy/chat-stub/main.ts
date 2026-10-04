@@ -94,7 +94,7 @@ function html(): string {
 }
 
 function fixtureForPrompt(prompt: string): FixtureId {
-  return prompt.toLowerCase().includes("reinfoldib")
+  return prompt.toLowerCase().includes("unadvertised_tool")
     ? "fictional_tool_reject"
     : "available_tool_success";
 }
