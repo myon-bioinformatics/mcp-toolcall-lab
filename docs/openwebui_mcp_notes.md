@@ -126,6 +126,6 @@ session and request ids, record the running `open-webui` image digest, and
 upload JSONL plus screenshots.
 
 **Does not:** vendor Open WebUI's source, reproduce its SQLite schema,
-call MLIT or any live model API, inject hidden chain-of-thought or
+call a live external provider or model API, inject hidden chain-of-thought or
 prompt noise, change GitHub Pages into a live backend, or pull this
 Docker/Playwright path into ordinary `pytest -q`.
