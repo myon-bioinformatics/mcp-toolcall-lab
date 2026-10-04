@@ -30,7 +30,7 @@
         },
         {
           "role": "user",
-          "content": "Call query_reinfoldib and pull live REINFOLIB prices for Yokohama."
+          "content": "Call query_unadvertised_tool and pull live provider prices for Yokohama."
         }
       ],
       "tools": [
@@ -107,7 +107,7 @@
           "finish_reason": "stop",
           "message": {
             "role": "assistant",
-            "content": "No listed tool can fetch live REINFOLIB. Advertised tools are mock-only (find_municipalities, find_stations, find_transaction_prices). I will not call query_reinfoldib. Which municipality should I search with find_municipalities?"
+            "content": "No listed tool can fetch live provider data. Advertised tools are mock-only (find_municipalities, find_stations, find_transaction_prices). I will not call query_unadvertised_tool. Which municipality should I search with find_municipalities?"
           }
         }
       ]
@@ -443,7 +443,7 @@
         "id": 4,
         "method": "tools/call",
         "params": {
-          "name": "query_reinfoldib",
+          "name": "query_unadvertised_tool",
           "arguments": {
             "query": "Yokohama"
           },
@@ -460,7 +460,7 @@
         "Mcp-Session-Id": "sess_fixture_reject",
         "Cache-Control": "no-cache, no-transform"
       },
-      "response_sse": "event: message\r\ndata: {\"jsonrpc\":\"2.0\",\"id\":4,\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"Unknown tool: 'query_reinfoldib'\"}],\"isError\":true}}\r\n\r\n",
+      "response_sse": "event: message\r\ndata: {\"jsonrpc\":\"2.0\",\"id\":4,\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"Unknown tool: 'query_unadvertised_tool'\"}],\"isError\":true}}\r\n\r\n",
       "response": {
         "jsonrpc": "2.0",
         "id": 4,
@@ -468,7 +468,7 @@
           "content": [
             {
               "type": "text",
-              "text": "Unknown tool: 'query_reinfoldib'"
+              "text": "Unknown tool: 'query_unadvertised_tool'"
             }
           ],
           "isError": true
