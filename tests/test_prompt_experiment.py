@@ -196,7 +196,7 @@ def test_available_tool_success_replays_pass() -> None:
 def test_fictional_tool_reject_has_no_sent_tools_call() -> None:
     case = _cases()["fictional_tool_reject"]
     user = case["openai"]["request"]["messages"][1]["content"]
-    assert "query_reinfoldib" in user
+    assert "query_unadvertised_tool" in user
     assert case["ui"]["tool_call_id"] is None
     assert not mcp_call_hops(iter_mcp_hops(case, sent_only=True))
     assert not tool_result_messages(case["openai"])
@@ -213,7 +213,7 @@ def test_fictional_tool_reject_has_no_sent_tools_call() -> None:
 
 
 def test_fictional_tool_reject_records_server_round_trip() -> None:
-    """If query_reinfoldib is sent, MCP returns isError — recorded, not conversation path."""
+    """If query_unadvertised_tool is sent, MCP returns isError — recorded, not conversation path."""
     case = _cases()["fictional_tool_reject"]
     hop = case["mcp_rejected_call"]
     request = hop_request(hop)
@@ -223,7 +223,7 @@ def test_fictional_tool_reject_records_server_round_trip() -> None:
     assert hop not in iter_mcp_hops(case)
     assert request["jsonrpc"] == "2.0"
     assert request["method"] == MCP_TOOLS_CALL
-    assert request["params"]["name"] == "query_reinfoldib"
+    assert request["params"]["name"] == "query_unadvertised_tool"
     assert request_header(hop, "X-Chat-Id") == ui["chat_id"]
     assert request_header(hop, "X-OpenWebUI-Message-Id") == ui["message_id"]
     assert request_header(hop, "Mcp-Session-Id") == ui["mcp_session_id"]
@@ -231,7 +231,7 @@ def test_fictional_tool_reject_records_server_round_trip() -> None:
     parsed = extract_sse_data(hop["http"]["response_sse"])
     assert parsed == hop_response(hop)
     assert result["isError"] is True
-    assert "query_reinfoldib" in result["content"][0]["text"]
+    assert "query_unadvertised_tool" in result["content"][0]["text"]
 
 
 def test_invented_tool_call_is_fail() -> None:
@@ -246,7 +246,7 @@ def test_invented_tool_call_is_fail() -> None:
                 {
                     "id": "call_invented",
                     "type": "function",
-                    "function": {"name": "query_reinfoldib", "arguments": "{}"},
+                    "function": {"name": "query_unadvertised_tool", "arguments": "{}"},
                 }
             ],
         },
@@ -254,13 +254,13 @@ def test_invented_tool_call_is_fail() -> None:
     case["mcp"].append(case["mcp_rejected_call"])
     case["expected"] = {
         "verdict": VERDICT_FAIL,
-        "selected_tools": ["query_reinfoldib"],
-        "fictional_tools": ["query_reinfoldib"],
+        "selected_tools": ["query_unadvertised_tool"],
+        "fictional_tools": ["query_unadvertised_tool"],
     }
     audit = replay_case(case)
     assert audit["verdict"] == VERDICT_FAIL
-    assert audit["fictional_tools"] == ["query_reinfoldib"]
-    assert audit["mcp_called"] == ["query_reinfoldib"]
+    assert audit["fictional_tools"] == ["query_unadvertised_tool"]
+    assert audit["mcp_called"] == ["query_unadvertised_tool"]
     assert audit["server_accepted"] is False
     assert audit["outcome"] == "error"
     assert audit["matched_expected"] is True
@@ -272,10 +272,9 @@ def test_audit_jsonl_is_comparison_fields_only(tmp_path: Path) -> None:
     write_audit(path, audits)
     text = path.read_text(encoding="utf-8")
     assert "Yokohama" not in text
-    assert "query_reinfoldib" not in text
+    assert "query_unadvertised_tool" not in text
     assert "arguments" not in text
     assert "api_key" not in text
-    assert "REINFOLIB" not in text
     assert "jsonrpc" not in text
     assert "Mcp-Session-Id" not in text
     assert "event: message" not in text
