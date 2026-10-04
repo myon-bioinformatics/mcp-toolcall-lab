@@ -5,7 +5,7 @@ Keyless MCP endpoint that advertises **only** `fetch_wikipedia_article` and
 this change; that connection (and any OpenAI `tools` / `tool_calls` → MCP →
 `role: tool` browser loop) is a follow-up.
 
-No MLIT, no API keys, no custom JSON event rows. The wire is official MCP
+No live external provider API, no API keys, no custom JSON event rows. The wire is official MCP
 Streamable HTTP: JSON-RPC 2.0 on `POST /mcp`, SSE `event: message` for
 responses, empty **202** for `notifications/initialized`, `Mcp-Session-Id`,
 and CORS so a later github.io client can `fetch()` it.

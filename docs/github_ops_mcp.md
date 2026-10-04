@@ -10,8 +10,8 @@ merged as `dce1533`) — as MCP tools. Most tools are thin wrappers around
 stdlib-only anonymous resolver owned by this lab because it combines GitHub
 UI/API/raw URLs with GitHub Pages and records direct HTTP observations.
 
-This is its own MCP endpoint, not a tool added to the real-estate/Wikipedia/
-pixiv mock in `server.py`/`catalog.py`. It is also not part of
+This is its own MCP endpoint, not a tool added to the existing
+mock server in `server.py`/`catalog.py`. It is also not part of
 `mcp_toolcall_lab.export`'s `openwebui_mcp_mock.py` / `librechat_mcp_mock.py`
 generation: those two files are one product (the mock catalog), copied twice
 under product-matched names, and inlining an unrelated GitHub client into

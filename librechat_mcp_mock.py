@@ -1506,7 +1506,7 @@ def mcp_tool_calls(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
     ]
 
 # --- server.py ---
-"""FastMCP server exposing a small, deterministic real-estate-style mock API."""
+"""FastMCP server exposing a small, deterministic mock API."""
 
 
 import asyncio

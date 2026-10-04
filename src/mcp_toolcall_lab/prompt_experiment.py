@@ -4,7 +4,7 @@ Inputs are official OpenAI Chat Completions ``tools`` / ``tool_calls`` plus
 recorded MCP Streamable HTTP hops (JSON-RPC 2.0 request/response on
 ``POST /mcp``). Handshake is ``initialize`` → ``notifications/initialized``
 → ``tools/list``; a selected tool is ``tools/call``. Nothing here opens a
-socket, calls a model, or talks to MLIT.
+socket, calls a model, or talks to a live external provider.
 
 Audit JSONL is comparison fields only — not a wire log and not a substitute
 for the HTTP/JSON-RPC records in the fixtures.
