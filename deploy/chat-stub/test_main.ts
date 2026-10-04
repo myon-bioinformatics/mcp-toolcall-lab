@@ -77,11 +77,11 @@ Deno.test("unknown tools are returned as an MCP tool error", async () => {
   const response = await handleRequest(new Request("http://stub/mcp", {
     method: "POST",
     headers: { "Mcp-Session-Id": session },
-    body: JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: "query_reinfoldib", arguments: {} } }),
+    body: JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: "query_unadvertised_tool", arguments: {} } }),
   }));
   const payload = parseSse(await response.text());
   assertEquals(payload.result.isError, true, "unknown tool isError");
-  assert(payload.result.content[0].text.includes("query_reinfoldib"), "unknown tool name is visible");
+  assert(payload.result.content[0].text.includes("query_unadvertised_tool"), "unknown tool name is visible");
 });
 
 Deno.test("chat endpoint returns OpenAI tools/tool_calls and role tool mapping", async () => {
@@ -96,7 +96,7 @@ Deno.test("chat endpoint returns OpenAI tools/tool_calls and role tool mapping",
 });
 
 Deno.test("fictional tools stay a rejected offline fixture", async () => {
-  const body = await chatResponse("Please call query_reinfoldib.");
+  const body = await chatResponse("Please call query_unadvertised_tool.");
   assertEquals(body.fixture_id, "fictional_tool_reject", "reject fixture selected");
   assert(!body.openai.assistant_message.tool_calls, "fictional tool must not become a tool call");
   assertEquals(body.ui.tool_call_id, null, "rejected call has no tool_call_id");
