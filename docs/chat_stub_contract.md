@@ -13,7 +13,8 @@ fixtures/prompt_experiments/ and exposes three small surfaces:
 
 The only normal success fixture is available_tool_success. A prompt containing
 query_unadvertised_tool selects fictional_tool_reject; it never creates a
-fictional OpenAI tool call. Both paths are deterministic and offline.
+fictional OpenAI tool call. Prompts using the retired fixture token no longer
+match and receive the success fixture. Both paths are deterministic and offline.
 
     deno run --allow-env --allow-net --allow-read deploy/chat-stub/main.ts
     # open http://127.0.0.1:8787/

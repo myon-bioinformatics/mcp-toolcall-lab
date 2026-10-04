@@ -273,6 +273,7 @@ def test_audit_jsonl_is_comparison_fields_only(tmp_path: Path) -> None:
     text = path.read_text(encoding="utf-8")
     assert "Yokohama" not in text
     assert "query_unadvertised_tool" not in text
+    assert "live provider" not in text
     assert "arguments" not in text
     assert "api_key" not in text
     assert "jsonrpc" not in text
