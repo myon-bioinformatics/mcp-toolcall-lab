@@ -2,7 +2,6 @@ import hashlib
 import http.client
 import json
 import os
-import platform
 import shutil
 import subprocess
 import sys
@@ -164,7 +163,25 @@ def _synthetic_checkout(root):
     _git(root, "branch", "-M", "work")
 
 
-def test_build_record_matches_canonical_synthetic_checkout(tmp_path, monkeypatch):
+@pytest.mark.parametrize(
+    "python_version,command_versions,expected_tooling",
+    [
+        pytest.param(
+            "3.11.9",
+            {"git": "2.45.0", "gh": "2.61.0", "node": "22.1.0", "npm": "10.8.0", "npx": "10.8.0"},
+            {"python": "3.11.9", "git": "2.45.0", "gh": "2.61.0", "node": "22.1.0", "npm": "10.8.0", "npx": "10.8.0"},
+            id="all-present",
+        ),
+        pytest.param(
+            "3.11.9", {"git": "2.45.0"},
+            {"python": "3.11.9", "git": "2.45.0"}, id="partial",
+        ),
+        pytest.param("not-a-version", {}, {}, id="empty"),
+    ],
+)
+def test_build_record_matches_canonical_synthetic_checkout(
+    tmp_path, monkeypatch, python_version, command_versions, expected_tooling,
+):
     checkout = tmp_path / "checkout"
     _synthetic_checkout(checkout)
     elsewhere = tmp_path / "elsewhere"
@@ -172,6 +189,18 @@ def test_build_record_matches_canonical_synthetic_checkout(tmp_path, monkeypatch
     monkeypatch.chdir(elsewhere)
     monkeypatch.setattr(diagnostics, "REPO_ROOT", checkout)
 
+    # Fix only the observation inputs; exercise the real canonical collector,
+    # checkout identity producer and contract instead of mocking their output.
+    generator = diagnostics._load_generator()
+    monkeypatch.setattr(diagnostics, "_load_generator", lambda: generator)
+    monkeypatch.setattr(generator.platform, "python_version", lambda: python_version)
+    observed_commands = []
+
+    def observe_command(command):
+        observed_commands.append(command)
+        return command_versions.get(command)
+
+    monkeypatch.setattr(generator, "observe_command_version", observe_command)
     env = {
         "GITHUB_HEAD_REF": "feature/from-pr",
         "GITHUB_REF_NAME": "87/merge",
@@ -194,16 +223,33 @@ def test_build_record_matches_canonical_synthetic_checkout(tmp_path, monkeypatch
         subject=_git(checkout, "show", "-s", "--format=%s", "HEAD"),
         generated_at=now,
         working_tree_bytes=working_tree_bytes,
-        tooling={"python": platform.python_version()},
+        tooling=expected_tooling,
     )
 
+    assert observed_commands == ["git", "gh", "node", "npm", "npx"]
     assert record == expected
     assert record["head"]["branch"] == "feature/from-pr"
     assert record["measurements"]["working_tree_bytes"] == working_tree_bytes
-    assert record["tooling"] == {"python": platform.python_version()}
+    assert record["tooling"] == expected_tooling
     assert record["generated_at"] == now
     assert contract.to_json(record) == contract.to_json(expected)
     assert contract.to_jsonl(record) == contract.to_jsonl(expected)
+    assert json.loads(contract.to_json(record)) == json.loads(contract.to_jsonl(record))
+
+
+def test_canonical_tooling_rejects_caller_overwrite_before_observation(tmp_path, monkeypatch):
+    generator = diagnostics._load_generator()
+
+    def unexpected_observation(*args, **kwargs):
+        pytest.fail("key ownership must be checked before any observation")
+
+    monkeypatch.setattr(generator, "git", unexpected_observation)
+    monkeypatch.setattr(generator, "collect_portable_tooling", unexpected_observation)
+    with pytest.raises(ValueError, match="caller tooling overlaps canonical tooling: git"):
+        generator.record_from_checkout(
+            tmp_path, diagnostics.REPOSITORY,
+            tooling={"git": "caller-value"}, tooling_commands=("git",),
+        )
 
 
 def test_build_record_measures_tracked_bytes_from_repository_root(tmp_path, monkeypatch):
