@@ -11,7 +11,6 @@ import importlib.util
 import json
 import os
 from pathlib import Path
-import platform
 import sys
 from types import ModuleType
 from typing import Any, Mapping
@@ -100,7 +99,8 @@ def build_record(
         REPOSITORY,
         env=os.environ if env is None else env,
         working_tree_bytes=_tracked_bytes(root) if working_tree_bytes is None else working_tree_bytes,
-        tooling={"python": platform.python_version()},
+        include_python_tooling=True,
+        tooling_commands=("git", "gh", "node", "npm", "npx"),
     )
     if now is not None:
         record["generated_at"] = now
