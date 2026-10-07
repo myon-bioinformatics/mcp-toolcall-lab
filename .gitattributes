@@ -10,3 +10,5 @@ vendor/browser-test-kit-LICENSE -text
 vendor/markdown-LICENSE -text
 vendor/Ironmate-LICENSE -text
 vendor/myon-bioinformatics-LICENSE -text
+vendor/gh_identity.py -text
+vendor/gh_identity-LICENSE -text
