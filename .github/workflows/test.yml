@@ -76,6 +76,8 @@ jobs:
           name: vendor-snapshot
           path: |
             vendor.lock.json
+            vendor/gh_identity.py
+            vendor/gh_identity-LICENSE
             vendor/myon-bioinformatics-LICENSE
             vendor/ascii_artist.py
             vendor/gh_ops.py
@@ -165,6 +167,8 @@ jobs:
           name: vendor-lock-py3.11
           path: |
             vendor.lock.json
+            vendor/gh_identity.py
+            vendor/gh_identity-LICENSE
             vendor/myon-bioinformatics-LICENSE
             vendor/ascii_artist.py
             vendor/gh_ops.py
@@ -298,6 +302,8 @@ jobs:
         name: locked-vendor-lock-py3.11
         path: |
           vendor.lock.json
+          vendor/gh_identity.py
+          vendor/gh_identity-LICENSE
           vendor/myon-bioinformatics-LICENSE
           vendor/ascii_artist.py
           vendor/gh_ops.py
