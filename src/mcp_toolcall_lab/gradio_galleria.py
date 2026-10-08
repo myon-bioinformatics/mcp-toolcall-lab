@@ -284,7 +284,7 @@ def build_ui():
         kind, text_value, csv_value = _load_for_display(label, files)
         return _to_view_updates(kind, text_value, csv_value)
 
-    with gr.Blocks(title="Toolcall Lab — Galleria", css=TERMINAL_CSS) as demo:
+    with gr.Blocks(title="Toolcall Lab — Galleria") as demo:
         gr.Markdown("# Toolcall Lab — Galleria")
         gr.Markdown(
             "Local tools for ASCII art, Markdown management, and checkout file viewing."
@@ -464,4 +464,4 @@ def build_ui():
 
 if __name__ == "__main__":
     ui = build_ui()
-    ui.launch(server_name="127.0.0.1", share=False)
+    ui.launch(server_name="127.0.0.1", share=False, css=TERMINAL_CSS)

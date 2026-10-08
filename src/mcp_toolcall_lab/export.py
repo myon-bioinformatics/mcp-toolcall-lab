@@ -36,7 +36,7 @@ def _header(run_command: str, audience: str) -> str:
 
 """Copy this entire file as a standalone mock MCP server for {audience} tests.
 
-Requires Python 3.11+. Install once with: pip install "fastmcp==3.4.7"
+Requires Python 3.11+. Install once with: pip install "fastmcp>=3.4.8,<4"
 Run with:                         python {run_command}
 
 No API key or project-local imports are required. The default endpoint is

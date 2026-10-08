@@ -68,7 +68,7 @@ def _request_meta(context: MiddlewareContext) -> dict[str, Any]:
     reserves `_meta` exactly for this, so no protocol extension is needed.
 
     Note: `context.message.meta` is *not* the original request's `_meta` —
-    FastMCP's own tools/call dispatch (fastmcp==3.4.7) rebuilds
+    FastMCP's own tools/call dispatch (verified with FastMCP 3.4.8) rebuilds
     CallToolRequestParams internally and overwrites `_meta` with its own
     version-pinning metadata before middleware ever sees it. The original,
     client-supplied `_meta` survives on the lower-level request context
