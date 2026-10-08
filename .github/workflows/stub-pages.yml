@@ -1,7 +1,8 @@
 name: stub-pages
 
 # Serverless try: Actions boots Docker (stub + MCP + CPU-class model),
-# records anti-patterns as JSONL, publishes a static report to GitHub Pages.
+# records anti-patterns as JSONL and exports public reports for portfolio publication.
+# Legacy Pages deploys only a redirect; MCP/Docker execution stays here.
 # Default `test` workflow stays `pytest -q` (no Docker).
 on:
   workflow_dispatch:
@@ -41,6 +42,8 @@ on:
       - "vendor/repository_metadata_generator.py"
       - "vendor/repository_metadata_generator.provenance.json"
       - "scripts/stub_pages_smoke.py"
+      - "scripts/write_portfolio_redirect.py"
+      - "tests/test_portfolio_redirect.py"
       - "scripts/fetch_tiny_cpu_gguf.py"
       - "scripts/fetch_tiny_cpu_gguf.sh"
       - "src/mcp_toolcall_lab/antipatterns.py"
@@ -63,6 +66,8 @@ on:
       - "vendor/repository_metadata_generator.py"
       - "vendor/repository_metadata_generator.provenance.json"
       - "scripts/stub_pages_smoke.py"
+      - "scripts/write_portfolio_redirect.py"
+      - "tests/test_portfolio_redirect.py"
       - "scripts/fetch_tiny_cpu_gguf.py"
       - "scripts/fetch_tiny_cpu_gguf.sh"
       - "src/mcp_toolcall_lab/antipatterns.py"
@@ -330,11 +335,15 @@ jobs:
             docker/stub-pages/models/*.provenance.json
           if-no-files-found: ignore
 
+      - name: Build legacy Pages redirect
+        if: github.ref == 'refs/heads/main'
+        run: python -S scripts/write_portfolio_redirect.py _portfolio_redirect
+
       - name: Upload Pages artifact
         if: github.ref == 'refs/heads/main'
         uses: actions/upload-pages-artifact@v5
         with:
-          path: _site
+          path: _portfolio_redirect
 
       - name: Tear down
         if: always()
