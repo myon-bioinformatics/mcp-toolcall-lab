@@ -1,3 +1,5 @@
+> Ironmate is retiring its MCP/catalog prototype in Ironmate PR #81. The contracts below are historical offline fixtures; API adapter ownership transfers here under #107. See [source adapters](source-adapters.md).
+
 # Ironmate representative call
 
 This slice connects the thin Ironmate MCP adapter to the lab's existing JSONL call trace.
