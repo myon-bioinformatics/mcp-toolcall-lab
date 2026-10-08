@@ -7,7 +7,7 @@ name = "mcp-toolcall-lab"
 version = "0.1.0"
 description = "FastMCP mock tools for reproducible tool-calling experiments"
 requires-python = ">=3.11"
-dependencies = ["fastmcp==3.4.7"]
+dependencies = ["fastmcp>=3.4.8,<4"]
 
 [project.scripts]
 mcp-chat-ui = "mcp_toolcall_lab.chat_ui:main"

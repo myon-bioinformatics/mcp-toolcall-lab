@@ -1,6 +1,6 @@
 """Speak to the mock with FastMCP's own bundled CLI (`fastmcp list` / `fastmcp call`).
 
-``fastmcp`` is already a pinned dependency of this project (see pyproject.toml),
+``fastmcp`` is already a dependency of this project (see pyproject.toml),
 so unlike curl (an extra tool assumed to be on the box) or Playwright (an extra
 pip install), this CLI needs nothing beyond what ``pip install -e .`` already
 puts on PATH — the most "native" way to smoke-test this server, the same way

@@ -34,7 +34,7 @@ is new surface, not a duplicate.
 ## Run it
 
 ```bash
-pip install -e '.[test]'   # or: pip install "fastmcp==3.4.7"
+pip install -e '.[test]'   # or: pip install "fastmcp>=3.4.8,<4"
 export GITHUB_TOKEN=ghp_...   # or GH_TOKEN; omit for unauthenticated (low rate limit) reads
 python -m mcp_toolcall_lab.github_ops_server
 ```

@@ -21,7 +21,7 @@ This repository uses deterministic mock APIs and does **not** call a live extern
 ## Requirements
 
 - Python 3.11 or newer (`datetime.UTC` and `X | Y` type hints).
-- `fastmcp==3.4.7` (pinned). FastMCP 4.x requires `mcp>=2` and cannot share a venv with Open WebUI's `mcp==1.27.2`.
+- `fastmcp>=3.4.8,<4` (latest stable 3.x; currently 3.4.8). FastMCP 4.x requires `mcp>=2` and cannot share a venv with Open WebUI's `mcp==1.27.2`.
 
 ## Run locally
 
@@ -39,7 +39,7 @@ If your shell does not support the activation command, invoke `.venv/bin/python`
 On a VM or container that should only run the mock, copy the standalone file and install FastMCP:
 
 ```bash
-pip install "fastmcp==3.4.7"
+pip install "fastmcp>=3.4.8,<4"
 MCP_HOST=0.0.0.0 python openwebui_mcp_mock.py
 ```
 
@@ -237,7 +237,7 @@ scripts/mcp_curl_smoke.sh http://host:port/mcp # or point it at another running 
 ## Talking to the mock with FastMCP's own CLI
 
 `fastmcp` ships a client CLI (`fastmcp list`, `fastmcp call`) alongside the server framework — since
-`fastmcp==3.4.7` is already a pinned dependency here, this needs nothing beyond `pip install -e .`,
+`fastmcp>=3.4.8,<4` is already a dependency here, this needs nothing beyond `pip install -e .`,
 not even curl. It also handles the `initialize` / `notifications/initialized` / `Mcp-Session-Id`
 handshake itself, so there's nothing to wire up by hand:
 
@@ -518,7 +518,7 @@ The ASCII shapes/templates, Markdown read/save/heading inspection, and text/JSON
 viewer from Ironmate now live in `mcp_toolcall_lab.gradio_galleria`.
 It reuses this checkout's existing pinned ASCII/Markdown helpers. No model download,
 GPU or running MCP server is needed. Gradio 6.29.1 is compatible with the lab's
-fixed FastMCP 3.4.7 dependency, so both can use the same environment:
+FastMCP 3.x dependency (currently 3.4.8), so both can use the same environment:
 
 ```bash
 python -m pip install -e '.[test,galleria]'
