@@ -1,2 +1,0 @@
-# Use a separate venv: FastMCP 3.4.7 needs Starlette >=1, Gradio 5 needs <1.
-gradio==5.50.0

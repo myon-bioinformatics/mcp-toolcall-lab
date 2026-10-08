@@ -56,7 +56,7 @@ def test_actual_gradio_build_and_updates():
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
     import gradio as gr
-    app = gr.mount_gradio_app(FastAPI(), demo, path="/galleria")
+    app = gr.mount_gradio_app(FastAPI(), demo, path="/galleria", css=gallery.TERMINAL_CSS)
     with TestClient(app) as client:
         assert client.get('/galleria/').status_code == 200
         config = client.get('/galleria/config')

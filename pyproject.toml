@@ -17,6 +17,7 @@ mcp-stub-front = "mcp_toolcall_lab.stub_front:main"
 mcp-docker-logs = "mcp_toolcall_lab.docker_logs:main"
 
 [project.optional-dependencies]
+galleria = ["gradio==6.29.1"]
 test = [
     "httpx>=0.28.1",
     "mcp==1.28.1",
