@@ -1,3 +1,13 @@
+> Publication transfer: land the portfolio receiving PR before this workflow
+> switches the old URL to a redirect. Wiki/Pixiv/public reports will live at
+> https://myon-bioinformatics.github.io/tools/mcp-toolcall-lab/ .
+> The lab continues producing `_site/` in `stub-pages-observations` artifacts,
+> running Docker/MCP tests, and preserving raw logs separately. Portfolio imports
+> only the allowlisted public export with explicit snapshot identity. Imported
+> results are not automatically the latest Actions result. The old Pages URL
+> redirects while preserving query and fragment, including `#wiki` and `#pixiv`.
+> Earlier deployment descriptions below document the pre-transfer layout.
+
 # Serverless stub try (GitHub Actions + Pages)
 
 GitHub Pages hosts a **static** report. It cannot keep Docker running
