@@ -81,7 +81,7 @@ def select_nodes(nodes, selector):
                 raise ValueError('invalid selector combinator')
             relation = '>'
             continue
-        if not simple.fullmatch(token) or not token:
+        if (not simple.fullmatch(token) and token != ':root') or not token:
             raise ValueError('unsupported selector syntax')
         if parts:
             relations.append(relation or ' ')
@@ -91,6 +91,8 @@ def select_nodes(nodes, selector):
         raise ValueError('invalid selector combinator')
 
     def matches(node, token):
+        if token == ':root':
+            return node.parent is not None and node.parent.tag == 'document'
         tag = re.match(r'^[a-zA-Z][\w-]*|^\*', token, re.ASCII)
         if tag and tag[0] != '*' and node.tag != tag[0].lower():
             return False
@@ -118,7 +120,7 @@ def select_nodes(nodes, selector):
     return [node for node in nodes if chain(node, len(parts) - 1)]
 
 
-def extract(html, url, profile='generic', selector=None):
+def extract(html, url, profile='generic', selector=None, include_css=False, stylesheets=None):
     """Extract this document without network or browser HTML5 tree building."""
     if not isinstance(html, str) or len(html.encode('utf-8')) > MAX_BYTES:
         raise ValueError('HTML must be a string of at most 2 MiB')
@@ -126,6 +128,10 @@ def extract(html, url, profile='generic', selector=None):
         raise ValueError('source URL must be absolute HTTP(S)')
     if profile not in {'generic', 'github-readme'}:
         raise ValueError('unknown HTML profile')
+    if type(include_css) is not bool:
+        raise ValueError('include_css must be boolean')
+    if stylesheets is not None and not include_css:
+        raise ValueError('saved stylesheets require include_css')
     parser = Parser()
     parser.feed(html)
     nodes = list(parser.root.walk())
@@ -159,7 +165,7 @@ def extract(html, url, profile='generic', selector=None):
     text = ' '.join(filter(None, (clean(scope) for scope in scopes)))
     if not text:
         raise ValueError('selected HTML scope has no text')
-    return {
+    result = {
         'source_url': url, 'profile': profile, 'scope': selected, 'scope_count': len(scopes),
         'title': next((clean(n) for n in nodes if n.tag == 'title'), ''),
         'headings': [{'level': n.tag, 'text': clean(n)} for n in content_nodes
@@ -169,6 +175,10 @@ def extract(html, url, profile='generic', selector=None):
                       for n in nodes if n.tag in {'main', 'article'}],
         'tag_counts': dict(Counter(n.tag for n in nodes)),
         'stylesheets': [urljoin(url, n.attrs['href']) for n in nodes
-                        if n.tag == 'link' and 'stylesheet' in (n.attrs.get('rel') or '').split()
+                        if n.tag == 'link' and 'stylesheet' in (n.attrs.get('rel') or '').lower().split()
                         and n.attrs.get('href') and urlsplit(urljoin(url, n.attrs['href'])).scheme in {'http', 'https'}],
     }
+    if include_css:
+        from .css_inspect import inspect_html_styles
+        result['css'] = inspect_html_styles(html, url, stylesheets=stylesheets)
+    return result

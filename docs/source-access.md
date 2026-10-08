@@ -130,6 +130,41 @@ BlueProbe's follow-up `HtmlSource` accepts this same offline extraction function
 and maps it to its records/counts/unknown contract. The optional package wiring
 is explicit; no unpinned runtime download or copied parser is introduced.
 
+## Offline CSS inspection
+
+`css/inspect` accepts CSS text. `html/extract` can opt in with `include_css=true`
+and a `stylesheets` mapping of already-saved reference URLs to CSS text. Embedded
+style elements and inline style attributes are inspected too; script/template/
+noscript subtrees do not contribute active CSS sources. No asset, import, font or
+URL is fetched. Stylesheet links and @import source remain explicitly unloaded.
+
+The report retains declaration order and duplicates, raw values, !important,
+custom properties, var() references and literal hex colors (3/4/6/8 digits).
+An #id selector is not a color; strings and url() fragments are excluded from
+hex-color extraction. Each stylesheet has a content SHA-256. HTML snapshot and
+saved CSS identities are distinct, so changed CSS is not treated as the same
+evidence just because the HTML is unchanged.
+
+Nested @media/@supports/@layer/@container rules retain their contexts. Contexts
+are not evaluated. Other at-rule bodies and malformed declarations remain
+observable as unknown; structurally malformed CSS raises an error. Tag/id/class/
+descendant/child selectors and :root can be associated with saved elements;
+unsupported selectors have status=unsupported and matched=null. No-match is
+distinct. Quotes, comments and balanced parentheses/brackets are recognized.
+CSS escapes are retained, not normalized. Full CSS grammar, specificity,
+inheritance, variable substitution, named-color normalization, computed styles,
+visibility and layout are not implemented. Text is not silently removed based
+on display:none or an unevaluated conditional rule.
+
+Each CSS source is limited to 2 MiB, 128 sources and bounded nesting. Callers
+provide saved CSS explicitly. JSON remains data, and supplied CSS is inspected,
+never inserted into a page or executed by this operation.
+
+web-ui PR #43/#44 provide the static HTML/CSS emitter and optional lightweight
+script links; this reader complements that output surface. The regression
+fixture preserves tokens.css/base.css/components.css at commit
+365b33dc2c16cf1f90b91e88095cbb576f49cbd9 as test data only, not a runtime vendor.
+
 ## Minimal Pages UI direction
 
 Open WebUI and LibreChat remain integration-test clients. A production Pages UI

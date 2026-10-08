@@ -94,7 +94,7 @@ def make_snapshot(html, url, *, fetched_at=None, encoding='utf-8', response_sha2
             'content_sha256': hashlib.sha256(html.encode('utf-8')).hexdigest()}
 
 
-def extract_snapshot(snapshot, profile='generic', selector=None):
+def extract_snapshot(snapshot, profile='generic', selector=None, include_css=False, stylesheets=None):
     if not isinstance(snapshot, dict) or snapshot.get('schema') != 'html-snapshot/1':
         raise ValueError('expected html-snapshot/1')
     checked = make_snapshot(snapshot.get('html'), snapshot.get('url'))
@@ -102,13 +102,16 @@ def extract_snapshot(snapshot, profile='generic', selector=None):
         raise ValueError('snapshot content hash mismatch')
     return {'snapshot': {k: snapshot.get(k) for k in
                          ('schema', 'url', 'fetched_at', 'content_sha256', 'response_sha256', 'encoding')},
-            'extraction': extract(snapshot['html'], snapshot['url'], profile, selector)}
+            'extraction': extract(snapshot['html'], snapshot['url'], profile, selector,
+                                  include_css, stylesheets)}
 
 
 def default_registry(*, niconico_adapter=None):
     from .adapters.wikipedia import article
     registry = Registry()
     registry.register('html', 'extract', extract_snapshot)
+    from .adapters.css_inspect import inspect_css
+    registry.register('css', 'inspect', inspect_css)
     registry.register('wikipedia', 'article', article, network=True)
     if niconico_adapter is not None:
         from .adapters.niconico_source import register_niconico
