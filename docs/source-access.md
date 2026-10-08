@@ -109,6 +109,27 @@ built from local fixtures before adding live requests; add browser tests only fo
 actual browser behavior. Measure requests and bytes rather than assuming HTML is
 always smaller than an API response.
 
+## Offline selectors and optional API adapter binding
+
+`html/extract` accepts an optional `selector` with the generic profile. The
+supported subset is tags, `#id`, `.class`, compounds, descendant whitespace and
+child `>`. All matching outermost scopes are read in document order. Unsupported
+syntax and zero matches fail explicitly; nested matches do not duplicate text.
+This inspects saved markup only, never CSS computed styles or scripts. Selector
+changes reuse the same snapshot; no linked resource is fetched.
+
+Application code can pass the trusted niconico Snapshot adapter from PR #108 to
+`default_registry(niconico_adapter=adapter)`. It registers `niconico/search`,
+delegates to the existing `paged_search`, and retains completion, pagination and
+version evidence. Explicit network opt-in still applies. This binding does not
+implement another HTTP client, install PR #108, or add a new live MCP tool.
+The JSON CLI retains the default HTML/Wikipedia registry; arbitrary module names
+and transport callables cannot be supplied in JSON.
+
+BlueProbe's follow-up `HtmlSource` accepts this same offline extraction function
+and maps it to its records/counts/unknown contract. The optional package wiring
+is explicit; no unpinned runtime download or copied parser is introduced.
+
 ## Minimal Pages UI direction
 
 Open WebUI and LibreChat remain integration-test clients. A production Pages UI
