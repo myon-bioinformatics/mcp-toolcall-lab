@@ -1,0 +1,56 @@
+name: Galleria optional UI
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/galleria.yml'
+      - 'pyproject.toml'
+      - 'requirements-galleria.txt'
+      - 'src/mcp_toolcall_lab/gradio_galleria.py'
+      - 'src/mcp_toolcall_lab/markdown_lib.py'
+      - 'tests/test_gradio_galleria.py'
+      - 'vendor/**'
+      - 'vendor.lock.json'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/galleria.yml'
+      - 'pyproject.toml'
+      - 'requirements-galleria.txt'
+      - 'src/mcp_toolcall_lab/gradio_galleria.py'
+      - 'src/mcp_toolcall_lab/markdown_lib.py'
+      - 'tests/test_gradio_galleria.py'
+      - 'vendor/**'
+      - 'vendor.lock.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  galleria:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GRADIO_ANALYTICS_ENABLED: 'False'
+      PYTHONPATH: src
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.11'
+      - name: Install optional UI and test dependencies
+        run: python -m pip install -r requirements-galleria.txt 'pytest>=8' 'pytest-asyncio>=0.24'
+      - name: Require the actual Gradio dependency
+        run: python -c "import gradio; print(gradio.__version__)"
+      - name: Test callbacks, UI construction and HTTP responses
+        run: python -m pytest -q tests/test_gradio_galleria.py --junitxml=build/test-results/galleria.xml
+      - name: Preserve Galleria JUnit
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: galleria-junit
+          path: build/test-results/galleria.xml
+          if-no-files-found: error
