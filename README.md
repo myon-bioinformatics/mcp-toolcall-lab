@@ -534,3 +534,8 @@ Migration source: [Ironmate #77](https://github.com/myon-bioinformatics/Ironmate
 `gradio_galleria.py` at `1281553` (MIT, existing `vendor/Ironmate-LICENSE`).
 Obsolete `ascii_art` / `markdown_market` imports were replaced with the lab's
 canonical loaders. The old local model launcher and character assets are not required.
+
+The dedicated `Galleria optional UI` workflow installs `.[test,galleria]` and runs
+all five Galleria tests, including actual UI construction and HTTP responses.
+It uploads `galleria-junit` and runs on relevant UI/dependency/vendor changes;
+the core MCP test environment remains unchanged.
