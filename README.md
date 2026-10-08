@@ -511,3 +511,26 @@ Receipts remain in the always-upload observation artifact. Shared validation
 checks integrity/run provenance, not visible screen semantics.
 
 Public source placement and automatic Python CI updates: [vendor automation](docs/vendor-automation.md).
+
+## Optional local Galleria
+
+The ASCII shapes/templates, Markdown read/save/heading inspection, and text/JSON/CSV
+viewer from Ironmate now live in `mcp_toolcall_lab.gradio_galleria`.
+It reuses this checkout's existing pinned ASCII/Markdown helpers. No model download,
+GPU or running MCP server is needed; Gradio is an optional extra:
+
+```bash
+pip install -e '.[galleria]'
+python -m mcp_toolcall_lab.gradio_galleria
+```
+
+Run from a source checkout (the existing vendor loaders require `vendor/`).
+The launcher binds to localhost with sharing disabled. Read/save paths are local
+filesystem paths supplied by the operator; this is a trusted local editing demo,
+not a public file service. The viewer lists checkout documents, excluding hidden,
+build/vendor directories and symlinks. Restart to refresh its file list.
+
+Migration source: [Ironmate #77](https://github.com/myon-bioinformatics/Ironmate/issues/77),
+`gradio_galleria.py` at `1281553` (MIT, existing `vendor/Ironmate-LICENSE`).
+Obsolete `ascii_art` / `markdown_market` imports were replaced with the lab's
+canonical loaders. The old local model launcher and character assets are not required.
