@@ -108,3 +108,20 @@ existing implementations, and selected MCP/UI exposure. Larger coverage should b
 built from local fixtures before adding live requests; add browser tests only for
 actual browser behavior. Measure requests and bytes rather than assuming HTML is
 always smaller than an API response.
+
+## Minimal Pages UI direction
+
+Open WebUI and LibreChat remain integration-test clients. A production Pages UI
+can be a small static HTML/CSS/JS export, generated with existing vendored Markdown
+and shared UI helpers where applicable. Those chat clients are not prerequisites
+for using the page. Python runs generation/tests; client interaction must use a
+browser-capable implementation, not assume a Python server exists on Pages.
+
+The first useful UI should accept pasted HTML or a selected saved file, show the
+extracted text/headings/links with source and snapshot time, and permit local
+export. Provider/profile changes reuse loaded content. Lightweight JS, CSS and
+GIF assets may improve presentation when useful; no large UI framework is required.
+New client extraction must share fixture expectations with Python before claiming
+equivalence. Keep logic tests in pytest/Node and browser tests for actual file
+input, interaction, rendering and network behavior. This PR supplies the source
+foundation, not a completed Pages UI.

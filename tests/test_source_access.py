@@ -60,13 +60,15 @@ def test_hidden_subtrees_and_multiple_articles():
 
 
 @pytest.mark.parametrize('html', ['<main>changed</main>', '<article>missing class</article>',
-    '<article class="markdown-body">a</article><article class="markdown-body">b</article>'])
+    '<article class="markdown-body">a</article><article class="markdown-body">b</article>'],
+    ids=['missing-article', 'missing-class', 'ambiguous-articles'])
 def test_github_structure_drift_is_explicit(html):
     with pytest.raises(ValueError, match='exactly one'):
         extract(html, 'https://github.com/owner/repo', 'github-readme')
 
 
-@pytest.mark.parametrize('html', ['', '<article><script>x</script></article>', '<div>' * 128])
+@pytest.mark.parametrize('html', ['', '<article><script>x</script></article>', '<div>' * 128],
+    ids=['empty', 'script-only', 'too-deep'])
 def test_empty_or_deep_document_is_not_success(html):
     with pytest.raises(ValueError):
         extract(html, 'https://example.test/')
@@ -83,7 +85,8 @@ def test_snapshot_tamper_and_wrong_schema():
 
 @pytest.mark.parametrize('body,content_type,encoding', [
     (b'x', 'application/pdf', None), (b'\xff', 'text/html; charset=utf-8', None),
-    (b'x' * (MAX_BYTES + 1), 'text/html', None), (b'x', 'text/html', 'gzip')])
+    (b'x' * (MAX_BYTES + 1), 'text/html', None), (b'x', 'text/html', 'gzip')],
+    ids=['pdf', 'invalid-utf8', 'oversize', 'gzip'])
 def test_bad_response_rejected(body, content_type, encoding):
     with pytest.raises(ValueError):
         source.fetch_snapshot('https://example.test/', opener=lambda *a, **k: Response(body, content_type, encoding))
