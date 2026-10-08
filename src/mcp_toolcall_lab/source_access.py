@@ -123,7 +123,9 @@ def main(argv=None):
         if args.fetch_url:
             if not args.allow_network:
                 raise ValueError('--fetch-url requires --allow-network')
-            if args.request.exists():
+            # Path.exists() follows targets; dangling symlinks must still block
+            # the GET so occupied destinations never trigger network work.
+            if args.request.exists() or args.request.is_symlink():
                 raise ValueError('snapshot destination already exists')
             snapshot = fetch_snapshot(args.fetch_url)
             with args.request.open('x', encoding='utf-8') as output:

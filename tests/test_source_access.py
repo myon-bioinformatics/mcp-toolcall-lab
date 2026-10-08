@@ -171,6 +171,19 @@ def test_cli_existing_snapshot_never_fetches(tmp_path, monkeypatch, capsys):
     assert 'already exists' in capsys.readouterr().out
 
 
+def test_cli_dangling_symlink_never_fetches(tmp_path, monkeypatch, capsys):
+    path = tmp_path / 'dangling.json'
+    path.symlink_to(tmp_path / 'missing-target.json')
+    assert path.is_symlink() and not path.exists()
+    fetcher = Mock(side_effect=AssertionError('must not fetch'))
+    monkeypatch.setattr(source, 'fetch_snapshot', fetcher)
+    assert source.main([str(path), '--fetch-url', 'https://example.test', '--allow-network']) == 2
+    assert path.is_symlink()
+    assert path.readlink() == tmp_path / 'missing-target.json'
+    fetcher.assert_not_called()
+    assert 'already exists' in capsys.readouterr().out
+
+
 def test_cli_capture_and_local_reuse(tmp_path, monkeypatch, capsys):
     path = tmp_path / 'new.json'
     snap = source.make_snapshot('<main>cached</main>', 'https://example.test')
