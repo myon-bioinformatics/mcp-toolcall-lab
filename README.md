@@ -517,11 +517,15 @@ Public source placement and automatic Python CI updates: [vendor automation](doc
 The ASCII shapes/templates, Markdown read/save/heading inspection, and text/JSON/CSV
 viewer from Ironmate now live in `mcp_toolcall_lab.gradio_galleria`.
 It reuses this checkout's existing pinned ASCII/Markdown helpers. No model download,
-GPU or running MCP server is needed; Gradio is an optional extra:
+GPU or running MCP server is needed. Use a separate environment: FastMCP 3.4.7
+requires Starlette >=1 while Gradio 5 requires Starlette <1. Do not install the
+lab package (`pip install -e .`) in this demo environment:
 
 ```bash
-pip install -e '.[galleria]'
-python -m mcp_toolcall_lab.gradio_galleria
+python -m venv .venv-galleria
+. .venv-galleria/bin/activate
+python -m pip install -r requirements-galleria.txt
+PYTHONPATH=src python -m mcp_toolcall_lab.gradio_galleria
 ```
 
 Run from a source checkout (the existing vendor loaders require `vendor/`).
@@ -535,7 +539,8 @@ Migration source: [Ironmate #77](https://github.com/myon-bioinformatics/Ironmate
 Obsolete `ascii_art` / `markdown_market` imports were replaced with the lab's
 canonical loaders. The old local model launcher and character assets are not required.
 
-The dedicated `Galleria optional UI` workflow installs `.[test,galleria]` and runs
+The dedicated `Galleria optional UI` workflow installs `requirements-galleria.txt`
+in a clean environment without FastMCP and runs
 all five Galleria tests, including actual UI construction and HTTP responses.
 It uploads `galleria-junit` and runs on relevant UI/dependency/vendor changes;
 the core MCP test environment remains unchanged.

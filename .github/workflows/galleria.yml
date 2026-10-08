@@ -5,6 +5,7 @@ on:
     paths:
       - '.github/workflows/galleria.yml'
       - 'pyproject.toml'
+      - 'requirements-galleria.txt'
       - 'src/mcp_toolcall_lab/gradio_galleria.py'
       - 'src/mcp_toolcall_lab/markdown_lib.py'
       - 'tests/test_gradio_galleria.py'
@@ -15,6 +16,7 @@ on:
     paths:
       - '.github/workflows/galleria.yml'
       - 'pyproject.toml'
+      - 'requirements-galleria.txt'
       - 'src/mcp_toolcall_lab/gradio_galleria.py'
       - 'src/mcp_toolcall_lab/markdown_lib.py'
       - 'tests/test_gradio_galleria.py'
@@ -31,6 +33,7 @@ jobs:
     timeout-minutes: 10
     env:
       GRADIO_ANALYTICS_ENABLED: 'False'
+      PYTHONPATH: src
     steps:
       - uses: actions/checkout@v7
         with:
@@ -39,7 +42,7 @@ jobs:
         with:
           python-version: '3.11'
       - name: Install optional UI and test dependencies
-        run: python -m pip install -e '.[test,galleria]'
+        run: python -m pip install -r requirements-galleria.txt 'pytest>=8' 'pytest-asyncio>=0.24'
       - name: Require the actual Gradio dependency
         run: python -c "import gradio; print(gradio.__version__)"
       - name: Test callbacks, UI construction and HTTP responses

@@ -17,8 +17,6 @@ mcp-stub-front = "mcp_toolcall_lab.stub_front:main"
 mcp-docker-logs = "mcp_toolcall_lab.docker_logs:main"
 
 [project.optional-dependencies]
-# Local demo only; core tests and MCP do not import Gradio.
-galleria = ["gradio>=5,<6"]
 test = [
     "httpx>=0.28.1",
     "mcp==1.28.1",
