@@ -53,6 +53,7 @@ def test_pr_identity_is_scoped_and_separate_from_copilot():
     "https://chatgpt.com/c/new?chat_id=ignored", "https://gemini.google.com/app/",
     "https://gemini.google.com/share/abc", "https://claude.ai/new",
     "https://cursor.com/agents/new", "https://cursor.com/agents/other",
+    "https://cursor.com/agents/bc-", "https://cursor.com/agents/bc-?chat_id=ignored",
     "https://github.com/copilot", "https://github.com/example/lab/pull/0",
     "https://github.com/example/lab/pull/110/files", "https://github.com/example/../pull/1",
     "https://m365.cloud.microsoft/chat/conversation/",
@@ -60,6 +61,23 @@ def test_pr_identity_is_scoped_and_separate_from_copilot():
 ])
 def test_unsupported_or_malformed_urls(url):
     assert parse_reference(url) is None
+
+
+@pytest.mark.parametrize("host,path", [
+    ("chatgpt.com", "c/abc"), ("gemini.google.com", "app/abc"),
+    ("claude.ai", "chat/abc"), ("m365.cloud.microsoft", "chat/conversation/abc"),
+    ("cursor.com", "agents/bc-abc"), ("github.com", "copilot/c/abc"),
+    ("github.com", "example/lab/pull/1"),
+])
+@pytest.mark.parametrize("template", [
+    "http://{host}/{path}", "https://user@{host}/{path}",
+    "https://{host}:444/{path}", "https://{host}/{path}/extra",
+    "https://{host}/{path}%2Fextra", "https://{host}/{path}\n",
+])
+def test_invalid_hosted_urls_do_not_use_legacy_query_fallback(host, path, template):
+    url = template.format(host=host, path=path) + "?chat_id=unrelated"
+    assert parse_reference(url) is None
+    assert extract_ids_from_url(url) == []
 
 
 def test_known_host_does_not_fall_back_to_query_ids():

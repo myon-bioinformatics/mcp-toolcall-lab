@@ -48,7 +48,7 @@ def parse_reference(url: str) -> dict[str, str] | None:
     if not match or match[1].lower() in _RESERVED:
         return None
     token = match[1]
-    if provider == "cursor" and not token.startswith("bc-"):
+    if provider == "cursor" and (not token.startswith("bc-") or len(token) == 3):
         return None
     return {"provider": provider, "kind": kind, "id": token,
             "url": f"https://{host}/{route}/{token}"}
