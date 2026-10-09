@@ -36,6 +36,7 @@ from typing import Any, Iterable
 from urllib.parse import parse_qs, urlparse
 
 from mcp_toolcall_lab.mock.common import read_jsonl
+from mcp_toolcall_lab.conversation_url import KNOWN_HOSTS, parse_reference
 
 # Prefix / shape table. Longer prefixes first so chatcmpl- wins over chat_.
 # owner=lab means we mint it; everything else is harvested only.
@@ -105,8 +106,12 @@ ID_KINDS: tuple[dict[str, str], ...] = (
         "kind": "conversation_id",
         "owner": "chat-ui",
         "prefix": "",
-        "notes": "LibreChat /c/{id} or conversationId. OWUI /c/{chat.id}. Harvested from URL/keys.",
+        "notes": "Chat UI conversation identity from a supported URL or known log key; not content access.",
     },
+    {"kind": "agent_id", "owner": "cursor", "prefix": "",
+     "notes": "Cursor /agents/bc-* identity; not a chat or MCP call ID."},
+    {"kind": "pull_request_id", "owner": "github", "prefix": "",
+     "notes": "Repository-scoped OWNER/REPO#NUMBER; use GitHub tools for content."},
     {
         "kind": "ui_message_id",
         "owner": "chat-ui",
@@ -228,7 +233,17 @@ def resume_chat_path(chat_id: str | None) -> str | None:
 def extract_ids_from_url(url: str, *, source: str = "url") -> list[FoundId]:
     if not url:
         return []
-    parsed = urlparse(url)
+    reference = parse_reference(url)
+    if reference:
+        return [FoundId(reference["kind"], reference["id"], source)]
+    try:
+        parsed = urlparse(url)
+        # A known hosted service must match its own route, not the legacy
+        # self-hosted /c or query heuristic (e.g. ChatGPT /c/new?chat_id=x).
+        if parsed.hostname in KNOWN_HOSTS:
+            return []
+    except ValueError:
+        return []
     found: list[FoundId] = []
     parts = [part for part in parsed.path.split("/") if part]
     if len(parts) >= 2 and parts[0] == "c" and parts[1].lower() not in _SKIP_PATHS:
@@ -552,7 +567,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--trace-id", default="")
     parser.add_argument("--completion-id", default="")
     parser.add_argument("--any-id", default="", help="match this string regardless of kind")
-    parser.add_argument("--url", default="", help="LibreChat /c/{id} or OWUI /c/{id} /s/{id}")
+    parser.add_argument("--url", default="", help="Supported chat/agent/PR URL or self-hosted /c/{id}, /s/{id}")
     parser.add_argument("--text", default="", help="extra blob to scan for prefixed ids")
     parser.add_argument("--mcp-log", default=_default_log("MCP_TOOLCALL_LOG", "test-results/mcp-toolcalls.jsonl"))
     parser.add_argument("--openai-log", default=_default_log("OPENAI_MOCK_LOG", "test-results/openai-mock.jsonl"))
