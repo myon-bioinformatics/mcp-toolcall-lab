@@ -100,3 +100,12 @@ lock. Exact source pins, LICENSEs, test-only dependencies and Pages/MCP/runtime
 behavior are unchanged. Central topology intent is owned by the parent's
 `vendor-consumers.json`; recommended baselines belong to `vendor-catalog.json`;
 this consumer's lock remains the authority for adopted bytes.
+# Retired Ironmate sources
+
+Ironmate #81 removed its root metadata/provenance prototypes. This consumer
+still uses their existing vendored APIs. The four Ironmate source/LICENSE
+entries therefore resolve their already-verified full commit SHAs, not moving
+main. Source bytes, commit/blob/SHA-256 identities and license stay unchanged.
+Canonical promotion remains enabled for every entry, including these immutable
+refs. Migration to a maintained replacement is separate; this is an explicit
+legacy pin, not a claim that the retired code is maintained upstream.

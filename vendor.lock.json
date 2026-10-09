@@ -39,7 +39,7 @@
     },
     {
       "repository": "myon-bioinformatics/Ironmate",
-      "ref": "refs/heads/main",
+      "ref": "b9c079bb55c1349abb47f67a09bbf0dbcf54bca9",
       "commit": "b9c079bb55c1349abb47f67a09bbf0dbcf54bca9",
       "source": "python_artifact_provenance.py",
       "destination": "vendor/python_artifact_provenance.py",
@@ -48,7 +48,7 @@
     },
     {
       "repository": "myon-bioinformatics/Ironmate",
-      "ref": "refs/heads/main",
+      "ref": "73157cb7fed236a4a941722a6dcddd69a33ab95a",
       "commit": "73157cb7fed236a4a941722a6dcddd69a33ab95a",
       "source": "repository_metadata_contract.py",
       "destination": "vendor/repository_metadata_contract.py",
@@ -57,7 +57,7 @@
     },
     {
       "repository": "myon-bioinformatics/Ironmate",
-      "ref": "refs/heads/main",
+      "ref": "73157cb7fed236a4a941722a6dcddd69a33ab95a",
       "commit": "73157cb7fed236a4a941722a6dcddd69a33ab95a",
       "source": "repository_metadata_generator.py",
       "destination": "vendor/repository_metadata_generator.py",
@@ -93,7 +93,7 @@
     },
     {
       "repository": "myon-bioinformatics/Ironmate",
-      "ref": "refs/heads/main",
+      "ref": "73157cb7fed236a4a941722a6dcddd69a33ab95a",
       "commit": "73157cb7fed236a4a941722a6dcddd69a33ab95a",
       "source": "LICENSE",
       "destination": "vendor/Ironmate-LICENSE",
