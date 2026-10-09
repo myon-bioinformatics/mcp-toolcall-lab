@@ -344,6 +344,11 @@ python scripts/wikipedia_article_screenshot.py --out test-results/wiki-screensho
 
 ### Trace probe (the other ids)
 
+Hosted ChatGPT, Gemini, Claude, M365 Copilot, GitHub Copilot and Cursor URLs,
+plus repository-scoped GitHub PR identities, are recognized offline. See
+[conversation URL identities](docs/conversation-urls.md) for routes, the JSON
+CLI, and the separate boundary between ID extraction and content access.
+
 `chat_id` is the lab-owned pin. Reasoning / response / UI hops mint more ids we do
 **not** own: OpenAI `chatcmpl-*` / `call_*`, Responses `resp_` / `rs_` / `msg_` /
 `fc_`, LibreChat `conversationId` in `/c/{id}`, Open WebUI `chat.id` / `/s/{share}`.
