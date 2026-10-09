@@ -103,3 +103,44 @@ def test_inactive_style_subtrees_are_not_treated_as_active_sources():
     result = inspect_html_styles('<template><style>body{color:#fff}</style></template><main>x</main>',
                                  'https://example.test')
     assert result['sources'] == []
+
+
+@pytest.mark.parametrize('token', [
+    '#dead-beef', '#abc-name', '#abc_name', '#abcd_name', '#abcdef-name',
+    '#deadbeef_name', '#abcg', '#abcde', '#abcdef0', '#abcdef012',
+    '#abc日本', '#abc\u0301', '#abc\u0080',
+    r'#abc\-name', r'#abc\_name', r'#abc\64 ef', r'#abc\#def',
+    r'\#abc', r'\23 abc', r'#\61 bc',
+])
+def test_hex_colors_do_not_accept_partial_or_escaped_hash_tokens(token):
+    result = declarations(f'--token: {token};')
+    assert result == {'declarations': [
+        {'property': '--token', 'value': token, 'important': False,
+         'hex_colors': [], 'variables': []}], 'unknown': []}
+
+
+@pytest.mark.parametrize('token', ['#abc', '#aBcD', '#AbCdEf', '#deadbeef'])
+@pytest.mark.parametrize('template', ['{}', 'var(--accent, {})', 'linear-gradient({}, #000)',
+                                     '{} !important', '{}/* boundary */'])
+def test_standalone_hex_lengths_keep_spelling_and_order(token, template):
+    result = declarations('color: ' + template.format(token))['declarations'][0]
+    assert result['hex_colors'] == [token] + (['#000'] if 'gradient' in template else [])
+
+
+def test_escaped_backslash_does_not_escape_following_hash():
+    assert declarations(r'--x: \\#abc')['declarations'][0]['hex_colors'] == ['#abc']
+
+
+def test_registry_color_boundaries_for_saved_and_inline_css():
+    css = r':root {--bad: #dead-beef #abc_name \#abc #abc\#def; --ok: #abc #abcd #abcdef #deadbeef;}'
+    registry = default_registry()
+    report = registry.invoke('css', 'inspect', {'css': css})['data']
+    expected = [[], ['#abc', '#abcd', '#abcdef', '#deadbeef']]
+    assert [d['hex_colors'] for d in report['rules'][0]['declarations']] == expected
+    html = '<style>' + css + '</style><main style="--bad:#abc-name; color:#abc">x</main>'
+    result = registry.invoke('html', 'extract', {
+        'snapshot': make_snapshot(html, 'https://example.test'),
+        'include_css': True, 'stylesheets': {'/saved.css': css}})['data']['extraction']['css']
+    for source in result['sources']:
+        assert [d['hex_colors'] for d in source['inspection']['rules'][0]['declarations']] == expected
+    assert [d['hex_colors'] for d in result['inline'][0]['declarations']] == [[], ['#abc']]

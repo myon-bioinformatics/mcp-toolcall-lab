@@ -9,6 +9,18 @@ from urllib.parse import urljoin
 
 MAX_BYTES = 2 * 1024 * 1024
 
+# Consume escapes before looking for hashes, and consume the entire CSS name
+# after a hash. Escapes are retained, not decoded into literal color digits.
+_ESCAPE = r'\\(?:[0-9a-fA-F]{1,6}(?:\r\n|[ \t\r\n\f])?|[^\r\n\f])'
+_COLOR_TOKENS = re.compile(
+    _ESCAPE + r'|#(?:[a-zA-Z0-9_\-\u0080-\U0010ffff]|' + _ESCAPE + r')+')
+
+
+def _hex_colors(text):
+    return [match[0] for match in _COLOR_TOKENS.finditer(text)
+            if re.fullmatch(r'#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{4}|'
+                            r'[0-9a-fA-F]{6}|[0-9a-fA-F]{8})', match[0])]
+
 
 def _clean_comments(text):
     out, i, quote = [], 0, None
@@ -95,8 +107,8 @@ def declarations(text):
             value = re.sub(r'!\s*important\s*$', '', value, flags=re.I).rstrip()
         # Quoted strings and url() fragments are not color literals.
         color_source = re.sub(r'url\([^)]*\)|"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])*\'',
-                              '', value, flags=re.I)
-        colors = re.findall(r'#[0-9a-fA-F]{8}\b|#[0-9a-fA-F]{6}\b|#[0-9a-fA-F]{4}\b|#[0-9a-fA-F]{3}\b', color_source)
+                              ' ', value, flags=re.I)
+        colors = _hex_colors(color_source)
         result.append({'property': name if name.startswith('--') else name.lower(),
                        'value': value, 'important': important, 'hex_colors': colors,
                        'variables': re.findall(r'var\(\s*(--[\w-]+)', value, re.ASCII)})
