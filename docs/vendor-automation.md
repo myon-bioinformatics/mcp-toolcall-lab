@@ -30,7 +30,7 @@ ALM agents can use the same mechanism in a disposable checkout:
 
 ```bash
 git clone https://github.com/myon-bioinformatics/myon-bioinformatics.git .vendor-sync-tools
-git -C .vendor-sync-tools checkout --detach 08dc3757deeb930c950bdcc6bd55ec3112ba49fc
+git -C .vendor-sync-tools checkout --detach 380d877cd85837f36cf6030d626ee8bb7dfa28cb
 python -S .vendor-sync-tools/vendor_sync.py check --manifest vendor.lock.json
 python -S .vendor-sync-tools/vendor_sync.py materialize --manifest vendor.lock.json
 python -S .vendor-sync-tools/vendor_sync.py update --manifest vendor.lock.json
@@ -80,3 +80,32 @@ upstream commit timestamp or a claim that the checkout was committed that day.
 
 The shared profile MIT LICENSE is now explicitly locked at `443b8a94bbc6801332e0abd9f2e56da68173b38d`
 and included in resolved and locked evidence. Existing source pins and bytes are unchanged.
+
+
+## Lock-derived evidence staging
+
+Vendor artifact membership is now derived exclusively by the parent
+`vendor_stage.py`, checked out with `vendor_sync.py` at full commit
+`380d877cd85837f36cf6030d626ee8bb7dfa28cb`. Workflow uploads point to its generated
+directory; adding a locked source or LICENSE needs no upload path-list edit.
+Artifact names and repository-relative paths inside each artifact are preserved.
+`vendor-evidence.json` is additional metadata with byte hashes and separate
+locked/candidate, runtime receipt, and legacy projection classifications.
+
+Staging runs even after a failed test, verifies every locked byte, and fails
+nonzero on missing or modified members. It does not certify tests or promotion.
+Locked runs exclude promotion receipts; candidate runs include one when present.
+Legacy projection formats, when present, remain consumer-owned outputs of the
+lock. Exact source pins, LICENSEs, test-only dependencies and Pages/MCP/runtime
+behavior are unchanged. Central topology intent is owned by the parent's
+`vendor-consumers.json`; recommended baselines belong to `vendor-catalog.json`;
+this consumer's lock remains the authority for adopted bytes.
+# Retired Ironmate sources
+
+Ironmate #81 removed its root metadata/provenance prototypes. This consumer
+still uses their existing vendored APIs. The four Ironmate source/LICENSE
+entries therefore resolve their already-verified full commit SHAs, not moving
+main. Source bytes, commit/blob/SHA-256 identities and license stay unchanged.
+Canonical promotion remains enabled for every entry, including these immutable
+refs. Migration to a maintained replacement is separate; this is an explicit
+legacy pin, not a claim that the retired code is maintained upstream.

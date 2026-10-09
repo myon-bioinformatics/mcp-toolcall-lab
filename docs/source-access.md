@@ -118,11 +118,13 @@ syntax and zero matches fail explicitly; nested matches do not duplicate text.
 This inspects saved markup only, never CSS computed styles or scripts. Selector
 changes reuse the same snapshot; no linked resource is fetched.
 
-Application code can pass the trusted niconico Snapshot adapter from PR #108 to
+Application code can pass the bundled trusted niconico Snapshot adapter to
 `default_registry(niconico_adapter=adapter)`. It registers `niconico/search`,
 delegates to the existing `paged_search`, and retains completion, pagination and
 version evidence. Explicit network opt-in still applies. This binding does not
-implement another HTTP client, install PR #108, or add a new live MCP tool.
+implement another HTTP client or add a new live MCP tool.
+The offline integration regression invokes the real adapter with injected transport
+and pacing, covering opt-in, completed results, version drift, and page limits.
 The JSON CLI retains the default HTML/Wikipedia registry; arbitrary module names
 and transport callables cannot be supplied in JSON.
 

@@ -91,7 +91,7 @@ def records(root):
         raise ValueError("unexpected source or destination")
     by_destination = {e["destination"]: e for e in files}
     for e in files:
-        if e["ref"] != "refs/heads/main" or not re.fullmatch(r"[0-9a-f]{40}", e["commit"]):
+        if not re.fullmatch(r"[0-9a-f]{40}", e["commit"]) or e["ref"] not in ("refs/heads/main", e["commit"]):
             raise ValueError("invalid source identity")
         data = (root / e["destination"]).read_bytes()
         blob = hashlib.sha1(b"blob " + str(len(data)).encode() + b"\0" + data).hexdigest()
