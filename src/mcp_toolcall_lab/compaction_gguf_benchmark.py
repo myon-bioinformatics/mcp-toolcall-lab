@@ -116,7 +116,8 @@ def _number(value: Any, field: str) -> int:
 
 
 def normalize_answer(text: str) -> str:
-    return text.strip().strip(" \\t\\r\\n.,!?:;\"'\\`").strip().upper()
+    # strip() takes characters, not escape sequences; never include letters.
+    return text.strip().strip(" \t\r\n.,!?:;\"'`").strip().upper()
 
 
 def score(response: dict[str, Any], expected: str, latency_ms: float,

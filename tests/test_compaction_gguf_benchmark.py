@@ -111,3 +111,19 @@ def test_normalization_and_context_limit():
 def test_missing_repeats_are_rejected():
     with pytest.raises(ValueError):
         run_benchmark(fake_post, context_window=1024, repeats=0)
+
+
+@pytest.mark.parametrize("answer", ["4n", "nSAFE", "SAFEr", "tSAFE", "SAFEt",
+                                  "rSAFE", "SAFEn", "n4", "4t", "4r",
+                                  "SAFE0", "0SAFE", r"\SAFE", r"SAFE\n"])
+def test_normalization_preserves_alphanumeric_and_literal_escape_boundaries(answer):
+    assert normalize_answer(answer) == answer.upper()
+    response = {"choices": [{"message": {"content": answer}}],
+                "usage": {"prompt_tokens": 10, "completion_tokens": 1}}
+    assert not score(response, "4" if "4" in answer else "SAFE", 1, 2048)["quality_exact"]
+
+
+@pytest.mark.parametrize("answer", [' "SAFE". ', "\t\r\n'SAFE'!?;:\n",
+                                  "`safe`", " .\tSAFE\r! ", " ,4? "])
+def test_normalization_keeps_whitespace_quotes_and_punctuation_contract(answer):
+    assert normalize_answer(answer) == ("4" if "4" in answer else "SAFE")
