@@ -129,9 +129,9 @@ def test_paired_metrics_and_secret_free_artifact(tmp_path):
 
 def test_invalid_predictions_never_rewritten_as_valid_digit():
     for reply in ("exit=1", "4\nexplanation", "0 1", "unknown", "",
-                  "{\\"exit_code\\": true}", "{\\"exit_code\\": 7}",
-                  "{\\"exit_code\\": 1, \\"exit_code\\": 2}",
-                  "{\\"exit_code\\": \\"3\\"}", "{\\"exit_code\\": 3, \\"extra\\": 1}"):
+                  "{\"exit_code\": true}", "{\"exit_code\": 7}",
+                  "{\"exit_code\": 1, \"exit_code\": 2}",
+                  "{\"exit_code\": \"3\"}", "{\"exit_code\": 3, \"extra\": 1}"):
         assert _as_digit({"choices": [{"message": {"content": reply}}]}) is None
     assert _as_digit({"choices": [{"message": {"content": ' {"exit_code":3} '}}]}) == 3
     assert _as_digit({}) is None
