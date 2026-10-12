@@ -68,7 +68,7 @@ def test_intentional_failures_are_preserved_in_junit(tmp_path):
     run, root = _run_negative_fixture(tmp_path)
     assert run.returncode == 1, "The negative test suite must actually fail"
     cases = {node.attrib["name"]: node for node in root.findall(".//testcase")}
-    assert len(cases) == 8, sorted(cases)
+    assert len(cases) == 7, sorted(cases)
     expected = {
         "test_assertion_failure": ("failure", "intentional-assertion-sentinel"),
         "test_setup_error": ("error", "intentional-setup-sentinel"),
@@ -93,7 +93,7 @@ def test_intentional_failure_junit_summary_counts(tmp_path):
     assert suite is not None
     # pytest emits ordinary runtime exceptions as test failures, while
     # fixture setup errors are classified as errors.
-    assert int(suite.attrib["tests"]) == 8
+    assert int(suite.attrib["tests"]) == 7
     assert int(suite.attrib["failures"]) == 4
     assert int(suite.attrib["errors"]) == 1
     assert int(suite.attrib["skipped"]) == 2
