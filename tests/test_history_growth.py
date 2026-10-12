@@ -53,3 +53,30 @@ def test_jsonl_parser_accepts_blank_lines(tmp_path):
     path = tmp_path / "log.jsonl"
     path.write_text('\n{"kind":"chat.completions","wire_messages":[]}\n', encoding="utf-8")
     assert len(measure(load_jsonl(path))) == 1
+
+
+def test_observed_counts_and_legacy_are_distinct():
+    roles = {"assistant": 0, "developer": 0, "system": 0, "tool": 7, "user": 4}
+    rows = [
+        {"kind": "chat.completions", "chat_id": "A", "completion_id": "new",
+         "wire_messages": [{"role": "user"}, {"role": "tool"}],
+         "content_measurement": "observed_request", "content_chars": 11,
+         "role_content_chars": roles, "tool_content_chars": 7},
+        {"kind": "chat.completions", "chat_id": "A", "completion_id": "old",
+         "wire_messages": [{"role": "user"}]},
+    ]
+    new, old = measure(rows)
+    assert (new["completion_id"], new["turn_index"], new["content_chars"],
+            new["role_content_chars"]["tool"], new["tool_content_chars"]) == ("new", 1, 11, 7, 7)
+    assert old["turn_index"] == 2
+    assert old["content_chars"] is None
+    assert old["role_content_chars"] is None
+    assert old["content_measurement"] == "unavailable_in_wire_projection"
+
+
+def test_invalid_or_forged_metric_is_not_treated_as_measured():
+    row = {"kind": "chat.completions", "wire_messages": [],
+           "content_measurement": "observed_request", "content_chars": 5,
+           "tool_content_chars": 0, "role_content_chars": {"user": 5}}
+    assert measure([row])[0]["content_measurement"] == "invalid_metrics"
+    assert measure([row])[0]["content_chars"] is None
