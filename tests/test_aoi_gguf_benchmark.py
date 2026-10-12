@@ -154,3 +154,25 @@ def test_repeats_and_context_fail_closed(tmp_path):
         run(data, _fake_post, context_window=2048, repeats=0, model_sha256="f"*64)
     with pytest.raises(BenchmarkError, match="context"):
         run(data, _fake_post, context_window=128, repeats=1, model_sha256="f"*64)
+
+
+def test_all_scope_enumerates_every_registered_id(tmp_path):
+    data = _data(tmp_path)
+    result = run(data, _fake_post, context_window=2048, repeats=1,
+                 model_sha256="a" * 64, scope="all")
+    assert result["scope"] == "all"
+    assert result["distinct_question_ids"] == len(EXPECTED_CODES)
+    assert {s["case_id"] for s in result["samples"]} == set(EXPECTED_CODES)
+    assert result["aggregate"]["compacted_samples"] == 10
+    assert result["aggregate"]["declined_samples"] == 2
+    assert result["aggregate"]["quality_improvements"] == 0
+    assert result["aggregate"]["quality_regressions"] == 0
+    assert result["aggregate"]["class_accuracies"]["4"]["n"] >= 1
+    assert 0 < result["aggregate"]["majority_class_baseline_fraction"] <= 1
+
+
+def test_invalid_scope_is_rejected(tmp_path):
+    data = _data(tmp_path)
+    with pytest.raises(ValueError, match="scope"):
+        run(data, _fake_post, context_window=2048, repeats=1,
+            model_sha256="a" * 64, scope="speculation")
