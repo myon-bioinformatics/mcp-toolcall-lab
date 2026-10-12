@@ -11,7 +11,7 @@ mock result.
 If the request has **no** tools, it replies in plain text saying so — that is
 how the Playwright job distinguishes MCP_PICKER_OFF from MCP_NOT_CALLED.
 
-Request bodies are appended to ``OPENAI_MOCK_LOG`` (JSONL) when set. Each
+Metadata and character counts (not request bodies) are appended to ``OPENAI_MOCK_LOG`` (JSONL) when set. Each
 row includes ``completion_id`` (``chatcmpl-*``) and ``call_ids`` /
 ``inbound_call_ids`` so ``trace_probe`` can join them to a lab ``chat_id``.
 
@@ -63,6 +63,46 @@ def _log(event: dict[str, Any], headers: Any = None) -> None:
     if message_id:
         row["message_id"] = message_id
     append_jsonl(LOG_PATH, row)
+
+
+
+def _content_length(content: Any) -> int:
+    """Count text only; reject unknown shapes rather than estimate."""
+    if content is None:
+        return 0
+    if isinstance(content, str):
+        return len(content)
+    if isinstance(content, list):
+        total = 0
+        for part in content:
+            if not isinstance(part, dict) or part.get("type") not in ("text", "input_text", "output_text"):
+                raise ValueError("unsupported content part")
+            if not isinstance(part.get("text"), str):
+                raise ValueError("invalid content text")
+            total += len(part["text"])
+        return total
+    raise ValueError("unsupported content")
+
+
+def message_content_metrics(messages: Any) -> dict[str, Any]:
+    """Compute non-reversible length telemetry, never returning content."""
+    if not isinstance(messages, list):
+        return {"content_measurement": "invalid_messages"}
+    roles = {"system", "developer", "user", "assistant", "tool"}
+    totals = {role: 0 for role in sorted(roles)}
+    try:
+        for message in messages:
+            if not isinstance(message, dict) or message.get("role") not in roles:
+                raise ValueError("invalid message role")
+            totals[message["role"]] += _content_length(message.get("content"))
+    except ValueError:
+        return {"content_measurement": "invalid_messages"}
+    return {
+        "content_measurement": "observed_request",
+        "content_chars": sum(totals.values()),
+        "role_content_chars": totals,
+        "tool_content_chars": totals["tool"],
+    }
 
 
 def _models_payload() -> dict[str, Any]:
@@ -349,12 +389,12 @@ class Handler(BaseHTTPRequestHandler):
                 "kind": "chat.completions",
                 "stream": bool(body.get("stream")),
                 "tool_names": names,
-                "user": _last_user_text(messages),
                 "has_tool_result": _has_tool_result(messages),
                 "completion_id": completion_id,
                 "call_ids": tool_call_ids_from_message(message),
                 "inbound_call_ids": inbound_call_ids_from_messages(messages),
                 "wire_messages": wire_messages_projection(messages),
+                **message_content_metrics(messages),
                 "wire_assistant": wire_message_projection(message),
             },
             headers=self.headers,
