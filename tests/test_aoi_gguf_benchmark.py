@@ -43,13 +43,14 @@ def _fake_post(path, payload):
     assert payload["temperature"] == 0
     assert payload["cache_prompt"] is False
     assert payload["stream"] is False
+    assert payload["response_format"]["type"] == "json_schema"
     messages = payload["messages"]
     user = [m["content"] for m in messages if m["role"] == "user"][-1]
     pid = re.search(r"TARGET_ID: (P\d+)", user).group(1)
     assert f"ID={pid} | overall_exit={EXPECTED_CODES[pid]}" in user
     answer = str(EXPECTED_CODES[pid])
     return {
-        "choices": [{"message": {"role": "assistant", "content": answer}}],
+        "choices": [{"message": {"role": "assistant", "content": json.dumps({"exit_code": int(answer)})}}],
         "usage": {
             "prompt_tokens": max(1, len(json.dumps(messages, ensure_ascii=False)) // 3),
             "completion_tokens": 1,
@@ -127,9 +128,12 @@ def test_paired_metrics_and_secret_free_artifact(tmp_path):
 
 
 def test_invalid_predictions_never_rewritten_as_valid_digit():
-    for reply in ("exit=1", "4\nexplanation", "0 1", "unknown", ""):
+    for reply in ("exit=1", "4\nexplanation", "0 1", "unknown", "",
+                  "{\\"exit_code\\": true}", "{\\"exit_code\\": 7}",
+                  "{\\"exit_code\\": 1, \\"exit_code\\": 2}",
+                  "{\\"exit_code\\": \\"3\\"}", "{\\"exit_code\\": 3, \\"extra\\": 1}"):
         assert _as_digit({"choices": [{"message": {"content": reply}}]}) is None
-    assert _as_digit({"choices": [{"message": {"content": " 3 "}}]}) == 3
+    assert _as_digit({"choices": [{"message": {"content": ' {"exit_code":3} '}}]}) == 3
     assert _as_digit({}) is None
 
 
