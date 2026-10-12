@@ -91,9 +91,10 @@ def _record(data: dict[str, Any], pid: str) -> str:
     return f"ID={pid} | overall_exit={data['verdicts'][pid]} | statement={statement}"
 
 
-def scenario(data: dict[str, Any], pid: str) -> tuple[list[dict[str, Any]], list[dict[str, Any]], bool]:
+def scenario(data: dict[str, Any], pid: str, *, scope: str = "curated") -> tuple[list[dict[str, Any]], list[dict[str, Any]], bool]:
     """Latest real user gives relevant records; only old tool turns are reducible."""
-    names = list(EXPECTED_CODES)
+    names = (list(EXPECTED_CODES) if scope == "curated"
+             else sorted(data["verdicts"], key=lambda value: int(value[1:])))
     position = names.index(pid)
     distractors = [names[(position + 5) % len(names)], names[(position + 9) % len(names)]]
     evidence = [_record(data, name) for name in [*distractors, pid]]
@@ -184,16 +185,21 @@ def run(
     data: dict[str, Any],
     post: Callable[[str, dict[str, Any]], dict[str, Any]],
     *, context_window: int, repeats: int = 2,
-    model_sha256: str,
+    model_sha256: str, scope: str = "curated",
 ) -> dict[str, Any]:
     if not 0 < repeats <= 10:
         raise ValueError("repeats must be within 1..10")
     if context_window < 256:
         raise BenchmarkError("invalid declared context size")
+    if scope not in ("curated", "all"):
+        raise ValueError("scope must be curated or all")
+    targets = (list(EXPECTED_CODES) if scope == "curated"
+               else sorted(data["verdicts"], key=lambda value: int(value[1:])))
     samples: list[dict[str, Any]] = []
     for trial in range(repeats):
-        for index, (pid, expected) in enumerate(EXPECTED_CODES.items()):
-            original, reduced, compacted = scenario(data, pid)
+        for index, pid in enumerate(targets):
+            expected = data["verdicts"][pid]
+            original, reduced, compacted = scenario(data, pid, scope=scope)
             order = ("original", "reduced") if (index + trial) % 2 == 0 else ("reduced", "original")
             result: dict[str, dict[str, Any]] = {}
             for mode in order:
@@ -230,6 +236,27 @@ def run(
                 "saved_prompt_tokens": old - new,
             })
     aggregate = _aggregate(samples)
+    aggregate["quality_improvements"] = sum(
+        not s["original"]["quality_exact"] and s["reduced"]["quality_exact"]
+        for s in samples
+    )
+    aggregate["quality_regressions"] = sum(
+        s["original"]["quality_exact"] and not s["reduced"]["quality_exact"]
+        for s in samples
+    )
+    aggregate["class_accuracies"] = {
+        str(code): {
+            "n": sum(s["expected_exit_code"] == code for s in samples),
+            "original_correct": sum(s["original"]["quality_exact"]
+                                    for s in samples if s["expected_exit_code"] == code),
+            "reduced_correct": sum(s["reduced"]["quality_exact"]
+                                   for s in samples if s["expected_exit_code"] == code),
+        }
+        for code in sorted(set(data["verdicts"].values()))
+    }
+    aggregate["majority_class_baseline_fraction"] = round(
+        max(data["exit_histogram"].values()) / data["registered_count"], 5
+    )
     aggregate["quality_exact_by_compaction_status"] = {
         status: {
             side: sum(int(s[side]["quality_exact"]) for s in samples if s["compacted"] is flag)
@@ -257,6 +284,7 @@ def run(
         "answer_reference": "published historical overall exit codes, not independent truth",
         "model_sha256": model_sha256, "server_image_digest": EXPECTED_IMAGE,
         "context_window_tokens": context_window, "temperature": 0,
+        "scope": scope, "distinct_question_ids": len(targets),
         "repeats": repeats, "max_generation_tokens": MAX_GENERATION,
         "quality_definition": "strict JSON Schema-constrained published overall exit-code match",
         "decoding": "llama.cpp json_schema response_format, enum 0..5",
@@ -274,6 +302,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--base-url", default="http://127.0.0.1:8080")
     parser.add_argument("--out", required=True, type=Path)
     parser.add_argument("--trials", type=int, default=2)
+    parser.add_argument("--scope", choices=("curated", "all"), default="curated")
     args = parser.parse_args(argv)
     parsed = urllib.parse.urlparse(args.base_url)
     if parsed.scheme != "http" or parsed.hostname not in {"127.0.0.1", "localhost", "::1"}:
@@ -289,7 +318,8 @@ def main(argv: list[str] | None = None) -> int:
     if type(n_ctx) is not int or n_ctx <= 0:
         raise BenchmarkError("real llama server did not advertise n_ctx")
     report = run(evidence, lambda path, payload: _http_json(base + path, payload),
-                 context_window=n_ctx, repeats=args.trials, model_sha256=model_hash)
+                 context_window=n_ctx, repeats=args.trials, model_sha256=model_hash,
+                 scope=args.scope)
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(report["aggregate"], ensure_ascii=False, sort_keys=True))
