@@ -136,3 +136,41 @@ def test_openai_log_copies_message_id_header(tmp_path: Path, monkeypatch) -> Non
     )
     row = json.loads(log.read_text(encoding="utf-8").splitlines()[0])
     assert row["message_id"] == "owui-msg-row"
+
+
+def test_content_metrics_strings_parts_empty_and_invalid():
+    result = mock.message_content_metrics([
+        {"role": "user", "content": "秘密abc"},
+        {"role": "assistant", "content": [{"type": "text", "text": "hi"},
+                                         {"type": "input_text", "text": "日本"}]},
+        {"role": "tool", "content": "TOOL_SECRET"},
+        {"role": "system", "content": None},
+    ])
+    assert result["content_chars"] == 5 + 4 + 11
+    assert result["role_content_chars"]["assistant"] == 4
+    assert result["role_content_chars"]["system"] == 0
+    assert result["tool_content_chars"] == 11
+    assert "秘密" not in json.dumps(result, ensure_ascii=False)
+    assert "TOOL_SECRET" not in json.dumps(result)
+    assert mock.message_content_metrics([{"role": "user", "content": []}])["content_chars"] == 0
+    for bad in ([None], [{"role": "user", "content": {"text": "private"}}],
+                [{"role": "unknown", "content": "secret"}],
+                [{"role": "tool", "content": [{"type": "image_url", "image_url": "secret"}]}]):
+        assert mock.message_content_metrics(bad) == {"content_measurement": "invalid_messages"}
+
+
+def test_logged_measurement_never_includes_message_bodies(tmp_path, monkeypatch):
+    log = tmp_path / "metrics.jsonl"
+    monkeypatch.setattr(mock, "LOG_PATH", str(log))
+    secret = "UNIQUE_PRIVATE_TOOL_RESULT"
+    messages = [{"role": "user", "content": "PRIVATE_PROMPT"},
+                {"role": "tool", "content": secret}]
+    mock._log({"kind": "chat.completions", "completion_id": "chatcmpl-test",
+               "wire_messages": mock.wire_messages_projection(messages),
+               **mock.message_content_metrics(messages)})
+    raw = log.read_text(encoding="utf-8")
+    assert "PRIVATE_PROMPT" not in raw and secret not in raw
+    record = json.loads(raw)
+    assert "user" not in record
+    assert record["content_chars"] == len("PRIVATE_PROMPT") + len(secret)
+    assert "chat_id" not in record
