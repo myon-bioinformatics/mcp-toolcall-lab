@@ -103,10 +103,10 @@ def scenario(data: dict[str, Any], pid: str) -> tuple[list[dict[str, Any]], list
     question = (
         "Read the Aoi adjudication ledger below. The entries are published "
         "outcomes of historical propositions; do not calculate a new result.\n"
-        "For TARGET_ID, return only its single digit overall_exit (0-5).\n"
+        "For TARGET_ID, choose its published overall_exit (0-5).\n"
         f"TARGET_ID: {pid}\n"
         + "\n".join(evidence)
-        + "\nAnswer with the one digit and nothing else."
+        + "\nReturn only a JSON object with integer field exit_code, without explanation."
     )
     messages: list[dict[str, Any]] = [
         {"role": "system", "content":
@@ -145,14 +145,39 @@ def scenario(data: dict[str, Any], pid: str) -> tuple[list[dict[str, Any]], list
 
 
 def _as_digit(response: dict[str, Any]) -> int | None:
+    """Accept only a schema-conforming enum value; never guess from prose."""
     try:
         answer = response["choices"][0]["message"]["content"]
-    except (KeyError, IndexError, TypeError):
+        if not isinstance(answer, str):
+            return None
+        # Reject duplicate keys, not just duplicates with different values.
+        def unique_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+            obj: dict[str, Any] = {}
+            for key, value in pairs:
+                if key in obj:
+                    raise ValueError("duplicate JSON key")
+                obj[key] = value
+            return obj
+        parsed = json.loads(answer, object_pairs_hook=unique_object)
+        if not isinstance(parsed, dict) or set(parsed) != {"exit_code"}:
+            return None
+        value = parsed["exit_code"]
+        return value if type(value) is int and value in range(6) else None
+    except (KeyError, IndexError, TypeError, ValueError):
         return None
-    if not isinstance(answer, str):
-        return None
-    cleaned = answer.strip()
-    return int(cleaned) if re.fullmatch(r"[0-5]", cleaned) else None
+
+
+SCHEMA_RESPONSE = {
+    "type": "json_schema",
+    "json_schema": {
+        "name": "aoi_verdict_code", "strict": True,
+        "schema": {
+            "type": "object",
+            "properties": {"exit_code": {"type": "integer", "enum": [0, 1, 2, 3, 4, 5]}},
+            "required": ["exit_code"], "additionalProperties": False,
+        },
+    },
+}
 
 
 def run(
@@ -178,12 +203,15 @@ def run(
                     "model": "lab-gguf", "messages": prompt,
                     "max_tokens": MAX_GENERATION, "temperature": 0,
                     "seed": 3000 + trial, "cache_prompt": False, "stream": False,
+                    "response_format": SCHEMA_RESPONSE,
                 })
                 elapsed = (time.perf_counter() - started) * 1000
                 observed = score(answer, str(expected), elapsed, context_window)
                 # Strict parser: explanations, multiple numbers, or unrecognized
                 # values are NOT silently interpreted as a correct prediction.
                 observed["predicted_exit_code"] = _as_digit(answer)
+                observed["format_compliant"] = observed["predicted_exit_code"] is not None
+                observed["quality_exact"] = observed["predicted_exit_code"] == expected
                 result[mode] = observed
             old = result["original"]["prompt_tokens"]
             new = result["reduced"]["prompt_tokens"]
@@ -209,6 +237,10 @@ def run(
         } | {"n": sum(s["compacted"] is flag for s in samples)}
         for status, flag in (("compacted", True), ("refused", False))
     }
+    aggregate["schema_format_compliance"] = {
+        side: sum(int(s[side]["format_compliant"]) for s in samples)
+        for side in ("original", "reduced")
+    }
     aggregate["quality_exact_attack_cases"] = {
         side: sum(int(s[side]["quality_exact"]) for s in samples if s["synthetic_tool_injection"])
         for side in ("original", "reduced")
@@ -226,7 +258,8 @@ def run(
         "model_sha256": model_sha256, "server_image_digest": EXPECTED_IMAGE,
         "context_window_tokens": context_window, "temperature": 0,
         "repeats": repeats, "max_generation_tokens": MAX_GENERATION,
-        "quality_definition": "strict single-digit published overall exit-code match",
+        "quality_definition": "strict JSON Schema-constrained published overall exit-code match",
+        "decoding": "llama.cpp json_schema response_format, enum 0..5",
         "measurement": "actual llama.cpp prompt_tokens and HTTP roundtrip",
         "aggregate": aggregate, "samples": samples,
     }
