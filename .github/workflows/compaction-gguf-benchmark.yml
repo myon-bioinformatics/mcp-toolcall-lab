@@ -103,6 +103,19 @@ jobs:
             --expected-model-sha256 2e8040ceae7815abe0dcb3540b9995eaa1fa0d2ca9e797d0a635ae4433c68c2d \
             --trials 2
 
+      - name: Paired Aoi complete 114-proposition evaluation
+        env:
+          PYTHONPATH: src
+        run: |
+          python -m mcp_toolcall_lab.aoi_gguf_benchmark \
+            --scope all --trials 1 \
+            --aoi-index .aoi-evidence/cycles/c001-chunichi/outputs/index.md \
+            --aoi-propositions .aoi-evidence/cycles/c001-chunichi/propositions.toml \
+            --base-url http://127.0.0.1:8080 \
+            --out test-results/aoi-full-compaction-gguf-results.json \
+            --model-file docker/stub-pages/models/model.gguf \
+            --expected-model-sha256 2e8040ceae7815abe0dcb3540b9995eaa1fa0d2ca9e797d0a635ae4433c68c2d
+
       - name: Validate report redaction and add numeric summary
         run: |
           python - <<'PY'
@@ -120,6 +133,18 @@ jobs:
               if bad in aoi_text:
                   raise SystemExit("Aoi prompt/tool text unexpectedly present in report")
           aoi = json.loads(aoi_text)
+          all_text = Path("test-results/aoi-full-compaction-gguf-results.json").read_text(encoding="utf-8")
+          if any(bad in all_text for bad in ("Ignore the TARGET_ID", "role: system",
+                                              "Old public Aoi record:", "statement=")):
+              raise SystemExit("full Aoi report included raw fixture text")
+          all_aoi = json.loads(all_text)
+          if all_aoi["schema"] != "aoi-compaction-gguf/1":
+              raise SystemExit("invalid full Aoi benchmark schema")
+          full = all_aoi["aggregate"]
+          if (all_aoi["scope"], all_aoi["distinct_question_ids"],
+                  full["paired_samples"], full["compacted_samples"],
+                  full["declined_samples"]) != ("all", 114, 114, 112, 2):
+              raise SystemExit("full 114-proposition live comparisons are incomplete")
           if aoi["schema"] != "aoi-compaction-gguf/1":
               raise SystemExit("invalid Aoi evaluation schema")
           if aoi["aoi_published_registered_count"] != 114:
@@ -152,7 +177,16 @@ jobs:
                           "quality_exact_reduced", "median_latency_ms_original",
                           "median_latency_ms_reduced", "attack_case_count"):
                   output.write(f"- {key}: {aoi_aggregate[key]}\n")
-              output.write("\nNo real MCP tool selection or forward holdout was measured.\n")
+              output.write("\n### Aoi entire registered corpus (114 distinct propositions)\n\n")
+              output.write("One comparison per proposition, not held-out 2026 confirmation.\n\n")
+              for key in ("paired_samples", "compacted_samples", "declined_samples",
+                          "token_reduction_fraction_compactable", "quality_exact_original",
+                          "quality_exact_reduced", "quality_improvements",
+                          "quality_regressions", "majority_class_baseline_fraction",
+                          "median_latency_ms_original", "median_latency_ms_reduced"):
+                  output.write(f"- {key}: {full[key]}\n")
+              output.write(f"- class_accuracies: {json.dumps(full['class_accuracies'], sort_keys=True)}\n")
+              output.write("\nNo real MCP tool selection or independent forward holdout was measured.\n")
           PY
 
       - name: Upload synthetic model evaluation and JUnit evidence
@@ -163,6 +197,7 @@ jobs:
           path: |
             test-results/compaction-gguf-results.json
             test-results/aoi-compaction-gguf-results.json
+            test-results/aoi-full-compaction-gguf-results.json
             test-results/compaction-gguf-pytest.xml
             docker/stub-pages/models/model.gguf.provenance.json
           if-no-files-found: warn
