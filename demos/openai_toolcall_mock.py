@@ -90,15 +90,41 @@ def message_content_metrics(messages: Any) -> dict[str, Any]:
         return {"content_measurement": "invalid_messages"}
     roles = {"system", "developer", "user", "assistant", "tool"}
     totals = {role: 0 for role in sorted(roles)}
+    argument_chars = 0
     try:
         for message in messages:
             if not isinstance(message, dict) or message.get("role") not in roles:
                 raise ValueError("invalid message role")
             totals[message["role"]] += _content_length(message.get("content"))
-    except ValueError:
+            if "tool_calls" in message:
+                calls = message["tool_calls"]
+                if message["role"] != "assistant" or not isinstance(calls, list):
+                    raise ValueError("invalid tool calls")
+                for call in calls:
+                    if not isinstance(call, dict) or call.get("type") != "function":
+                        raise ValueError("invalid tool call")
+                    function = call.get("function")
+                    if (not isinstance(call.get("id"), str)
+                            or not isinstance(function, dict)
+                            or not isinstance(function.get("name"), str)
+                            or not isinstance(function.get("arguments"), str)):
+                        raise ValueError("invalid tool function")
+                    # Arguments are opaque strings, not parsed or trusted instructions.
+                    argument_chars += len(function["arguments"])
+        # Count Unicode code points, including keys, IDs, names and extra fields.
+        # This serialization is transient: only its length is returned/logged.
+        message_json_chars = len(json.dumps(
+            messages, ensure_ascii=False, sort_keys=True, separators=(",", ":"),
+            allow_nan=False,
+        ))
+    except (ValueError, TypeError):
         return {"content_measurement": "invalid_messages"}
     return {
         "content_measurement": "observed_request",
+        "message_measurement": "observed_request",
+        "message_json_format": "unicode_sorted_compact_v1",
+        "message_json_chars": message_json_chars,
+        "tool_call_argument_chars": argument_chars,
         "content_chars": sum(totals.values()),
         "role_content_chars": totals,
         "tool_content_chars": totals["tool"],
@@ -380,8 +406,16 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json({"error": "invalid JSON body"}, status=400)
             return
 
+        if not isinstance(body, dict):
+            self._send_json({"error": "invalid request object"}, status=400)
+            return
+        received_messages = body.get("messages")
+        metrics = message_content_metrics(received_messages)
+        if metrics.get("content_measurement") != "observed_request":
+            self._send_json({"error": "invalid messages"}, status=400)
+            return
         names = _tool_names(body)
-        messages = list(body.get("messages") or [])
+        messages = received_messages
         message = decide_assistant_message(body)
         completion_id = f"chatcmpl-{uuid.uuid4().hex}"
         _log(
@@ -394,7 +428,7 @@ class Handler(BaseHTTPRequestHandler):
                 "call_ids": tool_call_ids_from_message(message),
                 "inbound_call_ids": inbound_call_ids_from_messages(messages),
                 "wire_messages": wire_messages_projection(messages),
-                **message_content_metrics(messages),
+                **metrics,
                 "wire_assistant": wire_message_projection(message),
             },
             headers=self.headers,

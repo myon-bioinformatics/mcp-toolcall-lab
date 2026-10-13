@@ -80,3 +80,42 @@ def test_invalid_or_forged_metric_is_not_treated_as_measured():
            "tool_content_chars": 0, "role_content_chars": {"user": 5}}
     assert measure([row])[0]["content_measurement"] == "invalid_metrics"
     assert measure([row])[0]["content_chars"] is None
+
+
+def _full_metric_row():
+    return {"kind": "chat.completions", "wire_messages": [],
+            "content_measurement": "observed_request", "content_chars": 0,
+            "tool_content_chars": 0,
+            "role_content_chars": dict.fromkeys(["system", "developer", "user", "assistant", "tool"], 0),
+            "message_measurement": "observed_request", "message_json_chars": 2,
+            "tool_call_argument_chars": 0, "message_json_format": "unicode_sorted_compact_v1"}
+
+
+@pytest.mark.parametrize("field,value", [
+    ("message_json_chars", True), ("message_json_chars", -1), ("message_json_chars", 1),
+    ("message_json_chars", "2"), ("tool_call_argument_chars", False),
+    ("tool_call_argument_chars", -1), ("tool_call_argument_chars", 3),
+    ("tool_call_argument_chars", None), ("message_json_format", "unknown"),
+])
+def test_invalid_full_metrics_are_never_reported_as_total(field, value):
+    row = _full_metric_row()
+    row[field] = value
+    result = measure([row])[0]
+    assert result["message_measurement"] == "invalid_metrics"
+    assert result["message_json_chars"] is None
+    assert result["tool_call_argument_chars"] is None
+
+
+def test_legacy_content_only_log_does_not_claim_full_history_measurement():
+    row = _full_metric_row()
+    del row["message_measurement"]
+    del row["message_json_chars"]
+    del row["tool_call_argument_chars"]
+    result = measure([row])[0]
+    assert result["content_measurement"] == "observed_request"
+    assert result["content_chars"] == 0
+    assert result["message_measurement"] == "unavailable_in_legacy_log"
+    assert result["message_json_chars"] is None
+    assert result["tool_call_argument_chars"] is None
+    row["content_measurement"] = "invalid_messages"
+    assert measure([row])[0]["message_measurement"] == "invalid_messages"
