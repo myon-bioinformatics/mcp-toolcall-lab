@@ -1,8 +1,8 @@
 """Read-only OpenAI mock request growth measurements (Issue #115).
 
 Reads OPENAI_MOCK_LOG JSONL without emitting message bodies or secrets.
-Only wire_messages is available in the current mock log; these are
-role/ID projections, not the full content sent to the model.
+New logs contain complete-message JSON and text lengths measured at ingress.
+Older logs without full metrics remain explicitly unmeasurable for total size.
 """
 from __future__ import annotations
 
@@ -26,6 +26,23 @@ def measure(rows: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
         # Do not combine unknown chats: each untagged request is isolated.
         key = chat_id if isinstance(chat_id, str) and chat_id else f"unknown:{line_number}"
         per_chat[key] += 1
+        observed = row.get("content_measurement") == "observed_request"
+        role_chars = row.get("role_content_chars")
+        valid = (observed and type(row.get("content_chars")) is int
+                 and row["content_chars"] >= 0 and type(row.get("tool_content_chars")) is int
+                 and isinstance(role_chars, dict)
+                 and set(role_chars) == {"system", "developer", "user", "assistant", "tool"}
+                 and all(type(v) is int and v >= 0 for v in role_chars.values())
+                 and row["content_chars"] == sum(role_chars.values())
+                 and row["tool_content_chars"] == role_chars["tool"])
+        full_observed = row.get("message_measurement") == "observed_request"
+        full_valid = (valid and full_observed
+                      and row.get("message_json_format") == "unicode_sorted_compact_v1"
+                      and type(row.get("message_json_chars")) is int
+                      and type(row.get("tool_call_argument_chars")) is int
+                      and row["tool_call_argument_chars"] >= 0
+                      and row["message_json_chars"] >= max(
+                          2, row["content_chars"] + row["tool_call_argument_chars"]))
         result.append({
             "line": line_number,
             "chat_id": chat_id if isinstance(chat_id, str) and chat_id else None,
@@ -34,8 +51,18 @@ def measure(rows: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
             "message_count": len(messages),
             "tool_message_count": sum(m.get("role") == "tool" for m in messages),
             "projection_json_chars": len(json.dumps(messages, ensure_ascii=False)),
-            "content_chars": None,
-            "content_measurement": "unavailable_in_wire_projection",
+            "message_json_chars": row["message_json_chars"] if full_valid else None,
+            "tool_call_argument_chars": row["tool_call_argument_chars"] if full_valid else None,
+            "message_json_format": row["message_json_format"] if full_valid else None,
+            "message_measurement": ("observed_request" if full_valid else
+                "invalid_messages" if row.get("content_measurement") == "invalid_messages" else
+                "invalid_metrics" if full_observed else "unavailable_in_legacy_log"),
+            "content_chars": row["content_chars"] if valid else None,
+            "role_content_chars": dict(role_chars) if valid else None,
+            "tool_content_chars": row["tool_content_chars"] if valid else None,
+            "content_measurement": ("observed_request" if valid else
+                "invalid_messages" if row.get("content_measurement") == "invalid_messages" else
+                "invalid_metrics" if observed else "unavailable_in_wire_projection"),
         })
     return result
 
