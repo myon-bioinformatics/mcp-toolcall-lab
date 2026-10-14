@@ -537,7 +537,7 @@ not a public file service. The viewer lists checkout documents, excluding hidden
 build/vendor directories and symlinks. Restart to refresh its file list.
 
 Migration source: [Ironmate #77](https://github.com/myon-bioinformatics/Ironmate/issues/77),
-`gradio_galleria.py` at `1281553` (MIT, existing `vendor/Ironmate-LICENSE`).
+`gradio_galleria.py` at `1281553` (MIT).
 Obsolete `ascii_art` / `markdown_market` imports were replaced with the lab's
 canonical loaders. The old local model launcher and character assets are not required.
 

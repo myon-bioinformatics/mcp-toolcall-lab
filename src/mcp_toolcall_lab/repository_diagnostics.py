@@ -1,7 +1,7 @@
 """Static repository diagnostics for GitHub Pages.
 
-This module is the mcp-toolcall-lab consumer of Ironmate's public repository
-metadata contract v1 and web-ui's RepositoryDiagnostics renderer. It reuses
+This module is the mcp-toolcall-lab consumer of gh_identity's repository
+metadata v1 contract and web-ui's RepositoryDiagnostics renderer. It reuses
 this repository's anonymous GitHub resolver for observations rather than
 duplicating resolver semantics.
 """
@@ -11,6 +11,7 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import subprocess
 import sys
 from types import ModuleType
 from typing import Any, Mapping
@@ -18,13 +19,9 @@ from typing import Any, Mapping
 from .github_public_resolver import resolve_public_github
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-CONTRACT_PATH = REPO_ROOT / "vendor" / "repository_metadata_contract.py"
-CONTRACT_PROVENANCE_PATH = REPO_ROOT / "vendor" / "repository_metadata_contract.provenance.json"
-GENERATOR_PATH = REPO_ROOT / "vendor" / "repository_metadata_generator.py"
-GENERATOR_PROVENANCE_PATH = REPO_ROOT / "vendor" / "repository_metadata_generator.provenance.json"
-GIT_INSPECTOR_PATH = REPO_ROOT / "vendor" / "git_inspector.py"
-GIT_INSPECTOR_PROVENANCE_PATH = REPO_ROOT / "vendor" / "git_inspector.provenance.json"
+GH_IDENTITY_PATH = REPO_ROOT / "vendor" / "gh_identity.py"
 REPOSITORY = "myon-bioinformatics/mcp-toolcall-lab"
+_TOOLING_COMMANDS = ("git", "gh", "node", "npm", "npx")
 WEB_UI_SHA = "adb23d7ba6ea94672b76457573f6655a081ee054"
 WEB_UI_BASE = f"https://cdn.jsdelivr.net/gh/myon-bioinformatics/web-ui@{WEB_UI_SHA}"
 JSON_NAME = "repository-diagnostics.json"
@@ -32,49 +29,42 @@ JSONL_NAME = "repository-diagnostics.jsonl"
 PAGE_NAME = "repository-diagnostics.html"
 
 
-def _load_contract(*, canonical_name: bool = False) -> ModuleType:
-    module_name = "repository_metadata_contract" if canonical_name else "repository_metadata_contract_v1"
-    if canonical_name:
-        loaded = sys.modules.get(module_name)
-        if loaded is not None and Path(getattr(loaded, "__file__", "")).resolve() == CONTRACT_PATH.resolve():
-            return loaded
-    spec = importlib.util.spec_from_file_location(module_name, CONTRACT_PATH)
+def _load_gh_identity() -> ModuleType:
+    spec = importlib.util.spec_from_file_location("mcp_toolcall_lab_vendor_gh_identity", GH_IDENTITY_PATH)
     if spec is None or spec.loader is None:
-        raise ImportError(f"cannot load repository metadata contract: {CONTRACT_PATH}")
+        raise ImportError(f"cannot load gh_identity: {GH_IDENTITY_PATH}")
     module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
     spec.loader.exec_module(module)
     return module
 
 
-def _load_generator() -> ModuleType:
-    # The canonical generator imports its sibling contract by bare module name.
-    # Bind that name explicitly to the pinned vendored bytes without leaking a
-    # vendor directory into process-wide sys.path.
-    _load_contract(canonical_name=True)
-    spec = importlib.util.spec_from_file_location("repository_metadata_generator_v1", GENERATOR_PATH)
-    if spec is None or spec.loader is None:
-        raise ImportError(f"cannot load repository metadata generator: {GENERATOR_PATH}")
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
+def _metadata_jsonl(record: dict[str, Any]) -> str:
+    gh = _load_gh_identity()
+    gh.validate_repository_metadata_v1(record)
+    return json.dumps(record, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n"
 
 
-def _load_git_inspector() -> ModuleType:
-    spec = importlib.util.spec_from_file_location(
-        "mcp_toolcall_lab_vendor_git_inspector", GIT_INSPECTOR_PATH
+def _tracked_file_inventory(root: Path, *, max_files: int = 10_000, max_bytes: int = 1_000_000) -> dict[str, Any]:
+    """Bounded tracked-file inventory via ``git ls-files`` (no vendored helper)."""
+    proc = subprocess.run(
+        ["git", "-C", str(root), "--no-pager", "ls-files", "-z"],
+        capture_output=True,
+        check=False,
     )
-    if spec is None or spec.loader is None:
-        raise ImportError(f"cannot load Git inspector: {GIT_INSPECTOR_PATH}")
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
+    if proc.returncode != 0:
+        raise RuntimeError("git ls-files failed")
+    raw = proc.stdout[:max_bytes]
+    byte_truncated = len(proc.stdout) > max_bytes
+    if byte_truncated and raw and not raw.endswith(b"\0"):
+        boundary = raw.rfind(b"\0")
+        raw = b"" if boundary < 0 else raw[: boundary + 1]
+    paths = [item.decode("utf-8", "replace") for item in raw.split(b"\0") if item]
+    record_truncated = len(paths) > max_files
+    return {"paths": paths[:max_files], "truncated": byte_truncated or record_truncated}
 
 
 def _tracked_bytes(root: Path = REPO_ROOT) -> int:
-    observation = _load_git_inspector().ls_files(root)
+    observation = _tracked_file_inventory(root)
     if observation["truncated"]:
         raise RuntimeError("tracked-file inventory was truncated")
     total = 0
@@ -91,20 +81,22 @@ def build_record(
     now: str | None = None,
     working_tree_bytes: int | None = None,
 ) -> dict[str, Any]:
-    """Build canonical metadata v1 from checkout HEAD via the vendored producer."""
-    generator = _load_generator()
-    root = REPO_ROOT
-    record = generator.record_from_checkout(
+    """Build canonical metadata v1 from checkout HEAD via vendored gh_identity."""
+    gh = _load_gh_identity()
+    root = str(REPO_ROOT)
+    wtb = _tracked_bytes(REPO_ROOT) if working_tree_bytes is None else working_tree_bytes
+    tooling = gh.tool_versions(_TOOLING_COMMANDS, include_python=True)
+    record = gh.repository_metadata_v1(
         root,
-        REPOSITORY,
+        repository=REPOSITORY,
         env=os.environ if env is None else env,
-        working_tree_bytes=_tracked_bytes(root) if working_tree_bytes is None else working_tree_bytes,
-        include_python_tooling=True,
-        tooling_commands=("git", "gh", "node", "npm", "npx"),
+        measurements={"working_tree_bytes": wtb},
+        tooling=tooling,
     )
     if now is not None:
+        record = dict(record)
         record["generated_at"] = now
-        _load_contract(canonical_name=True).validate_repository_record(record)
+        gh.validate_repository_metadata_v1(record)
     return record
 
 
@@ -226,7 +218,6 @@ def write_pages(
     env: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
     """Write JSON, JSONL, and the reusable diagnostics page into a Pages tree."""
-    contract = _load_contract(canonical_name=True)
     out_dir.mkdir(parents=True, exist_ok=True)
     record = build_record(env)
     payload = build_payload(record, probe=probe)
@@ -236,7 +227,7 @@ def write_pages(
         encoding="utf-8",
     )
     (out_dir / JSONL_NAME).write_text(
-        contract.to_jsonl(record),
+        _metadata_jsonl(record),
         encoding="utf-8",
     )
     (out_dir / PAGE_NAME).write_text(_renderer_page(), encoding="utf-8")

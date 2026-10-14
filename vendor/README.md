@@ -4,103 +4,33 @@ Pinned snapshot of [`myon-bioinformatics/markdown`](https://github.com/myon-bioi
 `markdown.py` (stdlib helpers, not a CommonMark engine). The stub front loads
 this file by path so the Pages/Docker image does not grow a pip dependency.
 
-This file owns Markdown ↔ HTML/CSS and the thin Markdown ↔ Kramdown IAL
-subset (`markdown_to_html` / `html_to_markdown` / `default_stylesheet` /
-`markdown_to_kramdown` / `kramdown_to_markdown` / `ial` / `with_attributes`),
-the lightweight HTML DOM text helpers (`find_html_text` / `html_text_content`),
-and the Markdown → web-ui HTML contract v1 wrapper (`markdown_to_web_ui_v1`).
-The lab does not keep a second copy of those converters.
-
-The same snapshot also includes dialect converters (Slack / Org / MediaWiki /
-Jira), chat messages, system formats (email / man / calendar / platform),
-directory tree / scaffold helpers, and LLM I/O helpers such as `split_reasoning`.
-When needed, reuse these vendored helpers rather than reimplementing them in the lab.
-
-Provenance is in [`markdown.provenance.json`](markdown.provenance.json)
-(`commit` + git `blob_sha` + `sha256`). Refresh **that commit**, not `main`:
-
-```bash
-COMMIT=$(python3 -c "import json; print(json.load(open('vendor/markdown.provenance.json'))['commit'])")
-gh api "repos/myon-bioinformatics/markdown/contents/markdown.py?ref=${COMMIT}" --jq .content \
-  | base64 -d > vendor/markdown.py
-python3 -c "from mcp_toolcall_lab.markdown_lib import assert_markdown_provenance; assert_markdown_provenance()"
-```
-
+Identity and byte hashes live in the repo-root [`vendor.lock.json`](../vendor.lock.json)
+entry for `vendor/markdown.py`. Refresh by updating that lock entry and the
+checked-in bytes together; `tests/test_vendor_lock.py` and
+`mcp_toolcall_lab.markdown_lib.assert_markdown_provenance()` guard drift.
 
 # Vendored `ascii_artist.py`
 
 Pinned source snapshot from `myon-bioinformatics/ascii_artist`. It stays stdlib-only
-and is used only as an optional presentation adapter (not article parsing): its
-`to_web_ui_v1_html()` emitter currently renders the web-ui HTML contract v1 surface
-for Wikipedia/pixiv Encyclopedia results. Wrapping *Markdown* in contract v1 is
-`markdown.markdown_to_web_ui_v1`'s job; moving those results onto it is a
-follow-up, not a second emitter to grow here. Article extraction and section semantics
-remain owned by their source adapters and `markdown.py`.
+and is used only as an optional presentation adapter (not article parsing).
 
 # Vendored `gh_ops.py`
 
-Pinned snapshot of [`myon-bioinformatics/browser-test-kit`](https://github.com/myon-bioinformatics/browser-test-kit)
-`scripts/gh_ops.py` (stdlib-only GitHub REST operations; no `gh` CLI). It is
-loaded by path, the same way as `markdown.py`, by
+Pinned snapshot of [`myon-bioinformatics/myon-bioinformatics`](https://github.com/myon-bioinformatics/myon-bioinformatics)
+`gh_ops.py` (stdlib-only GitHub REST operations). Loaded by path by
 [`src/mcp_toolcall_lab/github_ops_server.py`](../src/mcp_toolcall_lab/github_ops_server.py)
-— see [`docs/github_ops_mcp.md`](../docs/github_ops_mcp.md). No function in
-this file is reimplemented at the call site; the FastMCP tools are thin
-wrappers over `Client`/`pr_status`/`pr_for_branch`/`open_prs`/`issue_comments`/
-`runs`/`url_*` exactly as vendored.
+— see [`docs/github_ops_mcp.md`](../docs/github_ops_mcp.md).
 
-Provenance is in [`gh_ops.provenance.json`](gh_ops.provenance.json)
-(`commit` + git `blob_sha` + `sha256`). Source PR:
-[myon-bioinformatics/browser-test-kit#10](https://github.com/myon-bioinformatics/browser-test-kit/pull/10)
-(squash-merged to `main` as the pinned commit). To refresh, update `commit` to
-a newer upstream commit (never `main` itself) and re-fetch:
+Pins and hashes: `vendor.lock.json` entry `vendor/gh_ops.py`.
 
-```bash
-COMMIT=$(python3 -c "import json; print(json.load(open('vendor/gh_ops.provenance.json'))['commit'])")
-gh api "repos/myon-bioinformatics/browser-test-kit/contents/scripts/gh_ops.py?ref=${COMMIT}" --jq .content \
-  | base64 -d > vendor/gh_ops.py
-# the recorded blob must really be what that commit holds (CI only checks file == JSON):
-gh api "repos/myon-bioinformatics/browser-test-kit/contents/scripts/gh_ops.py?ref=${COMMIT}" --jq .sha
-pytest -q tests/test_gh_ops_provenance.py
-```
+# Vendored `gh_identity.py`
 
-In `gh_ops.provenance.json`, `date` is the day the current `commit` was pinned
-(update it on every refresh); the hard pins in `tests/test_gh_ops_provenance.py`
-change together with the JSON.
+Pinned snapshot from [`myon-bioinformatics/gh_identity`](https://github.com/myon-bioinformatics/gh_identity).
+`mcp_toolcall_lab.repository_diagnostics` builds repository metadata v1 records
+through `validate_repository_metadata_v1` / `repository_metadata_v1` from this
+module (the retired Ironmate `repository_metadata_contract.py` shim is not vendored).
 
-
-# Vendored repository metadata producer
-
-`repository_metadata_contract.py` and `repository_metadata_generator.py` are a
-single stdlib-only producer baseline from `myon-bioinformatics/Ironmate`.
-The contract owns validation/serialization; the generator owns checkout-HEAD
-identity collection. `mcp_toolcall_lab.repository_diagnostics` remains a local
-consumer that adds tracked-byte measurement, resolver evidence, and Pages output.
-
-Each file has a sibling provenance JSON containing `source_repository`,
-`source_path`, `source_commit`, git `blob_sha`, `sha256`, and `schema_version`.
-Both Python files **must be refreshed from the same explicit `source_commit`**;
-never refresh either one independently from an unpinned `main`.
-
-Example refresh (after deliberately updating `COMMIT`):
-
-```bash
-COMMIT=0aee64da2f8d0119a3ef9b955e5c3818f28aaf92
-for FILE in repository_metadata_contract.py repository_metadata_generator.py; do
-  PROVENANCE="vendor/${FILE%.py}.provenance.json"
-  BLOB_SHA=$(gh api "repos/myon-bioinformatics/Ironmate/contents/$FILE?ref=$COMMIT" --jq .sha)
-  gh api "repos/myon-bioinformatics/Ironmate/contents/$FILE?ref=$COMMIT" --jq .content \
-    | base64 -d > "vendor/$FILE"
-  SHA256=$(python3 -c 'import hashlib,sys; print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest())' "vendor/$FILE")
-  python3 -c 'import json,pathlib,sys; p=pathlib.Path(sys.argv[1]); data=json.loads(p.read_text()); data.update(source_commit=sys.argv[2], blob_sha=sys.argv[3], sha256=sys.argv[4]); p.write_text(json.dumps(data, indent=2) + chr(10))' \
-    "$PROVENANCE" "$COMMIT" "$BLOB_SHA" "$SHA256"
-done
-pytest -q tests/test_repository_diagnostics.py
-```
-
-The refresh loop updates each provenance JSON from the same pinned commit,
-including the upstream Git blob SHA and locally recomputed SHA-256. The
-provenance regression test then recomputes both hashes from the vendored bytes,
-so provenance JSON and source files move together.
+Pins and hashes: `vendor.lock.json` entries under `vendor/gh_identity*`.
 
 ## Shared screenshot checks in CI
 

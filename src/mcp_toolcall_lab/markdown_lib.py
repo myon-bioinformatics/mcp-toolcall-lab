@@ -47,7 +47,8 @@ def _repo_root() -> Path:
 
 
 REPO_ROOT = _repo_root()
-PROVENANCE_PATH = REPO_ROOT / "vendor" / "markdown.provenance.json"
+VENDOR_LOCK_PATH = REPO_ROOT / "vendor.lock.json"
+MARKDOWN_LOCK_DESTINATION = "vendor/markdown.py"
 
 _HEADING_RE = re.compile(r"^(#{1,6})\s+(.+?)\s*#*\s*$")
 
@@ -212,12 +213,22 @@ def git_blob_sha(path: Path) -> str:
     return hashlib.sha1(b"blob %d\0" % len(data) + data).hexdigest()
 
 
+def _markdown_lock_entry() -> dict[str, str]:
+    lock = json.loads(VENDOR_LOCK_PATH.read_text(encoding="utf-8"))
+    return next(entry for entry in lock["files"] if entry["destination"] == MARKDOWN_LOCK_DESTINATION)
+
+
 def load_provenance() -> dict[str, str]:
-    return json.loads(PROVENANCE_PATH.read_text(encoding="utf-8"))
+    entry = _markdown_lock_entry()
+    return {
+        "commit": entry["commit"],
+        "blob_sha": entry["blob_sha"],
+        "sha256": entry["sha256"],
+    }
 
 
 def assert_markdown_provenance(path: Path | None = None) -> dict[str, str]:
-    """Fail if the vendored file drifted from the recorded commit/blob."""
+    """Fail if the vendored file drifted from vendor.lock.json."""
     recorded = load_provenance()
     target = path or markdown_py_path()
     if target is None:
@@ -226,7 +237,7 @@ def assert_markdown_provenance(path: Path | None = None) -> dict[str, str]:
     blob = git_blob_sha(target)
     if blob != recorded["blob_sha"] or digest != recorded["sha256"]:
         raise ValueError(
-            f"vendored markdown.py does not match {PROVENANCE_PATH.name}: "
+            f"vendored markdown.py does not match vendor.lock.json: "
             f"blob={blob} sha256={digest} recorded={recorded}"
         )
     return recorded
