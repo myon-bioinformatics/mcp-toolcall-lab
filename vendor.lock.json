@@ -30,8 +30,8 @@
     },
     {
       "repository": "myon-bioinformatics/mcp-toolcall-lab",
-      "ref": "2a7103b00d64d914a15fd0019de4ab1b0402c034",
-      "commit": "2a7103b00d64d914a15fd0019de4ab1b0402c034",
+      "ref": "4ac00fd7b384a2760a8f7ce9f6fb60c1e4fdd6dc",
+      "commit": "4ac00fd7b384a2760a8f7ce9f6fb60c1e4fdd6dc",
       "source": "vendor/repository_metadata_generator.py",
       "destination": "vendor/repository_metadata_generator.py",
       "blob_sha": "d38b9abbc24144f28965d2e7f2e0f80f8f07e57f",
