@@ -8,7 +8,7 @@ on:
 jobs:
   changes:
     name: Change detection
-    uses: myon-bioinformatics/myon-bioinformatics/.github/workflows/reusable-change-detection.yml@76a9e43fe7469d0e3a5728e0521bc5738afad725
+    uses: myon-bioinformatics/myon-bioinformatics/.github/workflows/reusable-change-detection.yml@f907560c2b9b3f7a0f78f4434f547f91cb2ef954
     with:
       force_heavy_paths: |-
         fixtures
@@ -99,7 +99,7 @@ jobs:
     permissions:
       contents: read
       actions: read
-    uses: myon-bioinformatics/myon-bioinformatics/.github/workflows/reusable-junit-identity.yml@652608b16c73ecd1e39db848abba3d08a00a8a3a
+    uses: myon-bioinformatics/myon-bioinformatics/.github/workflows/reusable-junit-identity.yml@f907560c2b9b3f7a0f78f4434f547f91cb2ef954
     with:
       commit-sha: ${{ github.event.pull_request.head.sha || github.sha }}
       artifact-pattern: junit-python-3.11
