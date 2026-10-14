@@ -70,37 +70,25 @@ change together with the JSON.
 
 # Vendored repository metadata producer
 
-`repository_metadata_contract.py` and `repository_metadata_generator.py` are a
-single stdlib-only producer baseline from `myon-bioinformatics/Ironmate`.
-The contract owns validation/serialization; the generator owns checkout-HEAD
-identity collection. `mcp_toolcall_lab.repository_diagnostics` remains a local
-consumer that adds tracked-byte measurement, resolver evidence, and Pages output.
+`repository_metadata_generator.py` collects checkout-HEAD identity and portable
+tooling versions. Validation and serialization use
+[`gh_identity.py`](gh_identity.py) (`validate_repository_metadata_v1` /
+`repository_metadata_v1`). The retired Ironmate `repository_metadata_contract.py`
+is not vendored here.
 
-Each file has a sibling provenance JSON containing `source_repository`,
-`source_path`, `source_commit`, git `blob_sha`, `sha256`, and `schema_version`.
-Both Python files **must be refreshed from the same explicit `source_commit`**;
-never refresh either one independently from an unpinned `main`.
+`mcp_toolcall_lab.repository_diagnostics` remains a local consumer that adds
+tracked-byte measurement, resolver evidence, and Pages output.
 
-Example refresh (after deliberately updating `COMMIT`):
+Provenance is in [`repository_metadata_generator.provenance.json`](repository_metadata_generator.provenance.json).
+The generator lock entry points at an explicit commit in this repository
+(`vendor/repository_metadata_generator.py`).
+
+After editing the generator, update `vendor.lock.json` pins and run:
 
 ```bash
-COMMIT=0aee64da2f8d0119a3ef9b955e5c3818f28aaf92
-for FILE in repository_metadata_contract.py repository_metadata_generator.py; do
-  PROVENANCE="vendor/${FILE%.py}.provenance.json"
-  BLOB_SHA=$(gh api "repos/myon-bioinformatics/Ironmate/contents/$FILE?ref=$COMMIT" --jq .sha)
-  gh api "repos/myon-bioinformatics/Ironmate/contents/$FILE?ref=$COMMIT" --jq .content \
-    | base64 -d > "vendor/$FILE"
-  SHA256=$(python3 -c 'import hashlib,sys; print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest())' "vendor/$FILE")
-  python3 -c 'import json,pathlib,sys; p=pathlib.Path(sys.argv[1]); data=json.loads(p.read_text()); data.update(source_commit=sys.argv[2], blob_sha=sys.argv[3], sha256=sys.argv[4]); p.write_text(json.dumps(data, indent=2) + chr(10))' \
-    "$PROVENANCE" "$COMMIT" "$BLOB_SHA" "$SHA256"
-done
+python -S scripts/sync_vendor_provenance.py
 pytest -q tests/test_repository_diagnostics.py
 ```
-
-The refresh loop updates each provenance JSON from the same pinned commit,
-including the upstream Git blob SHA and locally recomputed SHA-256. The
-provenance regression test then recomputes both hashes from the vendored bytes,
-so provenance JSON and source files move together.
 
 ## Shared screenshot checks in CI
 

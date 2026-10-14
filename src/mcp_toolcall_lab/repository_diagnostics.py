@@ -1,7 +1,7 @@
 """Static repository diagnostics for GitHub Pages.
 
-This module is the mcp-toolcall-lab consumer of Ironmate's public repository
-metadata contract v1 and web-ui's RepositoryDiagnostics renderer. It reuses
+This module is the mcp-toolcall-lab consumer of gh_identity's repository
+metadata v1 contract and web-ui's RepositoryDiagnostics renderer. It reuses
 this repository's anonymous GitHub resolver for observations rather than
 duplicating resolver semantics.
 """
@@ -19,8 +19,7 @@ from typing import Any, Mapping
 from .github_public_resolver import resolve_public_github
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-CONTRACT_PATH = REPO_ROOT / "vendor" / "repository_metadata_contract.py"
-CONTRACT_PROVENANCE_PATH = REPO_ROOT / "vendor" / "repository_metadata_contract.provenance.json"
+GH_IDENTITY_PATH = REPO_ROOT / "vendor" / "gh_identity.py"
 GENERATOR_PATH = REPO_ROOT / "vendor" / "repository_metadata_generator.py"
 GENERATOR_PROVENANCE_PATH = REPO_ROOT / "vendor" / "repository_metadata_generator.provenance.json"
 REPOSITORY = "myon-bioinformatics/mcp-toolcall-lab"
@@ -31,26 +30,17 @@ JSONL_NAME = "repository-diagnostics.jsonl"
 PAGE_NAME = "repository-diagnostics.html"
 
 
-def _load_contract(*, canonical_name: bool = False) -> ModuleType:
-    module_name = "repository_metadata_contract" if canonical_name else "repository_metadata_contract_v1"
-    if canonical_name:
-        loaded = sys.modules.get(module_name)
-        if loaded is not None and Path(getattr(loaded, "__file__", "")).resolve() == CONTRACT_PATH.resolve():
-            return loaded
-    spec = importlib.util.spec_from_file_location(module_name, CONTRACT_PATH)
+def _load_gh_identity() -> ModuleType:
+    spec = importlib.util.spec_from_file_location("mcp_toolcall_lab_vendor_gh_identity", GH_IDENTITY_PATH)
     if spec is None or spec.loader is None:
-        raise ImportError(f"cannot load repository metadata contract: {CONTRACT_PATH}")
+        raise ImportError(f"cannot load gh_identity: {GH_IDENTITY_PATH}")
     module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
     spec.loader.exec_module(module)
     return module
 
 
 def _load_generator() -> ModuleType:
-    # The canonical generator imports its sibling contract by bare module name.
-    # Bind that name explicitly to the pinned vendored bytes without leaking a
-    # vendor directory into process-wide sys.path.
-    _load_contract(canonical_name=True)
+    # The vendored generator binds repository_metadata_contract to gh_identity.
     spec = importlib.util.spec_from_file_location("repository_metadata_generator_v1", GENERATOR_PATH)
     if spec is None or spec.loader is None:
         raise ImportError(f"cannot load repository metadata generator: {GENERATOR_PATH}")
@@ -58,6 +48,12 @@ def _load_generator() -> ModuleType:
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)
     return module
+
+
+def _metadata_jsonl(record: dict[str, Any]) -> str:
+    gh = _load_gh_identity()
+    gh.validate_repository_metadata_v1(record)
+    return json.dumps(record, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n"
 
 
 def _tracked_file_inventory(root: Path, *, max_files: int = 10_000, max_bytes: int = 1_000_000) -> dict[str, Any]:
@@ -110,7 +106,7 @@ def build_record(
     )
     if now is not None:
         record["generated_at"] = now
-        _load_contract(canonical_name=True).validate_repository_record(record)
+        _load_gh_identity().validate_repository_metadata_v1(record)
     return record
 
 
@@ -232,7 +228,6 @@ def write_pages(
     env: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
     """Write JSON, JSONL, and the reusable diagnostics page into a Pages tree."""
-    contract = _load_contract(canonical_name=True)
     out_dir.mkdir(parents=True, exist_ok=True)
     record = build_record(env)
     payload = build_payload(record, probe=probe)
@@ -242,7 +237,7 @@ def write_pages(
         encoding="utf-8",
     )
     (out_dir / JSONL_NAME).write_text(
-        contract.to_jsonl(record),
+        _metadata_jsonl(record),
         encoding="utf-8",
     )
     (out_dir / PAGE_NAME).write_text(_renderer_page(), encoding="utf-8")

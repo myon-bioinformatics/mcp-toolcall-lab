@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Generate canonical repository metadata JSON and JSONL from a Git checkout.
 
-Keep this file beside repository_metadata_contract.py when vendoring it.
+Validation and serialization use gh_identity's repository metadata v1 API.
 """
 from __future__ import annotations
 
@@ -9,13 +9,88 @@ import argparse
 from collections.abc import Mapping, Sequence
 from datetime import datetime, timezone
 from importlib import metadata as importlib_metadata
+from importlib import util as importlib_util
 from pathlib import Path
+import json
 import os
 import platform
 import re
 import shutil
 import subprocess
+import sys
+from types import ModuleType
 
+
+def _install_repository_metadata_contract() -> None:
+    name = "repository_metadata_contract"
+    if name in sys.modules:
+        return
+    base = Path(__file__).resolve().parent
+    path = base / "gh_identity.py"
+    if not path.is_file():
+        path = base / "vendor" / "gh_identity.py"
+    spec = importlib_util.spec_from_file_location("_repository_metadata_gh_identity", path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"cannot load gh_identity from {path}")
+    gh = importlib_util.module_from_spec(spec)
+    spec.loader.exec_module(gh)
+    validate = gh.validate_repository_metadata_v1
+    schema = gh.REPOSITORY_METADATA_V1_SCHEMA
+
+    def build_repository_record(
+        *,
+        full_name: str,
+        sha: str,
+        branch: str,
+        timestamp: str,
+        subject: str,
+        generated_at: str,
+        github_reported_size_bytes: int | None = None,
+        working_tree_bytes: int | None = None,
+        release_artifact_bytes: int | None = None,
+        tooling: dict | None = None,
+    ) -> dict:
+        record = {
+            "schema_version": schema,
+            "repository": {"full_name": full_name},
+            "head": {
+                "sha": sha,
+                "short_sha": sha[:8],
+                "branch": branch,
+                "timestamp": timestamp,
+                "subject": subject.splitlines()[0],
+            },
+            "measurements": {
+                "github_reported_size_bytes": github_reported_size_bytes,
+                "working_tree_bytes": working_tree_bytes,
+                "release_artifact_bytes": release_artifact_bytes,
+            },
+            "tooling": dict(tooling or {}),
+            "generated_at": generated_at,
+        }
+        validate(record)
+        return record
+
+    def validate_repository_record(record: dict) -> None:
+        validate(record)
+
+    def to_json(record: dict) -> str:
+        validate(record)
+        return json.dumps(record, ensure_ascii=False, sort_keys=True, indent=2) + "\n"
+
+    def to_jsonl(record: dict) -> str:
+        validate(record)
+        return json.dumps(record, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n"
+
+    module = ModuleType(name)
+    module.build_repository_record = build_repository_record
+    module.validate_repository_record = validate_repository_record
+    module.to_json = to_json
+    module.to_jsonl = to_jsonl
+    sys.modules[name] = module
+
+
+_install_repository_metadata_contract()
 from repository_metadata_contract import build_repository_record, to_json, to_jsonl
 
 

@@ -8,9 +8,7 @@ def test_ironmate_sources_keep_immutable_refs_and_recorded_bytes():
     root = Path(__file__).resolve().parents[1]
     entries = [e for e in json.loads((root / 'vendor.lock.json').read_text())['files']
                if e['repository'] == 'myon-bioinformatics/Ironmate']
-    assert {e['source'] for e in entries} == {
-        'python_artifact_provenance.py', 'repository_metadata_contract.py',
-        'repository_metadata_generator.py', 'LICENSE'}
+    assert {e['source'] for e in entries} == {'LICENSE'}
     for e in entries:
         assert e['ref'] == e['commit']
         data = (root / e['destination']).read_bytes()

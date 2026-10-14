@@ -81,8 +81,6 @@ jobs:
           --legacy-evidence vendor/ascii_artist.provenance.json
           --legacy-evidence vendor/gh_ops.provenance.json
           --legacy-evidence vendor/markdown.provenance.json
-          --legacy-evidence vendor/python_artifact_provenance.provenance.json
-          --legacy-evidence vendor/repository_metadata_contract.provenance.json
           --legacy-evidence vendor/repository_metadata_generator.provenance.json
           --promotion-receipt vendor-promotion.json
       - name: Preserve resolved vendor snapshot
@@ -165,8 +163,6 @@ jobs:
           --legacy-evidence vendor/ascii_artist.provenance.json
           --legacy-evidence vendor/gh_ops.provenance.json
           --legacy-evidence vendor/markdown.provenance.json
-          --legacy-evidence vendor/python_artifact_provenance.provenance.json
-          --legacy-evidence vendor/repository_metadata_contract.provenance.json
           --legacy-evidence vendor/repository_metadata_generator.provenance.json
           --promotion-receipt vendor-promotion.json
       - name: Preserve vendor lock used by this run
@@ -291,8 +287,6 @@ jobs:
         --legacy-evidence vendor/ascii_artist.provenance.json
         --legacy-evidence vendor/gh_ops.provenance.json
         --legacy-evidence vendor/markdown.provenance.json
-        --legacy-evidence vendor/python_artifact_provenance.provenance.json
-        --legacy-evidence vendor/repository_metadata_contract.provenance.json
         --legacy-evidence vendor/repository_metadata_generator.provenance.json
     - name: Preserve vendor lock used by this run
       if: always()

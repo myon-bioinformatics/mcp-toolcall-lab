@@ -29,31 +29,13 @@
       "sha256": "a07648ec6ec6db6b431404e0735cc0b4947c62bc824f9adffbb0bf6c2b92040b"
     },
     {
-      "repository": "myon-bioinformatics/Ironmate",
-      "ref": "b9c079bb55c1349abb47f67a09bbf0dbcf54bca9",
-      "commit": "b9c079bb55c1349abb47f67a09bbf0dbcf54bca9",
-      "source": "python_artifact_provenance.py",
-      "destination": "vendor/python_artifact_provenance.py",
-      "blob_sha": "89b1954f623b8ad596974d59fa4f3728a90341a3",
-      "sha256": "b67a594c5de260697f77f3512332e091a3d0eec9cb5a1d61a10d65c9246c2de3"
-    },
-    {
-      "repository": "myon-bioinformatics/Ironmate",
-      "ref": "73157cb7fed236a4a941722a6dcddd69a33ab95a",
-      "commit": "73157cb7fed236a4a941722a6dcddd69a33ab95a",
-      "source": "repository_metadata_contract.py",
-      "destination": "vendor/repository_metadata_contract.py",
-      "blob_sha": "a61a2949e58a42635b0830289e368b4125b1274b",
-      "sha256": "c8093d806756925b68978b5a40a218e4acd5daf43f2d7fc2e358cabf8dc39e9a"
-    },
-    {
-      "repository": "myon-bioinformatics/Ironmate",
-      "ref": "73157cb7fed236a4a941722a6dcddd69a33ab95a",
-      "commit": "73157cb7fed236a4a941722a6dcddd69a33ab95a",
-      "source": "repository_metadata_generator.py",
+      "repository": "myon-bioinformatics/mcp-toolcall-lab",
+      "ref": "2a7103b00d64d914a15fd0019de4ab1b0402c034",
+      "commit": "2a7103b00d64d914a15fd0019de4ab1b0402c034",
+      "source": "vendor/repository_metadata_generator.py",
       "destination": "vendor/repository_metadata_generator.py",
-      "blob_sha": "050a8810dfe5dfd74248bff7bac1e13f628b44dc",
-      "sha256": "182e2bfee787cb7846a6116ac696399f6f3c8927d026bac4f53ee8764ae6e41a"
+      "blob_sha": "d38b9abbc24144f28965d2e7f2e0f80f8f07e57f",
+      "sha256": "6d6c3eab18a65a451162422f10fe514b5ff0776f9c5d4da75351d2a1c763c969"
     },
     {
       "repository": "myon-bioinformatics/ascii_artist",
