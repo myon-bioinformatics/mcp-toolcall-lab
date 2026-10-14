@@ -26,7 +26,7 @@ on:
 jobs:
   changes:
     name: Change detection
-    uses: myon-bioinformatics/myon-bioinformatics/.github/workflows/reusable-change-detection.yml@f907560c2b9b3f7a0f78f4434f547f91cb2ef954
+    uses: myon-bioinformatics/myon-bioinformatics/.github/workflows/reusable-change-detection.yml@40bd74c4a36896509b506d6d06251255be6c77c7
     with:
       force_heavy_paths: |-
         fixtures
@@ -35,7 +35,7 @@ jobs:
 
   librechat-smoke:
     needs: changes
-    if: needs.changes.outputs.non_docs_changed == 'true'
+    if: needs.changes.outputs.product_changed == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
