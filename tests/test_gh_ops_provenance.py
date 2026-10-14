@@ -46,16 +46,16 @@ def test_provenance_matches_shared_lock():
     assert recorded["sha256"] == PINNED_SHA256
 
 
-def test_provenance_names_the_source_repo_and_merged_pr():
+def test_provenance_names_the_source_repo_and_path():
     recorded = load_provenance()
-    assert recorded["repository"] == "https://github.com/myon-bioinformatics/browser-test-kit"
-    assert recorded["path"] == "scripts/gh_ops.py"
+    assert recorded["repository"] == "https://github.com/myon-bioinformatics/myon-bioinformatics"
+    assert recorded["path"] == "gh_ops.py"
     assert len(recorded["commit"]) == 40
     assert len(recorded["blob_sha"]) == 40
     assert len(recorded["sha256"]) == 64
     readme = (ROOT / "vendor" / "README.md").read_text(encoding="utf-8")
     assert "ref=${COMMIT}" in readme
-    assert "browser-test-kit/pull/10" in readme
+    assert "contents/gh_ops.py" in readme
 
 
 def test_vendored_gh_ops_is_stdlib_only():

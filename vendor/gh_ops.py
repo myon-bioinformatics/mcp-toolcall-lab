@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""GitHub REST operations for PR/CI work without the ``gh`` CLI (#9).
+"""GitHub REST operations for PR/CI work without the ``gh`` CLI (canonical parent tool).
 
 Stdlib only, so it runs under ``python -S``. Read-only by default: every
 write operation takes ``write=True`` / ``--write`` and checks its
@@ -9,14 +9,17 @@ comes from ``GITHUB_TOKEN`` (fallback ``GH_TOKEN``) and is never printed.
 Every operation is a plain function returning a dict with ``ok``; the CLI
 is a thin adapter over them::
 
-    python -S scripts/gh_ops.py issue-comments OWNER/REPO 24 --save comments.json
-    python -S scripts/gh_ops.py comments-file saved-tool-result.txt --last 5   # offline
-    python -S scripts/gh_ops.py pr-merge OWNER/REPO 11 --sha ecfd0ba --min-checks 5 --write
+    python -S gh_ops.py issue-comments OWNER/REPO 24 --save comments.json
+    python -S gh_ops.py --json pr-observe OWNER/REPO 24 > before.json
+    python -S gh_ops.py pr-diff before.json after.json
+    python -S gh_ops.py issue-comment OWNER/REPO 24 --file comment.md --write
+    python -S gh_ops.py comments-file saved-tool-result.txt --last 5   # offline
+    python -S gh_ops.py pr-merge OWNER/REPO 11 --sha ecfd0ba --min-checks 5 --write
     python -c "from gh_ops import pr_merge; print(pr_merge('OWNER/REPO', 11, sha='ecfd0ba'))"
-    python -S scripts/gh_ops.py pr-body-set OWNER/REPO 11 --file body.md --write
-    python -S scripts/gh_ops.py pr-edit OWNER/REPO 11 --base develop --write
-    python -S scripts/gh_ops.py file-put OWNER/REPO docs/x.md --from x.md --branch docs --message "add x" --write
-    python -S scripts/gh_ops.py url compare OWNER/REPO main feature   # no network; prints web + api URLs
+    python -S gh_ops.py pr-body-set OWNER/REPO 11 --file body.md --write
+    python -S gh_ops.py pr-edit OWNER/REPO 11 --base develop --write
+    python -S gh_ops.py file-put OWNER/REPO docs/x.md --from x.md --branch docs --message "add x" --write
+    python -S gh_ops.py url compare OWNER/REPO main feature   # no network; prints web + api URLs
 
 Exit codes: 0 = OK, 1 = a checked condition was not met, 2 = input or
 communication error.
@@ -24,6 +27,7 @@ communication error.
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import base64
 import difflib
 import json
@@ -38,6 +42,21 @@ import urllib.request
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Optional
+
+def _load_adjacent_gh_identity():
+    base = Path(__file__).resolve().parent
+    # Parent checkout uses vendor/; installed consumers use the adjacent copy.
+    path = base / "gh_identity.py"
+    if not path.is_file():
+        path = base / "vendor" / "gh_identity.py"
+    spec = importlib.util.spec_from_file_location("_canonical_gh_ops_identity", path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"cannot load vendored gh_identity from {path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+gh_identity = _load_adjacent_gh_identity()
 
 API_ROOT = "https://api.github.com"
 PASSING_CONCLUSIONS = frozenset({"success", "neutral", "skipped"})
@@ -137,16 +156,33 @@ class Client:
         return self.request("GET", path, params=params).data
 
     def paginate(self, path: str, *, params: dict | None = None, key: str | None = None, max_pages: int = 50) -> list:
+        if max_pages < 1:
+            raise GhOpsError("pagination requires a positive page limit")
         items: list = []
+        seen = set()
+        expected = None
         url, query = path, {"per_page": 100, **(params or {})}
         for _ in range(max_pages):
+            request_url = url if url.startswith("http") else self.api_root + url
+            if query:
+                request_url += ("&" if "?" in request_url else "?") + urllib.parse.urlencode(query)
+            if request_url in seen:
+                raise GhOpsError("pagination cycle; incomplete response")
+            seen.add(request_url)
             response = self.request("GET", url, params=query)
+            if key and "total_count" in response.data:
+                count = response.data["total_count"]
+                if type(count) is not int or count < 0 or (expected is not None and count != expected):
+                    raise GhOpsError("pagination total_count invalid or changed; incomplete response")
+                expected = count
             items.extend(response.data[key] if key else response.data)
             match = _NEXT_LINK_RE.search(response.headers.get("link", ""))
             if not match:
-                break
+                if expected is not None and len(items) != expected:
+                    raise GhOpsError("pagination total_count mismatch; incomplete response")
+                return items
             url, query = match.group(1), None
-        return items
+        raise GhOpsError("pagination page limit exceeded; incomplete response")
 
 
 def _repo(repo: str) -> str:
@@ -274,7 +310,11 @@ def issue_comments(repo: str, number: int, *, since: str | None = None, last: in
 
 def pr_status(repo: str, number: int, *, client: Client | None = None) -> dict:
     """One-line PR state: mergeability, head, size, and merged flag."""
-    pr = _client(client).get(f"/repos/{_repo(repo)}/pulls/{int(number)}")
+    try:
+        pr = (client.get(f"/repos/{_repo(repo)}/pulls/{int(number)}") if client is not None
+              else gh_identity.request("GET", f"repos/{_repo(repo)}/pulls/{int(number)}"))
+    except gh_identity.Error as error:
+        raise GhOpsError(error.code) from error
     return {
         "ok": True,
         "number": int(number),
@@ -294,16 +334,30 @@ def pr_status(repo: str, number: int, *, client: Client | None = None) -> dict:
     }
 
 
+def compare_pr_head_identity(repo: str, number: int, local: dict, *, client: Client | None = None) -> dict:
+    """Compare a caller-supplied local identity with the current PR head via GHI."""
+    status = pr_status(repo, number, client=client)
+    result = gh_identity.compare_sha(local, status.get("head_sha"))
+    return {**result, "repo": repo, "number": int(number), "head_ref": status.get("head_ref"),
+            "base_ref": status.get("base_ref")}
+
+
+
 def _check_runs(client: Client, repo: str, sha: str) -> list:
     return client.paginate(f"/repos/{repo}/commits/{sha}/check-runs", key="check_runs")
 
 
 def _summarize_checks(runs: list, min_checks: int) -> dict:
-    pending = [run for run in runs if run.get("status") != "completed"]
-    failed = [run for run in runs if run.get("status") == "completed" and run.get("conclusion") not in PASSING_CONCLUSIONS]
-    succeeded = [run for run in runs if run.get("conclusion") == "success"]
-    if len(runs) < min_checks:
-        reason = f"only {len(runs)} check run(s), expected at least {min_checks}"
+    """Compatibility shape over GHI's canonical pure check classification."""
+    summary = gh_identity.summarize_checks(runs, len(runs), min_checks)
+    normalized = summary["checks"]
+    pending = [run for run in normalized if run.get("status") != "completed"]
+    failed = [run for run in normalized
+              if run.get("status") == "completed" and
+              run.get("conclusion") not in PASSING_CONCLUSIONS]
+    succeeded = [run for run in normalized if run.get("conclusion") == "success"]
+    if len(normalized) < min_checks:
+        reason = f"only {len(normalized)} check run(s), expected at least {min_checks}"
     elif pending:
         reason = f"{len(pending)} check run(s) still pending"
     elif failed:
@@ -313,24 +367,152 @@ def _summarize_checks(runs: list, min_checks: int) -> dict:
     else:
         reason = ""
     return {
-        "ok": not reason,
+        "ok": summary["state"] == "green",
         "reason": reason,
-        "total": len(runs),
+        "total": summary["count"],
         "pending": len(pending),
         "failed": len(failed),
         "succeeded": len(succeeded),
         "runs": [
-            {
-                "id": run.get("id"),
-                "name": run.get("name"),
-                "status": run.get("status"),
-                "conclusion": run.get("conclusion"),
-                "head_sha": run.get("head_sha"),
-                "annotations_count": (run.get("output") or {}).get("annotations_count", 0),
-            }
-            for run in runs
+            {**run, "head_sha": original.get("head_sha")}
+            for run, original in zip(normalized, runs)
         ],
     }
+
+
+def checks_status(repo: str, sha: str, *, min_checks: int = 1, client: Client | None = None) -> dict:
+    """One-shot check summary for a SHA; unlike checks_wait this never polls."""
+    if min_checks < 1:
+        raise GhOpsError("--min must be at least 1; zero check runs never counts as green")
+    repo, sha = _repo(repo), _sha(sha)
+    summary = _summarize_checks(_check_runs(_client(client), repo, sha), min_checks)
+    if summary["ok"]:
+        state = "green"
+    elif summary["pending"] or summary["total"] < min_checks:
+        state = "pending"
+    else:
+        state = "failed"
+    return {"sha": sha, "state": state, **summary}
+
+
+def _activity_digest(items: list) -> dict:
+    """Stable small digest for conversation/review activity."""
+    if not items:
+        return {"count": 0, "latest_id": None, "latest_at": None}
+
+    def stamp(item):
+        return str(item.get("updated_at") or item.get("submitted_at") or item.get("created_at") or "")
+
+    latest = max(items, key=lambda item: (stamp(item), int(item.get("id") or 0)))
+    return {"count": len(items), "latest_id": latest.get("id"), "latest_at": stamp(latest) or None}
+
+
+def _review_digest(items: list) -> dict:
+    """Activity digest plus review-state counts so approve/dismiss changes are observable."""
+    result = _activity_digest(items)
+    states = {}
+    for item in items:
+        state = item.get("state")
+        if state:
+            states[state] = states.get(state, 0) + 1
+    result["states"] = {key: states[key] for key in sorted(states)}
+    return result
+
+
+def pr_observe(repo: str, number: int, *, min_checks: int = 1, client: Client | None = None) -> dict:
+    """Return a compact PR observation suitable for persisted snapshot comparison.
+
+    A failed or pending check set does not make the observation itself fail.
+    Checks are bound to the current PR head. Conversation comments, reviews,
+    and inline review comments are digested separately. Semantic labels such
+    as Blocking or Should are intentionally not inferred from prose.
+    """
+    if min_checks < 1:
+        raise GhOpsError("--min must be at least 1; zero check runs never counts as green")
+    client, repo, number = _client(client), _repo(repo), int(number)
+    base = f"/repos/{repo}/pulls/{number}"
+    pr = client.get(base)
+    head = (pr.get("head") or {}).get("sha")
+    if not head:
+        raise GhOpsError("PR response is missing head.sha")
+    checks = checks_status(repo, head, min_checks=min_checks, client=client)
+    issue_comments = client.paginate(f"/repos/{repo}/issues/{number}/comments")
+    reviews = client.paginate(base + "/reviews")
+    review_comments = client.paginate(base + "/comments")
+    final_pr = client.get(base)
+    final_head = (final_pr.get("head") or {}).get("sha")
+    head_identity = gh_identity.compare_sha({"sha": head}, final_head)
+    if not head_identity["same"]:
+        return {"ok": False, "schema": "gh-ops-pr-observation/1", "repo": repo, "number": number,
+                "stale": True, "observed_head_sha": head, "current_head_sha": final_head,
+                "identity": head_identity,
+                "reason": "PR head changed during observation; discard this snapshot and retry"}
+    return {
+        "ok": True,
+        "schema": "gh-ops-pr-observation/1",
+        "repo": repo,
+        "number": number,
+        "state": final_pr.get("state"),
+        "draft": bool(final_pr.get("draft")),
+        "merged": bool(final_pr.get("merged")),
+        "mergeable_state": final_pr.get("mergeable_state"),
+        "head_sha": head,
+        "head_ref": (final_pr.get("head") or {}).get("ref"),
+        "base_ref": (final_pr.get("base") or {}).get("ref"),
+        "checks": checks,
+        "activity": {
+            "issue_comments": _activity_digest(issue_comments),
+            "reviews": _review_digest(reviews),
+            "review_comments": _activity_digest(review_comments),
+        },
+        "url": final_pr.get("html_url"),
+    }
+
+
+def pr_observation_diff(before: dict, after: dict) -> dict:
+    """Compare two pr_observe snapshots without network access."""
+    schema = "gh-ops-pr-observation/1"
+    if before.get("schema") != schema or after.get("schema") != schema:
+        raise GhOpsError(f"both snapshots must use schema {schema!r}")
+    if before.get("ok") is not True or after.get("ok") is not True:
+        raise GhOpsError("cannot diff an incomplete/stale observation")
+    if (before.get("repo"), before.get("number")) != (after.get("repo"), after.get("number")):
+        raise GhOpsError("snapshots refer to different pull requests")
+    events = []
+
+    def changed(kind, field):
+        if before.get(field) != after.get(field):
+            events.append({"type": kind, "from": before.get(field), "to": after.get(field)})
+
+    changed("head_changed", "head_sha")
+    changed("state_changed", "state")
+    changed("draft_changed", "draft")
+    if not before.get("merged") and after.get("merged"):
+        events.append({"type": "merged", "from": False, "to": True})
+    elif before.get("merged") != after.get("merged"):
+        events.append({"type": "merged_changed", "from": before.get("merged"), "to": after.get("merged")})
+    old_checks = (before.get("checks") or {}).get("state")
+    new_checks = (after.get("checks") or {}).get("state")
+    if old_checks != new_checks:
+        kind = "ci_became_green" if new_checks == "green" else "ci_failed" if new_checks == "failed" else "ci_state_changed"
+        events.append({"type": kind, "from": old_checks, "to": new_checks})
+    for key in ("issue_comments", "reviews", "review_comments"):
+        old = (before.get("activity") or {}).get(key)
+        new = (after.get("activity") or {}).get(key)
+        if old != new:
+            events.append({"type": key + "_changed", "from": old, "to": new})
+    return {"ok": True, "schema": "gh-ops-pr-observation-diff/1", "repo": after["repo"],
+            "number": after["number"], "changed": bool(events), "events": events}
+
+
+def pr_observation_diff_files(before_path: str, after_path: str) -> dict:
+    """Read two observation JSON files and compare them offline."""
+    try:
+        before = json.loads(Path(before_path).read_text(encoding="utf-8"))
+        after = json.loads(Path(after_path).read_text(encoding="utf-8"))
+    except json.JSONDecodeError as error:
+        raise GhOpsError(f"observation file is not JSON: {error}") from None
+    return pr_observation_diff(before, after)
 
 
 def pr_for_branch(repo: str, branch: str, *, state: str = "all", client: Client | None = None) -> dict:
@@ -366,6 +548,17 @@ def open_prs(owner: str, *, org: bool = False, repos: tuple[str, ...] = (), limi
     that allow repository-scoped calls but not search. ``ok`` is False when
     nothing is open.
     """
+    if client is None and not repos:
+        qualifier = "org" if org else "user"
+        try:
+            result = gh_identity.search(f"is:open archived:false {qualifier}:{owner}", kind="pr", max_items=limit)
+        except gh_identity.Error as error:
+            raise GhOpsError(error.code) from error
+        rows = [{"repo": row["repository"], "number": row["number"], "draft": bool(row.get("draft")),
+                 "updated_at": row.get("updated_at"), "author": row.get("author") or "",
+                 "title": row["title"], "url": row["url"]} for row in result["items"]]
+        return {"ok": bool(rows), "owner": owner, "total": result["total_count"], "pulls": rows,
+                "complete": result["complete"], "truncated": result["truncated"]}
     client = _client(client)
     if repos:
         rows = []
@@ -390,6 +583,86 @@ def open_prs(owner: str, *, org: bool = False, repos: tuple[str, ...] = (), limi
         "url": item.get("html_url"),
     } for item in data.get("items", [])[:limit]]
     return {"ok": bool(rows), "owner": owner, "total": data.get("total_count", len(rows)), "pulls": rows}
+
+
+def _all_items(client: Client, path: str, *, params: dict | None = None,
+               empty_repository: bool = False):
+    """Stream every REST page, failing rather than returning truncated counts."""
+    query = {"per_page": 100, **(params or {})}
+    seen = set()
+    while True:
+        response = client.request("GET", path, params=query,
+                                  expect=(200, 409) if empty_repository else (200,))
+        if response.status == 409:
+            # GitHub may include documentation_url/status alongside the message.
+            if not seen and isinstance(response.data, dict) and response.data.get("message") == "Git Repository is empty.":
+                return
+            raise GhOpsError(f"GET {path} -> HTTP 409: cannot count commits")
+        if not isinstance(response.data, list):
+            raise GhOpsError(f"GET {path}: expected a REST list")
+        yield from response.data
+        match = _NEXT_LINK_RE.search(response.headers.get("link", ""))
+        if not match:
+            return
+        path, query = match.group(1), None
+        target, root = urllib.parse.urlsplit(path), urllib.parse.urlsplit(client.api_root)
+        if (target.scheme, target.netloc) != (root.scheme, root.netloc):
+            raise GhOpsError("pagination link points outside the API host")
+        if path in seen:
+            raise GhOpsError("repeated pagination link; counts would be incomplete")
+        seen.add(path)
+
+
+def _repositories(owner: str, org: bool, repos: tuple[str, ...], client: Client) -> list[str]:
+    _repo(owner + "/placeholder")
+    if repos:
+        return sorted({_repo(owner + "/" + name) for name in repos})
+    kind = "orgs" if org else "users"
+    return sorted({_repo(item["full_name"]) for item in
+                   _all_items(client, f"/{kind}/{owner}/repos", params={"type": "all"})})
+
+
+def open_issues(owner: str, *, org: bool = False, repos: tuple[str, ...] = (),
+                client: Client | None = None) -> dict:
+    """List all open Issues across selected repositories, excluding PRs."""
+    client = _client(client)
+    rows = []
+    for repo in _repositories(owner, org, repos, client):
+        for issue in _all_items(client, f"/repos/{repo}/issues", params={"state": "open"}):
+            if "pull_request" not in issue:
+                rows.append({"repo": repo, "number": issue.get("number"), "title": issue.get("title"),
+                             "author": _login(issue), "updated_at": issue.get("updated_at"),
+                             "url": issue.get("html_url")})
+    return {"ok": True, "owner": owner, "total": len(rows), "issues": rows}
+
+
+def repo_counts(owner: str, *, org: bool = False, repos: tuple[str, ...] = (),
+                client: Client | None = None) -> dict:
+    """Count open Issues/PRs and default-branch reachable commits using GET only.
+
+    Includes zero-count and archived repositories. Counts reflect sequential
+    REST reads, not an atomic snapshot. Errors propagate; unavailable != zero.
+    """
+    client = _client(client)
+    rows = []
+    for repo in _repositories(owner, org, repos, client):
+        issues = pulls = 0
+        for item in _all_items(client, f"/repos/{repo}/issues", params={"state": "open"}):
+            if "pull_request" in item:
+                pulls += 1
+            else:
+                issues += 1
+        metadata = client.get(f"/repos/{repo}")
+        branch = metadata.get("default_branch")
+        if not branch:
+            raise GhOpsError(f"{repo}: missing default_branch; cannot count commits")
+        commits = sum(1 for _ in _all_items(client, f"/repos/{repo}/commits",
+                                           params={"sha": branch}, empty_repository=True))
+        rows.append({"repo": repo, "open_issues": issues, "open_prs": pulls,
+                     "commits": commits, "default_branch": branch})
+    totals = {key: sum(row[key] for row in rows) for key in ("open_issues", "open_prs", "commits")}
+    return {"ok": True, "owner": owner, "org": org, "repositories": rows,
+            "repository_count": len(rows), "totals": totals, "commit_scope": "default_branch"}
 
 
 def checks_wait(repo: str, sha: str, *, min_checks: int = 1, timeout: float = 600.0, interval: float = 15.0,
@@ -460,6 +733,43 @@ def workflow_state(repo: str, workflow: str, *, client: Client | None = None) ->
 
 
 # --- write operations (dry run unless write=True) ---------------------------------
+
+def issue_comment_create(repo: str, number: int, *, body: str, write: bool = False,
+                         client: Client | None = None) -> dict:
+    """Create one top-level PR conversation comment, dry-run by default.
+
+    The PR endpoint is read first so an Issue number cannot be mistaken for a
+    PR. After a successful POST the returned comment id is re-read and the body
+    is verified. If post-write verification fails, posted remains true and the
+    result tells callers to inspect the conversation before any retry.
+    """
+    if not body.strip():
+        raise GhOpsError("comment body must not be empty")
+    client, repo, number = _client(client), _repo(repo), int(number)
+    pr = client.get(f"/repos/{repo}/pulls/{number}")
+    path = f"/repos/{repo}/issues/{number}/comments"
+    if not write:
+        return {"ok": True, "dry_run": True, "posted": False, "number": number,
+                "head_sha": (pr.get("head") or {}).get("sha"), "body_chars": len(body),
+                "would_post": {"path": path, "body": {"body": body}}}
+    response = client.request("POST", path, {"body": body}, expect=(201,))
+    data = response.data if isinstance(response.data, dict) else {}
+    comment_id = data.get("id")
+    if comment_id is None:
+        return {"ok": False, "dry_run": False, "posted": True, "number": number, "comment_id": None,
+                "verified": False,
+                "reason": "comment POST returned success without an id; inspect the PR conversation before retrying"}
+    try:
+        observed = client.get(f"/repos/{repo}/issues/comments/{int(comment_id)}")
+    except GhOpsError as error:
+        return {"ok": False, "dry_run": False, "posted": True, "number": number, "comment_id": comment_id,
+                "verified": False,
+                "reason": f"comment was posted but verification failed; inspect before retrying: {error}"}
+    verified = (observed.get("body") or "") == body
+    return {"ok": verified, "dry_run": False, "posted": True, "number": number, "comment_id": comment_id,
+            "url": observed.get("html_url") or data.get("html_url"), "verified": verified,
+            "reason": "" if verified else "comment was posted but body verification differed; inspect before retrying"}
+
 
 def workflow_dispatch(repo: str, workflow: str, *, ref: str, inputs: dict | None = None, write: bool = False,
                       client: Client | None = None) -> dict:
@@ -818,6 +1128,13 @@ def url_raw(repo: str, ref: str, path: str) -> dict:
 # --- CLI adapter ----------------------------------------------------------------
 
 def _render(command: str, result: dict) -> str:
+    if command == "repo-counts":
+        return "\n".join(["repo  open issues  open PRs  commits"] + [
+            f"{row['repo']}  {row['open_issues']}  {row['open_prs']}  {row['commits']}"
+            for row in result["repositories"]])
+    if command == "open-issues":
+        return "\n".join([f"{result['total']} open Issue(s) for {result['owner']}"] + [
+            f"{row['repo']}#{row['number']} {row['title']} {row['url']}" for row in result["issues"]])
     if command in {"issue-comments", "comments-file"}:
         if command == "comments-file":
             title = f" \"{result['title']}\"" if result["title"] else ""
@@ -852,6 +1169,21 @@ def _render(command: str, result: dict) -> str:
         return (f"#{r['number']} {r['state']} draft={r['draft']} merged={r['merged']} mergeable={r['mergeable']} "
                 f"({r['mergeable_state']}) head={str(r['head_sha'])[:12]} {r['head_ref']} -> {r['base_ref']} "
                 f"commits={r['commits']} files={r['changed_files']} +{r['additions']}/-{r['deletions']}")
+    if command == "pr-observe":
+        r = result
+        if not r["ok"]:
+            return f"NG pr-observe: {r.get('reason', 'incomplete observation')}"
+        checks = r["checks"]
+        return (f"#{r['number']} {r['state']} draft={r['draft']} merged={r['merged']} "
+                f"head={str(r['head_sha'])[:12]} checks={checks['state']} "
+                f"({checks['succeeded']} success/{checks['failed']} failed/{checks['pending']} pending, "
+                f"{checks['total']} total) comments={r['activity']['issue_comments']['count']} "
+                f"reviews={r['activity']['reviews']['count']} inline={r['activity']['review_comments']['count']}")
+    if command == "pr-diff":
+        if not result["events"]:
+            return f"#{result['number']} no meaningful snapshot changes"
+        return "\n".join([f"#{result['number']} {len(result['events'])} change(s)"] + [
+            f"  {event['type']}: {event.get('from')!r} -> {event.get('to')!r}" for event in result["events"]])
     if command == "checks-wait":
         lines = [f"{'OK' if result['ok'] else 'NG'} {result['sha'][:12]}: {result['succeeded']} success, "
                  f"{result['failed']} failed, {result['pending']} pending of {result['total']}"
@@ -910,12 +1242,26 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--limit", type=int, default=50, help="rows to show (max 100)")
     p.add_argument("--repos", default="", help="comma-separated repository names: read each via /repos/OWNER/NAME/pulls instead of search")
 
+    for command, help_text in (("repo-counts", "open Issue/PR counts and default-branch commit counts"),
+                               ("open-issues", "all open Issues across repositories (excluding PRs)")):
+        p = sub.add_parser(command, help=help_text)
+        p.add_argument("owner")
+        p.add_argument("--org", action="store_true", help="OWNER is an organization")
+        p.add_argument("--repos", default="", help="comma-separated repository names; bypass owner enumeration")
+
     p = sub.add_parser("pr-for-branch", help="PRs whose head is BRANCH (none -> exit 1)")
     p.add_argument("repo"); p.add_argument("branch", help="branch name, or owner:branch for a fork")
     p.add_argument("--state", choices=("open", "closed", "all"), default="all")
 
     p = sub.add_parser("pr-status", help="one-line PR state")
     p.add_argument("repo"); p.add_argument("number", type=int)
+
+    p = sub.add_parser("pr-observe", help="snapshot PR/head/check/review activity for later diffing")
+    p.add_argument("repo"); p.add_argument("number", type=int)
+    p.add_argument("--min", type=int, default=1, dest="min_checks")
+
+    p = sub.add_parser("pr-diff", help="compare two saved pr-observe JSON snapshots offline")
+    p.add_argument("before"); p.add_argument("after")
 
     p = sub.add_parser("checks-wait", help="wait for check runs on a SHA and report conclusions/annotations")
     p.add_argument("repo"); p.add_argument("sha")
@@ -934,6 +1280,11 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("workflow-dispatch", help="trigger workflow_dispatch (needs --write)")
     p.add_argument("repo"); p.add_argument("workflow")
     p.add_argument("--ref", required=True)
+    p.add_argument("--write", action="store_true")
+
+    p = sub.add_parser("issue-comment", help="create a top-level PR conversation comment (needs --write)")
+    p.add_argument("repo"); p.add_argument("number", type=int)
+    p.add_argument("--file", required=True, help="UTF-8 file containing the comment body (one trailing newline ignored)")
     p.add_argument("--write", action="store_true")
 
     p = sub.add_parser("pr-body-replace", help="replace an anchor that occurs exactly once (needs --write)")
@@ -1008,6 +1359,10 @@ def build_parser() -> argparse.ArgumentParser:
 
 def run_command(args: argparse.Namespace, client: Client | None = None) -> dict:
     command = args.command
+    if command in {"repo-counts", "open-issues"}:
+        repos = tuple(name.strip() for name in args.repos.split(",") if name.strip())
+        operation = repo_counts if command == "repo-counts" else open_issues
+        return operation(args.owner, org=args.org, repos=repos, client=client)
     if command == "comments-file":
         show = tuple(int(part) for part in args.show.split(",") if part.strip()) if args.show else ()
         return comments_file(args.path, last=args.last, author=args.author, preview=args.preview, show=show)
@@ -1022,6 +1377,10 @@ def run_command(args: argparse.Namespace, client: Client | None = None) -> dict:
         return pr_for_branch(args.repo, args.branch, state=args.state, client=client)
     if command == "pr-status":
         return pr_status(args.repo, args.number, client=client)
+    if command == "pr-observe":
+        return pr_observe(args.repo, args.number, min_checks=args.min_checks, client=client)
+    if command == "pr-diff":
+        return pr_observation_diff_files(args.before, args.after)
     if command == "checks-wait":
         return checks_wait(args.repo, args.sha, min_checks=args.min_checks, timeout=args.timeout,
                            interval=args.interval, client=client)
@@ -1031,6 +1390,9 @@ def run_command(args: argparse.Namespace, client: Client | None = None) -> dict:
         return workflow_state(args.repo, args.workflow, client=client)
     if command == "workflow-dispatch":
         return workflow_dispatch(args.repo, args.workflow, ref=args.ref, write=args.write, client=client)
+    if command == "issue-comment":
+        return issue_comment_create(args.repo, args.number, body=_read_text(args.file),
+                                    write=args.write, client=client)
     if command == "pr-body-replace":
         return pr_body_replace(args.repo, args.number, old=_read_text(args.old), new=_read_text(args.new),
                                write=args.write, client=client)

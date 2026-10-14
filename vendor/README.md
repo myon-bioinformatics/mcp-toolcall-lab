@@ -39,8 +39,8 @@ remain owned by their source adapters and `markdown.py`.
 
 # Vendored `gh_ops.py`
 
-Pinned snapshot of [`myon-bioinformatics/browser-test-kit`](https://github.com/myon-bioinformatics/browser-test-kit)
-`scripts/gh_ops.py` (stdlib-only GitHub REST operations; no `gh` CLI). It is
+Pinned snapshot of [`myon-bioinformatics/myon-bioinformatics`](https://github.com/myon-bioinformatics/myon-bioinformatics)
+`gh_ops.py` (stdlib-only GitHub REST operations; no `gh` CLI). It is
 loaded by path, the same way as `markdown.py`, by
 [`src/mcp_toolcall_lab/github_ops_server.py`](../src/mcp_toolcall_lab/github_ops_server.py)
 — see [`docs/github_ops_mcp.md`](../docs/github_ops_mcp.md). No function in
@@ -49,17 +49,17 @@ wrappers over `Client`/`pr_status`/`pr_for_branch`/`open_prs`/`issue_comments`/
 `runs`/`url_*` exactly as vendored.
 
 Provenance is in [`gh_ops.provenance.json`](gh_ops.provenance.json)
-(`commit` + git `blob_sha` + `sha256`). Source PR:
-[myon-bioinformatics/browser-test-kit#10](https://github.com/myon-bioinformatics/browser-test-kit/pull/10)
-(squash-merged to `main` as the pinned commit). To refresh, update `commit` to
-a newer upstream commit (never `main` itself) and re-fetch:
+(`commit` + git `blob_sha` + `sha256`). Canonical parent tool:
+[myon-bioinformatics/myon-bioinformatics `gh_ops.py`](https://github.com/myon-bioinformatics/myon-bioinformatics/blob/main/gh_ops.py).
+To refresh, update `commit` to a newer upstream commit (never `main` itself) and
+re-fetch:
 
 ```bash
 COMMIT=$(python3 -c "import json; print(json.load(open('vendor/gh_ops.provenance.json'))['commit'])")
-gh api "repos/myon-bioinformatics/browser-test-kit/contents/scripts/gh_ops.py?ref=${COMMIT}" --jq .content \
+gh api "repos/myon-bioinformatics/myon-bioinformatics/contents/gh_ops.py?ref=${COMMIT}" --jq .content \
   | base64 -d > vendor/gh_ops.py
 # the recorded blob must really be what that commit holds (CI only checks file == JSON):
-gh api "repos/myon-bioinformatics/browser-test-kit/contents/scripts/gh_ops.py?ref=${COMMIT}" --jq .sha
+gh api "repos/myon-bioinformatics/myon-bioinformatics/contents/gh_ops.py?ref=${COMMIT}" --jq .sha
 pytest -q tests/test_gh_ops_provenance.py
 ```
 

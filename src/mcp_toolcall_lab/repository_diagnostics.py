@@ -11,6 +11,7 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import subprocess
 import sys
 from types import ModuleType
 from typing import Any, Mapping
@@ -22,8 +23,6 @@ CONTRACT_PATH = REPO_ROOT / "vendor" / "repository_metadata_contract.py"
 CONTRACT_PROVENANCE_PATH = REPO_ROOT / "vendor" / "repository_metadata_contract.provenance.json"
 GENERATOR_PATH = REPO_ROOT / "vendor" / "repository_metadata_generator.py"
 GENERATOR_PROVENANCE_PATH = REPO_ROOT / "vendor" / "repository_metadata_generator.provenance.json"
-GIT_INSPECTOR_PATH = REPO_ROOT / "vendor" / "git_inspector.py"
-GIT_INSPECTOR_PROVENANCE_PATH = REPO_ROOT / "vendor" / "git_inspector.provenance.json"
 REPOSITORY = "myon-bioinformatics/mcp-toolcall-lab"
 WEB_UI_SHA = "adb23d7ba6ea94672b76457573f6655a081ee054"
 WEB_UI_BASE = f"https://cdn.jsdelivr.net/gh/myon-bioinformatics/web-ui@{WEB_UI_SHA}"
@@ -61,20 +60,27 @@ def _load_generator() -> ModuleType:
     return module
 
 
-def _load_git_inspector() -> ModuleType:
-    spec = importlib.util.spec_from_file_location(
-        "mcp_toolcall_lab_vendor_git_inspector", GIT_INSPECTOR_PATH
+def _tracked_file_inventory(root: Path, *, max_files: int = 10_000, max_bytes: int = 1_000_000) -> dict[str, Any]:
+    """Bounded tracked-file inventory via ``git ls-files`` (no vendored helper)."""
+    proc = subprocess.run(
+        ["git", "-C", str(root), "--no-pager", "ls-files", "-z"],
+        capture_output=True,
+        check=False,
     )
-    if spec is None or spec.loader is None:
-        raise ImportError(f"cannot load Git inspector: {GIT_INSPECTOR_PATH}")
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
+    if proc.returncode != 0:
+        raise RuntimeError("git ls-files failed")
+    raw = proc.stdout[:max_bytes]
+    byte_truncated = len(proc.stdout) > max_bytes
+    if byte_truncated and raw and not raw.endswith(b"\0"):
+        boundary = raw.rfind(b"\0")
+        raw = b"" if boundary < 0 else raw[: boundary + 1]
+    paths = [item.decode("utf-8", "replace") for item in raw.split(b"\0") if item]
+    record_truncated = len(paths) > max_files
+    return {"paths": paths[:max_files], "truncated": byte_truncated or record_truncated}
 
 
 def _tracked_bytes(root: Path = REPO_ROOT) -> int:
-    observation = _load_git_inspector().ls_files(root)
+    observation = _tracked_file_inventory(root)
     if observation["truncated"]:
         raise RuntimeError("tracked-file inventory was truncated")
     total = 0

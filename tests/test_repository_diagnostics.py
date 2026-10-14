@@ -65,22 +65,6 @@ def _assert_vendored_provenance(path, provenance_path, source_path, blob_sha, sh
 
 
 
-def test_git_inspector_provenance_matches_canonical_baseline():
-    provenance = json.loads(
-        diagnostics.GIT_INSPECTOR_PROVENANCE_PATH.read_text(encoding="utf-8")
-    )
-    data = diagnostics.GIT_INSPECTOR_PATH.read_bytes()
-    blob = hashlib.sha1(
-        b"blob " + str(len(data)).encode("ascii") + bytes([0]) + data
-    ).hexdigest()
-    assert provenance["source_repository"] == "myon-bioinformatics/myon-bioinformatics"
-    assert provenance["source_path"] == "git_inspector.py"
-    assert provenance["source_commit"] == _locked('vendor/git_inspector.py')['commit']
-    assert provenance["blob_sha"] == _locked('vendor/git_inspector.py')['blob_sha']
-    assert blob == provenance["blob_sha"]
-    assert hashlib.sha256(data).hexdigest() == provenance["sha256"]
-
-
 def test_tracked_bytes_uses_canonical_inspector_paths(tmp_path, monkeypatch):
     (tmp_path / "space 日本語.txt").write_bytes(b"abc")
     fake = SimpleNamespace(
@@ -89,7 +73,11 @@ def test_tracked_bytes_uses_canonical_inspector_paths(tmp_path, monkeypatch):
             "truncated": False,
         }
     )
-    monkeypatch.setattr(diagnostics, "_load_git_inspector", lambda: fake)
+    monkeypatch.setattr(
+        diagnostics,
+        "_tracked_file_inventory",
+        lambda root, **kwargs: fake.ls_files(root),
+    )
     assert diagnostics._tracked_bytes(tmp_path) == 3
 
 
@@ -97,7 +85,11 @@ def test_tracked_bytes_rejects_truncated_inventory(tmp_path, monkeypatch):
     fake = SimpleNamespace(
         ls_files=lambda root: {"paths": ["partial"], "truncated": True}
     )
-    monkeypatch.setattr(diagnostics, "_load_git_inspector", lambda: fake)
+    monkeypatch.setattr(
+        diagnostics,
+        "_tracked_file_inventory",
+        lambda root, **kwargs: fake.ls_files(root),
+    )
     with pytest.raises(RuntimeError, match="truncated"):
         diagnostics._tracked_bytes(tmp_path)
 
