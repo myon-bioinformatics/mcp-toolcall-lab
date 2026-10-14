@@ -1,7 +1,6 @@
 """FastMCP server exposing vendored ``gh_ops.py`` GitHub REST operations as MCP tools.
 
-``vendor/gh_ops.py`` (see ``vendor/gh_ops.provenance.json`` and
-``docs/github_ops_mcp.md``) is a stdlib-only client for a handful of GitHub
+``vendor/gh_ops.py`` (see ``vendor.lock.json`` and ``docs/github_ops_mcp.md``) is a stdlib-only client for a handful of GitHub
 REST endpoints, built for the ``browser-test-kit`` repo's own PR/CI workflow
 (myon-bioinformatics/browser-test-kit#10, merged as ``dce1533``). Most tools below are thin wrappers over those functions. The exception is
 ``resolve_public``: it intentionally owns a small anonymous resolver that

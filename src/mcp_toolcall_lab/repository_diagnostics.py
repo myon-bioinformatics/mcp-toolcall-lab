@@ -20,9 +20,8 @@ from .github_public_resolver import resolve_public_github
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 GH_IDENTITY_PATH = REPO_ROOT / "vendor" / "gh_identity.py"
-GENERATOR_PATH = REPO_ROOT / "vendor" / "repository_metadata_generator.py"
-GENERATOR_PROVENANCE_PATH = REPO_ROOT / "vendor" / "repository_metadata_generator.provenance.json"
 REPOSITORY = "myon-bioinformatics/mcp-toolcall-lab"
+_TOOLING_COMMANDS = ("git", "gh", "node", "npm", "npx")
 WEB_UI_SHA = "adb23d7ba6ea94672b76457573f6655a081ee054"
 WEB_UI_BASE = f"https://cdn.jsdelivr.net/gh/myon-bioinformatics/web-ui@{WEB_UI_SHA}"
 JSON_NAME = "repository-diagnostics.json"
@@ -35,17 +34,6 @@ def _load_gh_identity() -> ModuleType:
     if spec is None or spec.loader is None:
         raise ImportError(f"cannot load gh_identity: {GH_IDENTITY_PATH}")
     module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
-def _load_generator() -> ModuleType:
-    # The vendored generator binds repository_metadata_contract to gh_identity.
-    spec = importlib.util.spec_from_file_location("repository_metadata_generator_v1", GENERATOR_PATH)
-    if spec is None or spec.loader is None:
-        raise ImportError(f"cannot load repository metadata generator: {GENERATOR_PATH}")
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
     spec.loader.exec_module(module)
     return module
 
@@ -93,20 +81,22 @@ def build_record(
     now: str | None = None,
     working_tree_bytes: int | None = None,
 ) -> dict[str, Any]:
-    """Build canonical metadata v1 from checkout HEAD via the vendored producer."""
-    generator = _load_generator()
-    root = REPO_ROOT
-    record = generator.record_from_checkout(
+    """Build canonical metadata v1 from checkout HEAD via vendored gh_identity."""
+    gh = _load_gh_identity()
+    root = str(REPO_ROOT)
+    wtb = _tracked_bytes(REPO_ROOT) if working_tree_bytes is None else working_tree_bytes
+    tooling = gh.tool_versions(_TOOLING_COMMANDS, include_python=True)
+    record = gh.repository_metadata_v1(
         root,
-        REPOSITORY,
+        repository=REPOSITORY,
         env=os.environ if env is None else env,
-        working_tree_bytes=_tracked_bytes(root) if working_tree_bytes is None else working_tree_bytes,
-        include_python_tooling=True,
-        tooling_commands=("git", "gh", "node", "npm", "npx"),
+        measurements={"working_tree_bytes": wtb},
+        tooling=tooling,
     )
     if now is not None:
+        record = dict(record)
         record["generated_at"] = now
-        _load_gh_identity().validate_repository_metadata_v1(record)
+        gh.validate_repository_metadata_v1(record)
     return record
 
 

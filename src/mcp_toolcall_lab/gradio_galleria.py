@@ -1,6 +1,6 @@
 """Optional local galleria, adapted from Ironmate gradio_galleria.py.
 
-Source: myon-bioinformatics/Ironmate@1281553 (MIT; vendor/Ironmate-LICENSE).
+Source: myon-bioinformatics/Ironmate@1281553 (MIT).
 Run from a source checkout with PYTHONPATH=src python -m mcp_toolcall_lab.gradio_galleria.
 """
 from __future__ import annotations
