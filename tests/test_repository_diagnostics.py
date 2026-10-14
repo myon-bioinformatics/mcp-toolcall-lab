@@ -60,11 +60,11 @@ def sample_record():
     )
 
 
-def _assert_vendored_provenance(path, provenance_path, source_path, blob_sha, sha256):
+def _assert_vendored_provenance(path, provenance_path, source_path, blob_sha, sha256, *, lock_destination):
     provenance = json.loads(provenance_path.read_text(encoding="utf-8"))
     assert provenance["source_repository"] == "myon-bioinformatics/mcp-toolcall-lab"
     assert provenance["source_path"] == source_path
-    assert provenance["source_commit"] == _locked(path.relative_to(diagnostics.REPO_ROOT).as_posix())['commit']
+    assert provenance["source_commit"] == _locked(lock_destination)['commit']
     assert provenance["blob_sha"] == blob_sha
     assert provenance["sha256"] == sha256
     assert provenance["schema_version"] == "1.0"
@@ -111,6 +111,7 @@ def test_vendored_generator_provenance_matches_baseline():
         "vendor/repository_metadata_generator.py",
         _locked('vendor/repository_metadata_generator.py')['blob_sha'],
         _locked('vendor/repository_metadata_generator.py')['sha256'],
+        lock_destination='vendor/repository_metadata_generator.py',
     )
 
 
@@ -352,13 +353,11 @@ def test_build_record_revalidates_after_generated_at_override(monkeypatch):
 def test_vendor_readme_refresh_updates_repository_metadata_provenance():
     readme = (diagnostics.REPO_ROOT / "vendor" / "README.md").read_text(encoding="utf-8")
     section = readme.split("# Vendored repository metadata producer", 1)[1]
-    assert "BLOB_SHA=$(gh api" in section
-    assert "--jq .sha" in section
-    assert "SHA256=$(python3 -c" in section
-    assert "source_commit" in section
-    assert "blob_sha" in section
-    assert "sha256" in section
-    assert ".provenance.json" in section
+    assert "validate_repository_metadata_v1" in section
+    assert "gh_identity.py" in section
+    assert "repository_metadata_generator.provenance.json" in section
+    assert "sync_vendor_provenance.py" in section
+    assert "repository_metadata_contract" in section
 
 
 def test_payload_reuses_public_resolver_without_probe():
@@ -454,4 +453,11 @@ def test_generator_commit_does_not_borrow_contract_pin(tmp_path, monkeypatch):
     provenance.write_text(json.dumps(record), encoding='utf-8')
     original = _locked
     monkeypatch.setitem(globals(), '_locked', lambda selected: entry if selected == destination else original(selected))
-    _assert_vendored_provenance(source, provenance, entry['source'], entry['blob_sha'], entry['sha256'])
+    _assert_vendored_provenance(
+        source,
+        provenance,
+        entry['source'],
+        entry['blob_sha'],
+        entry['sha256'],
+        lock_destination=destination,
+    )
