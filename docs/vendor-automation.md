@@ -3,7 +3,7 @@
 Push and pull-request CI verify vendored bytes against [`vendor.lock.json`](../vendor.lock.json)
 using the shared stdlib tool from
 [`myon-bioinformatics/myon-bioinformatics`](https://github.com/myon-bioinformatics/myon-bioinformatics)
-at commit `ab17b409d82f95abc81116af7ff0d3e7bdc4158c` (parent `vendor_sync.py`).
+at commit `9cc33f08f225eaf67d9a00489a1bf15977ebee25` (parent `vendor_sync.py`).
 
 The `vendor-locked` job checks the lock, deletes every locked destination, materializes
 the exact upstream commits, and checks again. The primary `test` job repeats
@@ -20,7 +20,7 @@ ALM agents can reproduce verification in a disposable checkout:
 
 ```bash
 git clone https://github.com/myon-bioinformatics/myon-bioinformatics.git .vendor-sync-tools
-git -C .vendor-sync-tools checkout --detach ab17b409d82f95abc81116af7ff0d3e7bdc4158c
+git -C .vendor-sync-tools checkout --detach 9cc33f08f225eaf67d9a00489a1bf15977ebee25
 python -S .vendor-sync-tools/vendor_sync.py check --manifest vendor.lock.json
 ```
 
