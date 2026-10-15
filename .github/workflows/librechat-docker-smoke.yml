@@ -26,7 +26,7 @@ on:
 jobs:
   changes:
     name: Change detection
-    uses: myon-bioinformatics/myon-bioinformatics/.github/workflows/reusable-change-detection.yml@40bd74c4a36896509b506d6d06251255be6c77c7
+    uses: myon-bioinformatics/myon-bioinformatics/.github/workflows/reusable-change-detection.yml@ab17b409d82f95abc81116af7ff0d3e7bdc4158c
     with:
       force_heavy_paths: |-
         fixtures
