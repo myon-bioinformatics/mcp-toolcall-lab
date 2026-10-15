@@ -12,8 +12,8 @@
     },
     {
       "repository": "myon-bioinformatics/myon-bioinformatics",
-      "ref": "9cc33f08f225eaf67d9a00489a1bf15977ebee25",
-      "commit": "9cc33f08f225eaf67d9a00489a1bf15977ebee25",
+      "ref": "b000e5967cb7596f6f9f20fe396a686fdc700c16",
+      "commit": "b000e5967cb7596f6f9f20fe396a686fdc700c16",
       "source": "gh_ops.py",
       "destination": "vendor/gh_ops.py",
       "blob_sha": "73c34b26c0f0cfa1be544e7885dcfae0e518c985",
@@ -48,8 +48,8 @@
     },
     {
       "repository": "myon-bioinformatics/myon-bioinformatics",
-      "ref": "9cc33f08f225eaf67d9a00489a1bf15977ebee25",
-      "commit": "9cc33f08f225eaf67d9a00489a1bf15977ebee25",
+      "ref": "b000e5967cb7596f6f9f20fe396a686fdc700c16",
+      "commit": "b000e5967cb7596f6f9f20fe396a686fdc700c16",
       "source": "LICENSE",
       "destination": "vendor/myon-bioinformatics-LICENSE",
       "blob_sha": "4ec4989b801bf1a3df6184d21f79e6e7ed5931f6",
