@@ -46,7 +46,7 @@ jobs:
       - name: Install test + Playwright
         run: |
           pip install -e ".[test,browser-test]"
-          playwright install --with-deps chromium
+          playwright install --with-deps --only-shell chromium
 
       - name: Start the lab network (LibreChat + both mocks)
         run: |

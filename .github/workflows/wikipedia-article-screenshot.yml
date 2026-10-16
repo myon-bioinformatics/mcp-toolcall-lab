@@ -34,7 +34,7 @@ jobs:
       - name: Install stub + Playwright CLI
         run: |
           pip install -e ".[test,browser-test]"
-          playwright install --with-deps chromium
+          playwright install --with-deps --only-shell chromium
       - name: Screenshot title-entered and heading-selected (fixture)
         if: ${{ github.event_name != 'workflow_dispatch' || inputs.live_wikipedia != true }}
         env:
