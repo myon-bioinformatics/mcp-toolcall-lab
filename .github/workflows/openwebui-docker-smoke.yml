@@ -28,7 +28,7 @@ on:
       - "src/mcp_toolcall_lab/export.py"
       - "src/mcp_toolcall_lab/mock/**"
       - "src/mcp_toolcall_lab/docker_logs.py"
-      - "tests/real_chat_ui/test_openwebui_docker.py"
+      - "tests/real_chat_ui/test_mcp_toolcall_lab_openwebui_docker.py"
       - "tests/real_chat_ui/openwebui_loop.py"
       - "tests/real_chat_ui/conftest.py"
       - "tests/test_openwebui_example.py"
@@ -77,7 +77,7 @@ jobs:
           OPENAI_MOCK_LOG: ${{ github.workspace }}/test-results/openai-mock.jsonl
           ANTIPATTERN_LOG: ${{ github.workspace }}/test-results/antipatterns.jsonl
           OPENWEBUI_CHAT_MESSAGE: ${{ github.event.inputs.message || 'Find municipalities named Yokohama' }}
-        run: pytest tests/real_chat_ui/test_openwebui_docker.py -v
+        run: pytest tests/real_chat_ui/test_mcp_toolcall_lab_openwebui_docker.py -v
 
       - name: Capture Docker logs (time, level, content)
         if: always()
