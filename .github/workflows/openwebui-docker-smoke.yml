@@ -47,7 +47,7 @@ jobs:
       - name: Install test + Playwright
         run: |
           pip install -e ".[test,browser-test]"
-          playwright install --with-deps chromium
+          playwright install --with-deps --only-shell chromium
 
       - name: Start the lab network (Open WebUI + both mocks)
         run: |
@@ -56,7 +56,7 @@ jobs:
 
       - name: Wait for Open WebUI
         run: |
-          for i in $(seq 1 90); do
+          for _ in $(seq 1 90); do
             curl -sf http://127.0.0.1:3000/health > /dev/null && break
             sleep 3
           done

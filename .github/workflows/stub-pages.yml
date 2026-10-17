@@ -168,7 +168,7 @@ jobs:
             curl -sf http://127.0.0.1:4173/ >/dev/null && break
             sleep 1
           done
-          npx --yes playwright@1.63.0 install --with-deps chromium webkit
+          npx --yes playwright@1.63.0 install --with-deps --only-shell chromium webkit
           npx --yes playwright@1.63.0 screenshot --browser=chromium --device="Desktop Chrome" --full-page \
             "http://127.0.0.1:4173/#pixiv" test-results/pixiv-pages-desktop.png
           npx --yes playwright@1.63.0 screenshot --browser=chromium --device="Desktop Chrome" --full-page \
