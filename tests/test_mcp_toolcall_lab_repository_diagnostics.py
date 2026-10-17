@@ -9,7 +9,7 @@ from urllib.error import HTTPError, URLError
 
 import pytest
 
-from mcp_toolcall_lab import repository_diagnostics as diagnostics
+from mcp_toolcall_lab import mcp_toolcall_lab_repository_diagnostics as diagnostics
 from mcp_toolcall_lab.github_public_resolver import candidate_urls, probe_url
 
 

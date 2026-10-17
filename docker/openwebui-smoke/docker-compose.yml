@@ -13,7 +13,7 @@
 #   OPEN_WEBUI_BASE_URL=http://127.0.0.1:3000 \
 #     MCP_TOOLCALL_LOG=$PWD/test-results/mcp-toolcalls.jsonl \
 #     OPENAI_MOCK_LOG=$PWD/test-results/openai-mock.jsonl \
-#     pytest tests/real_chat_ui/test_openwebui_docker.py -v
+#     pytest tests/real_chat_ui/test_mcp_toolcall_lab_openwebui_docker.py -v
 #
 # Open WebUI image is the published registry tag. `:main` is intentional for
 # "does the current product still wire MCP?" — pin a digest to replay a run.

@@ -76,7 +76,7 @@ def test_vendored_markdown_py_is_loadable() -> None:
     assert recorded["sha256"] == _locked('vendor/markdown.py')['sha256']
     readme = (ROOT / "vendor" / "README.md").read_text(encoding="utf-8")
     assert "vendor.lock.json" in readme
-    assert "test_vendor_lock.py" in readme
+    assert "test_mcp_toolcall_lab_vendor_lock.py" in readme
     # Vendored API surface through the current markdown.py snapshot must be present.
     assert hasattr(md, "markdown_to_html")
     assert hasattr(md, "html_to_markdown")
