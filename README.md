@@ -122,7 +122,7 @@ docker compose -f docker/openwebui-smoke/docker-compose.yml up --build -d
 OPEN_WEBUI_BASE_URL=http://127.0.0.1:3000 \
   MCP_TOOLCALL_LOG=$PWD/test-results/mcp-toolcalls.jsonl \
   OPENAI_MOCK_LOG=$PWD/test-results/openai-mock.jsonl \
-  pytest tests/real_chat_ui/test_openwebui_docker.py -v
+  pytest tests/real_chat_ui/test_mcp_toolcall_lab_openwebui_docker.py -v
 ```
 
 Skipped in default `pytest` (`OPEN_WEBUI_BASE_URL` unset). Dedicated CI:

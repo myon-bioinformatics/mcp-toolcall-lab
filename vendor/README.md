@@ -6,7 +6,7 @@ this file by path so the Pages/Docker image does not grow a pip dependency.
 
 Identity and byte hashes live in the repo-root [`vendor.lock.json`](../vendor.lock.json)
 entry for `vendor/markdown.py`. Refresh by updating that lock entry and the
-checked-in bytes together; `tests/test_vendor_lock.py` and
+checked-in bytes together; `tests/test_mcp_toolcall_lab_vendor_lock.py` and
 `mcp_toolcall_lab.markdown_lib.assert_markdown_provenance()` guard drift.
 
 # Vendored `ascii_artist.py`
@@ -26,7 +26,7 @@ Pins and hashes: `vendor.lock.json` entry `vendor/gh_ops.py`.
 # Vendored `gh_identity.py`
 
 Pinned snapshot from [`myon-bioinformatics/gh_identity`](https://github.com/myon-bioinformatics/gh_identity).
-`mcp_toolcall_lab.repository_diagnostics` builds repository metadata v1 records
+`mcp_toolcall_lab.mcp_toolcall_lab_repository_diagnostics` builds repository metadata v1 records
 through `validate_repository_metadata_v1` / `repository_metadata_v1` from this
 module (the retired Ironmate `repository_metadata_contract.py` shim is not vendored).
 
