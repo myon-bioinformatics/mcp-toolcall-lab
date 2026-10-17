@@ -20,7 +20,7 @@ mcp-docker-logs = "mcp_toolcall_lab.docker_logs:main"
 galleria = ["gradio==6.29.1"]
 test = [
     "httpx>=0.28.1",
-    "mcp==1.28.1",
+    "mcp==1.30.0",
     "pytest>=8",
     "PyYAML>=6",
     "pytest-asyncio>=0.24",
