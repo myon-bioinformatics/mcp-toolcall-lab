@@ -8,13 +8,14 @@ content retrieval. These are observed route shapes, not service API guarantees.
 | Service | Observed route | Kind |
 | --- | --- | --- |
 | ChatGPT | `https://chatgpt.com/c/{id}` | conversation_id |
-| Gemini | `https://gemini.google.com/app/{id}` | conversation_id |
+| Gemini | `https://gemini.google.com/app/{id}` or `https://gemini.google.com/share/{id}` | conversation_id |
 | Claude | `https://claude.ai/chat/{id}` | conversation_id |
 | M365 Copilot | `https://m365.cloud.microsoft/chat/conversation/{id}` | conversation_id |
 | GitHub Copilot | `https://github.com/copilot/c/{id}` | conversation_id |
 | DeepSeek | `https://chat.deepseek.com/a/chat/s/{id}` | conversation_id |
 | Perplexity | `https://perplexity.ai/search/{id}` or `https://www.perplexity.ai/search/{id}` | conversation_id |
 | Cursor | `https://cursor.com/agents/bc-{id}` | agent_id |
+| Jules | `https://jules.google.com/session/{id}` (subpaths like `/code/...` normalized) | session_id |
 | GitHub PR | `https://github.com/{owner}/{repo}/pull/{number}` | pull_request_id |
 | GitHub `/issues` number | `https://github.com/{owner}/{repo}/issues/{number}` | issue_or_pull_request_id |
 
