@@ -12,8 +12,11 @@ content retrieval. These are observed route shapes, not service API guarantees.
 | Claude | `https://claude.ai/chat/{id}` | conversation_id |
 | M365 Copilot | `https://m365.cloud.microsoft/chat/conversation/{id}` | conversation_id |
 | GitHub Copilot | `https://github.com/copilot/c/{id}` | conversation_id |
+| DeepSeek | `https://chat.deepseek.com/a/chat/s/{id}` | conversation_id |
+| Perplexity | `https://perplexity.ai/search/{id}` | conversation_id |
 | Cursor | `https://cursor.com/agents/bc-{id}` | agent_id |
 | GitHub PR | `https://github.com/{owner}/{repo}/pull/{number}` | pull_request_id |
+| GitHub Issue | `https://github.com/{owner}/{repo}/issues/{number}` | issue_id |
 
 M365's example screenshot has a clipped ID. Tests use a synthetic full token;
 the parser does not reconstruct unseen characters or prove that an ID exists.

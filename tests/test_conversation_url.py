@@ -24,6 +24,8 @@ def offline(monkeypatch):
     ("m365.cloud.microsoft", "chat/conversation", "m365_copilot", "conversation_id", UUID),
     ("cursor.com", "agents", "cursor", "agent_id", "bc-" + UUID),
     ("github.com", "copilot/c", "github_copilot", "conversation_id", UUID),
+    ("chat.deepseek.com", "a/chat/s", "deepseek", "conversation_id", UUID),
+    ("perplexity.ai", "search", "perplexity", "conversation_id", UUID),
 ])
 def test_service_routes_and_trace_integration(host, path, provider, kind, token):
     base = f"https://{host}/{path}/{token}"
@@ -43,6 +45,15 @@ def test_pr_identity_is_scoped_and_separate_from_copilot():
     assert extract_ids_from_url(result["url"])[0].kind == "pull_request_id"
 
 
+def test_issue_identity_is_scoped_and_separate():
+    result = parse_reference("https://github.com/example/lab/issues/42?x=1#issuecomment-123456")
+    assert result == {"provider": "github", "kind": "issue_id",
+                      "id": "example/lab#42", "repository": "example/lab", "number": "42",
+                      "url": "https://github.com/example/lab/issues/42"}
+    assert parse_reference("https://github.com/example/other/issues/42")["id"] != result["id"]
+    assert extract_ids_from_url(result["url"])[0].kind == "issue_id"
+
+
 @pytest.mark.parametrize("url", [
     "", "https://[broken", "https://chatgpt.com:bad/c/abc", "http://chatgpt.com/c/abc",
     "https://chatgpt.com:444/c/abc", "https://user@chatgpt.com/c/abc",
@@ -56,6 +67,8 @@ def test_pr_identity_is_scoped_and_separate_from_copilot():
     "https://cursor.com/agents/bc-", "https://cursor.com/agents/bc-?chat_id=ignored",
     "https://github.com/copilot", "https://github.com/example/lab/pull/0",
     "https://github.com/example/lab/pull/110/files", "https://github.com/example/../pull/1",
+    "https://github.com/example/lab/issues/0", "https://github.com/example/lab/issues/42/comments",
+    "https://chat.deepseek.com/a/chat/s/new", "https://perplexity.ai/search/new",
     "https://m365.cloud.microsoft/chat/conversation/",
     "https://chatgpt.com/c/" + "a" * 257,
 ])
@@ -67,7 +80,8 @@ def test_unsupported_or_malformed_urls(url):
     ("chatgpt.com", "c/abc"), ("gemini.google.com", "app/abc"),
     ("claude.ai", "chat/abc"), ("m365.cloud.microsoft", "chat/conversation/abc"),
     ("cursor.com", "agents/bc-abc"), ("github.com", "copilot/c/abc"),
-    ("github.com", "example/lab/pull/1"),
+    ("chat.deepseek.com", "a/chat/s/abc"), ("perplexity.ai", "search/abc"),
+    ("github.com", "example/lab/pull/1"), ("github.com", "example/lab/issues/1"),
 ])
 @pytest.mark.parametrize("template", [
     "http://{host}/{path}", "https://user@{host}/{path}",

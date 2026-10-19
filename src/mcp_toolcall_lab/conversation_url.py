@@ -14,6 +14,8 @@ _ROUTES = {
     "m365.cloud.microsoft": ("m365_copilot", "chat/conversation", "conversation_id"),
     "cursor.com": ("cursor", "agents", "agent_id"),
     "github.com": ("github_copilot", "copilot/c", "conversation_id"),
+    "chat.deepseek.com": ("deepseek", "a/chat/s", "conversation_id"),
+    "perplexity.ai": ("perplexity", "search", "conversation_id"),
 }
 KNOWN_HOSTS = frozenset(_ROUTES)
 _TOKEN = r"[A-Za-z0-9][A-Za-z0-9_-]{0,255}"
@@ -43,6 +45,12 @@ def parse_reference(url: str) -> dict[str, str] | None:
             return {"provider": "github", "kind": "pull_request_id",
                     "id": f"{repo}#{number}", "repository": repo, "number": number,
                     "url": f"https://github.com/{repo}/pull/{number}"}
+        issue = re.fullmatch(r"/([A-Za-z0-9][A-Za-z0-9-]*)/([A-Za-z0-9_.-]+)/issues/([1-9][0-9]{0,19})/?", p.path)
+        if issue and issue[2] not in {".", ".."}:
+            repo, number = f"{issue[1]}/{issue[2]}", issue[3]
+            return {"provider": "github", "kind": "issue_id",
+                    "id": f"{repo}#{number}", "repository": repo, "number": number,
+                    "url": f"https://github.com/{repo}/issues/{number}"}
     provider, route, kind = _ROUTES[host]
     match = re.fullmatch(r"/" + route + "/(" + _TOKEN + r")/?", p.path)
     if not match or match[1].lower() in _RESERVED:
