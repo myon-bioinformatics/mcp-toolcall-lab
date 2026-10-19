@@ -16,6 +16,7 @@ _ROUTES = {
     "github.com": ("github_copilot", "copilot/c", "conversation_id"),
     "chat.deepseek.com": ("deepseek", "a/chat/s", "conversation_id"),
     "perplexity.ai": ("perplexity", "search", "conversation_id"),
+    "www.perplexity.ai": ("perplexity", "search", "conversation_id"),
 }
 KNOWN_HOSTS = frozenset(_ROUTES)
 _TOKEN = r"[A-Za-z0-9][A-Za-z0-9_-]{0,255}"

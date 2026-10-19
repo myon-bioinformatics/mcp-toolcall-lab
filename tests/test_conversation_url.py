@@ -26,6 +26,7 @@ def offline(monkeypatch):
     ("github.com", "copilot/c", "github_copilot", "conversation_id", UUID),
     ("chat.deepseek.com", "a/chat/s", "deepseek", "conversation_id", UUID),
     ("perplexity.ai", "search", "perplexity", "conversation_id", UUID),
+    ("www.perplexity.ai", "search", "perplexity", "conversation_id", UUID),
 ])
 def test_service_routes_and_trace_integration(host, path, provider, kind, token):
     base = f"https://{host}/{path}/{token}"
@@ -80,7 +81,7 @@ def test_unsupported_or_malformed_urls(url):
     ("chatgpt.com", "c/abc"), ("gemini.google.com", "app/abc"),
     ("claude.ai", "chat/abc"), ("m365.cloud.microsoft", "chat/conversation/abc"),
     ("cursor.com", "agents/bc-abc"), ("github.com", "copilot/c/abc"),
-    ("chat.deepseek.com", "a/chat/s/abc"), ("perplexity.ai", "search/abc"),
+    ("chat.deepseek.com", "a/chat/s/abc"), ("perplexity.ai", "search/abc"), ("www.perplexity.ai", "search/abc"),
     ("github.com", "example/lab/pull/1"), ("github.com", "example/lab/issues/1"),
 ])
 @pytest.mark.parametrize("template", [
