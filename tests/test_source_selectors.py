@@ -25,7 +25,9 @@ def test_select_all_rows_in_loaded_document(selector):
 
 
 @pytest.mark.parametrize('selector', ['', '#missing', '[id=calendar]', 'div:hover',
-                                     'div,aside', '> main', 'main >', 'main >> div'])
+                                     ',div', 'div,', 'div,,aside', 'main,div:hover',
+                                     "[role='main content']", '[role^=main]',
+                                     '> main', 'main >', 'main >> div'])
 def test_invalid_or_missing_selection_fails(selector):
     with pytest.raises(ValueError):
         extract(HTML, 'https://example.test', selector=selector)
@@ -36,6 +38,36 @@ def test_nested_matches_are_not_double_counted():
                      'https://example.test', selector='.x')
     assert result['text'] == 'A B'
     assert result['scope_count'] == 1
+
+
+def test_selector_groups_are_a_document_order_union_without_duplicate_content():
+    html = '<main><div class="a">First<a href="/one">A</a></div>' \
+           '<article class="b">Second<a href="/two">B</a></article></main>'
+    result = extract(html, 'https://example.test', selector='.b, .a, .a, main > .b')
+    assert result['text'] == 'First A Second B'
+    assert result['scope_count'] == 2
+    assert [link['text'] for link in result['links']] == ['A', 'B']
+    outer = extract(html, 'https://example.test', selector='.a, main, .b')
+    assert outer['text'] == result['text']
+    assert outer['scope_count'] == 1
+
+
+@pytest.mark.parametrize('selector', ["[role='main']", '[role="main"]', '[role=main]',
+                                     "div.content[role='main']", "[role='main'] > article"])
+def test_role_equality_selectors(selector):
+    html = '<div role="navigation">Excluded</div>' \
+           '<div class="content" role="main"><article>Body</article></div>'
+    assert extract(html, 'https://example.test', selector=selector)['text'] == 'Body'
+
+
+def test_group_snapshot_replay_keeps_original_hash_and_rejects_tampering():
+    from mcp_toolcall_lab.source_access import extract_snapshot
+    snapshot = make_snapshot('<nav>Excluded</nav><div role="main">Body</div>', 'https://example.test')
+    result = extract_snapshot(snapshot, selector="main, [role='main']")
+    assert result['extraction']['text'] == 'Body'
+    assert result['snapshot']['content_sha256'] == snapshot['content_sha256']
+    with pytest.raises(ValueError, match='snapshot content hash mismatch'):
+        extract_snapshot({**snapshot, 'html': '<main>Changed</main>'}, selector="main, [role='main']")
 
 
 def test_same_snapshot_different_selectors_without_transport(monkeypatch):
