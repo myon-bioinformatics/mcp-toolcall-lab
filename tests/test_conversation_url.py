@@ -26,7 +26,9 @@ def offline(monkeypatch):
     ("github.com", "copilot/c", "github_copilot", "conversation_id", UUID),
     ("chat.deepseek.com", "a/chat/s", "deepseek", "conversation_id", UUID),
     ("perplexity.ai", "search", "perplexity", "conversation_id", UUID),
-    ("www.perplexity.ai", "search", "perplexity", "conversation_id", UUID),
+    ("huggingface.co", "chat/conversation", "huggingchat", "conversation_id", UUID),
+    ("grok.com", "chat", "grok", "conversation_id", UUID),
+    ("poe.com", "chat", "poe", "conversation_id", UUID),
 ])
 def test_service_routes_and_trace_integration(host, path, provider, kind, token):
     base = f"https://{host}/{path}/{token}"
@@ -55,6 +57,25 @@ def test_issue_identity_is_scoped_and_separate():
     assert extract_ids_from_url(result["url"])[0].kind == "issue_id"
 
 
+def test_discussion_identity_is_scoped_and_separate():
+    result = parse_reference("https://github.com/example/lab/discussions/15?x=1#discussioncomment-987")
+    assert result == {"provider": "github", "kind": "discussion_id",
+                      "id": "example/lab#15", "repository": "example/lab", "number": "15",
+                      "url": "https://github.com/example/lab/discussions/15"}
+    assert parse_reference("https://github.com/example/other/discussions/15")["id"] != result["id"]
+    assert extract_ids_from_url(result["url"])[0].kind == "discussion_id"
+
+
+def test_commit_identity_is_scoped_and_separate():
+    sha = "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2"
+    result = parse_reference(f"https://github.com/example/lab/commit/{sha}?diff=unified#diff-123")
+    assert result == {"provider": "github", "kind": "commit_id",
+                      "id": f"example/lab@{sha}", "repository": "example/lab", "sha": sha,
+                      "url": f"https://github.com/example/lab/commit/{sha}"}
+    assert parse_reference(f"https://github.com/example/other/commit/{sha}")["id"] != result["id"]
+    assert extract_ids_from_url(result["url"])[0].kind == "commit_id"
+
+
 @pytest.mark.parametrize("url", [
     "", "https://[broken", "https://chatgpt.com:bad/c/abc", "http://chatgpt.com/c/abc",
     "https://chatgpt.com:444/c/abc", "https://user@chatgpt.com/c/abc",
@@ -69,7 +90,9 @@ def test_issue_identity_is_scoped_and_separate():
     "https://github.com/copilot", "https://github.com/example/lab/pull/0",
     "https://github.com/example/lab/pull/110/files", "https://github.com/example/../pull/1",
     "https://github.com/example/lab/issues/0", "https://github.com/example/lab/issues/42/comments",
+    "https://github.com/example/lab/discussions/0", "https://github.com/example/lab/commit/123456",
     "https://chat.deepseek.com/a/chat/s/new", "https://perplexity.ai/search/new",
+    "https://huggingface.co/chat/conversation/new", "https://grok.com/chat/new", "https://poe.com/chat/new",
     "https://m365.cloud.microsoft/chat/conversation/",
     "https://chatgpt.com/c/" + "a" * 257,
 ])
@@ -81,8 +104,10 @@ def test_unsupported_or_malformed_urls(url):
     ("chatgpt.com", "c/abc"), ("gemini.google.com", "app/abc"),
     ("claude.ai", "chat/abc"), ("m365.cloud.microsoft", "chat/conversation/abc"),
     ("cursor.com", "agents/bc-abc"), ("github.com", "copilot/c/abc"),
-    ("chat.deepseek.com", "a/chat/s/abc"), ("perplexity.ai", "search/abc"), ("www.perplexity.ai", "search/abc"),
+    ("chat.deepseek.com", "a/chat/s/abc"), ("perplexity.ai", "search/abc"),
+    ("huggingface.co", "chat/conversation/abc"), ("grok.com", "chat/abc"), ("poe.com", "chat/abc"),
     ("github.com", "example/lab/pull/1"), ("github.com", "example/lab/issues/1"),
+    ("github.com", "example/lab/discussions/1"), ("github.com", "example/lab/commit/a1b2c3d4e5f6"),
 ])
 @pytest.mark.parametrize("template", [
     "http://{host}/{path}", "https://user@{host}/{path}",

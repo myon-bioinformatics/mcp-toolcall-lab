@@ -114,6 +114,10 @@ ID_KINDS: tuple[dict[str, str], ...] = (
      "notes": "Repository-scoped OWNER/REPO#NUMBER; use GitHub tools for content."},
     {"kind": "issue_id", "owner": "github", "prefix": "",
      "notes": "Repository-scoped OWNER/REPO#NUMBER for issues; use GitHub tools for content."},
+    {"kind": "discussion_id", "owner": "github", "prefix": "",
+     "notes": "Repository-scoped OWNER/REPO#NUMBER for discussions; use GitHub tools for content."},
+    {"kind": "commit_id", "owner": "github", "prefix": "",
+     "notes": "Repository-scoped OWNER/REPO@SHA for commits; use GitHub tools for content."},
     {
         "kind": "ui_message_id",
         "owner": "chat-ui",

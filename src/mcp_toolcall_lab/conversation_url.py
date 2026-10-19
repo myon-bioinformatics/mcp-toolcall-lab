@@ -16,7 +16,9 @@ _ROUTES = {
     "github.com": ("github_copilot", "copilot/c", "conversation_id"),
     "chat.deepseek.com": ("deepseek", "a/chat/s", "conversation_id"),
     "perplexity.ai": ("perplexity", "search", "conversation_id"),
-    "www.perplexity.ai": ("perplexity", "search", "conversation_id"),
+    "huggingface.co": ("huggingchat", "chat/conversation", "conversation_id"),
+    "grok.com": ("grok", "chat", "conversation_id"),
+    "poe.com": ("poe", "chat", "conversation_id"),
 }
 KNOWN_HOSTS = frozenset(_ROUTES)
 _TOKEN = r"[A-Za-z0-9][A-Za-z0-9_-]{0,255}"
@@ -52,6 +54,18 @@ def parse_reference(url: str) -> dict[str, str] | None:
             return {"provider": "github", "kind": "issue_id",
                     "id": f"{repo}#{number}", "repository": repo, "number": number,
                     "url": f"https://github.com/{repo}/issues/{number}"}
+        disc = re.fullmatch(r"/([A-Za-z0-9][A-Za-z0-9-]*)/([A-Za-z0-9_.-]+)/discussions/([1-9][0-9]{0,19})/?", p.path)
+        if disc and disc[2] not in {".", ".."}:
+            repo, number = f"{disc[1]}/{disc[2]}", disc[3]
+            return {"provider": "github", "kind": "discussion_id",
+                    "id": f"{repo}#{number}", "repository": repo, "number": number,
+                    "url": f"https://github.com/{repo}/discussions/{number}"}
+        commit = re.fullmatch(r"/([A-Za-z0-9][A-Za-z0-9-]*)/([A-Za-z0-9_.-]+)/commit/([0-9a-fA-F]{7,40})/?", p.path)
+        if commit and commit[2] not in {".", ".."}:
+            repo, sha = f"{commit[1]}/{commit[2]}", commit[3].lower()
+            return {"provider": "github", "kind": "commit_id",
+                    "id": f"{repo}@{sha}", "repository": repo, "sha": sha,
+                    "url": f"https://github.com/{repo}/commit/{sha}"}
     provider, route, kind = _ROUTES[host]
     match = re.fullmatch(r"/" + route + "/(" + _TOKEN + r")/?", p.path)
     if not match or match[1].lower() in _RESERVED:
