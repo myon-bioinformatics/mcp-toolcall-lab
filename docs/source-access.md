@@ -113,7 +113,12 @@ always smaller than an API response.
 
 `html/extract` accepts an optional `selector` with the generic profile. The
 supported subset is tags, `#id`, `.class`, compounds, descendant whitespace and
-child `>`. All matching outermost scopes are read in document order. Unsupported
+child `>`, comma groups and exact `[role=main]` equality (also single/double
+quoted). Role values use ASCII identifiers without spaces; other attributes,
+operators, escaping and pseudo-classes remain unsupported. Groups form a union
+in document order, with duplicate and nested scopes counted once. All groups
+are validated even if an earlier group matches. All matching outermost scopes
+are read in document order. Unsupported
 syntax and zero matches fail explicitly; nested matches do not duplicate text.
 This inspects saved markup only, never CSS computed styles or scripts. Selector
 changes reuse the same snapshot; no linked resource is fetched.

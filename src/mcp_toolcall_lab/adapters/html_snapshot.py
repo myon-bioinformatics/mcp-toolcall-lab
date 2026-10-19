@@ -64,15 +64,26 @@ def clean(node):
 
 
 def select_nodes(nodes, selector):
-    """A deliberately small CSS subset: tag, #id, .class, descendant and >.
+    """Small CSS subset: tag, #id, .class, [role=value], descendant, > and comma.
 
     Unsupported syntax fails instead of silently broadening a selection.
     This matches saved markup, not computed styles or a browser DOM.
     """
     if not isinstance(selector, str) or not selector.strip() or len(selector) > 512:
         raise ValueError('selector must be a non-empty string of at most 512 characters')
+    groups = [group.strip() for group in selector.split(',')]
+    if any(not group for group in groups):
+        raise ValueError('empty selector group')
+    nodes = list(nodes)
+    # Validate every group, even when an earlier one already matches.
+    selected = {id(node) for group in groups for node in _select_nodes(nodes, group)}
+    return [node for node in nodes if id(node) in selected]
+
+
+def _select_nodes(nodes, selector):
     tokens = re.findall(r'>|[^\s>]+', selector)
-    simple = re.compile(r'(?:[a-zA-Z][\w-]*|\*)?(?:[.#][a-zA-Z_][\w-]*)*', re.ASCII)
+    role = r'''\[role=(?:'[a-zA-Z_][\w-]*'|"[a-zA-Z_][\w-]*"|[a-zA-Z_][\w-]*)\]'''
+    simple = re.compile(r'(?:[a-zA-Z][\w-]*|\*)?(?:[.#][a-zA-Z_][\w-]*|' + role + r')*', re.ASCII)
     parts, relations = [], []
     relation = None
     for token in tokens:
@@ -100,6 +111,9 @@ def select_nodes(nodes, selector):
             if kind == '#' and node.attrs.get('id') != value:
                 return False
             if kind == '.' and value not in (node.attrs.get('class') or '').split():
+                return False
+        for quoted, double_quoted, bare in re.findall(r'''\[role=(?:'([\w-]+)'|"([\w-]+)"|([\w-]+))\]''', token, re.ASCII):
+            if node.attrs.get('role') != (quoted or double_quoted or bare):
                 return False
         return node.tag != 'document'
 
