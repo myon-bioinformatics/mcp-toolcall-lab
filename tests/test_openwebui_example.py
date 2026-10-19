@@ -68,7 +68,7 @@ def test_openwebui_docs_and_workflow_track_the_owui_named_mock() -> None:
     assert "test-results/docker-logs" in workflow
     assert "openwebui-image.json" in workflow
     assert "docker_logs image" in workflow
-    assert "run: pytest -q" in default_ci
+    assert "uv run --locked --extra test pytest -q" in default_ci
     assert "test_mcp_toolcall_lab_openwebui_docker.py" not in default_ci
 
 

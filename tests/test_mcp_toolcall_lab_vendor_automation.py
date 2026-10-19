@@ -61,7 +61,10 @@ def test_ci_verifies_vendor_lock_without_auto_update_jobs():
         if "vendor_sync.py check" in step.get("run", "")
     ]
     assert verify_steps
-    assert any(step.get("run") == "pytest -q --junitxml=reports/pytest.xml" for step in test_job["steps"])
+    assert any(
+        step.get("run") == "uv run --locked --extra test pytest -q --junitxml=reports/pytest.xml"
+        for step in test_job["steps"]
+    )
 
 
 @pytest.mark.parametrize("path", ["scripts/sync_vendor_provenance.py"])

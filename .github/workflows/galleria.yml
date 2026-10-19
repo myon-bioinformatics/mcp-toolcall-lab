@@ -5,6 +5,7 @@ on:
     paths:
       - '.github/workflows/galleria.yml'
       - 'pyproject.toml'
+      - 'uv.lock'
       - 'src/mcp_toolcall_lab/gradio_galleria.py'
       - 'src/mcp_toolcall_lab/markdown_lib.py'
       - 'tests/test_gradio_galleria.py'
@@ -16,6 +17,7 @@ on:
     paths:
       - '.github/workflows/galleria.yml'
       - 'pyproject.toml'
+      - 'uv.lock'
       - 'src/mcp_toolcall_lab/gradio_galleria.py'
       - 'src/mcp_toolcall_lab/markdown_lib.py'
       - 'tests/test_gradio_galleria.py'
@@ -41,14 +43,17 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: '3.11'
-      - name: Install optional UI and test dependencies
-        run: python -m pip install -e '.[test,galleria]'
+      - uses: astral-sh/setup-uv@v10.3.0
+        with:
+          python-version: '3.11'
+      - name: Sync locked test and galleria dependencies
+        run: uv sync --locked --extra test --extra galleria
       - name: Check shared dependency consistency
-        run: python -m pip check
+        run: uv pip check
       - name: Require the actual Gradio dependency
-        run: python -c "import gradio, fastmcp; print(gradio.__version__, fastmcp.__version__)"
+        run: uv run --locked --extra test --extra galleria python -c "import gradio, fastmcp; print(gradio.__version__, fastmcp.__version__)"
       - name: Test callbacks, UI construction and HTTP responses
-        run: python -m pytest -q tests/test_gradio_galleria.py tests/test_streamable_http_protocol.py --junitxml=build/test-results/galleria.xml
+        run: uv run --locked --extra test --extra galleria python -m pytest -q tests/test_gradio_galleria.py tests/test_streamable_http_protocol.py --junitxml=build/test-results/galleria.xml
       - name: Preserve Galleria JUnit
         if: always()
         uses: actions/upload-artifact@v7

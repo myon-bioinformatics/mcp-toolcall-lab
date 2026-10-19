@@ -8,7 +8,7 @@ client: same mock, different wiring surface (Admin Integrations /
 Verified against Open WebUI's public docs
 ([MCP feature](https://docs.openwebui.com/features/extensibility/mcp/))
 and `open-webui/open-webui` (`utils/mcp/client.py` uses the MCP SDK
-`streamablehttp_client` + `session.initialize()` / `list_tools()` /
+`streamable_http_client` + `session.initialize()` / `list_tools()` /
 `call_tool()`). Cross-checked 2026-09-19.
 
 GitHub Pages does **not** host this stack. Pages stays a static report.

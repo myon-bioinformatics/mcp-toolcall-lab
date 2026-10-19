@@ -10,10 +10,10 @@ It was already merged as `a5f49c559d0a883f7d6a8728d63faf4412fbc42c`
 when this follow-up audit started.
 
 The application imports `FastMCP` from the independent `fastmcp` package,
-not `mcp.server.fastmcp`. Its production requirement stays
-`fastmcp>=3.4.8,<4`; the tested installation was FastMCP 3.4.9 with
-MCP SDK 1.30.0. FastMCP's server/client extras accept `mcp>=1.24.0,<2.0`,
-so the test pin is compatible with its dependency range.
+not `mcp.server.fastmcp`. At the time of this audit the production requirement
+was the FastMCP 3.4 line. The tested installation was FastMCP 3.4.9 with
+MCP SDK 1.30.0. FastMCP's server and client extras accepted that SDK line,
+so the test pin was compatible with its dependency range.
 
 These packages are distinct, but their HTTP session handling is connected:
 FastMCP 3.4.9's `FastMCPStreamableHTTPSessionManager` subclasses the official
@@ -35,7 +35,7 @@ callers. No external service, new dependency, or production setting is needed.
 | HTTP 307 to another hostname or port | Both callers fail with an `HTTPStatusError` inside the SDK's task-group exception; the target receives no request. |
 | Stateful SDK session with open GET stream | Session ID and tool calls remain valid beyond the accelerated idle interval. |
 | POST-only idle session | The old session ID returns HTTP 404; a fresh chat turn initializes and calls successfully. |
-| Server-deleted SDK session | The next tool call raises `McpError: Session terminated`; a fresh direct connection succeeds. |
+| Server-deleted SDK session | The next tool call raises `MCPError: Session terminated`; a fresh direct connection succeeds. |
 | Session capacity reached | A new chat connection fails with HTTP 503; the existing session still works, and closing it frees capacity. |
 
 Idle/capacity tests retain the real inherited session manager and override its
