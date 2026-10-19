@@ -46,13 +46,28 @@ def test_pr_identity_is_scoped_and_separate_from_copilot():
     assert extract_ids_from_url(result["url"])[0].kind == "pull_request_id"
 
 
-def test_issue_identity_is_scoped_and_separate():
+def test_issues_url_is_scoped_and_does_not_claim_issue():
     result = parse_reference("https://github.com/example/lab/issues/42?x=1#issuecomment-123456")
-    assert result == {"provider": "github", "kind": "issue_id",
+    assert result == {"provider": "github", "kind": "issue_or_pull_request_id",
                       "id": "example/lab#42", "repository": "example/lab", "number": "42",
                       "url": "https://github.com/example/lab/issues/42"}
     assert parse_reference("https://github.com/example/other/issues/42")["id"] != result["id"]
-    assert extract_ids_from_url(result["url"])[0].kind == "issue_id"
+    assert extract_ids_from_url(result["url"])[0].kind == "issue_or_pull_request_id"
+
+
+@pytest.mark.parametrize("leaf,kind", [
+    ("pull", "pull_request_id"),
+    ("issues", "issue_or_pull_request_id"),
+])
+def test_dotted_repo_slug_parses(leaf, kind):
+    result = parse_reference(f"https://github.com/owner/my.repo/{leaf}/12?x=1#diff")
+    assert result == {"provider": "github", "kind": kind,
+                      "id": "owner/my.repo#12", "repository": "owner/my.repo", "number": "12",
+                      "url": f"https://github.com/owner/my.repo/{leaf}/12"}
+    assert extract_ids_from_url(result["url"])[0].kind == kind
+    assert parse_reference(f"https://github.com/owner/./{leaf}/12") is None
+    assert parse_reference(f"https://github.com/owner/../{leaf}/12") is None
+    assert parse_reference(f"https://github.com/my.owner/repo/{leaf}/12") is None
 
 
 @pytest.mark.parametrize("url", [

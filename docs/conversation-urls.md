@@ -16,7 +16,7 @@ content retrieval. These are observed route shapes, not service API guarantees.
 | Perplexity | `https://perplexity.ai/search/{id}` or `https://www.perplexity.ai/search/{id}` | conversation_id |
 | Cursor | `https://cursor.com/agents/bc-{id}` | agent_id |
 | GitHub PR | `https://github.com/{owner}/{repo}/pull/{number}` | pull_request_id |
-| GitHub Issue | `https://github.com/{owner}/{repo}/issues/{number}` | issue_id |
+| GitHub `/issues` number | `https://github.com/{owner}/{repo}/issues/{number}` | issue_or_pull_request_id |
 
 M365's example screenshot has a clipped ID. Tests use a synthetic full token;
 the parser does not reconstruct unseen characters or prove that an ID exists.
@@ -47,11 +47,17 @@ Private chat URLs alone do not supply chat text. Reading content needs a
 service-specific authorized API, user export, or a separately authorized
 browser flow. This change adds none of those transports and no MCP tool.
 
-GitHub PRs return `repository` and `number` (a decimal string), with the ID
-`owner/repo#number` to avoid collisions across repositories. Reuse the existing
-GitHub tools rather than scraping a PR as a chat. Current `gh_identity.pr()`
-returns state/head/base identity, not the PR body or diff; `comments()` returns
-previews. `gh_identity.issue()` reads Issue bodies but explicitly rejects PRs.
+GitHub `/pull/{number}` and `/issues/{number}` both return `repository` and
+`number` (a decimal string), with the ID `owner/repo#number` to avoid
+collisions across repositories. Repository names may contain dots
+(`owner/my.repo`). Owner logins are letters, digits, and hyphens. `.` and `..`
+are rejected as repository names. `/pull/{number}` is `pull_request_id`.
+GitHub also serves a pull request at `/issues/{number}`. This parser stays
+offline, so that path is `issue_or_pull_request_id` and keeps the observed
+`/issues/` URL. Reuse the existing GitHub tools rather than scraping a PR as a
+chat. Current `gh_identity.pr()` returns state/head/base identity, not the PR
+body or diff; `comments()` returns previews. `gh_identity.issue()` reads Issue
+bodies but explicitly rejects PRs.
 The lab's existing
 `github_ops_server` wraps vendored `gh_ops` for status, comments and other
 GitHub operations. Full diffs/files still require their specific GitHub
