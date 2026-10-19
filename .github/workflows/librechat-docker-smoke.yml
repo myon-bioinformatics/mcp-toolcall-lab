@@ -43,10 +43,11 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
+      - uses: astral-sh/setup-uv@v10.3.0
+        with:
+          python-version: "3.11"
       - name: Install test + Playwright
-        run: |
-          pip install -e ".[test,browser-test]"
-          playwright install --with-deps --only-shell chromium
+        run: uv run --locked --extra test --extra browser-test playwright install --with-deps --only-shell chromium
 
       - name: Start the lab network (LibreChat + both mocks)
         run: |
@@ -68,15 +69,15 @@ jobs:
           OPENAI_MOCK_LOG: ${{ github.workspace }}/test-results/openai-mock.jsonl
           ANTIPATTERN_LOG: ${{ github.workspace }}/test-results/antipatterns.jsonl
           LIBRECHAT_CHAT_MESSAGE: ${{ github.event.inputs.message || 'Find municipalities named Yokohama' }}
-        run: pytest -q tests/real_chat_ui/test_librechat_docker.py -v
+        run: uv run --locked --extra test --extra browser-test pytest -q tests/real_chat_ui/test_librechat_docker.py -v
 
       - name: Capture Docker logs (time, level, content)
         if: always()
         run: |
-          python -m mcp_toolcall_lab.docker_logs capture \
+          uv run --locked --extra test --extra browser-test python -m mcp_toolcall_lab.docker_logs capture \
             --compose docker/librechat-smoke/docker-compose.yml \
             --out test-results/docker-logs
-          python -m mcp_toolcall_lab.docker_logs timeline \
+          uv run --locked --extra test --extra browser-test python -m mcp_toolcall_lab.docker_logs timeline \
             --dir test-results \
             --out test-results/timeline.jsonl
 

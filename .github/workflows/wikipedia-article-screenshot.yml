@@ -1,7 +1,7 @@
 name: wikipedia-article-screenshot
 
 # Stdlib stub /wiki screenshots via `python -m playwright screenshot`.
-# Default pytest (`test` workflow, `pytest -q`) does not run this.
+# Default pytest (`test` workflow, `uv run --locked` then `pytest -q`) does not run this.
 # Deterministic CI uses fixtures/wikipedia/yokohama_extract.json.
 # Live Wikipedia is workflow_dispatch --live only (or a local --live run).
 on:
@@ -31,20 +31,21 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
+      - uses: astral-sh/setup-uv@v10.3.0
+        with:
+          python-version: "3.11"
       - name: Install stub + Playwright CLI
-        run: |
-          pip install -e ".[test,browser-test]"
-          playwright install --with-deps --only-shell chromium
+        run: uv run --locked --extra test --extra browser-test playwright install --with-deps --only-shell chromium
       - name: Screenshot title-entered and heading-selected (fixture)
         if: ${{ github.event_name != 'workflow_dispatch' || inputs.live_wikipedia != true }}
         env:
           MCP_TOOLCALL_LAB_WIKIPEDIA_FIXTURE: ${{ github.workspace }}/fixtures/wikipedia/yokohama_extract.json
-        run: python scripts/wikipedia_article_screenshot.py --out test-results/wiki-screenshots
+        run: uv run --locked --extra test --extra browser-test python scripts/wikipedia_article_screenshot.py --out test-results/wiki-screenshots
       - name: Screenshot title-entered and heading-selected (live Wikipedia)
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.live_wikipedia == true }}
         env:
           MCP_TOOLCALL_LAB_LIVE_WIKIPEDIA: "1"
-        run: python scripts/wikipedia_article_screenshot.py --live --out test-results/wiki-screenshots
+        run: uv run --locked --extra test --extra browser-test python scripts/wikipedia_article_screenshot.py --live --out test-results/wiki-screenshots
       - name: Upload screenshots
         if: always()
         uses: actions/upload-artifact@v7

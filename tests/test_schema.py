@@ -104,7 +104,11 @@ def advertised_specs_from_list_tools(tools) -> list[dict]:
     """Normalize FastMCP or MCP SDK tool objects to the Open WebUI-visible surface."""
     specs = []
     for tool in sorted(tools, key=lambda item: item.name):
-        schema = getattr(tool, "parameters", None) or getattr(tool, "inputSchema", None)
+        schema = (
+            getattr(tool, "parameters", None)
+            or getattr(tool, "input_schema", None)
+            or getattr(tool, "inputSchema", None)
+        )
         if hasattr(schema, "model_dump"):
             schema = schema.model_dump(mode="json")
         specs.append(

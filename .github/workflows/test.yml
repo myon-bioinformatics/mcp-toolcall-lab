@@ -76,14 +76,15 @@ jobs:
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
-      - name: Install
-        run: pip install -e ".[test]"
+      - uses: astral-sh/setup-uv@v10.3.0
+        with:
+          python-version: "3.11"
       - name: Deno check
         run: deno check deploy/wikipedia-mcp/main.ts
       - name: Deno test
         run: deno test --allow-env --allow-read deploy/wikipedia-mcp
       - name: Test
-        run: pytest -q --junitxml=reports/pytest.xml
+        run: uv run --locked --extra test pytest -q --junitxml=reports/pytest.xml
       - name: Preserve raw Python JUnit
         if: always()
         uses: actions/upload-artifact@v7

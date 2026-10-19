@@ -73,7 +73,7 @@ async def test_direct_path_is_traceable_via_the_shared_log():
                 trace_id="probe-1",
             )
 
-        assert not result.isError
+        assert not result.is_error
         events = mcp_tool_calls(_read_events(log_path))
         assert len(events) == 1
         event = events[0]
@@ -120,7 +120,7 @@ async def test_chat_path_unknown_tool_is_traceable_as_an_error():
                 arguments={"municipality_code": "14109", "year": 2025},
             )
 
-        assert trace.mcp_result.isError
+        assert trace.mcp_result.is_error
         events = mcp_tool_calls(_read_events(log_path))
         assert events[0]["outcome"] == "error"
         assert events[0]["meta"]["call_id"] == trace.call_id

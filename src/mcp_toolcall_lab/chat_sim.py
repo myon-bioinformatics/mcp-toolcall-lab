@@ -40,7 +40,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from mcp import ClientSession
-from mcp.client.streamable_http import streamablehttp_client
+from mcp.client.streamable_http import streamable_http_client
 
 from mcp_toolcall_lab.record import new_call_id, new_chat_id
 
@@ -103,7 +103,7 @@ async def send_via_chat(
         ],
     }
 
-    async with streamablehttp_client(mcp_url) as (read_stream, write_stream, _):
+    async with streamable_http_client(mcp_url) as (read_stream, write_stream):
         async with ClientSession(read_stream, write_stream) as session:
             await session.initialize()
             result = await session.call_tool(
@@ -147,7 +147,7 @@ async def send_direct(
     if trace_id is not None:
         meta["trace_id"] = trace_id
 
-    async with streamablehttp_client(mcp_url) as (read_stream, write_stream, _):
+    async with streamable_http_client(mcp_url) as (read_stream, write_stream):
         async with ClientSession(read_stream, write_stream) as session:
             await session.initialize()
             return await session.call_tool(tool_name, arguments, meta=meta)

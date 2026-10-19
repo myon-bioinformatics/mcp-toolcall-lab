@@ -19,7 +19,7 @@ from pathlib import Path
 import httpx
 import pytest
 from mcp import ClientSession
-from mcp.client.streamable_http import streamablehttp_client
+from mcp.client.streamable_http import streamable_http_client
 
 from mcp_toolcall_lab.record import mcp_tool_calls
 from tests.test_schema import EXPECTED_TOOL_SPECS, advertised_specs_from_list_tools
@@ -107,7 +107,7 @@ def mcp_url():
 
 
 async def _session(url: str, **client_kwargs):
-    async with streamablehttp_client(url, **client_kwargs) as (read_stream, write_stream, _):
+    async with streamable_http_client(url, **client_kwargs) as (read_stream, write_stream):
         async with ClientSession(read_stream, write_stream) as session:
             await session.initialize()
             yield session
@@ -121,7 +121,7 @@ async def test_initialize_list_and_call_via_streamable_http(mcp_url: str):
         assert advertised_specs_from_list_tools(tools.tools) == EXPECTED_TOOL_SPECS
 
         result = await session.call_tool("find_municipalities", {"query": "Yokohama"})
-        assert not result.isError
+        assert not result.is_error
         assert "Yokohama" in result.content[0].text
 
 
@@ -142,7 +142,7 @@ async def test_librechat_standalone_file_advertises_the_same_tool_specs_over_htt
             assert advertised_specs_from_list_tools(tools.tools) == EXPECTED_TOOL_SPECS
 
             result = await session.call_tool("find_municipalities", {"query": "Yokohama"})
-            assert not result.isError
+            assert not result.is_error
             assert "Yokohama" in result.content[0].text
 
 
@@ -150,7 +150,7 @@ async def test_librechat_standalone_file_advertises_the_same_tool_specs_over_htt
 async def test_unknown_tool_is_error(mcp_url: str):
     async for session in _session(mcp_url):
         result = await session.call_tool("find_transaction_price", {"query": "Yokohama"})
-        assert result.isError
+        assert result.is_error
         assert "find_transaction_price" in result.content[0].text
 
 
@@ -158,7 +158,7 @@ async def test_unknown_tool_is_error(mcp_url: str):
 async def test_missing_required_argument_is_error(mcp_url: str):
     async for session in _session(mcp_url):
         result = await session.call_tool("find_municipalities", {})
-        assert result.isError
+        assert result.is_error
         assert "query" in result.content[0].text.lower() or "missing" in result.content[0].text.lower()
 
 
@@ -169,7 +169,7 @@ async def test_type_mismatch_is_error(mcp_url: str):
             "find_transaction_prices",
             {"municipality_code": 14109, "year": 2025},
         )
-        assert result.isError
+        assert result.is_error
         assert "string" in result.content[0].text.lower() or "municipality_code" in result.content[0].text
 
 
@@ -177,9 +177,9 @@ async def test_type_mismatch_is_error(mcp_url: str):
 async def test_empty_result_is_success_with_no_rows(mcp_url: str):
     async for session in _session(mcp_url):
         result = await session.call_tool("find_stations", {"municipality_code": "00000"})
-        assert not result.isError
+        assert not result.is_error
         assert result.content == []
-        structured = getattr(result, "structuredContent", None) or getattr(result, "structured_content", None)
+        structured = getattr(result, "structured_content", None)
         if structured is not None:
             assert structured.get("result") == []
 
@@ -187,7 +187,7 @@ async def test_empty_result_is_success_with_no_rows(mcp_url: str):
 @pytest.mark.integration
 async def test_timeout_raises_on_slow_tool():
     with running_mcp_server(MCP_TOOL_DELAY_SECONDS="30") as server:
-        async with streamablehttp_client(server.url) as (read_stream, write_stream, _):
+        async with streamable_http_client(server.url) as (read_stream, write_stream):
             async with ClientSession(read_stream, write_stream) as session:
                 await session.initialize()
                 task = asyncio.create_task(
@@ -210,11 +210,11 @@ async def test_jsonl_log_records_success_empty_and_error():
         with running_mcp_server(MCP_TOOLCALL_LOG=log_path) as server:
             async for session in _session(server.url):
                 ok = await session.call_tool("find_municipalities", {"query": "Yokohama"})
-                assert not ok.isError
+                assert not ok.is_error
                 empty = await session.call_tool("find_stations", {"municipality_code": "00000"})
-                assert not empty.isError
+                assert not empty.is_error
                 err = await session.call_tool("find_transaction_price", {})
-                assert err.isError
+                assert err.is_error
 
         events = mcp_tool_calls(
             [json.loads(line) for line in Path(log_path).read_text(encoding="utf-8").splitlines()]

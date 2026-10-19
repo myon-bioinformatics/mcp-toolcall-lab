@@ -12,10 +12,11 @@ import socket
 from contextlib import asynccontextmanager
 
 import httpx
+import httpx2
 import pytest
 import uvicorn
-from mcp import ClientSession, McpError
-from mcp.client.streamable_http import streamablehttp_client
+from mcp import ClientSession, MCPError
+from mcp.client.streamable_http import streamable_http_client
 from starlette.applications import Starlette
 from starlette.responses import RedirectResponse, Response
 from starlette.routing import Route
@@ -47,6 +48,18 @@ async def serve(app):
         finally:
             server.should_exit = True
             await asyncio.wait_for(task, timeout=5)
+
+
+def _recording_client() -> tuple[httpx2.AsyncClient, list[str]]:
+    """Capture MCP session ids. The SDK client no longer yields a session getter."""
+    seen: list[str] = []
+
+    async def remember(response: httpx2.Response) -> None:
+        session_id = response.headers.get("mcp-session-id")
+        if session_id:
+            seen.append(session_id)
+
+    return httpx2.AsyncClient(event_hooks={"response": [remember]}), seen
 
 
 async def call(url, path):
@@ -81,7 +94,7 @@ async def test_same_origin_redirect_preserves_tool_call(path):
     async with serve(app) as origin:
         async with asyncio.timeout(5):
             result = await call(origin + "/redirect", path)
-        assert not result.isError
+        assert not result.is_error
         assert "Yokohama" in result.content[0].text
 
 
@@ -106,8 +119,8 @@ async def test_cross_origin_redirect_fails_without_contacting_target(path, chang
                 with pytest.raises(ExceptionGroup) as caught:
                     await call(origin + "/redirect", path)
             errors = leaves(caught.value)
-            assert errors and all(isinstance(error, httpx.HTTPStatusError) for error in errors)
-            assert all(error.response.status_code == 307 for error in errors)
+            assert errors and all(isinstance(error, MCPError) for error in errors)
+            assert all("not followed" in str(error) for error in errors)
         assert hits == []
 
 
@@ -132,16 +145,18 @@ def short_idle_sessions(monkeypatch):
 
 async def test_sdk_get_stream_keeps_session_alive(short_idle_sessions):
     async with serve(create_mcp().http_app(path="/mcp")) as origin:
-        async with streamablehttp_client(origin + "/mcp") as (read, write, session_id):
-            async with ClientSession(read, write) as session:
-                await session.initialize()
-                original = session_id()
-                assert original
-                await session.list_tools()
-                await asyncio.sleep(IDLE_TIMEOUT * 3)
-                result = await session.call_tool("find_municipalities", {"query": "Yokohama"})
-                assert not result.isError
-                assert session_id() == original
+        client, seen = _recording_client()
+        async with client:
+            async with streamable_http_client(origin + "/mcp", http_client=client) as (read, write):
+                async with ClientSession(read, write) as session:
+                    await session.initialize()
+                    assert seen
+                    original = seen[-1]
+                    await session.list_tools()
+                    await asyncio.sleep(IDLE_TIMEOUT * 3)
+                    result = await session.call_tool("find_municipalities", {"query": "Yokohama"})
+                    assert not result.is_error
+                    assert seen[-1] == original
 
 
 async def test_idle_http_session_returns_404_then_fresh_chat_succeeds(short_idle_sessions):
@@ -168,26 +183,28 @@ async def test_idle_http_session_returns_404_then_fresh_chat_succeeds(short_idle
             })
             assert expired.status_code == 404
         result = await call(url, "chat")
-        assert not result.isError
+        assert not result.is_error
         assert "Yokohama" in result.content[0].text
 
 
 async def test_deleted_sdk_session_surfaces_error_then_new_connection_succeeds():
     async with serve(create_mcp().http_app(path="/mcp")) as origin:
         url = origin + "/mcp"
-        async with streamablehttp_client(url) as (read, write, session_id):
-            async with ClientSession(read, write) as session:
-                await session.initialize()
-                old_id = session_id()
-                assert old_id
-                async with httpx.AsyncClient() as client:
-                    deleted = await client.delete(url, headers={"Mcp-Session-Id": old_id})
-                    assert deleted.status_code == 200
-                async with asyncio.timeout(5):
-                    with pytest.raises(McpError, match="Session terminated"):
-                        await session.call_tool("find_municipalities", {"query": "Yokohama"})
+        http, seen = _recording_client()
+        async with http:
+            async with streamable_http_client(url, http_client=http) as (read, write):
+                async with ClientSession(read, write) as session:
+                    await session.initialize()
+                    assert seen
+                    old_id = seen[-1]
+                    async with httpx.AsyncClient() as probe:
+                        deleted = await probe.delete(url, headers={"Mcp-Session-Id": old_id})
+                        assert deleted.status_code == 200
+                    async with asyncio.timeout(5):
+                        with pytest.raises(MCPError, match="Session not found"):
+                            await session.call_tool("find_municipalities", {"query": "Yokohama"})
         result = await call(url, "direct")
-        assert not result.isError
+        assert not result.is_error
         assert "Yokohama" in result.content[0].text
 
 
@@ -195,15 +212,15 @@ async def test_session_capacity_error_preserves_existing_connection(short_idle_s
     async with serve(create_mcp().http_app(path="/mcp")) as origin:
         url = origin + "/mcp"
         short_idle_sessions[0].max_sessions = 1
-        async with streamablehttp_client(url) as (read, write, _):
+        async with streamable_http_client(url) as (read, write):
             async with ClientSession(read, write) as session:
                 await session.initialize()
                 async with asyncio.timeout(5):
                     with pytest.raises(ExceptionGroup) as caught:
                         await call(url, "chat")
                 errors = leaves(caught.value)
-                assert errors and all(isinstance(error, httpx.HTTPStatusError) for error in errors)
-                assert all(error.response.status_code == 503 for error in errors)
+                assert errors and all(isinstance(error, MCPError) for error in errors)
+                assert all("Too many open sessions" in str(error) for error in errors)
                 assert (await session.list_tools()).tools
         # Closing the existing SDK transport sends DELETE and frees capacity.
-        assert not (await call(url, "direct")).isError
+        assert not (await call(url, "direct")).is_error

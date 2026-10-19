@@ -30,7 +30,11 @@ def _jsonable(value: Any) -> Any:
 
 def spec_from_tool(tool: Any) -> dict[str, Any]:
     """Normalize one FastMCP / MCP SDK tool to the advertised wire surface."""
-    schema = getattr(tool, "parameters", None) or getattr(tool, "inputSchema", None)
+    schema = (
+        getattr(tool, "parameters", None)
+        or getattr(tool, "input_schema", None)
+        or getattr(tool, "inputSchema", None)
+    )
     output = getattr(tool, "outputSchema", None)
     if output is None:
         output = getattr(tool, "output_schema", None)
