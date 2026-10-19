@@ -40,18 +40,19 @@ def parse_reference(url: str) -> dict[str, str] | None:
     except ValueError:
         return None
     if host == "github.com":
-        pr = re.fullmatch(r"/([A-Za-z0-9][A-Za-z0-9-]*)/([A-Za-z0-9_.-]+)/pull/([1-9][0-9]{0,19})/?", p.path)
-        if pr and pr[2] not in {".", ".."}:
-            repo, number = f"{pr[1]}/{pr[2]}", pr[3]
-            return {"provider": "github", "kind": "pull_request_id",
+        # Owner logins have no dots; repository names may (`owner/my.repo`).
+        # `/issues/N` addresses either an issue or a pull request. This parser
+        # stays offline, so that path is issue_or_pull_request_id.
+        numbered = re.fullmatch(
+            r"/([A-Za-z0-9][A-Za-z0-9-]*)/([A-Za-z0-9_.-]+)/(pull|issues)/([1-9][0-9]{0,19})/?",
+            p.path,
+        )
+        if numbered and numbered[2] not in {".", ".."}:
+            repo, number, leaf = f"{numbered[1]}/{numbered[2]}", numbered[4], numbered[3]
+            kind = "pull_request_id" if leaf == "pull" else "issue_or_pull_request_id"
+            return {"provider": "github", "kind": kind,
                     "id": f"{repo}#{number}", "repository": repo, "number": number,
-                    "url": f"https://github.com/{repo}/pull/{number}"}
-        issue = re.fullmatch(r"/([A-Za-z0-9][A-Za-z0-9-]*)/([A-Za-z0-9_.-]+)/issues/([1-9][0-9]{0,19})/?", p.path)
-        if issue and issue[2] not in {".", ".."}:
-            repo, number = f"{issue[1]}/{issue[2]}", issue[3]
-            return {"provider": "github", "kind": "issue_id",
-                    "id": f"{repo}#{number}", "repository": repo, "number": number,
-                    "url": f"https://github.com/{repo}/issues/{number}"}
+                    "url": f"https://github.com/{repo}/{leaf}/{number}"}
     provider, route, kind = _ROUTES[host]
     match = re.fullmatch(r"/" + route + "/(" + _TOKEN + r")/?", p.path)
     if not match or match[1].lower() in _RESERVED:

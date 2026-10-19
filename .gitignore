@@ -9,3 +9,16 @@ test-results/
 docker/stub-pages/models/*.gguf
 docker/stub-pages/models/*.gguf.part
 .vendor-sync-tools/
+
+# --- common ignores (shared) ---
+*.py[cod]
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+venv/
+node_modules/
+.DS_Store
+Thumbs.db
+# --- end common ignores ---

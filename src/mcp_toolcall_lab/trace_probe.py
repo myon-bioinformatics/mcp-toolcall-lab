@@ -112,8 +112,8 @@ ID_KINDS: tuple[dict[str, str], ...] = (
      "notes": "Cursor /agents/bc-* identity; not a chat or MCP call ID."},
     {"kind": "pull_request_id", "owner": "github", "prefix": "",
      "notes": "Repository-scoped OWNER/REPO#NUMBER; use GitHub tools for content."},
-    {"kind": "issue_id", "owner": "github", "prefix": "",
-     "notes": "Repository-scoped OWNER/REPO#NUMBER for issues; use GitHub tools for content."},
+    {"kind": "issue_or_pull_request_id", "owner": "github", "prefix": "",
+     "notes": "OWNER/REPO#NUMBER from /issues/N, which addresses an issue or a pull request."},
     {
         "kind": "ui_message_id",
         "owner": "chat-ui",
