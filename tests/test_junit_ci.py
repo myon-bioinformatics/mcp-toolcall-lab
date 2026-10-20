@@ -48,7 +48,7 @@ def test_python_junit_workflow_keeps_failed_producer_visible():
     workflow = (Path(__file__).parents[1] / ".github/workflows/test.yml").read_text(encoding="utf-8")
     producer = workflow.split("  test:\n", 1)[1].split("  junit-identity:\n", 1)[0]
     collector = workflow.split("  junit-identity:\n", 1)[1].split("  public-resolver-compat:", 1)[0]
-    assert "astral-sh/setup-uv@v10.3.0" in producer
+    assert "astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0" in producer
     assert "run: uv run --locked --extra test pytest -q --junitxml=reports/pytest.xml" in producer
     assert "continue-on-error" not in producer
     assert "|| true" not in producer

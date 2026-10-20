@@ -344,7 +344,7 @@ python scripts/wikipedia_article_screenshot.py --out test-results/wiki-screensho
 
 ### Trace probe (the other ids)
 
-Hosted ChatGPT, Gemini, Claude, M365 Copilot, GitHub Copilot and Cursor URLs,
+Hosted ChatGPT, Gemini, Claude, M365 Copilot, GitHub Copilot, Cursor, and Jules URLs,
 plus repository-scoped GitHub PR identities, are recognized offline. See
 [conversation URL identities](docs/conversation-urls.md) for routes, the JSON
 CLI, and the separate boundary between ID extraction and content access.
