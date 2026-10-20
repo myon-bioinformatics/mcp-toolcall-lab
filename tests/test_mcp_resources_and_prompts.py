@@ -17,10 +17,10 @@ async def test_mcp_prompts_and_resources_are_advertised():
     prompt_names = [p.name for p in prompts]
     assert "strict_tool_selection" in prompt_names
 
-    rendered = await mcp.render_prompt("strict_tool_selection", {"query": "Find Yokohama"})
+    rendered = await mcp.render_prompt("strict_tool_selection", {"query": "Sample query"})
     prompt_text = rendered.messages[0].content.text
     assert "MUST ONLY call tools" in prompt_text
-    assert "Find Yokohama" in prompt_text
+    assert "Sample query" in prompt_text
 
     resources = await mcp.list_resources()
     resource_uris = [str(r.uri) for r in resources]
