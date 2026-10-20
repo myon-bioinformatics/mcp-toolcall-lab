@@ -13,12 +13,12 @@ from __future__ import annotations
 import hashlib
 import json
 import time
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Sequence
 
-from .source_adapter import build_url, provenance
+from .source_adapter import provenance
 
 SCHEMA_VERSION = "1.0"
 SUPPORTED_SOURCES = ("huggingface", "docker", "local")
@@ -97,7 +97,18 @@ def extract_engine_spec(
 
 
 def _compute_checksum(payload: dict[str, Any]) -> str:
-    serialized = json.dumps(payload, sort_keys=True, ensure_ascii=False)
+    """Hash the complete cache except its top-level checksum field.
+
+    This detects changes against the stored digest; it does not authenticate the
+    producer when an attacker can replace both the payload and its digest.
+    """
+    serialized = json.dumps(
+        {key: value for key, value in payload.items() if key != "sha256"},
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+        allow_nan=False,
+    )
     return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
 
 
@@ -140,19 +151,18 @@ def distill_engine_adapter(
     )
 
     eval_features = dict(observation_data)
-    checksum = _compute_checksum({"spec": spec_dict, "features": eval_features})
-
-    return DistilledAdapter(
+    adapter = DistilledAdapter(
         adapter_id=aid,
         engine_name=spec.engine_name,
         schema_version=SCHEMA_VERSION,
         source_spec=spec_dict,
         evaluation_features=eval_features,
         runtime_bounds=bounds,
-        sha256=checksum,
+        sha256="",
         provenance=prov,
         created_at=datetime.now(UTC).isoformat(),
     )
+    return replace(adapter, sha256=_compute_checksum(asdict(adapter)))
 
 
 def export_adapter_cache(adapter: DistilledAdapter, file_path: Path | str) -> Path:
@@ -160,12 +170,19 @@ def export_adapter_cache(adapter: DistilledAdapter, file_path: Path | str) -> Pa
     path = Path(file_path)
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = asdict(adapter)
+    # Nested dictionaries remain mutable even on a frozen dataclass. Hash the
+    # snapshot actually written, including any changes since distillation/load.
+    payload["sha256"] = _compute_checksum(payload)
     path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
     return path
 
 
 def load_adapter_cache(file_path: Path | str, *, verify_checksum: bool = True) -> DistilledAdapter:
-    """Load a distilled adapter from JSON and optionally verify its SHA-256 integrity."""
+    """Load a cache; SHA-256 checks integrity, not producer authenticity.
+
+    Legacy partial-checksum caches fail verification. Only explicitly trusted
+    legacy inputs may be migrated using verify_checksum=False and re-exported.
+    """
     path = Path(file_path)
     if not path.is_file():
         raise FileNotFoundError(f"Adapter cache file not found: {path}")
@@ -177,10 +194,7 @@ def load_adapter_cache(file_path: Path | str, *, verify_checksum: bool = True) -
 
     if verify_checksum:
         expected_checksum = data.get("sha256")
-        actual_checksum = _compute_checksum({
-            "spec": data["source_spec"],
-            "features": data["evaluation_features"],
-        })
+        actual_checksum = _compute_checksum(data)
         if expected_checksum != actual_checksum:
             raise ValueError(
                 f"Adapter checksum mismatch: expected {expected_checksum}, got {actual_checksum}"
