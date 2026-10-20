@@ -1784,6 +1784,34 @@ def create_mcp() -> FastMCP:
     def fetch_pixiv_dictionary_article(title: str) -> dict[str, Any]:
         return dispatch_tool("fetch_pixiv_dictionary_article", {"title": title})
 
+    @mcp.prompt(description="Prompt template for strict tool selection instructions.")
+    def strict_tool_selection(query: str = "") -> str:
+        instructions = (
+            "You are a helpful assistant with access to MCP tools. "
+            "You MUST ONLY call tools advertised by the server. "
+            "Do not invent fictitious tools or parameters."
+        )
+        if query:
+            return f"{instructions}\nUser query: {query}"
+        return instructions
+
+    @mcp.resource("resource://catalog/tools", description="Read-only catalog of available MCP mock tools.")
+    def catalog_tools_resource() -> str:
+        import json
+        return json.dumps(
+            {"available_tools": sorted(TOOL_DESCRIPTIONS.keys()), "descriptions": TOOL_DESCRIPTIONS},
+            indent=2,
+            ensure_ascii=False,
+        )
+
+    @mcp.resource("resource://prompts/strict_tool_selection", description="Strict tool selection system prompt.")
+    def strict_tool_selection_resource() -> str:
+        return (
+            "You are a helpful assistant with access to MCP tools. "
+            "You MUST ONLY call tools advertised by the server. "
+            "Do not invent fictitious tools or parameters."
+        )
+
     return mcp
 
 
