@@ -8,15 +8,16 @@ from urllib.parse import urlsplit
 
 # Observed routes, not a promise that the service exposes a content API.
 _ROUTES = {
-    "chatgpt.com": ("chatgpt", "c", "conversation_id"),
-    "gemini.google.com": ("gemini", "app", "conversation_id"),
-    "claude.ai": ("claude", "chat", "conversation_id"),
-    "m365.cloud.microsoft": ("m365_copilot", "chat/conversation", "conversation_id"),
-    "cursor.com": ("cursor", "agents", "agent_id"),
-    "github.com": ("github_copilot", "copilot/c", "conversation_id"),
-    "chat.deepseek.com": ("deepseek", "a/chat/s", "conversation_id"),
-    "perplexity.ai": ("perplexity", "search", "conversation_id"),
-    "www.perplexity.ai": ("perplexity", "search", "conversation_id"),
+    "chatgpt.com": (("chatgpt", "c", "conversation_id"),),
+    "gemini.google.com": (("gemini", "app", "conversation_id"), ("gemini", "share", "conversation_id")),
+    "claude.ai": (("claude", "chat", "conversation_id"),),
+    "m365.cloud.microsoft": (("m365_copilot", "chat/conversation", "conversation_id"),),
+    "cursor.com": (("cursor", "agents", "agent_id"),),
+    "github.com": (("github_copilot", "copilot/c", "conversation_id"),),
+    "chat.deepseek.com": (("deepseek", "a/chat/s", "conversation_id"),),
+    "perplexity.ai": (("perplexity", "search", "conversation_id"),),
+    "www.perplexity.ai": (("perplexity", "search", "conversation_id"),),
+    "jules.google.com": (("jules", "session", "session_id"),),
 }
 KNOWN_HOSTS = frozenset(_ROUTES)
 _TOKEN = r"[A-Za-z0-9][A-Za-z0-9_-]{0,255}"
@@ -53,15 +54,19 @@ def parse_reference(url: str) -> dict[str, str] | None:
             return {"provider": "github", "kind": kind,
                     "id": f"{repo}#{number}", "repository": repo, "number": number,
                     "url": f"https://github.com/{repo}/{leaf}/{number}"}
-    provider, route, kind = _ROUTES[host]
-    match = re.fullmatch(r"/" + route + "/(" + _TOKEN + r")/?", p.path)
-    if not match or match[1].lower() in _RESERVED:
-        return None
-    token = match[1]
-    if provider == "cursor" and (not token.startswith("bc-") or len(token) == 3):
-        return None
-    return {"provider": provider, "kind": kind, "id": token,
-            "url": f"https://{host}/{route}/{token}"}
+    for provider, route, kind in _ROUTES[host]:
+        if provider == "jules":
+            match = re.fullmatch(r"/" + route + r"/(" + _TOKEN + r")(/.*)?", p.path)
+        else:
+            match = re.fullmatch(r"/" + route + r"/(" + _TOKEN + r")/?", p.path)
+        if not match or match[1].lower() in _RESERVED:
+            continue
+        token = match[1]
+        if provider == "cursor" and (not token.startswith("bc-") or len(token) == 3):
+            continue
+        return {"provider": provider, "kind": kind, "id": token,
+                "url": f"https://{host}/{route}/{token}"}
+    return None
 
 
 def main(argv: list[str] | None = None) -> int:
