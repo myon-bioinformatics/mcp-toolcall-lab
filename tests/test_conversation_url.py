@@ -95,6 +95,18 @@ def test_unsupported_or_malformed_urls(url):
     assert parse_reference(url) is None
 
 
+@pytest.mark.parametrize("url", [
+    "https://jules.google.com/session/10839938662816797913/../../session/other",
+    "https://jules.google.com/session/A/session/B",
+    "https://jules.google.com/session/10839938662816797913/%2e%2e/session/other",
+    "https://jules.google.com/session/10839938662816797913/%2e/session/other",
+    "https://jules.google.com/session/10839938662816797913/other/path",
+])
+def test_jules_dot_segments_and_unknown_subpaths_are_rejected(url):
+    assert parse_reference(url) is None
+    assert extract_ids_from_url(url) == []
+
+
 def test_jules_session_subpaths_are_normalized():
     url_with_file = "https://jules.google.com/session/10839938662816797913/code/README.md?query=1#frag"
     expected = {

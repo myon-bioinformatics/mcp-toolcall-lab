@@ -4,7 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
-from urllib.parse import urlsplit
+from urllib.parse import unquote, urlsplit
 
 # Observed routes, not a promise that the service exposes a content API.
 _ROUTES = {
@@ -22,6 +22,18 @@ _ROUTES = {
 KNOWN_HOSTS = frozenset(_ROUTES)
 _TOKEN = r"[A-Za-z0-9][A-Za-z0-9_-]{0,255}"
 _RESERVED = {"new", "login", "register", "auth"}
+
+
+def _jules_path_suffix_ok(path_suffix: str) -> bool:
+    """Allow only observed /code/... tails; reject dot-segments (incl. %2e)."""
+    if not path_suffix or path_suffix == "/":
+        return True
+    if not path_suffix.startswith("/code/") or path_suffix == "/code/":
+        return False
+    for segment in path_suffix[len("/code/") :].split("/"):
+        if not segment or unquote(segment) in {".", ".."}:
+            return False
+    return True
 
 
 def parse_reference(url: str) -> dict[str, str] | None:
@@ -57,6 +69,8 @@ def parse_reference(url: str) -> dict[str, str] | None:
     for provider, route, kind in _ROUTES[host]:
         if provider == "jules":
             match = re.fullmatch(r"/" + route + r"/(" + _TOKEN + r")(/.*)?", p.path)
+            if match and not _jules_path_suffix_ok(match[2] or ""):
+                continue
         else:
             match = re.fullmatch(r"/" + route + r"/(" + _TOKEN + r")/?", p.path)
         if not match or match[1].lower() in _RESERVED:
