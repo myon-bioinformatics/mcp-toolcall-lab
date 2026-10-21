@@ -1,0 +1,83 @@
+name: engine-adapter-smoke
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    paths:
+      - ".github/workflows/engine-adapter-smoke.yml"
+      - "src/mcp_toolcall_lab/adapters/engine_adapter.py"
+      - "tests/test_engine_adapter.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  engine-adapter-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e '.[test]'
+
+      - name: Run Engine Adapter unit tests
+        run: |
+          pytest -q tests/test_engine_adapter.py
+
+      - name: Run Engine Adapter 1-Pass Distillation & Execution Smoke Test
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from mcp_toolcall_lab.adapters.engine_adapter import (
+              extract_engine_spec,
+              distill_engine_adapter,
+              create_lora_adapter,
+              export_adapter_cache,
+              load_adapter_cache,
+              execute_via_adapter,
+          )
+
+          spec = extract_engine_spec(
+              engine_name="shogi-yaneuraou-ci",
+              source_type="docker",
+              repo_or_image="shogi/yaneuraou-engine",
+              revision_or_tag="v2026.10",
+              device_requirement="cpu",
+          )
+
+          obs = {
+              "startpos": {"evaluation_score": 100.0, "best_move": "7g7f"},
+              "tsume": {"evaluation_score": 32500.0, "best_move": "5a5b"},
+              "default": {"evaluation_score": 0.0, "best_move": "pass"},
+          }
+
+          adapter = distill_engine_adapter(spec, obs, adapter_id="ci-shogi-adapter")
+          lora_adapter = create_lora_adapter(spec, lora_rank=16, adapter_id="ci-shogi-lora")
+
+          cache_path = Path("test-results/engine_adapter_ci_cache.json")
+          export_adapter_cache(adapter, cache_path)
+
+          loaded = load_adapter_cache(cache_path, verify_checksum=True)
+
+          res = execute_via_adapter(loaded, {"position": "startpos"})
+          print("Execution result via adapter:", res)
+
+          assert res["status"] == "ok"
+          assert res["upstream_bypassed"] is True
+          assert res["evaluation"]["best_move"] == "7g7f"
+          print("Engine adapter smoke test passed successfully!")
+          PY

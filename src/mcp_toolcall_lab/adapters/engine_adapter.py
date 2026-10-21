@@ -1,7 +1,7 @@
 """Upstream Distillation Engine Adapter for lightweight execution and CI reuse.
 
 Supports Hugging Face Hub specs, Docker image specs, and local evaluation models
-(such as Shogi AI evaluation functions / NNUE / GGUF CPU models).
+(such as Shogi AI evaluation functions / NNUE / GGUF CPU models / LoRA-style adapters).
 
 In 1-pass execution, heavy upstream metadata and model observation data are distilled
 into a lightweight DistilledAdapter artifact with SHA-256 checksums and provenance.
@@ -14,11 +14,11 @@ import hashlib
 import json
 import time
 from dataclasses import asdict, dataclass
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Sequence
 
-from .source_adapter import build_url, provenance
+from .source_adapter import provenance
 
 SCHEMA_VERSION = "1.0"
 SUPPORTED_SOURCES = ("huggingface", "docker", "local")
@@ -151,8 +151,35 @@ def distill_engine_adapter(
         runtime_bounds=bounds,
         sha256=checksum,
         provenance=prov,
-        created_at=datetime.now(UTC).isoformat(),
+        created_at=datetime.now(timezone.utc).isoformat(),
     )
+
+
+def create_lora_adapter(
+    base_spec: EngineSpec,
+    *,
+    lora_rank: int = 8,
+    lora_alpha: float = 16.0,
+    target_modules: Sequence[str] = ("q_proj", "v_proj"),
+    weights_delta: dict[str, Any] | None = None,
+    adapter_id: str | None = None,
+) -> DistilledAdapter:
+    """Create a lightweight LoRA-style adapter delta from a base engine spec."""
+    if lora_rank < 1:
+        raise ValueError("lora_rank must be a positive integer")
+    if lora_alpha <= 0:
+        raise ValueError("lora_alpha must be positive")
+
+    obs = {
+        "adapter_type": "lora",
+        "lora_rank": lora_rank,
+        "lora_alpha": lora_alpha,
+        "target_modules": list(target_modules),
+        "weights_delta": weights_delta or {"bias_delta": 0.0, "scale": lora_alpha / lora_rank},
+    }
+
+    aid = adapter_id or f"lora-{base_spec.engine_name}-r{lora_rank}"
+    return distill_engine_adapter(base_spec, obs, adapter_id=aid)
 
 
 def export_adapter_cache(adapter: DistilledAdapter, file_path: Path | str) -> Path:

@@ -9,6 +9,7 @@ from pathlib import Path
 from mcp_toolcall_lab.adapters.engine_adapter import (
     DistilledAdapter,
     EngineSpec,
+    create_lora_adapter,
     distill_engine_adapter,
     execute_via_adapter,
     export_adapter_cache,
@@ -86,6 +87,31 @@ def test_distill_engine_adapter() -> None:
     assert adapter.source_spec["repo_or_image"] == "bartowski/SmolLM2-135M-Instruct-GGUF"
     assert len(adapter.sha256) == 64
     assert "https://huggingface.co/bartowski/SmolLM2-135M-Instruct-GGUF" in adapter.provenance["source_url"]
+
+
+def test_create_lora_adapter() -> None:
+    base_spec = extract_engine_spec(
+        engine_name="yaneuraou-base",
+        source_type="huggingface",
+        repo_or_image="shogi-ai/yaneuraou-base",
+    )
+    lora_adapter = create_lora_adapter(
+        base_spec,
+        lora_rank=16,
+        lora_alpha=32.0,
+        target_modules=("q_proj", "v_proj", "k_proj"),
+    )
+    assert lora_adapter.adapter_id == "lora-yaneuraou-base-r16"
+    assert lora_adapter.evaluation_features["adapter_type"] == "lora"
+    assert lora_adapter.evaluation_features["lora_rank"] == 16
+    assert lora_adapter.evaluation_features["lora_alpha"] == 32.0
+    assert lora_adapter.evaluation_features["target_modules"] == ["q_proj", "v_proj", "k_proj"]
+
+    with pytest.raises(ValueError, match="lora_rank must be a positive integer"):
+        create_lora_adapter(base_spec, lora_rank=0)
+
+    with pytest.raises(ValueError, match="lora_alpha must be positive"):
+        create_lora_adapter(base_spec, lora_alpha=0.0)
 
 
 def test_export_and_load_adapter_cache(tmp_path: Path) -> None:
