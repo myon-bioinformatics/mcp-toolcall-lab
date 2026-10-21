@@ -32,6 +32,8 @@ class EngineSpec:
     revision_or_tag: str
     files: tuple[str, ...]
     parameter_count: int | None
+    quantization_bits: int | None
+    quantization_type: str | None
     device_requirement: str
     metadata: dict[str, Any]
 
@@ -44,6 +46,8 @@ class DistilledAdapter:
     source_spec: dict[str, Any]
     evaluation_features: dict[str, Any]
     runtime_bounds: dict[str, Any]
+    approximation_level: str
+    compression_ratio: float
     sha256: str
     provenance: dict[str, Any]
     created_at: str
@@ -57,6 +61,8 @@ def extract_engine_spec(
     revision_or_tag: str = "main",
     files: Sequence[str] = (),
     parameter_count: int | None = None,
+    quantization_bits: int | None = None,
+    quantization_type: str | None = None,
     device_requirement: str = "cpu",
     metadata: dict[str, Any] | None = None,
 ) -> EngineSpec:
@@ -84,6 +90,11 @@ def extract_engine_spec(
     if parameter_count is not None and (not isinstance(parameter_count, int) or parameter_count < 0):
         raise ValueError("parameter_count must be a non-negative integer if provided")
 
+    if quantization_bits is not None and (not isinstance(quantization_bits, int) or quantization_bits < 1 or quantization_bits > 32):
+        raise ValueError("quantization_bits must be an integer between 1 and 32 if provided")
+
+    qtype = quantization_type.strip() if quantization_type else None
+
     return EngineSpec(
         engine_name=name,
         source_type=stype,
@@ -91,6 +102,8 @@ def extract_engine_spec(
         revision_or_tag=rev,
         files=tuple(str(f).strip() for f in files if str(f).strip()),
         parameter_count=parameter_count,
+        quantization_bits=quantization_bits,
+        quantization_type=qtype,
         device_requirement=dev,
         metadata=dict(metadata or {}),
     )
@@ -106,11 +119,15 @@ def distill_engine_adapter(
     observation_data: dict[str, Any],
     *,
     adapter_id: str | None = None,
+    approximation_level: str = "lilbit-compressed",
+    compression_ratio: float = 0.25,
     runtime_bounds: dict[str, Any] | None = None,
 ) -> DistilledAdapter:
     """Distill 1-pass execution/observation data into a lightweight adapter artifact."""
     if not isinstance(observation_data, dict):
         raise ValueError("observation_data must be a dict")
+    if compression_ratio <= 0.0 or compression_ratio > 1.0:
+        raise ValueError("compression_ratio must be between 0.0 (exclusive) and 1.0 (inclusive)")
 
     aid = adapter_id.strip() if adapter_id and adapter_id.strip() else f"adapter-{spec.engine_name}-{spec.revision_or_tag}"
 
@@ -149,6 +166,8 @@ def distill_engine_adapter(
         source_spec=spec_dict,
         evaluation_features=eval_features,
         runtime_bounds=bounds,
+        approximation_level=approximation_level,
+        compression_ratio=compression_ratio,
         sha256=checksum,
         provenance=prov,
         created_at=datetime.now(timezone.utc).isoformat(),
@@ -179,7 +198,21 @@ def create_lora_adapter(
     }
 
     aid = adapter_id or f"lora-{base_spec.engine_name}-r{lora_rank}"
-    return distill_engine_adapter(base_spec, obs, adapter_id=aid)
+    return distill_engine_adapter(base_spec, obs, adapter_id=aid, approximation_level="lora-delta", compression_ratio=0.05)
+
+
+def can_apply_adapter(adapter: DistilledAdapter, target_engine_spec: EngineSpec) -> bool:
+    """Evaluate whether a distilled adapter can be transferred/reused for a target model spec."""
+    source_name = adapter.source_spec.get("engine_name")
+    if source_name == target_engine_spec.engine_name:
+        return True
+
+    # Cross-model compatibility checks (e.g. same repo/family or matching device/quantization capabilities)
+    source_repo = adapter.source_spec.get("repo_or_image")
+    if source_repo and source_repo == target_engine_spec.repo_or_image:
+        return True
+
+    return False
 
 
 def export_adapter_cache(adapter: DistilledAdapter, file_path: Path | str) -> Path:
@@ -220,6 +253,8 @@ def load_adapter_cache(file_path: Path | str, *, verify_checksum: bool = True) -
         source_spec=data["source_spec"],
         evaluation_features=data["evaluation_features"],
         runtime_bounds=data["runtime_bounds"],
+        approximation_level=data.get("approximation_level", "lilbit-compressed"),
+        compression_ratio=float(data.get("compression_ratio", 0.25)),
         sha256=data["sha256"],
         provenance=data["provenance"],
         created_at=data["created_at"],
@@ -253,4 +288,6 @@ def execute_via_adapter(
         "execution_ms": elapsed_ms,
         "upstream_bypassed": True,
         "device_used": adapter.source_spec.get("device_requirement", "cpu"),
+        "approximation_level": adapter.approximation_level,
+        "compression_ratio": adapter.compression_ratio,
     }

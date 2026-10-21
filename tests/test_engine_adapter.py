@@ -9,6 +9,7 @@ from pathlib import Path
 from mcp_toolcall_lab.adapters.engine_adapter import (
     DistilledAdapter,
     EngineSpec,
+    can_apply_adapter,
     create_lora_adapter,
     distill_engine_adapter,
     execute_via_adapter,
@@ -26,6 +27,8 @@ def test_extract_engine_spec_huggingface_valid() -> None:
         revision_or_tag="v1.0.0",
         files=("nnue.bin", "config.json"),
         parameter_count=15000000,
+        quantization_bits=4,
+        quantization_type="q4_k_m",
         device_requirement="cpu",
     )
     assert spec.engine_name == "yaneuraou-nnue"
@@ -34,6 +37,8 @@ def test_extract_engine_spec_huggingface_valid() -> None:
     assert spec.revision_or_tag == "v1.0.0"
     assert spec.files == ("nnue.bin", "config.json")
     assert spec.parameter_count == 15000000
+    assert spec.quantization_bits == 4
+    assert spec.quantization_type == "q4_k_m"
     assert spec.device_requirement == "cpu"
 
 
@@ -66,6 +71,9 @@ def test_extract_engine_spec_validations() -> None:
     with pytest.raises(ValueError, match="parameter_count must be a non-negative integer"):
         extract_engine_spec(engine_name="test", repo_or_image="repo", parameter_count=-5)
 
+    with pytest.raises(ValueError, match="quantization_bits must be an integer between 1 and 32"):
+        extract_engine_spec(engine_name="test", repo_or_image="repo", quantization_bits=64)
+
 
 def test_distill_engine_adapter() -> None:
     spec = extract_engine_spec(
@@ -80,13 +88,46 @@ def test_distill_engine_adapter() -> None:
         "default": {"evaluation_score": 0.0, "best_move": "pass"},
     }
 
-    adapter = distill_engine_adapter(spec, obs, adapter_id="test-shogi-adapter")
+    adapter = distill_engine_adapter(
+        spec,
+        obs,
+        adapter_id="test-shogi-adapter",
+        approximation_level="lilbit-4bit",
+        compression_ratio=0.10,
+    )
     assert adapter.adapter_id == "test-shogi-adapter"
     assert adapter.engine_name == "smollm2-135m-shogi"
     assert adapter.schema_version == "1.0"
     assert adapter.source_spec["repo_or_image"] == "bartowski/SmolLM2-135M-Instruct-GGUF"
+    assert adapter.approximation_level == "lilbit-4bit"
+    assert adapter.compression_ratio == 0.10
     assert len(adapter.sha256) == 64
     assert "https://huggingface.co/bartowski/SmolLM2-135M-Instruct-GGUF" in adapter.provenance["source_url"]
+
+
+def test_can_apply_adapter() -> None:
+    spec1 = extract_engine_spec(
+        engine_name="yaneuraou-base",
+        source_type="huggingface",
+        repo_or_image="shogi-ai/yaneuraou",
+    )
+    spec2 = extract_engine_spec(
+        engine_name="yaneuraou-quantized",
+        source_type="huggingface",
+        repo_or_image="shogi-ai/yaneuraou",
+        quantization_bits=4,
+    )
+    spec3 = extract_engine_spec(
+        engine_name="different-engine",
+        source_type="huggingface",
+        repo_or_image="other/engine",
+    )
+
+    adapter = distill_engine_adapter(spec1, {"default": {"score": 0}})
+
+    assert can_apply_adapter(adapter, spec1) is True
+    assert can_apply_adapter(adapter, spec2) is True
+    assert can_apply_adapter(adapter, spec3) is False
 
 
 def test_create_lora_adapter() -> None:
@@ -177,6 +218,7 @@ def test_execute_via_adapter() -> None:
     assert res1["upstream_bypassed"] is True
     assert res1["evaluation"]["best_move"] == "2f2e"
     assert res1["device_used"] == "cpu"
+    assert res1["approximation_level"] == "lilbit-compressed"
 
     # Execute with fallback key
     res2 = execute_via_adapter(adapter, {"position": "unknown_pos"})
