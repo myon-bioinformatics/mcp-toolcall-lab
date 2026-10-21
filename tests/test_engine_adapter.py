@@ -19,6 +19,7 @@ from mcp_toolcall_lab.adapters.engine_adapter import (
     extract_engine_spec,
     load_adapter_cache,
     resolve_execution_device,
+    simulate_cuda_environment,
 )
 
 
@@ -26,6 +27,26 @@ def test_resolve_execution_device() -> None:
     assert resolve_execution_device("cuda", cuda_available=False) == "cpu-lightweight"
     assert resolve_execution_device("cuda", cuda_available=True) == "cuda"
     assert resolve_execution_device("cpu", cuda_available=True) == "cpu-lightweight"
+
+
+def test_simulate_cuda_environment() -> None:
+    with simulate_cuda_environment(device_name="RTX 4090 Test", vram_mb=24576) as sim:
+        assert sim["cuda_available"] is True
+        assert sim["device_name"] == "RTX 4090 Test"
+        assert sim["vram_total_mb"] == 24576
+
+        spec = extract_engine_spec(
+            engine_name="cuda-simulated-model",
+            source_type="huggingface",
+            repo_or_image="shogi-ai/cuda-sim-model",
+            device_requirement="cuda",
+        )
+        adapter = distill_engine_adapter(spec, {"default": {"evaluation_score": 10.0}})
+        res = execute_via_adapter(adapter, {"position": "default"}, simulated_cuda=sim)
+        assert res["status"] == "ok"
+        assert res["cuda_simulated"] is True
+        assert res["simulated_cuda_device"] == "RTX 4090 Test"
+        assert res["simulated_vram_saved_mb"] == 18000
 
 
 def test_extract_engine_spec_huggingface_valid() -> None:
