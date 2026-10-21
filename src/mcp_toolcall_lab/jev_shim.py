@@ -46,9 +46,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 import math
 from pathlib import Path
 from typing import Any
+
+from mcp_toolcall_lab.fixture_selection import fixture_paths, selection_arguments, list_selection
 
 from mcp_toolcall_lab.mock.common import append_jsonl
 
@@ -183,9 +186,9 @@ def load_case(path: Path) -> dict[str, Any]:
     return case
 
 
-def iter_cases(directory: Path | None = None) -> list[dict[str, Any]]:
+def iter_cases(directory: Path | None = None, *, patterns=('*',), exclude=()) -> list[dict[str, Any]]:
     folder = directory or DEFAULT_FIXTURE_DIR
-    cases = [load_case(path) for path in sorted(folder.glob("*.json"))]
+    cases = [load_case(path) for path in fixture_paths(folder, patterns=patterns, exclude=exclude)]
     if not cases:
         raise FileNotFoundError(f"no jev_shim fixtures in {folder}")
     return cases
@@ -267,8 +270,8 @@ def write_audit(path: Path, audits: list[dict[str, Any]]) -> Path:
     return path
 
 
-def replay_fixtures(directory: Path | None = None, *, out: Path | None = None) -> list[dict[str, Any]]:
-    cases = iter_cases(directory)
+def replay_fixtures(directory: Path | None = None, *, out: Path | None = None, patterns=('*',), exclude=()) -> list[dict[str, Any]]:
+    cases = iter_cases(directory, patterns=patterns, exclude=exclude)
     audits = [replay_case(case) for case in cases]
     if out is not None:
         write_audit(out, audits)
@@ -281,16 +284,25 @@ def main(argv: list[str] | None = None) -> int:
     replay = sub.add_parser("replay", help="judge shipped fixtures offline and write audit JSONL")
     replay.add_argument("--fixtures", default=str(DEFAULT_FIXTURE_DIR))
     replay.add_argument("--out", default="")
+    selection_arguments(replay)
     args = parser.parse_args(argv)
     if args.cmd != "replay":
         parser.print_help()
         return 2
-    cases = iter_cases(Path(args.fixtures))
-    audits = [replay_case(case) for case in cases]
-    if args.out:
-        write_audit(Path(args.out), audits)
-    print(json.dumps({"audits": audits, "calibration": calibration_summary(cases, audits)}, ensure_ascii=False, indent=2))
-    return 0 if all(row.get("verdict") == VERDICT_PASS for row in audits) else 1
+    try:
+        if args.list:
+            list_selection(args)
+            return 0
+        cases = iter_cases(Path(args.fixtures), patterns=args.case or ('*',), exclude=args.exclude or ())
+        audits = [replay_case(case) for case in cases]
+        if args.out:
+            write_audit(Path(args.out), audits)
+        print(json.dumps({"audits": audits, "calibration": calibration_summary(cases, audits)}, ensure_ascii=False, indent=2))
+        return 0 if all(row.get("verdict") == VERDICT_PASS for row in audits) else 1
+    except (OSError, ValueError) as error:
+        print(f'error: {error}', file=sys.stderr)
+        return 2
+
 
 
 if __name__ == "__main__":
