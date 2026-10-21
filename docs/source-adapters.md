@@ -21,5 +21,7 @@ that Ironmate still serves a live catalog or MCP endpoint.
 `mcp_toolcall_lab.adapters.engine_adapter` implements upstream engine/model distillation:
 
 - **1-Pass Upstream Distillation**: Instead of calling heavy external tools/models on every turn, `distill_engine_adapter` extracts and processes evaluation features, model weights specs (e.g., Shogi AI NNUE / GGUF CPU models / Hugging Face Hub / Docker specs), and runtime bounds into a compact `DistilledAdapter` artifact.
+- **Extreme 1-Bit / Ternary & LoRA Quantization**: Support for 1-bit / sub-byte Qualcomm-style quantization (`create_1bit_distilled_adapter`, `convert_to_1bit_weights_delta`) and LoRA delta adapters (`create_lora_adapter`), distilling GPU-heavy models into bitwise/popcount CPU-class artifacts.
+- **Cross-Model Reusability**: `can_apply_adapter` evaluates whether a distilled adapter artifact can be reused across different model architectures or quantized model variants.
 - **Cache Export & Integrity**: `export_adapter_cache` and `load_adapter_cache` handle JSON serialization with SHA-256 checksum verification and provenance metadata.
 - **Lightweight Execution**: `execute_via_adapter` executes evaluation/inference using the cached distilled features, bypassing heavy upstream calls or GPU requirements for fast downstream CI / subsequent MCP execution.

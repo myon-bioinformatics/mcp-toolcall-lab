@@ -10,6 +10,8 @@ from mcp_toolcall_lab.adapters.engine_adapter import (
     DistilledAdapter,
     EngineSpec,
     can_apply_adapter,
+    convert_to_1bit_weights_delta,
+    create_1bit_distilled_adapter,
     create_lora_adapter,
     distill_engine_adapter,
     execute_via_adapter,
@@ -73,6 +75,40 @@ def test_extract_engine_spec_validations() -> None:
 
     with pytest.raises(ValueError, match="quantization_bits must be an integer between 1 and 32"):
         extract_engine_spec(engine_name="test", repo_or_image="repo", quantization_bits=64)
+
+
+def test_convert_to_1bit_weights_delta() -> None:
+    float_weights = [1.2, -0.8, 0.05, -1.5, 0.01, 2.0]
+    res = convert_to_1bit_weights_delta(float_weights, threshold=0.1)
+    assert res["quantization_type"] == "1bit-ternary-bitnet"
+    assert res["elements_count"] == 6
+    assert set(res["ternary_bits"]).issubset({-1, 0, 1})
+    assert res["zero_point"] == 0
+
+    empty = convert_to_1bit_weights_delta([])
+    assert empty["ternary_bits"] == []
+
+
+def test_create_1bit_distilled_adapter() -> None:
+    spec = extract_engine_spec(
+        engine_name="qualcomm-1bit-model",
+        source_type="huggingface",
+        repo_or_image="qualcomm/subbyte-model",
+    )
+    obs = {"default": {"evaluation_score": 50.0}}
+    weights = [0.5, -0.4, 0.02, 1.1]
+
+    adapter = create_1bit_distilled_adapter(
+        spec,
+        obs,
+        weights_delta=weights,
+        adapter_id="1bit-qualcomm-test",
+    )
+    assert adapter.adapter_id == "1bit-qualcomm-test"
+    assert adapter.approximation_level == "1bit-extreme-quantization"
+    assert adapter.compression_ratio == 0.03125
+    assert adapter.evaluation_features["quantization_architecture"] == "1bit-bitnet-qualcomm"
+    assert adapter.evaluation_features["weights_delta_1bit"]["elements_count"] == 4
 
 
 def test_distill_engine_adapter() -> None:

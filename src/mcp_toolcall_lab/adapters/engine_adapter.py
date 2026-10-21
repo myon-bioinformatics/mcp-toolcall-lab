@@ -1,7 +1,7 @@
 """Upstream Distillation Engine Adapter for lightweight execution and CI reuse.
 
 Supports Hugging Face Hub specs, Docker image specs, and local evaluation models
-(such as Shogi AI evaluation functions / NNUE / GGUF CPU models / LoRA-style adapters).
+(such as Shogi AI evaluation functions / NNUE / GGUF CPU models / LoRA / 1-bit BitNet / Qualcomm sub-byte specs).
 
 In 1-pass execution, heavy upstream metadata and model observation data are distilled
 into a lightweight DistilledAdapter artifact with SHA-256 checksums and provenance.
@@ -114,6 +114,39 @@ def _compute_checksum(payload: dict[str, Any]) -> str:
     return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
 
 
+def convert_to_1bit_weights_delta(
+    float_weights: Sequence[float],
+    *,
+    threshold: float = 0.1,
+) -> dict[str, Any]:
+    """Quantize floating point weights/logits into 1-bit ternary values (-1, 0, +1)."""
+    if not float_weights:
+        return {"ternary_bits": [], "scale": 1.0, "zero_point": 0}
+
+    abs_sum = sum(abs(w) for w in float_weights)
+    scale = abs_sum / len(float_weights) if float_weights else 1.0
+    if scale == 0.0:
+        scale = 1.0
+
+    ternary = []
+    for w in float_weights:
+        normalized = w / scale
+        if normalized > threshold:
+            ternary.append(1)
+        elif normalized < -threshold:
+            ternary.append(-1)
+        else:
+            ternary.append(0)
+
+    return {
+        "ternary_bits": ternary,
+        "scale": round(scale, 6),
+        "zero_point": 0,
+        "quantization_type": "1bit-ternary-bitnet",
+        "elements_count": len(ternary),
+    }
+
+
 def distill_engine_adapter(
     spec: EngineSpec,
     observation_data: dict[str, Any],
@@ -199,6 +232,32 @@ def create_lora_adapter(
 
     aid = adapter_id or f"lora-{base_spec.engine_name}-r{lora_rank}"
     return distill_engine_adapter(base_spec, obs, adapter_id=aid, approximation_level="lora-delta", compression_ratio=0.05)
+
+
+def create_1bit_distilled_adapter(
+    base_spec: EngineSpec,
+    observation_data: dict[str, Any],
+    *,
+    weights_delta: Sequence[float] | None = None,
+    adapter_id: str | None = None,
+) -> DistilledAdapter:
+    """Create a 1-bit / ternary extreme-quantization adapter for CPU bitwise evaluation."""
+    quantized_delta = convert_to_1bit_weights_delta(weights_delta or []) if weights_delta else None
+
+    obs = {
+        **observation_data,
+        "quantization_architecture": "1bit-bitnet-qualcomm",
+        "weights_delta_1bit": quantized_delta,
+    }
+
+    aid = adapter_id or f"1bit-{base_spec.engine_name}"
+    return distill_engine_adapter(
+        base_spec,
+        obs,
+        adapter_id=aid,
+        approximation_level="1bit-extreme-quantization",
+        compression_ratio=0.03125,
+    )
 
 
 def can_apply_adapter(adapter: DistilledAdapter, target_engine_spec: EngineSpec) -> bool:
