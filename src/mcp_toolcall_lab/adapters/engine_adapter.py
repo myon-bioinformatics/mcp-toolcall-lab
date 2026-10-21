@@ -53,6 +53,14 @@ class DistilledAdapter:
     created_at: str
 
 
+def resolve_execution_device(requested_device: str, *, cuda_available: bool = False) -> str:
+    """Resolve device requirement, automatically substituting CUDA with cpu-lightweight when unavailable."""
+    req = requested_device.strip().lower()
+    if req in ("cuda", "gpu"):
+        return "cuda" if cuda_available else "cpu-lightweight"
+    return "cpu-lightweight" if req in ("cpu", "cpu-lightweight") else "cpu"
+
+
 def extract_engine_spec(
     *,
     engine_name: str,
@@ -84,8 +92,8 @@ def extract_engine_spec(
         raise ValueError("revision_or_tag must be non-empty")
 
     dev = device_requirement.strip().lower()
-    if dev not in ("cpu", "gpu"):
-        raise ValueError("device_requirement must be 'cpu' or 'gpu'")
+    if dev not in ("cpu", "gpu", "cuda", "cpu-lightweight"):
+        raise ValueError("device_requirement must be 'cpu', 'gpu', 'cuda', or 'cpu-lightweight'")
 
     if parameter_count is not None and (not isinstance(parameter_count, int) or parameter_count < 0):
         raise ValueError("parameter_count must be a non-negative integer if provided")
@@ -323,9 +331,15 @@ def load_adapter_cache(file_path: Path | str, *, verify_checksum: bool = True) -
 def execute_via_adapter(
     adapter: DistilledAdapter,
     input_data: dict[str, Any],
+    *,
+    cuda_available: bool = False,
 ) -> dict[str, Any]:
-    """Execute lightweight evaluation using pre-distilled adapter features without upstream calls."""
+    """Execute lightweight evaluation using pre-distilled adapter features without upstream calls or CUDA dependencies."""
     started = time.monotonic()
+
+    req_device = adapter.source_spec.get("device_requirement", "cpu")
+    effective_device = resolve_execution_device(req_device, cuda_available=cuda_available)
+    cuda_fallback = (req_device in ("cuda", "gpu")) and not cuda_available
 
     features = adapter.evaluation_features
     # Simple lightweight feature matching / evaluation computation
@@ -346,7 +360,10 @@ def execute_via_adapter(
         "evaluation": evaluation,
         "execution_ms": elapsed_ms,
         "upstream_bypassed": True,
-        "device_used": adapter.source_spec.get("device_requirement", "cpu"),
+        "device_requested": req_device,
+        "device_used": effective_device,
+        "cuda_fallback_applied": cuda_fallback,
+        "bypassed_cuda_requirement": cuda_fallback,
         "approximation_level": adapter.approximation_level,
         "compression_ratio": adapter.compression_ratio,
     }

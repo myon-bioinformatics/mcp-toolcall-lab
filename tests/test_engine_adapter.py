@@ -18,7 +18,14 @@ from mcp_toolcall_lab.adapters.engine_adapter import (
     export_adapter_cache,
     extract_engine_spec,
     load_adapter_cache,
+    resolve_execution_device,
 )
+
+
+def test_resolve_execution_device() -> None:
+    assert resolve_execution_device("cuda", cuda_available=False) == "cpu-lightweight"
+    assert resolve_execution_device("cuda", cuda_available=True) == "cuda"
+    assert resolve_execution_device("cpu", cuda_available=True) == "cpu-lightweight"
 
 
 def test_extract_engine_spec_huggingface_valid() -> None:
@@ -50,11 +57,12 @@ def test_extract_engine_spec_docker_valid() -> None:
         source_type="docker",
         repo_or_image="yaneuraou/shogi-engine",
         revision_or_tag="latest",
-        device_requirement="cpu",
+        device_requirement="cuda",
     )
     assert spec.source_type == "docker"
     assert spec.repo_or_image == "yaneuraou/shogi-engine"
     assert spec.revision_or_tag == "latest"
+    assert spec.device_requirement == "cuda"
 
 
 def test_extract_engine_spec_validations() -> None:
@@ -67,7 +75,7 @@ def test_extract_engine_spec_validations() -> None:
     with pytest.raises(ValueError, match="repo_or_image must be non-empty"):
         extract_engine_spec(engine_name="test", repo_or_image="  ")
 
-    with pytest.raises(ValueError, match="device_requirement must be 'cpu' or 'gpu'"):
+    with pytest.raises(ValueError, match="device_requirement must be 'cpu', 'gpu', 'cuda', or 'cpu-lightweight'"):
         extract_engine_spec(engine_name="test", repo_or_image="repo", device_requirement="tpu")
 
     with pytest.raises(ValueError, match="parameter_count must be a non-negative integer"):
@@ -235,28 +243,25 @@ def test_load_adapter_cache_checksum_mismatch(tmp_path: Path) -> None:
         load_adapter_cache(cache_file, verify_checksum=True)
 
 
-def test_execute_via_adapter() -> None:
-    spec = extract_engine_spec(
-        engine_name="yaneuraou-distilled",
-        source_type="docker",
-        repo_or_image="shogi/yaneuraou",
-        revision_or_tag="v2026",
+def test_execute_via_adapter_cuda_fallback() -> None:
+    cuda_spec = extract_engine_spec(
+        engine_name="cuda-heavy-shogi-model",
+        source_type="huggingface",
+        repo_or_image="shogi-ai/cuda-model",
+        device_requirement="cuda",
     )
     obs = {
-        "startpos": {"evaluation_score": 80.0, "best_move": "2f2e"},
+        "startpos": {"evaluation_score": 150.0, "best_move": "7g7f"},
         "default": {"evaluation_score": 0.0, "best_move": "none"},
     }
-    adapter = distill_engine_adapter(spec, obs)
+    adapter = distill_engine_adapter(cuda_spec, obs)
 
-    # Execute with matching key
-    res1 = execute_via_adapter(adapter, {"position": "startpos"})
-    assert res1["status"] == "ok"
-    assert res1["upstream_bypassed"] is True
-    assert res1["evaluation"]["best_move"] == "2f2e"
-    assert res1["device_used"] == "cpu"
-    assert res1["approximation_level"] == "lilbit-compressed"
-
-    # Execute with fallback key
-    res2 = execute_via_adapter(adapter, {"position": "unknown_pos"})
-    assert res2["status"] == "ok"
-    assert res2["evaluation"]["best_move"] == "none"
+    # Execute when CUDA is unavailable (default)
+    res = execute_via_adapter(adapter, {"position": "startpos"}, cuda_available=False)
+    assert res["status"] == "ok"
+    assert res["upstream_bypassed"] is True
+    assert res["device_requested"] == "cuda"
+    assert res["device_used"] == "cpu-lightweight"
+    assert res["cuda_fallback_applied"] is True
+    assert res["bypassed_cuda_requirement"] is True
+    assert res["evaluation"]["best_move"] == "7g7f"
