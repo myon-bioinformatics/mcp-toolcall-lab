@@ -547,3 +547,23 @@ the Galleria tests (actual UI construction and HTTP responses) plus the existing
 MCP Streamable HTTP protocol tests in that same environment.
 It uploads `galleria-junit` and runs on relevant UI/dependency/vendor changes;
 the core MCP test environment remains unchanged.
+
+## Select offline replay fixtures
+
+```sh
+PYTHONPATH=src python -S -m mcp_toolcall_lab.prompt_experiment replay --case 'available*' --list
+PYTHONPATH=src python -S -m mcp_toolcall_lab.jev_shim replay --case 'noul*' --exclude '*malformed*'
+```
+
+Both replay CLIs share case-sensitive filename/stem glob selection. Repeated
+`--case` rules are ORed once; `--exclude` rules apply afterward. Selection happens
+before JSON loading and does not need a sibling checkout. `--list` prints selected
+JSON basenames without reading fixture contents, resolving prompts, replaying,
+calling a provider or writing an audit; it cannot be combined with `--out`.
+Discovery is one directory deep and skips symlinks. Empty selections, invalid
+rules/roots, unreadable files, invalid JSON syntax and explicitly rejected
+fixture values return 2. Existing replay schema validation remains unchanged. Existing replay
+verdict codes (0/1), default all-fixture results and JSONL audit fields remain.
+
+Validation: 57 focused tests passed, including the existing 47 replay tests.
+Both list entry points were also executed with `python -S`.
