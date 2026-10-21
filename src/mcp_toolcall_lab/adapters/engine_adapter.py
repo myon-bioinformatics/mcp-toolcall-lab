@@ -1,18 +1,16 @@
-"""Upstream Distillation Engine Adapter for lightweight execution and CI reuse.
+"""Replay caller-supplied observations with explicit cache/approximation receipts.
 
-Supports Hugging Face Hub specs, Docker image specs, and local evaluation models
-(such as Shogi AI evaluation functions / NNUE / GGUF CPU models).
-
-In 1-pass execution, heavy upstream metadata and model observation data are distilled
-into a lightweight DistilledAdapter artifact with SHA-256 checksums and provenance.
-Subsequent executions or CI steps load the cached adapter for fast, low-cost execution
-without GPU requirements or full upstream initialization.
+EngineSpec describes an upstream source; it does not initialize or run it.
+The historical DistilledAdapter API stores observations, not distilled weights.
+This module uses only the standard library and never performs model inference.
 """
 from __future__ import annotations
 
 import hashlib
 import json
+import math
 import time
+from copy import deepcopy
 from dataclasses import asdict, dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
@@ -21,6 +19,7 @@ from typing import Any, Sequence
 from .source_adapter import provenance
 
 SCHEMA_VERSION = "1.0"
+EXECUTION_CONTRACT_VERSION = "2.0"
 SUPPORTED_SOURCES = ("huggingface", "docker", "local")
 
 
@@ -119,7 +118,7 @@ def distill_engine_adapter(
     adapter_id: str | None = None,
     runtime_bounds: dict[str, Any] | None = None,
 ) -> DistilledAdapter:
-    """Distill 1-pass execution/observation data into a lightweight adapter artifact."""
+    """Store caller-supplied observations; no upstream execution or weight distillation."""
     if not isinstance(observation_data, dict):
         raise ValueError("observation_data must be a dict")
 
@@ -189,6 +188,9 @@ def load_adapter_cache(file_path: Path | str, *, verify_checksum: bool = True) -
 
     data = json.loads(path.read_text(encoding="utf-8"))
 
+    if not isinstance(data, dict):
+        raise ValueError("Adapter cache must be a JSON object")
+
     if data.get("schema_version") != SCHEMA_VERSION:
         raise ValueError(f"Unsupported schema_version {data.get('schema_version')!r}, expected {SCHEMA_VERSION!r}")
 
@@ -199,6 +201,13 @@ def load_adapter_cache(file_path: Path | str, *, verify_checksum: bool = True) -
             raise ValueError(
                 f"Adapter checksum mismatch: expected {expected_checksum}, got {actual_checksum}"
             )
+
+    for field in ("source_spec", "evaluation_features", "runtime_bounds", "provenance"):
+        if not isinstance(data.get(field), dict):
+            raise ValueError(f"Adapter cache {field} must be an object")
+    for field in ("adapter_id", "engine_name", "sha256", "created_at"):
+        if not isinstance(data.get(field), str) or not data[field]:
+            raise ValueError(f"Adapter cache {field} must be a non-empty string")
 
     return DistilledAdapter(
         adapter_id=data["adapter_id"],
@@ -216,28 +225,96 @@ def load_adapter_cache(file_path: Path | str, *, verify_checksum: bool = True) -
 def execute_via_adapter(
     adapter: DistilledAdapter,
     input_data: dict[str, Any],
+    *,
+    on_miss: str = "unsupported",
+    max_age_seconds: float | None = None,
 ) -> dict[str, Any]:
-    """Execute lightweight evaluation using pre-distilled adapter features without upstream calls."""
+    """Replay a keyed observation, or explicitly opt into a constant approximation.
+
+    Result contract 2.0 keeps legacy result keys and cache schema 1.0. Unknown
+    keys no longer silently succeed. ``on_miss="stored_default"`` opts into the
+    historical default fallback, labeled approximation with unmeasured quality.
+    ``max_age_seconds`` optionally expires the entire observation snapshot from
+    its UTC/offset-aware created_at, including default approximations.
+
+    Inputs are observation selectors, not arbitrary model requests: one nonempty
+    string query/position, or {} to select the literal "default" observation.
+    Additional fields and ambiguous selectors are unsupported; they must not be
+    silently ignored as though they were part of an exact model-result cache.
+    """
+    if on_miss not in ("unsupported", "stored_default"):
+        raise ValueError("on_miss must be 'unsupported' or 'stored_default'")
+    if max_age_seconds is not None and (
+        isinstance(max_age_seconds, bool)
+        or not isinstance(max_age_seconds, (int, float))
+        or (isinstance(max_age_seconds, float) and not math.isfinite(max_age_seconds))
+        or max_age_seconds < 0
+    ):
+        raise ValueError("max_age_seconds must be a finite non-negative number")
+
     started = time.monotonic()
-
-    features = adapter.evaluation_features
-    # Simple lightweight feature matching / evaluation computation
-    key = input_data.get("query") or input_data.get("position") or "default"
-
-    evaluation = features.get(str(key)) or features.get("default") or {
-        "evaluation_score": 0.0,
-        "confidence": 0.5,
-        "note": "fallback evaluation from distilled features",
-    }
-
-    elapsed_ms = round((time.monotonic() - started) * 1000, 3)
-
-    return {
-        "status": "ok",
+    result: dict[str, Any] = {
+        "result_contract_version": EXECUTION_CONTRACT_VERSION,
+        "status": "unsupported",
         "adapter_id": adapter.adapter_id,
         "engine_name": adapter.engine_name,
-        "evaluation": evaluation,
-        "execution_ms": elapsed_ms,
+        "evaluation": None,
+        "execution_mode": "unsupported",
+        "result_source": None,
+        "cache_hit": False,
+        "matched_key": None,
+        "model_inference_performed": False,
         "upstream_bypassed": True,
-        "device_used": adapter.source_spec.get("device_requirement", "cpu"),
+        "device_used": "unknown",
+        "device_requirement": adapter.source_spec.get("device_requirement", "unknown"),
+        "quality": {"accuracy": None, "error_bound": None, "calibrated": False},
     }
+
+    def finish(**fields: Any) -> dict[str, Any]:
+        result.update(fields)
+        result["execution_ms"] = round((time.monotonic() - started) * 1000, 3)
+        return result
+
+    if not isinstance(input_data, dict) or (
+        input_data and (len(input_data) != 1 or not set(input_data) <= {"query", "position"})
+    ):
+        return finish(error={"code": "unsupported_input", "message": "Use one query or position selector, or {}."})
+    key = next(iter(input_data.values())) if input_data else "default"
+    if not isinstance(key, str) or not key:
+        return finish(error={"code": "unsupported_input", "message": "Observation selectors must be non-empty strings."})
+
+    if max_age_seconds is not None:
+        try:
+            created = datetime.fromisoformat(adapter.created_at)
+            if created.tzinfo is None:
+                raise ValueError("created_at must include a timezone")
+            age = (datetime.now(UTC) - created).total_seconds()
+        except (TypeError, ValueError, OverflowError):
+            return finish(error={"code": "invalid_cache_timestamp", "message": "Cannot determine snapshot age."})
+        if age < 0:
+            return finish(error={"code": "invalid_cache_timestamp", "message": "Snapshot creation time is in the future."})
+        if age >= max_age_seconds:
+            return finish(status="cache_miss", error={"code": "cache_expired", "message": "Observation snapshot expired."})
+
+    features = adapter.evaluation_features
+    if key in features:
+        return finish(
+            status="ok", evaluation=deepcopy(features[key]),
+            execution_mode="cached_observation", result_source="evaluation_features",
+            cache_hit=True, matched_key=key,
+        )
+    if on_miss == "stored_default" and "default" in features:
+        return finish(
+            status="ok", evaluation=deepcopy(features["default"]),
+            execution_mode="approximation", result_source="evaluation_features.default",
+            matched_key="default",
+            approximation={
+                "method": "stored_default_constant_v1",
+                "limitations": [
+                    "Returns the caller-supplied default unchanged, independent of the input.",
+                    "No model execution, similarity search, or quality validation is performed.",
+                    "Any stored confidence is caller-supplied, not a calibrated probability.",
+                ],
+            },
+        )
+    return finish(status="cache_miss", error={"code": "cache_miss", "message": "No observation for this selector; no model backend is executed."})

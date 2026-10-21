@@ -96,7 +96,7 @@ def test_digest_matches_whole_exported_payload(tmp_path, adapter):
     assert set(data) == set(asdict(adapter))
     loaded = load_adapter_cache(str(path), verify_checksum=True)
     assert asdict(loaded) == data
-    result = execute_via_adapter(loaded, {"position": "startpos"})
+    result = execute_via_adapter(loaded, {})
     assert result["adapter_id"] == adapter.adapter_id
     assert result["evaluation"]["best_move"] == "7g7f"
 
