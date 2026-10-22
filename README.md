@@ -22,6 +22,7 @@ This repository uses deterministic mock APIs and does **not** call a live extern
 
 - Python 3.11 or newer (`datetime.UTC` and `X | Y` type hints).
 - `fastmcp>=4.1.1` and `mcp>=2.3.0`, with exact versions in `uv.lock`. Keep this package out of Open WebUI's own environment.
+- `pyproject.toml` sets `[tool.uv] override-dependencies = ["pillow>=13.0.0"]` because optional `gradio` 6.30.0 still caps Pillow below 13 while Dependabot needs 13+ for JPEG decode fixes. Drop the override once Gradio allows Pillow 13 in its own metadata.
 
 ## Run locally
 
