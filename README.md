@@ -85,6 +85,16 @@ protocol ordering: MCP session initialization precedes discovery (`tools/list`)
 and calls (`tools/call`). Its analysis, database, and external API examples are
 illustrative rather than the current tool catalog.*
 
+### MCP workflow concept
+
+<a href="docs/assets/repository-concept.png"><img src="docs/assets/repository-concept.png" alt="MCP tool-call lab concept: an LLM and MCP tool definitions feed tool discovery, deterministic mocks, and trace comparison, producing traces and a local inspection UI with pytest and curl/httpx checks." width="499"></a>
+
+This supplied panel summarizes the deterministic MCP-validation lane, not the full
+adapter/reuse roadmap. Its no-external-API notes apply to offline mocks only:
+Wikipedia and pixiv tools make live HTTP calls. Local UI, client examples, and test
+lanes are separate entry points, not one automatic end-to-end pipeline.
+[Crop provenance](docs/assets/repository-concept.json).
+
 ## Quick start
 
 ### Requirements
