@@ -1,0 +1,26 @@
+{
+  "source": {
+    "description": "Project owner-supplied challenges, role breakdown, and outcomes concept sheet",
+    "sha256": "9624fda66ede60f64d14e552c0722219bfd10090ce9ebcc3b11583d80af3aeb2",
+    "size": [
+      1536,
+      1024
+    ]
+  },
+  "operation": "Exact RGB rectangular crop from decoded JPEG, saved as lossless PNG. No resizing, redrawing, recoloring, or text changes. Complete panel title, content, tags, and border retained; common sheet header/footer excluded.",
+  "relationship": "Additional perspective; the earlier repository-concept.png and its README caption remain unchanged.",
+  "coordinate_convention": "left, top, right, bottom; right and bottom exclusive",
+  "repository": "mcp-toolcall-lab",
+  "crop_box": [
+    1020,
+    408,
+    1525,
+    699
+  ],
+  "path": "docs/assets/repository-concept-v2.png",
+  "size": [
+    505,
+    291
+  ],
+  "sha256": "8c7a4358318d0362a7a426e92d5c4e8427f60d27f21e3e405dc1689b5e3f4c4b"
+}

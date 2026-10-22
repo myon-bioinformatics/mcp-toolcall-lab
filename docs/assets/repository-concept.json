@@ -1,0 +1,25 @@
+{
+  "source": {
+    "description": "Project owner-supplied nine-repository concept sheet",
+    "sha256": "f21f074b08f28b059a82b449a2b3c80405fe1d50b423dcdb903d29d3bc020502",
+    "size": [
+      1536,
+      1024
+    ]
+  },
+  "operation": "Exact rectangular crop of decoded RGB JPEG, saved as lossless PNG. No resizing, redrawing, recoloring, or text changes. Panel title, footnotes, and border retained; common sheet header/footer excluded.",
+  "coordinate_convention": "left, top, right, bottom; right and bottom exclusive",
+  "repository": "mcp-toolcall-lab",
+  "crop_box": [
+    1025,
+    411,
+    1524,
+    694
+  ],
+  "path": "docs/assets/repository-concept.png",
+  "size": [
+    499,
+    283
+  ],
+  "sha256": "5032a9288047e60e344448b6b871ab2312007647b0dd0c7c88785b3f412390c7"
+}

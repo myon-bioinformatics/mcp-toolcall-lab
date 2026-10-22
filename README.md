@@ -1,392 +1,317 @@
+<p align="center">
+  <img src="docs/assets/mcp-toolcall-lab-logo.png" alt="mcp-toolcall-lab logo: a robot and MCP flask, with the tagline Explore · Test · Trust" width="280">
+</p>
+
 # mcp-toolcall-lab
 
-Reproducible experiments for reliable LLM-to-MCP tool discovery, initialization, and calls using FastMCP and mock APIs.
+**Explore what needs to run, what can be reused, and how to verify the difference.**
 
-This repository uses deterministic mock APIs and does **not** call a live external provider API. It is a safe target for checking whether a model calls only tools actually advertised by an MCP server.
+This lab began with reproducible LLM-to-MCP tool discovery and invocation tests.
+It now also explores reducing repeated work through direct routing, reusable
+source snapshots, observation caches, and conservative history compaction.
+Adapters separate these experiments from their sources, transports, and model
+backends. MCP remains an important interface and test boundary, not the whole
+architecture.
 
-## What is in the tree
+The broader direction is **Adaptive Inference / GPU-dependency reduction**:
+combine reuse and selective recomputation with suitable CPU, NPU, or partial-GPU
+execution, and evaluate distillation and quantization where they actually help.
+That is a development direction, **not a claim that a universal inference or
+model-conversion engine already exists**. [Issue #147](https://github.com/myon-bioinformatics/mcp-toolcall-lab/issues/147)
+tracks that boundary and the acceptance criteria.
 
-- A FastMCP Streamable HTTP server with three deterministic mock tools.
-- A Wikipedia-only Streamable HTTP MCP (Deno Deploy, no API keys) for `fetch_wikipedia_*`.
-  Catalog schemas are generated from the Python FastMCP server. Pages `#wiki` is not
-  connected to it yet. See [`docs/wikipedia_mcp_deploy.md`](docs/wikipedia_mcp_deploy.md).
-- A copyable standalone file generated from the package so tool names, schemas, and docstrings cannot drift.
-- LibreChat / Open WebUI as clients under test; a stdlib markdown stub as a reference front.
-- Protocol tests (curl / httpx / SDK) plus chat/direct tracing through one JSONL log.
-- A stable anti-pattern catalog spanning runtime classifier IDs and broader design/integration traps; see [`docs/antipatterns.md`](docs/antipatterns.md).
-- `jev_shim` / `jev_typesafe`: an offline calibration study plus a real request/response client for TypeSafe's actual `/v1/systemone` "Jev" wire format, reconstructed from public source (see [`docs/jev_shim.md`](docs/jev_shim.md) for exact citations and what has/hasn't been verified against the live API).
-- `jev_backend`: a minimal `fixture` / `typesafe_mock` backend-switch + JSONL trace skeleton (issue #36/#37, step 1) that later Jev-assisted routing experiments (issue #39) build on. See [`docs/jev_backend.md`](docs/jev_backend.md).
-- A separate, read-only FastMCP server exposing vendored `gh_ops.py` (stdlib GitHub REST operations from `browser-test-kit`) as MCP tools: `pr_status`, `pr_for_branch`, `open_prs`, `issue_comments_digest`, `check_runs`, `workflow_runs`, and pure `url_*` builders. See [`docs/github_ops_mcp.md`](docs/github_ops_mcp.md).
+- [Implemented lanes and their limits](#implemented-lanes-and-their-limits)
+- [What “adapter” means here](#what-adapter-means-here)
+- [Quick start](#quick-start)
+- [Offline replay and observation-cache reuse](#offline-replay-and-observation-cache-reuse)
+- [Clients, traces, and source reuse](#clients-traces-and-source-reuse)
+- [Tests and optional experiments](#tests-and-optional-experiments)
+- [Documentation and next steps](#documentation-and-next-steps)
 
-## Requirements
+## Implemented lanes and their limits
 
-- Python 3.12 or newer (`datetime.UTC` and `X | Y` type hints; `pyee` 15 for Playwright overrides needs 3.12+).
-- `fastmcp>=4.1.1` and `mcp>=2.3.0`, with exact versions in `uv.lock`. Keep this package out of Open WebUI's own environment.
-- `pyproject.toml` `[tool.uv] override-dependencies` lifts transitive pins that optional `gradio` / `browser-test` (Playwright) still cap below current PyPI (`pillow`, `safehttpx`, `tomlkit`, `pyee`). Overrides replace upstream Requires-Dist for locking; remove each entry when upstream metadata no longer blocks the fixed version.
+| Lane | Implemented now | Important boundary |
+| --- | --- | --- |
+| MCP protocol and tool calls | FastMCP Streamable HTTP, generated standalone servers, curl/httpx/SDK tests, LibreChat/Open WebUI integration, correlated JSONL traces | Three tools are deterministic mocks; Wikipedia and pixiv tools perform real public HTTP access when called. |
+| Avoiding a selector-LLM call | Typed Jev routing decisions and an assisted executor with confidence/policy fallback; direct Ironmate calls and injected Wikipedia/mock calls | Skipping the downstream selector is not “zero inference”: the decision backend may itself run a model. It is not a general execution planner. |
+| Fetch once, inspect locally | HTML snapshots, hash-checked extraction, constrained selectors, offline CSS inspection; Wikipedia/pixiv article reuse | Source retrieval and cached extraction are not model inference. A snapshot is not a browser DOM or proof of source authenticity. |
+| Reusing engine observations | `EngineSpec`, `DistilledAdapter`, caller-supplied observations, JSON export/load with a canonical SHA-256 checksum, keyed lookup | Despite the API name, this does not train/distill weights, quantize a model, launch Hugging Face/Docker engines, or execute their model weights. |
+| Reducing history work | Conservative compaction, provenance kept out of model messages, numeric history-growth telemetry, a separate real-GGUF benchmark path | Compaction can decline reduction to preserve user instructions. Character estimates are not measured tokens; the optional benchmark reports actual server usage. |
 
-## Run locally
+These are related modules and experiments, **not one end-to-end adaptive runtime**.
+The default test lane uses fixtures, mocks, and local servers rather than live
+external services. Optional network/model lanes are separate; installing the
+package or reading a source specification is not evidence that a real model ran.
 
-`openwebui_mcp_mock.py` and `librechat_mcp_mock.py` are both generated from `src/mcp_toolcall_lab/` — the exact same mock server, copied twice under product-matched names so each README/doc can point at a file named for what you're actually running, not a name from a different product. Copy whichever one matches your client onto another machine; do not copy only one function. After changing tools, regenerate both with `python -m mcp_toolcall_lab.export`.
+### What “adapter” means here
+
+- **Source adapters** normalize retrieval/extraction and retain provider-specific
+  errors, pagination, version, and provenance. The registry lives in
+  [`source_access.py`](src/mcp_toolcall_lab/source_access.py); the provider modules
+  live under [`adapters/`](src/mcp_toolcall_lab/adapters/). They do not automatically
+  register every operation as an MCP tool.
+- **Judgment backends** implement the `Backend.answer()` boundary for fixture,
+  TypeSafe-mock, or injected OpenAI-compatible transports. `prob_source` keeps
+  fixture values, self-reported model confidence, and other probability sources
+  distinct. [`jev_router.py`](src/mcp_toolcall_lab/jev_router.py) decides;
+  [`jev_assisted.py`](src/mcp_toolcall_lab/jev_assisted.py) executes or falls back.
+- **Engine observation adapters** store a specification and supplied observations
+  in [`engine_adapter.py`](src/mcp_toolcall_lab/adapters/engine_adapter.py).
+  `DistilledAdapter` is the current artifact/API name, not proof of learned-model
+  distillation, a LoRA/PEFT adapter, or a portable replacement for an upstream model.
+
+The engine-cache API has limitations that matter when interpreting a result:
+`execute_via_adapter()` selects a stored key, then a `default`, then a fixed
+fallback evaluation. An unknown input can therefore return `status: "ok"`
+without real evaluation. `device_used` copies the specification's declared
+requirement; it does not measure an inference device. `runtime_bounds` are stored
+metadata, not enforced resource limits. SHA-256 checks consistency, not producer
+authenticity. Do not use those fields as a real-inference receipt.
+
+The planned contract in [#147](https://github.com/myon-bioinformatics/mcp-toolcall-lab/issues/147)
+separates cached observations, actual model inference, and approximation/retrieval;
+adds explicit miss/unsupported results and measured backend/device provenance;
+and only then expands CPU execution, cache/recomputation, and optional optimizers.
+Model-weight distillation and quantization remain distinct from today's
+observation-cache implementation.
+
+### Traditional MCP validation view
+
+![Traditional MCP validation concept: a user asks an LLM to discover and call tools through a FastMCP server, and receives the results.](docs/assets/mcp-toolcall-lab-concept.png)
+
+*This supplied illustration shows the original MCP tool-validation facet, not
+the full adapter/reuse/Adaptive Inference direction above. It is conceptual, not
+protocol ordering: MCP session initialization precedes discovery (`tools/list`)
+and calls (`tools/call`). Its analysis, database, and external API examples are
+illustrative rather than the current tool catalog.*
+
+### MCP workflow concept
+
+<a href="docs/assets/repository-concept.png"><img src="docs/assets/repository-concept.png" alt="MCP tool-call lab concept: an LLM and MCP tool definitions feed tool discovery, deterministic mocks, and trace comparison, producing traces and a local inspection UI with pytest and curl/httpx checks." width="499"></a>
+
+This supplied panel summarizes the deterministic MCP-validation lane, not the full
+adapter/reuse roadmap. Its no-external-API notes apply to offline mocks only:
+Wikipedia and pixiv tools make live HTTP calls. Local UI, client examples, and test
+lanes are separate entry points, not one automatic end-to-end pipeline.
+[Crop provenance](docs/assets/repository-concept.json).
+
+### MCP challenges, roles, and outcomes
+
+<a href="docs/assets/repository-concept-v2.png"><img src="docs/assets/repository-concept-v2.png" alt="MCP tool-call lab challenges, roles, and outcomes: inspect tool calls and traces, divide FastMCP serving, deterministic mocks, and trace comparison, and provide a testable view of MCP behavior." width="505"></a>
+
+This additional supplied panel complements the workflow view above. Its
+no-external-dependency claim is about mock API behavior, not package dependencies
+or all tools: Wikipedia and pixiv still make live HTTP calls. The illustration
+is not a security guarantee for external API calls or a complete map of the
+adapter/reuse roadmap.
+[Additional panel provenance](docs/assets/repository-concept-v2.json).
+
+## Quick start
+
+### Requirements
+
+- Python **3.12+**. Exact dependency versions are recorded in `uv.lock`; the
+  Playwright `pyee` 15 override requires Python 3.12 or newer.
+- Core dependencies include FastMCP, MCP, and Pydantic; see [`pyproject.toml`](pyproject.toml).
+- `[tool.uv] override-dependencies` lifts upstream Gradio/Playwright caps for
+  `pillow`, `safehttpx`, `tomlkit`, and `pyee`. Overrides replace upstream
+  Requires-Dist for locking; remove each when upstream metadata permits the fixed
+  version. Use the locked uv commands below when those optional lanes are needed.
+- Keep this package in its own environment, separate from Open WebUI's environment.
+- Docker, browser tooling, Gradio, model weights, and external credentials are
+  needed only for their respective optional lanes.
 
 ```bash
 python -m venv .venv
 . .venv/bin/activate
-pip install -e .
+pip install -e '.[test]'
 python openwebui_mcp_mock.py
 ```
 
-If your shell does not support the activation command, invoke `.venv/bin/python` directly.
-
-On a VM or container that should only run the mock, copy the standalone file and install FastMCP:
-
-```bash
-pip install "fastmcp>=4.1.1"
-MCP_HOST=0.0.0.0 python openwebui_mcp_mock.py
-```
-
-The MCP endpoint is Streamable HTTP at `/mcp`. In Open WebUI (v0.6.31+), add an **MCP (Streamable HTTP)** connection, not OpenAPI:
-
-| Where Open WebUI runs | Server URL |
-| --- | --- |
-| Same host as the mock | `http://127.0.0.1:8000/mcp` |
-| Docker, mock on the host | `http://host.docker.internal:8000/mcp` |
-| Another VM / compose service | `http://<mock-hostname>:8000/mcp` |
-
-The mock process must bind `MCP_HOST=0.0.0.0` whenever the client is not on the same network namespace. Set auth to **None** unless you add a token yourself.
-
-### LibreChat (second chat client, same mock)
-
-LibreChat is the next first-class UI target. Point it at the **same** `/mcp` server via
-`librechat.yaml` — do not stand up a second mock. Run the LibreChat-named copy of the exact
-same generated server:
+If activation is unavailable, use `.venv/bin/python` directly. The server exposes
+Streamable HTTP at `http://127.0.0.1:8000/mcp`; it is not a chat UI. In a second
+terminal with the same environment, exercise a deterministic mock:
 
 ```bash
-python librechat_mcp_mock.py
-```
-
-Then copy [`examples/librechat.mcp.example.yaml`](examples/librechat.mcp.example.yaml) into
-your LibreChat config and use the chat MCP picker (Agents are a follow-up axis).
-
-```yaml
-mcpServers:
-  mcp-toolcall-lab:
-    type: streamable-http
-    url: http://127.0.0.1:8000/mcp
-    requiresOAuth: false
-    startup: true
-```
-
-Details: [`docs/librechat_mcp_notes.md`](docs/librechat_mcp_notes.md).
-Prompt: [`system_prompts/strict_tool_selection_librechat.md`](system_prompts/strict_tool_selection_librechat.md).
-
-### LibreChat in Docker + Playwright (input → Send → MCP record)
-
-`docker/librechat-smoke/` starts published LibreChat, the MCP mock, and the
-OpenAI tool-call mock on **one Docker network** (`mcp-toolcall-lab`). LibreChat
-reaches them by service DNS (`http://mcp-mock:8000/mcp`,
-`http://openai-mock:8090/v1`) — not `host.docker.internal`. Playwright on the
-host types into the real composer and clicks Send. If MCP does not come back,
-the run appends an anti-pattern to `test-results/antipatterns.jsonl` (see
-`fixtures/antipatterns/catalog.yaml` and [`docs/antipatterns.md`](docs/antipatterns.md)) instead of treating that miss as “the
-click never happened.”
-
-```bash
-mkdir -p test-results
-docker compose -f docker/librechat-smoke/docker-compose.yml up --build -d
-LIBRECHAT_BASE_URL=http://127.0.0.1:3080 \
-  MCP_TOOLCALL_LOG=$PWD/test-results/mcp-toolcalls.jsonl \
-  OPENAI_MOCK_LOG=$PWD/test-results/openai-mock.jsonl \
-  pytest tests/real_chat_ui/test_librechat_docker.py -v
-```
-
-Skipped in default `pytest` (`LIBRECHAT_BASE_URL` unset). CI workflow:
-`.github/workflows/librechat-docker-smoke.yml`. Docker logs (time / level /
-message) land in `test-results/docker-logs/` on every smoke.
-
-### Open WebUI in Docker + Playwright (input → Send → OpenAI + MCP wire)
-
-`docker/openwebui-smoke/` starts published Open WebUI, `openwebui_mcp_mock.py`,
-and the same OpenAI tool-call mock on **one Docker network**
-(`mcp-toolcall-lab-openwebui`). Open WebUI reaches them by service DNS
-(`http://mcp-mock:8000/mcp`, `http://openai-mock:8090/v1`). Playwright
-types into `#chat-input` and clicks `#send-message-button`, then asserts
-the product loop: `POST /v1/chat/completions` → `tool_calls[]` → MCP
-`initialize` / `tools/list` / `tools/call` → `role: "tool"` follow-up
-with the same `tool_call_id` → Yokohama in the UI. Product `chat.id` is
-not treated as a lab `chat_*` pin.
-
-This stack is CI/local Docker only. GitHub Pages stays static.
-
-```bash
-mkdir -p test-results
-docker compose -f docker/openwebui-smoke/docker-compose.yml up --build -d
-OPEN_WEBUI_BASE_URL=http://127.0.0.1:3000 \
-  MCP_TOOLCALL_LOG=$PWD/test-results/mcp-toolcalls.jsonl \
-  OPENAI_MOCK_LOG=$PWD/test-results/openai-mock.jsonl \
-  pytest tests/real_chat_ui/test_mcp_toolcall_lab_openwebui_docker.py -v
-```
-
-Skipped in default `pytest` (`OPEN_WEBUI_BASE_URL` unset). Dedicated CI:
-`.github/workflows/openwebui-docker-smoke.yml` (`workflow_dispatch`).
-Details: [`docs/openwebui_mcp_notes.md`](docs/openwebui_mcp_notes.md).
-After a smoke, container logs (time / level / message) are in
-`test-results/docker-logs/` plus a merged `test-results/timeline.jsonl`:
-
-```bash
-python -m mcp_toolcall_lab.docker_logs capture \
-  -f docker/openwebui-smoke/docker-compose.yml -o test-results/docker-logs
-python -m mcp_toolcall_lab.docker_logs timeline \
-  --dir test-results -o test-results/timeline.jsonl
-```
-
-### Shared Pages tool catalog
-
-The published Pages workspace derives its tool catalog directly from
-`mcp_toolcall_lab.catalog.AVAILABLE_TOOLS` and `TOOL_DESCRIPTIONS`; it is
-not a frozen, separately maintained UI list. Adding or removing a catalog tool
-therefore changes the generated Pages catalog and intentionally trips the
-seven-tool regression guard until the expected catalog contract is reviewed.
-The shell is presentation-only and is pinned to web-ui
-`a0867e454bb2f7ecb4f69da9a46a2361b2438305`; MCP execution, fixtures,
-trace/log semantics, and protocol behavior remain owned here.
-
-### Serverless stub try (Actions + Pages)
-
-GitHub Pages is static:
-https://myon-bioinformatics.github.io/mcp-toolcall-lab/
-
-The same Pages artifact also publishes canonical repository diagnostics at
-`repository-diagnostics.html`, with machine-readable `repository-diagnostics.json`
-and one-record `repository-diagnostics.jsonl`. The metadata shape is pinned from
-Ironmate's stdlib-only contract v1; URL observations reuse this repository's
-anonymous public GitHub resolver.
-Actions (`stub-pages`) starts Docker — stub UI + MCP mock + CPU-class
-model on one network — then writes anti-pattern JSONL and publishes the
-report. The published page is generation identity (Commit / optional
-Version, `_site/build_meta.json`) plus a same-origin `#wiki` panel that
-fetches Wikipedia from the browser (MediaWiki Action API, CORS
-`origin=*`, no MCP) and a concise Last Actions snapshot — not a mock
-Wiki UI, and not a live github.io `/wiki` path (that 404 is the local
-stub). MCP tools / local title form:
-`python -m mcp_toolcall_lab.stub_front serve --port 8765` then open
-`/wiki`. Pages deep-link:
-`https://myon-bioinformatics.github.io/mcp-toolcall-lab/#wiki`.
-See [`docs/stub_pages.md`](docs/stub_pages.md) and
-[`docs/wikipedia_tool.md`](docs/wikipedia_tool.md).
-Local:
-
-```bash
-docker compose -f docker/stub-pages/docker-compose.yml up --build
-python scripts/stub_pages_smoke.py
-python -m mcp_toolcall_lab.stub_front pages --out _site --last-run test-results/last-run.json
-```
-
-The stub is `markdown.py` + the standard library. A real tiny GGUF behind
-the same `cpu-llm` DNS is an opt-in overlay (`docker-compose.gguf.yml`,
-`stub-pages.yml`'s `use_real_gguf` input) — off by default, since it
-needs internet to huggingface.co that a plain push should not depend on.
-Details: [`docs/stub_pages.md`](docs/stub_pages.md).
-
-### Frontend catalog + one-liners (LibreChat / Open WebUI)
-
-Playwright 用のセレクタ・認証・MCP の tool 名規則は
-[`src/mcp_toolcall_lab/frontends.py`](src/mcp_toolcall_lab/frontends.py)
-が単一ソースです（upstream の testid / id と provenance 付き）。
-`chat_ui.py` がその定義を共有して type + Send します。
-
-```bash
-python -m mcp_toolcall_lab.frontends                 # 両クライアントの JSON
-python -m mcp_toolcall_lab.frontends librechat
-python -m mcp_toolcall_lab.chat_ui describe
-python -m mcp_toolcall_lab.chat_ui describe openwebui
-# UI が上がっているとき（pip install -e '.[browser-test]' && playwright install chromium）
-python -m mcp_toolcall_lab.chat_ui send --client librechat --url http://127.0.0.1:3080
-python -m mcp_toolcall_lab.chat_ui send --client openwebui --url http://127.0.0.1:3000
-python -m mcp_toolcall_lab.chat_ui send --client librechat --chat-id chat_lab1
-# after `pip install -e .` the same entry points:
-mcp-frontends librechat
-mcp-chat-ui send --client librechat --url http://127.0.0.1:3080
-mcp-trace-probe --chat-id chat_lab1
-python -m mcp_toolcall_lab.stub_front turn --heading Yokohama
-python -m mcp_toolcall_lab.stub_front serve --port 8765
-```
-
-## Test
-
-```bash
-pip install -e '.[test]'
-pytest -q
-```
-
-`pip install -e` already puts `src` on the import path, so `PYTHONPATH=src` is not required. Pull requests run the same commands on GitHub Actions with Python 3.12.
-
-Wikipedia article screenshots (`python -m playwright screenshot` against the stub's `/wiki` form) are a dedicated workflow / manual lane: `.github/workflows/wikipedia-article-screenshot.yml`. They are not part of `pytest -q`. CI uses `fixtures/wikipedia/yokohama_extract.json`; live Wikipedia is `workflow_dispatch` `--live` or `MCP_TOOLCALL_LAB_LIVE_WIKIPEDIA=1` locally. See [`docs/wikipedia_tool.md`](docs/wikipedia_tool.md).
-
-## Talking to the mock with nothing but curl
-
-Streamable HTTP is plain JSON-RPC over HTTP — no chat UI, browser, or even the `mcp`/`fastmcp`
-Python SDKs are required to drive it. `scripts/mcp_curl_smoke.sh` performs the same handshake
-Open WebUI does (`initialize` → `notifications/initialized` → `tools/list` → `tools/call`), using
-only `curl` and `python3 -m json.tool` for pretty-printing:
-
-```bash
-python openwebui_mcp_mock.py &
-scripts/mcp_curl_smoke.sh                      # defaults to http://127.0.0.1:8000/mcp
-scripts/mcp_curl_smoke.sh http://host:port/mcp # or point it at another running instance
-```
-
-## Talking to the mock with FastMCP's own CLI
-
-`fastmcp` ships a client CLI (`fastmcp list`, `fastmcp call`) alongside the server framework — since
-`fastmcp>=4.1.1` is already a dependency here, this needs nothing beyond `pip install -e .`,
-not even curl. It also handles the `initialize` / `notifications/initialized` / `Mcp-Session-Id`
-handshake itself, so there's nothing to wire up by hand:
-
-```bash
-python openwebui_mcp_mock.py &
 fastmcp list http://127.0.0.1:8000/mcp --json
 fastmcp call http://127.0.0.1:8000/mcp find_municipalities query=Yokohama --json
-scripts/mcp_fastmcp_cli_smoke.sh   # runs the above plus an empty-result and an unknown-tool case
+scripts/mcp_curl_smoke.sh
+scripts/mcp_fastmcp_cli_smoke.sh
 ```
 
-One behavioral difference from curl or the `mcp` SDK: the CLI checks a tool name against its own
-`tools/list` result before calling, so an unknown tool never reaches the server as an
-`isError: true` `tools/call` — it fails client-side with a non-zero exit instead.
-`tests/test_fastmcp_cli.py` covers both this and the success/empty-result cases; unlike
-`tests/test_browser_fetch_protocol.py`, it needs no extra install and runs in CI along with
-everything else in `pytest -q`.
+The current shared catalog has seven tools:
 
-## Talking to the mock with httpx — a plain Python client, no MCP SDK
+- Offline mocks: `find_municipalities`, `find_transaction_prices`, `find_stations`.
+- Real Wikipedia HTTP: `fetch_wikipedia_section`, `fetch_wikipedia_article`.
+- Real public pixiv Encyclopedia HTTP: `fetch_pixiv_dictionary_section`,
+  `fetch_pixiv_dictionary_article`.
 
-`httpx>=0.28.1` is already a test-only dependency (`test_streamable_http_protocol.py` uses it
-just to poll for server readiness). `tests/test_httpx_protocol.py` puts it to fuller use: a raw
-Streamable HTTP client built on one reused `httpx.Client`, filling the gap between curl (reachable
-from any shell, no Python) and the `mcp` SDK (the official, protocol-aware client) — the way a
-lightweight Python service that doesn't want the full SDK as a dependency would actually talk to
-this server.
+Calling a live-source tool can access the network; calling one of the three mock
+tools does not. Read [`catalog.py`](src/mcp_toolcall_lab/catalog.py) and the
+[source-specific docs](#documentation-and-next-steps) rather than treating the
+`*_mcp_mock.py` filename as an offline guarantee for every tool.
 
-Two things it demonstrates that curl and the SDK don't as directly:
+`openwebui_mcp_mock.py` and `librechat_mcp_mock.py` are generated from the same
+package. Copy the complete client-named file, not isolated functions. After tool
+changes, regenerate both with `python -m mcp_toolcall_lab.export`. On a separate
+VM/container, the standalone server requires FastMCP (`pip install "fastmcp>=4.1.1"`).
+Set `MCP_HOST=0.0.0.0` only when a trusted client must reach it across network
+namespaces; this does not add authentication.
 
-- The same `httpx.Client` (and its `Mcp-Session-Id`) serves multiple calls in a row through one
-  reused client/session (eligible for HTTP keep-alive) — curl spawns a brand-new process per
-  call instead.
-- Timing out is a plain `httpx.TimeoutException` on the raw request
-  (`test_httpx_timeout_on_slow_tool`), not something that needs the `mcp` SDK's async
-  cancellation machinery the way `test_timeout_raises_on_slow_tool` does in
-  `test_streamable_http_protocol.py`.
+## Offline replay and observation-cache reuse
 
-## Tracing a call: chat-simulated vs. direct
+### Select and replay recorded fixtures
 
-A request can reach this mock two ways: **through a chat UI** (the model decides to call a tool,
-the UI executes it) or **straight to MCP** (curl, a script, anything speaking Streamable HTTP
-directly). Both are traceable through the same `MCP_TOOLCALL_LOG` JSONL file, correlated by
-whatever the caller puts in the request's `_meta` field — MCP reserves that field for exactly this,
-no protocol extension needed.
-
-`mcp_toolcall_lab.chat_sim` mocks the "chat経由" path generically: the OpenAI-compatible
-`tool_calls`/`tool`-role message shapes that Open WebUI, LibreChat, LobeChat, and most other chat
-UIs share (rather than reimplementing any one product's own internal ids like Open WebUI's
-`chat_id`/`function_id`), wired to a real MCP call tagged with `call_id`/`chat_id`/`source: "chat"`.
-`send_direct` is the other path — no chat layer, tagged `source: "direct"`.
-
-```python
-import asyncio
-from mcp_toolcall_lab.chat_sim import send_via_chat, send_direct
-
-async def main():
-    trace = await send_via_chat(
-        "http://127.0.0.1:8000/mcp",
-        user_text="Where is Yokohama?",
-        tool_name="find_municipalities",
-        arguments={"query": "Yokohama"},
-    )
-    print(trace.assistant_tool_call_message)  # {"role": "assistant", "tool_calls": [...]}
-    print(trace.tool_result_message)          # {"role": "tool", "tool_call_id": ..., "content": ...}
-
-    await send_direct("http://127.0.0.1:8000/mcp", tool_name="find_stations",
-                       arguments={"municipality_code": "14109"}, trace_id="probe-1")
-
-asyncio.run(main())
-```
-
-With `MCP_TOOLCALL_LOG` set, both calls above land in the same JSONL file with the same shape,
-distinguished only by `meta.source` — see `tests/test_trace.py`. Each row also has
-`event`, `duration_ms`, top-level `chat_id`, and `debug` (`chat_id_source` =
-`meta` | `header` | `session` | `minted`). Caller `_meta` is not rewritten: if a
-real UI omits `chat_id`, the server takes `X-Chat-Id` / `X-Conversation-Id` or
-mints one per MCP session so the probe always has a pin.
-
-JSONL I/O, `chat_*` / `call_*` mints, well-known chat headers, and the
-HTTP/1.1 SSE close live in [`src/mcp_toolcall_lab/mock/common.py`](src/mcp_toolcall_lab/mock/common.py)
-so the MCP server and `demos/openai_toolcall_mock.py` can share them. MCP
-`_meta` resolution and OpenAI `tool_calls` decision stay in their own
-files — overlapping helpers only, not a forced single mock.
-
-### Stdlib stub front (heading → chat body)
-
-LibreChat / Open WebUI stay the products under test. `stub_front` is a
-zero-extra-dep reference UI: ATX markdown headings are the deterministic
-model, the page reuses both products' composer locators, and `/c/{chat_id}`
-puts that id on MCP `_meta` and `X-Chat-Id`. `GET /wiki` is a thin
-title form plus a server-rendered heading select against a MediaWiki
-plaintext extract (escaped; not on GitHub Pages). Roadmap for later slices
-(Playwright-on-stub, `markdown` accuracy, CPU LLM in Docker — unnumbered):
-[`docs/stub_front_roadmap.md`](docs/stub_front_roadmap.md).
+From a source checkout, these entry points can run with the standard library
+alone. They do not call a provider or load a model:
 
 ```bash
-python -m mcp_toolcall_lab.stub_front turn --heading "Yokohama"
-python -m mcp_toolcall_lab.stub_front turn --heading "Find municipalities named Yokohama"
-python -m mcp_toolcall_lab.stub_front serve --port 8765
-# Wikipedia article → heading select (local server only; Pages has no backend)
-# http://127.0.0.1:8765/wiki?title=Yokohama
-# fixture screenshots (not part of pytest -q):
-python scripts/wikipedia_article_screenshot.py --out test-results/wiki-screenshots
+PYTHONPATH=src python -S -m mcp_toolcall_lab.prompt_experiment replay --case 'available*' --list
+PYTHONPATH=src python -S -m mcp_toolcall_lab.prompt_experiment replay --out test-results/prompt-experiments.jsonl
+PYTHONPATH=src python -S -m mcp_toolcall_lab.jev_shim replay --case 'noul*' --exclude '*malformed*'
 ```
 
-### Trace probe (the other ids)
+Repeated `--case` rules are ORed; `--exclude` applies afterward. Selection is
+case-sensitive and one directory deep, skipping symlinks. `--list` lists selected
+JSON basenames without parsing fixture contents or writing an audit, and cannot
+be combined with `--out`. Input/selection errors return 2; existing replay verdict
+codes remain 0/1. The prompt replay distinguishes raw argument-schema validity
+from server acceptance. Fixtures describe their recorded catalog, not necessarily
+the current seven-tool server. Comparison JSONL is not an HTTP/MCP wire log.
 
-Hosted ChatGPT, Gemini, Claude, M365 Copilot, GitHub Copilot, Cursor, and Jules URLs,
-plus repository-scoped GitHub PR identities, are recognized offline. See
-[conversation URL identities](docs/conversation-urls.md) for routes, the JSON
-CLI, and the separate boundary between ID extraction and content access.
+### Store and reuse a known observation
 
-`chat_id` is the lab-owned pin. Reasoning / response / UI hops mint more ids we do
-**not** own: OpenAI `chatcmpl-*` / `call_*`, Responses `resp_` / `rs_` / `msg_` /
-`fc_`, LibreChat `conversationId` in `/c/{id}`, Open WebUI `chat.id` / `/s/{share}`.
-`mcp_toolcall_lab.trace_probe` harvests those from the MCP JSONL, the OpenAI mock
-log, an observation row, and the page URL, then clusters hops that share any id
-string (union-find). It is a probe, not a product database.
+This is an **observation-cache example**, not model inference. It uses a known
+key and never loads weights, starts Docker, or contacts Hugging Face:
+
+```python
+from pathlib import Path
+from mcp_toolcall_lab.adapters.engine_adapter import (
+    distill_engine_adapter, execute_via_adapter, export_adapter_cache,
+    extract_engine_spec, load_adapter_cache,
+)
+
+spec = extract_engine_spec(
+    engine_name="recorded-example",
+    source_type="local",
+    repo_or_image="fixtures/recorded-example",  # metadata only; not opened
+    revision_or_tag="fixture-v1",
+)
+adapter = distill_engine_adapter(
+    spec, {"known-input": {"evaluation_score": 0.25, "source": "fixture"}},
+)
+path = export_adapter_cache(adapter, Path("test-results/observation-adapter.json"))
+restored = load_adapter_cache(path)
+result = execute_via_adapter(restored, {"query": "known-input"})
+assert result["evaluation"]["source"] == "fixture"
+```
+
+Do not interpret the elapsed lookup time as model latency or the declared device
+as a measurement. See the limitations above and the
+[cache integrity contract](docs/source-adapters.md#cache-checksum-contract-and-compatibility).
+
+## Clients, traces, and source reuse
+
+### LibreChat and Open WebUI
+
+In Open WebUI, add an **MCP (Streamable HTTP)** connection, not OpenAPI:
+
+| Client location | MCP server URL |
+| --- | --- |
+| Same host | `http://127.0.0.1:8000/mcp` |
+| Docker client, server on host | `http://host.docker.internal:8000/mcp` |
+| Another VM or compose service | `http://<mock-hostname>:8000/mcp` |
+
+Use the correct bind address/network route. The lab server has no authentication
+by default; do not expose it as a public service. For LibreChat, run
+`python librechat_mcp_mock.py` and use
+[`examples/librechat.mcp.example.yaml`](examples/librechat.mcp.example.yaml) against
+the same endpoint rather than starting a second independent mock.
+
+```bash
+python -m mcp_toolcall_lab.frontends
+python -m mcp_toolcall_lab.chat_ui describe openwebui
+# With the real UI running and browser-test dependencies installed:
+python -m mcp_toolcall_lab.chat_ui send --client openwebui --url http://127.0.0.1:3000
+python -m mcp_toolcall_lab.chat_ui send --client librechat --url http://127.0.0.1:3080
+```
+
+The client definitions in [`frontends.py`](src/mcp_toolcall_lab/frontends.py) are
+the shared selector/authentication source. A product conversation ID resumes a
+product conversation; a lab `chat_*` ID is a trace pin, not a product session ID.
+
+### Trace what actually happened
+
+Set `MCP_TOOLCALL_LOG=toolcalls.jsonl` before starting the server. Direct MCP calls
+and chat-simulated calls share JSONL records, distinguished by correlation
+metadata. Protocol events, durations, call outcomes, and chat/call IDs can be
+joined with the OpenAI mock's wire projection:
 
 ```bash
 python -m mcp_toolcall_lab.trace_probe kinds
 python -m mcp_toolcall_lab.trace_probe --chat-id chat_lab1 \
   --mcp-log test-results/mcp-toolcalls.jsonl \
-  --openai-log test-results/openai-mock.jsonl \
-  --url 'http://127.0.0.1:3080/c/66f012345678901234567890'
-# after send, the observation already joins lab chat_id ↔ page_url ↔ completion/call ids
-mcp-trace-probe --chat-id chat_lab1
+  --openai-log test-results/openai-mock.jsonl
+python -m mcp_toolcall_lab.history_growth test-results/openai-mock.jsonl
 ```
 
-`send --chat-id chat_*` only tags the observation. A product conversation id
-(not the `chat_` prefix) resumes `/c/{id}` after login.
+An empty successful result (`[]`) is not an error. Unknown tools, invalid
+arguments, and timeouts are errors. FastMCP's CLI may reject an unknown name
+before it reaches the server. `chat_sim.py` models generic OpenAI-compatible
+`tool_calls`/`tool` messages, not a product's database or actual UI behavior.
+See [conversation identities](docs/conversation-urls.md),
+[history telemetry](docs/history-growth-telemetry.md), and
+[anti-patterns](docs/antipatterns.md).
 
-`tests/test_curl_protocol.py` gives the same raw-HTTP handshake pytest coverage (success, empty
-result, unknown tool, missing argument), alongside `tests/test_streamable_http_protocol.py`'s
-`mcp`-SDK-based client flow.
+### Reuse retrieved content
 
-`chat_sim.py` mocks the generic OpenAI-compatible tool-calling wire shape, not any one chat UI's
-own database. See [`docs/openwebui_schema_notes.md`](docs/openwebui_schema_notes.md) for Open
-WebUI's actual `chat`/`file`/`function`/`tool` table schemas (verified against its source), kept
-as a reference for a dedicated Open WebUI-specific mock later. See
-[`docs/librechat_mcp_notes.md`](docs/librechat_mcp_notes.md) for the same kind of notes on
-LibreChat, this lab's second chat client.
+The stdlib source registry offers offline `html/extract` and `css/inspect`, plus
+explicitly network-enabled Wikipedia operations and an optional trusted
+Niconico binding. It does not automatically expose a generic network MCP tool.
+Use saved snapshots for repeated selector/extraction work; changing a selector
+does not fetch linked resources. The explicit capture CLI, snapshot validation,
+network opt-in, and extraction limits are documented in
+[Source access](docs/source-access.md).
 
-### Proving the loose HTTP coupling from a real browser
+### Static Pages versus local execution
 
-This mock has **no chat screen** — `GET /` is a plain 404 and `/mcp` only speaks JSON-RPC, so
-there's no UI to click through or screenshot (Open WebUI's actual chat interface is a separate
-application entirely). What's still worth proving is that the API is reachable from a real
-browser's own `fetch()`, not just curl or a Python client:
+[GitHub Pages](https://myon-bioinformatics.github.io/mcp-toolcall-lab/) is a static
+workspace/report, not a hosted Python/MCP inference service. Its tool catalog is
+generated from the shared Python catalog; the `#wiki` panel uses browser-side
+MediaWiki API access, not MCP. The `#pixiv` panel extracts pasted revision source
+offline; it does not fetch the live article like the Python tools. The local
+`/wiki` endpoint is a separate stub:
+
+```bash
+python -m mcp_toolcall_lab.stub_front turn --heading Yokohama
+python -m mcp_toolcall_lab.stub_front serve --port 8765
+python -m mcp_toolcall_lab.stub_front pages --out _site --last-run test-results/last-run.json
+```
+
+Pages also publishes repository diagnostics and build/run identity. The UI shell
+is pinned from web-ui; tool execution, fixtures, traces, and protocol behavior
+remain owned here. See [Pages/stub boundaries](docs/stub_pages.md),
+[local stub roadmap](docs/stub_front_roadmap.md), and the separate
+[Wikipedia-only Deno MCP deployment](docs/wikipedia_mcp_deploy.md).
+
+## Tests and optional experiments
+
+### Default regression suite
+
+```bash
+pip install -e '.[test]'
+pytest -q
+# Reproduce the pinned CI dependency set with uv:
+uv run --locked --extra test pytest -q --junitxml=reports/pytest.xml
+```
+
+The default lane uses fixtures/mocked external access and local protocol servers.
+A passing fixture test is not live-provider or real-model evidence. CI uses
+change detection, so documentation-only changes may skip heavier product jobs.
+See [Python/JUnit evidence](docs/python_junit_ci.md) and
+[vendor automation](docs/vendor-automation.md).
+
+### Actual browser and product integration
 
 ```bash
 pip install -e '.[test,browser-test]'
@@ -394,177 +319,109 @@ playwright install chromium
 pytest -q tests/test_browser_fetch_protocol.py
 ```
 
-`tests/test_browser_fetch_protocol.py` navigates a headless Chromium to the server's own origin
-(same-origin, so no CORS is needed — the server sends no `Access-Control-Allow-Origin` header and
-405s on OPTIONS preflight, so a *cross*-origin browser fetch would be blocked) and runs the same
-`initialize`/`tools/list`/`tools/call` handshake as `test_curl_protocol.py`, purely through
-`page.evaluate(() => fetch(...))`. Not part of `test` extras or CI — it `pytest.importorskip`s
-when `playwright` isn't installed, same as every other optional path in this repo.
-
-## Empty vs error
-
-- **Empty** is a successful `tools/call` whose result is `[]` (unknown municipality, blank query, or a Japanese name that is not in this tiny English mock). Open WebUI forwards `content`, so the model sees an empty list, not a protocol error.
-- **Error** is an unknown tool name, a missing/invalid argument, or a client timeout. Those calls set `isError` or raise at the client. They are not empty results.
-
-Set `MCP_TOOLCALL_LOG=toolcalls.jsonl` before launch to record every `tools/call` as JSON Lines, including empty results and errors. The same logger is used by `python -m mcp_toolcall_lab` and by the standalone file. `arguments` in the log are the values received on the wire, before pydantic coercion.
-
-## Prompt / model experiment fixtures (offline)
-
-Inputs are official OpenAI Chat Completions `tools` / `tool_calls` plus recorded
-MCP Streamable HTTP hops: JSON-RPC 2.0 request/response on `POST /mcp`
-(`initialize` → `notifications/initialized` → `tools/list`, then
-`tools/call` when the model selected a tool). Replay does not change that
-wire, call a model, or reach a live external provider. Comparison JSONL is not a wire log.
-
-Use `system_prompts/strict_tool_selection.md`. The model may only choose among
-the advertised specs. A fictional tool name is a failure even if the intended
-action sounds correct. **raw schema valid** (arguments match advertised
-`parameters` before coercion) is separate from **server accepted** (MCP
-`tools/call` outcome is not `error`).
-
-| id | Model / settings | selected tool | raw schema valid | server accepted | outcome | notes |
-| --- | --- | --- | --- | --- | --- | --- |
-| `available_tool_success` | lab-model / temperature 0, reasoning.effort=low, stop=[] | `find_municipalities` | true | true | success | advertised tool only; UI `chat_id` / message id / `call_*` bind the `tools/call` return to `role:tool` |
-| `fictional_tool_reject` | lab-model / temperature 0, reasoning.effort=low, stop=[] | _(none)_ | — | — | — | refuses `query_unadvertised_tool`; no sent `tools/call`; server `isError` envelope recorded separately |
+That browser test proves same-origin HTTP/MCP access, not a chat UI. Both Docker
+lanes exercise real product input/Send and capture traces. Open WebUI asserts the
+full tool-call wire, ID correlation, and rendered result; LibreChat records a
+successful MCP return or a classified anti-pattern. They use separate stacks:
 
 ```bash
-python -m mcp_toolcall_lab.prompt_experiment replay --out test-results/prompt-experiments.jsonl
+# LibreChat
+mkdir -p test-results
+docker compose -f docker/librechat-smoke/docker-compose.yml up --build -d
+LIBRECHAT_BASE_URL=http://127.0.0.1:3080 \
+  MCP_TOOLCALL_LOG=$PWD/test-results/mcp-toolcalls.jsonl \
+  OPENAI_MOCK_LOG=$PWD/test-results/openai-mock.jsonl \
+  pytest tests/real_chat_ui/test_librechat_docker.py -v
+
+# Open WebUI
+docker compose -f docker/openwebui-smoke/docker-compose.yml up --build -d
+OPEN_WEBUI_BASE_URL=http://127.0.0.1:3000 \
+  MCP_TOOLCALL_LOG=$PWD/test-results/mcp-toolcalls.jsonl \
+  OPENAI_MOCK_LOG=$PWD/test-results/openai-mock.jsonl \
+  pytest tests/real_chat_ui/test_mcp_toolcall_lab_openwebui_docker.py -v
 ```
 
-The JSONL is comparison/audit fields only (verdict, selected/fictional tools,
-finish_reason, schema flags). It is not a substitute for the HTTP/JSON-RPC
-records. Fixtures: `fixtures/prompt_experiments/`.
+These tests are skipped when their UI URL is unset. Docker services use service
+DNS, not host-loopback addresses. The dedicated workflows retain logs and trace
+artifacts. See [LibreChat notes](docs/librechat_mcp_notes.md) and
+[Open WebUI notes](docs/openwebui_mcp_notes.md). Wikipedia screenshots, static Pages
+screenshots, and opt-in live pixiv captures are separate evidence lanes; skipped
+or failed live captures do not establish success.
 
-## Structured-judgment calibration (`jev_shim` / `jev_typesafe`)
+### Real-model and compute-reduction experiments
 
-Independent of the tool-calling experiments above. See
-[`docs/jev_shim.md`](docs/jev_shim.md) for the full design, exact source
-citations, and the explicit non-goals — including a changelog note: the
-original version of this module guessed TypeSafe's "Jev" response shape from
-a secondhand description and got the field names wrong; the doc now cites
-three real open-source clients plus the official `typesafe-sdk` PyPI package
-(`docs.typesafe.ai` itself is blocked by this sandbox's egress policy) for
-the confirmed `POST /v1/systemone` contract.
+The [compaction GGUF benchmark](docs/compaction-gguf-benchmark.md) has a separate
+path that runs a pinned, hash-checked SmolLM2 GGUF with a pinned llama.cpp server.
+It compares original/compacted requests using real server token usage and local
+HTTP latency, with narrow synthetic quality checks. This is distinct from the
+observation-cache adapter. Using an already-quantized GGUF does **not** mean this
+repository quantized or distilled the model.
 
-Short version: `jev_shim.py` judges a *recorded* completion offline against
-that real wire shape — three schema-constrained kinds (`noul`: yes/no
-probability, `choice`: classification, `score`: an ordered rubric) — for
-schema validity plus a [Brier score](https://en.wikipedia.org/wiki/Brier_score)
-on how well declared confidence tracked the real outcome. No socket, model
-call, or API key involved.
+Conservative compaction may deliberately retain the original history, especially
+when removing prior user instructions would be unsafe. Read
+[compaction safety](docs/compaction-safety.md) before interpreting reductions.
+Do not generalize fixture accuracy, cache lookup timing, character estimates, or
+one model/device result into universal quality or GPU-replacement claims.
 
-`jev_typesafe.py` is the real client: it builds an actual `/v1/systemone`
-request (supporting multiple named questions per call, matching every real
-client's "speculative fan-out" pattern) and parses an actual response.
-`TypeSafeClient`'s HTTP transport is proven against a real loopback socket in
-its tests, but **no TypeSafe API key exists in this sandbox and no call has
-been made to the real API** — see `docs/jev_shim.md`'s "What's actually been
-verified" for the precise line between modeled-from-source and
-proven-by-running.
+Jev paths also distinguish offline replay, injected/mock transports, and explicit
+live experiments. The actual TypeSafe `/v1/systemone` wire and the separate
+OpenAI-compatible JSON-schema adapter are not interchangeable. Self-reported
+confidence is not a calibrated probability. See
+[backend contracts](docs/jev_backend.md), [router semantics](docs/jev_router.md),
+[offline benchmark](docs/jev_benchmark.md), and
+[live benchmark requirements](docs/jev_live_benchmark.md).
+
+### Optional local Galleria
 
 ```bash
-python -m mcp_toolcall_lab.jev_shim replay --out test-results/jev-shim.jsonl
+uv sync --locked --extra test --extra galleria
+uv run --locked --extra test --extra galleria python -m mcp_toolcall_lab.gradio_galleria
 ```
 
-Fixtures: `fixtures/jev_shim/`.
+Run from a source checkout because the vendored ASCII/Markdown helpers are
+required. This localhost-only editor/viewer needs no model, GPU, or MCP server.
+It uses local filesystem paths and is not a public file service. Its dedicated
+workflow checks lockfile consistency with `uv lock --check`, imports Gradio and
+FastMCP, and tests UI/HTTP behavior plus MCP Streamable HTTP in the same
+environment. It preserves the `galleria-junit` artifact separately from the core
+test lane. `uv pip check` can disagree with the overridden upstream metadata;
+lock consistency and the exercised UI behavior are separate checks.
 
-`jev_answerer.py` builds the OpenAI-compatible Chat Completions request
-(system prompt + JSON-schema-constrained `response_format`) for a live
-backend and extracts its completion text. It is a **separate,
-self-contained** experiment with its own `parse_completion`/`validate_payload`
-— deliberately not `jev_shim`'s, since `jev_shim`'s response shape is a
-distinct, separately-tracked correction (see `docs/jev_shim.md`) and
-composing the two would silently break one module's tests whenever the
-other's shape changes. It predates this correction and still targets the
-original, guessed shape as its own generic-LLM-prompting vocabulary, not
-TypeSafe's real wire. Its own tests never call a real server — a fake
-`post` is injected for the request-building/extraction tests, and two
-tests spin up a real stdlib HTTP server on loopback to prove the actual
-request/response wire round-trips correctly. **No test here has verified
-the request shape against a real llama.cpp (or other) server** — that
-confirmation is still open. See `docs/jev_shim.md`.
+## Documentation and next steps
 
-### Related reading (external)
+- **Sources and adapters:** [Source access](docs/source-access.md),
+  [source adapter ownership/cache integrity](docs/source-adapters.md),
+  [Wikipedia](docs/wikipedia_tool.md),
+  [pixiv fixture contract](docs/pixiv_source_fixture_contract.md),
+  [pixiv normalization](docs/pixiv_markup_normalization.md).
+- **Routing and judgments:** [Jev wire/calibration](docs/jev_shim.md),
+  [backend contracts](docs/jev_backend.md), [router](docs/jev_router.md),
+  [Ironmate boundary](docs/jev_ironmate_routing.md),
+  [direct Wikipedia/mock routes](docs/jev_family_direct.md).
+- **MCP and UIs:** [LibreChat](docs/librechat_mcp_notes.md),
+  [Open WebUI](docs/openwebui_mcp_notes.md),
+  [Open WebUI schema notes](docs/openwebui_schema_notes.md),
+  [GitHub operations MCP](docs/github_ops_mcp.md),
+  [chat/stub contract](docs/chat_stub_contract.md).
+- **Evidence and reproducibility:** [Anti-pattern catalog](docs/antipatterns.md),
+  [conversation URL identities](docs/conversation-urls.md),
+  [history telemetry](docs/history-growth-telemetry.md),
+  [compaction benchmark](docs/compaction-gguf-benchmark.md),
+  [CI/JUnit](docs/python_junit_ci.md), [vendor updates](docs/vendor-automation.md).
 
-External write-ups useful while working on the Jev lanes in this lab (not
-affiliated; linked for reference only):
+The next Adaptive Inference increments are tracked in
+[#147](https://github.com/myon-bioinformatics/mcp-toolcall-lab/issues/147):
 
-- [JevでRAG検索の爆速化＆コスト削減は実現できるのか検証してみた](https://qiita.com/kikuziro/items/2be9091b328d8b844640) (Qiita) — RAG pipeline measurements with Jev for rerank / "cannot answer" gating / out-of-scope prefilter. Shared via [@suh_sunaneko](https://x.com/suh_sunaneko/status/2102377535493509504).
-- [Stagehand v4 + Jev thread](https://x.com/Dontgiveup_26/status/2102286564521111687) (@Dontgiveup_26) — community thread on Stagehand v4 browser automation paired with Jev (claimed LLM-call reduction / speedup). Thread itself; no separate article URL.
+1. Make observation/cache semantics explicit, remove misleading success/device
+   reporting, and distinguish miss/unsupported/error from evaluated results.
+2. Add a narrow optional real CPU backend to the engine-adapter contract, with
+   pinned inputs and measured correctness, latency, memory, and actual-device
+   evidence.
+3. Evaluate exact-cache invalidation, retrieval/selective recomputation, and
+   backend-native cache reuse without conflating them with inference.
+4. Explore optional quantization/optimization and capability/budget-aware
+   CPU/GPU/NPU planning; validate each supported model/device and quality trade-off.
 
-### Jev fit summary and candidate uses in this lab
-
-The external [fit guide](https://github.com/mizchi/jev-playground/blob/main/docs/fit.md) describes Jev as a structured-judgment model, not a free-form text generator. It is a better fit when the answer space is explicit (for example, choosing among advertised tools), when decisions have an ordered shape such as `allow < confirm < block`, or when several independent predicates must be evaluated for the same input. The guide reports strong results for enumerated game actions (489 MOBA decisions and 37 chess moves with no illegal action) and for named-task selection (90% from names alone, 100% after adding one-line descriptions). These are results reported by that external project; they have not been reproduced by this lab.
-
-A useful, bounded experiment here would be to route a request among tools that are actually present in the MCP `tools/list` catalogue, or to classify a mock action as `allow`, `confirm`, or `block`. Keep a generic "none of these / uncertain" question beside any class-specific checks: the guide reports that enumerated predicates can help on known classes, while a generic question can catch classes omitted from the list. Record the selected tool/action, whether it was advertised, raw argument-schema validity, server acceptance, and the resulting trace in the existing offline fixtures and logs.
-
-Jev is not a replacement for deterministic computation, argument construction, API knowledge, schema validation, or tests. Do not ask it to generate free-form MCP arguments or calculate measurable values; keep those in code. Avoid automatic decisions near a confidence boundary and route uncertain cases to a safe fallback or human review. Spatial judgments also depend on how the state is represented and were mixed in the guide. This lab should evaluate these ideas against mocks and recorded fixtures only; this section does not authorize or imply live external-provider API calls or API keys.
-
-## Next increments
-
-1. Keep mock catalogues deterministic and provider-neutral, without API keys.
-2. Compare schema strictness (raw-valid vs server-accepted) and system prompts in a recorded experiment matrix.
-3. `jev_answerer`: confirm the built request shape (`response_format: json_schema`) against a real llama.cpp (or other OpenAI-compatible) server — every test so far uses either an injected fake or a loopback stdlib server, never a real model backend.
-4. `jev_typesafe`: exercise `TypeSafeClient` against a real `api.typesafe.ai` account once a key is available, to confirm the modeled contract against the live API rather than source alone.
-
-Static Pages and successful live Pixiv capture sets now have distinct receipts
-with explicit mixed Chromium/WebKit bundle names, tested SHA, image bytes/hashes
-and run ID/attempt. The shared validator rejects missing images, hash mismatch,
-stale run identity and failed receipts; CI probes those failures on isolated copies
-of actual evidence. Static coverage cannot be satisfied by live images. 403/429
-live skips write skipped receipts and never count as verified live capture.
-Receipts remain in the always-upload observation artifact. Shared validation
-checks integrity/run provenance, not visible screen semantics.
-
-Public source placement and automatic Python CI updates: [vendor automation](docs/vendor-automation.md).
-
-## Optional local Galleria
-
-The ASCII shapes/templates, Markdown read/save/heading inspection, and text/JSON/CSV
-viewer from Ironmate now live in `mcp_toolcall_lab.gradio_galleria`.
-It reuses this checkout's existing pinned ASCII/Markdown helpers. No model download,
-GPU or running MCP server is needed. The galleria extra installs Gradio next to
-FastMCP, so both can use the same environment:
-
-```bash
-python -m pip install -e '.[test,galleria]'
-python -m mcp_toolcall_lab.gradio_galleria
-```
-
-Run from a source checkout (the existing vendor loaders require `vendor/`).
-The launcher binds to localhost with sharing disabled. Read/save paths are local
-filesystem paths supplied by the operator; this is a trusted local editing demo,
-not a public file service. The viewer lists checkout documents, excluding hidden,
-build/vendor directories and symlinks. Restart to refresh its file list.
-
-Migration source: [Ironmate #77](https://github.com/myon-bioinformatics/Ironmate/issues/77),
-`gradio_galleria.py` at `1281553` (MIT).
-Obsolete `ascii_art` / `markdown_market` imports were replaced with the lab's
-canonical loaders. The old local model launcher and character assets are not required.
-
-The dedicated `Galleria optional UI` workflow installs `.[test,galleria]`, checks
-the lockfile with `uv lock --check` (Gradio metadata can disagree with `[tool.uv] override-dependencies` under `uv pip check`), imports both Gradio and FastMCP, and runs
-the Galleria tests (actual UI construction and HTTP responses) plus the existing
-MCP Streamable HTTP protocol tests in that same environment.
-It uploads `galleria-junit` and runs on relevant UI/dependency/vendor changes;
-the core MCP test environment remains unchanged.
-
-## Select offline replay fixtures
-
-```sh
-PYTHONPATH=src python -S -m mcp_toolcall_lab.prompt_experiment replay --case 'available*' --list
-PYTHONPATH=src python -S -m mcp_toolcall_lab.jev_shim replay --case 'noul*' --exclude '*malformed*'
-```
-
-Both replay CLIs share case-sensitive filename/stem glob selection. Repeated
-`--case` rules are ORed once; `--exclude` rules apply afterward. Selection happens
-before JSON loading and does not need a sibling checkout. `--list` prints selected
-JSON basenames without reading fixture contents, resolving prompts, replaying,
-calling a provider or writing an audit; it cannot be combined with `--out`.
-Discovery is one directory deep and skips symlinks. Empty selections, invalid
-rules/roots, unreadable files, invalid JSON syntax and explicitly rejected
-fixture values return 2. Existing replay schema validation remains unchanged. Existing replay
-verdict codes (0/1), default all-fixture results and JSONL audit fields remain.
-
-Validation: 57 focused tests passed, including the existing 47 replay tests.
-Both list entry points were also executed with `python -S`.
+These are planned phases, not guarantees about today's API. Keep tests and
+receipts for cached replay, approximate results, and actual model execution
+separate, and preserve an explicit fallback when a route is unsupported.
