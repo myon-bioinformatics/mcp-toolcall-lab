@@ -150,9 +150,13 @@ def test_execute_via_adapter() -> None:
     assert res1["status"] == "ok"
     assert res1["upstream_bypassed"] is True
     assert res1["evaluation"]["best_move"] == "2f2e"
-    assert res1["device_used"] == "cpu"
+    assert res1["device_used"] == "unknown"
+    assert res1["device_requirement"] == "cpu"
+    assert res1["execution_mode"] == "cached_observation"
 
-    # Execute with fallback key
-    res2 = execute_via_adapter(adapter, {"position": "unknown_pos"})
+    # Explicitly opt into the legacy default fallback as an approximation.
+    res2 = execute_via_adapter(adapter, {"position": "unknown_pos"}, on_miss="stored_default")
     assert res2["status"] == "ok"
+    assert res2["execution_mode"] == "approximation"
+    assert res2["cache_hit"] is False
     assert res2["evaluation"]["best_move"] == "none"
