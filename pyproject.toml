@@ -52,4 +52,8 @@ markers = [
 ]
 
 [tool.uv]
-override-dependencies = ["pillow>=13.0.0"]
+override-dependencies = [
+    "pillow>=13.0.0",
+    "safehttpx>=0.2.0",
+    "tomlkit>=0.15.2",
+]
