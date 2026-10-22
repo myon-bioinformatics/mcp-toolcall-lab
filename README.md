@@ -95,6 +95,17 @@ Wikipedia and pixiv tools make live HTTP calls. Local UI, client examples, and t
 lanes are separate entry points, not one automatic end-to-end pipeline.
 [Crop provenance](docs/assets/repository-concept.json).
 
+### MCP challenges, roles, and outcomes
+
+<a href="docs/assets/repository-concept-v2.png"><img src="docs/assets/repository-concept-v2.png" alt="MCP tool-call lab challenges, roles, and outcomes: inspect tool calls and traces, divide FastMCP serving, deterministic mocks, and trace comparison, and provide a testable view of MCP behavior." width="505"></a>
+
+This additional supplied panel complements the workflow view above. Its
+no-external-dependency claim is about mock API behavior, not package dependencies
+or all tools: Wikipedia and pixiv still make live HTTP calls. The illustration
+is not a security guarantee for external API calls or a complete map of the
+adapter/reuse roadmap.
+[Additional panel provenance](docs/assets/repository-concept-v2.json).
+
 ## Quick start
 
 ### Requirements
