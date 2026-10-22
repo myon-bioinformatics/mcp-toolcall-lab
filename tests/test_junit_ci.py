@@ -53,14 +53,14 @@ def test_python_junit_workflow_keeps_failed_producer_visible():
     assert "continue-on-error" not in producer
     assert "|| true" not in producer
     assert "if: always()" in producer
-    assert "name: junit-python-3.11" in producer
+    assert "name: junit-python-3.12" in producer
     assert "path: reports/pytest.xml" in producer
     assert "if-no-files-found: error" in producer
     assert "needs: [changes, test]" in collector
     assert "if: always() && needs.changes.outputs.product_changed == 'true'" in collector
     assert "reusable-junit-identity.yml@2192ff22acafdd09e80ac722df91ee937aaedd5e" in collector
     assert "commit-sha: ${{ github.event.pull_request.head.sha || github.sha }}" in collector
-    assert 'expected-reports: \'["junit-python-3.11/pytest.xml"]\'' in collector
-    assert "artifact-pattern: junit-python-3.11" in collector
+    assert 'expected-reports: \'["junit-python-3.12/pytest.xml"]\'' in collector
+    assert "artifact-pattern: junit-python-3.12" in collector
     assert "actions: read" in collector
     assert "pages:" not in collector

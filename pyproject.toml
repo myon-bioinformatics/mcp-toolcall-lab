@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 name = "mcp-toolcall-lab"
 version = "0.1.0"
 description = "FastMCP mock tools for reproducible tool-calling experiments"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 dependencies = [
     "fastmcp>=4.1.1",
     "mcp>=2.3.0",
@@ -56,4 +56,5 @@ override-dependencies = [
     "pillow>=13.0.0",
     "safehttpx>=0.2.0",
     "tomlkit>=0.15.2",
+    "pyee>=15.0.0",
 ]
