@@ -106,6 +106,15 @@ is not a security guarantee for external API calls or a complete map of the
 adapter/reuse roadmap.
 [Additional panel provenance](docs/assets/repository-concept-v2.json).
 
+## Portable input-first execution
+
+Docker can export a static `/execution/` application without keeping a container
+running. Browser and Node share one log-analysis implementation; Python uses it
+through the same JSON contract, while Node delegates verified observation replay
+to the existing Python adapter. Unknown inputs never receive invented results.
+[Contract, CLI reuse, evidence limits and Docker build](docs/portable-execution.md).
+The existing portfolio redirect and Wiki/Pixiv report publication are preserved.
+
 ## Quick start
 
 ### Requirements

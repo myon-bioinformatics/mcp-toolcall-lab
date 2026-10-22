@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MCP tool-call lab · portable execution</title>
+<link rel="stylesheet" href="terminal.css">
+<style>body{max-width:1100px;margin:auto;padding:24px}textarea{width:100%;min-height:22rem;box-sizing:border-box;font:14px/1.5 monospace;color:inherit;background:#111823;padding:16px;border:1px solid #69788b;border-radius:8px}button,select{font:inherit;padding:10px;margin:8px 8px 8px 0}pre{white-space:pre-wrap;overflow-wrap:anywhere}label{display:block;font-weight:bold}#status{min-height:1.5em}.muted{color:#b2becc}.actions{display:flex;flex-wrap:wrap}a{color:#a6d6ff}</style>
+</head><body>
+<header><p>MCP TOOL-CALL LAB / INPUT FIRST</p><h1>One request. An inspectable receipt.</h1>
+<p>Deterministic log analysis runs here in your browser. Python adapter results are exact build-time snapshots, not live model execution.</p></header>
+<main>
+<label for="request">Execution request · JSON</label>
+<p class="muted">Paste your tools/call JSONL into input.jsonl. Trace analysis stays in this browser. Adapter lookup sends a request hash in a static-file URL, not the raw input. Analysis counts recorded outcomes; it does not verify that the recorded tool calls happened.</p>
+<textarea id="request" spellcheck="false" aria-describedby="limits"></textarea>
+<p id="limits" class="muted">1 MiB UTF-8 log budget · 10,000 lines · malformed input fails closed · unknown inputs never receive a made-up answer</p>
+<div class="actions"><button id="run" type="button">Run request</button><button id="sample" type="button">Load public log example</button><button id="adapter" type="button">Load build receipt request</button><button id="clear" type="button">Clear</button></div>
+<p id="status" role="status" aria-live="polite">Loading the public example…</p>
+<section aria-label="Execution receipt"><h2>Receipt</h2><pre id="result">No execution yet.</pre></section>
+<details><summary>Runtime, evidence and limits</summary>
+<p>The browser imports the very same JavaScript module used by the Node CLI and Python→Node bridge. Node→Python adapter lookup calls the existing integrity-checked engine_adapter. No Python runtime, MCP server, Docker service or model is hosted on Pages.</p>
+<p>Confidence stays unknown unless explicitly present in an input record. Recorded probabilities are separately attributed by line and prob_source, never presented as calibrated confidence in these metrics.</p>
+<p>The public example executes deterministic mock catalog functions during the build and records them through the lab's shared logger. It is not an MCP transport or external API test.</p>
+<p><a href="build.json">Build/source identity</a> · <a href="example.jsonl">Public example log</a> · <a href="runtime/README.md">Reusable CLI instructions</a> · <a href="runtime.zip">Download the same runtime</a> · <a href="https://github.com/myon-bioinformatics/mcp-toolcall-lab">Source</a> · <a href="../">Portfolio</a></p>
+</details></main><script type="module" src="portable_page.mjs"></script>
+</body></html>
