@@ -2,7 +2,7 @@ name: stub-pages
 
 # Serverless try: Actions boots Docker (stub + MCP + CPU-class model),
 # records anti-patterns as JSONL and exports public reports for portfolio publication.
-# Legacy Pages deploys only a redirect; MCP/Docker execution stays here.
+# Publication belongs to portable-pages.yml; MCP/Docker smoke stays here.
 # Default `test` workflow stays `pytest -q` (no Docker).
 on:
   workflow_dispatch:
@@ -70,8 +70,6 @@ on:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
   group: stub-pages
@@ -329,16 +327,6 @@ jobs:
             docker/stub-pages/models/*.provenance.json
           if-no-files-found: ignore
 
-      - name: Build legacy Pages redirect
-        if: github.ref == 'refs/heads/main'
-        run: python -S scripts/write_portfolio_redirect.py _portfolio_redirect
-
-      - name: Upload Pages artifact
-        if: github.ref == 'refs/heads/main'
-        uses: actions/upload-pages-artifact@v5
-        with:
-          path: _portfolio_redirect
-
       - name: Tear down
         if: always()
         env:
@@ -349,19 +337,3 @@ jobs:
             read -r -a compose_args <<< "$COMPOSE_GGUF_OVERLAY"
           fi
           docker compose -f docker/stub-pages/docker-compose.yml "${compose_args[@]}" down -v
-
-  deploy:
-    needs: smoke
-    # Pages is the merged main report only. Feature-branch
-    # workflow_dispatch (including use_real_gguf=true) must not
-    # enter the github-pages environment — that job fails with no
-    # steps when the environment is restricted to main.
-    if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
-    steps:
-      - name: Deploy GitHub Pages
-        id: deploy
-        uses: actions/deploy-pages@v5

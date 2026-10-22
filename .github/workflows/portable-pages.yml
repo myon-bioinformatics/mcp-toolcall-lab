@@ -1,0 +1,107 @@
+name: portable-pages
+
+on:
+  pull_request:
+    paths:
+      - "src/mcp_toolcall_lab/**"
+      - "vendor/**"
+      - "vendor.lock.json"
+      - "scripts/build_portable_pages.py"
+      - "scripts/check_portable_browser.py"
+      - "scripts/write_portfolio_redirect.py"
+      - "docker/portable-pages/**"
+      - "docs/portable-execution.md"
+      - "tests/test_portable_execution.py"
+      - ".github/workflows/portable-pages.yml"
+  push:
+    branches: [main]
+    paths:
+      - "src/mcp_toolcall_lab/**"
+      - "vendor/**"
+      - "vendor.lock.json"
+      - "scripts/build_portable_pages.py"
+      - "scripts/check_portable_browser.py"
+      - "scripts/write_portfolio_redirect.py"
+      - "docker/portable-pages/**"
+      - "docs/portable-execution.md"
+      - "tests/test_portable_execution.py"
+      - ".github/workflows/portable-pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: portable-pages-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Test portable execution contract and bidirectional runtime
+        env:
+          PYTHONPATH: src
+        run: python -m unittest discover -s tests -p 'test_portable_execution.py' -v
+      - name: Export static files from Docker build
+        env:
+          SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          DOCKER_BUILDKIT: "1"
+        run: docker build --file docker/portable-pages/Dockerfile --target artifact --build-arg SOURCE_SHA="$SOURCE_SHA" --build-arg BUILD_RUN="$GITHUB_RUN_ID" --build-arg BUILD_ATTEMPT="$GITHUB_RUN_ATTEMPT" --output type=local,dest=_portable_site .
+      - name: Verify exported runtime without the source checkout
+        run: |
+          cd _portable_site/execution/runtime
+          PYTHONPATH=src python -S -m mcp_toolcall_lab.portable_execution < ../example-request.json > /tmp/python-receipt.json
+          node src/mcp_toolcall_lab/static/portable_cli.mjs --adapter ../example-adapter.json < ../adapter-request.json > /tmp/node-receipt.json
+          python - <<'PY'
+          import json
+          for filename in ('/tmp/python-receipt.json', '/tmp/node-receipt.json'):
+              receipt = json.load(open(filename))
+              assert receipt['status'] == 'ok', receipt
+              assert receipt['model_inference_performed'] is False
+          PY
+      - name: Exercise browser input, snapshot miss and stale-result handling
+        run: |
+          python -m pip install playwright==1.63.0
+          python -m playwright install --with-deps chromium
+          python scripts/check_portable_browser.py --site _portable_site --screenshot test-results/portable-desktop.png
+      - name: Preserve browser evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: portable-browser-evidence
+          path: test-results/portable-*.png
+          if-no-files-found: warn
+      - name: Preserve static export
+        uses: actions/upload-artifact@v7
+        with:
+          name: portable-pages-static
+          path: _portable_site/
+          if-no-files-found: error
+      - name: Upload Pages artifact
+        if: github.ref == 'refs/heads/main'
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: _portable_site
+  deploy:
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      pages: write
+      id-token: write
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - name: Deploy static GitHub Pages build
+        id: deploy
+        uses: actions/deploy-pages@v5
