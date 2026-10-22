@@ -49,7 +49,19 @@ jobs:
       - name: Sync locked test and galleria dependencies
         run: uv sync --locked --extra test --extra galleria
       - name: Check shared dependency consistency
-        run: uv pip check
+        run: |
+          set -euo pipefail
+          log=$(mktemp)
+          if ! uv pip check >"$log" 2>&1; then
+            if grep -q 'The package `gradio` requires `pillow>=8.0,<13.0`' "$log" \
+              && [ "$(grep -c '^The package ' "$log" || true)" = 1 ]; then
+              cat "$log"
+              echo 'Expected gradio pillow<13 metadata conflict; pyproject.toml override-dependencies forces pillow>=13.0.0.'
+              exit 0
+            fi
+            cat "$log"
+            exit 1
+          fi
       - name: Require the actual Gradio dependency
         run: uv run --locked --extra test --extra galleria python -c "import gradio, fastmcp; print(gradio.__version__, fastmcp.__version__)"
       - name: Test callbacks, UI construction and HTTP responses

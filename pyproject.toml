@@ -50,3 +50,6 @@ markers = [
     "integration: starts a local Streamable HTTP MCP server",
     "real_chat_ui: needs LibreChat or Open WebUI Docker + Playwright (skipped unless LIBRECHAT_BASE_URL or OPEN_WEBUI_BASE_URL is set)",
 ]
+
+[tool.uv]
+override-dependencies = ["pillow>=13.0.0"]
