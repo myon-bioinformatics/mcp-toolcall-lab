@@ -3,14 +3,14 @@
 The primary Python job in `.github/workflows/test.yml` still installs
 `.[test]` and runs the same pytest suite. It adds
 `--junitxml=reports/pytest.xml` and uploads that exact file as
-`junit-python-3.11` for 14 days with `if: always()`. The pytest step
+`junit-python-3.12` for 14 days with `if: always()`. The pytest step
 has no error suppression: a failure remains a failed producer job and run.
 
 The dependent `junit-identity` job runs even after producer failure
 when change detection selected non-document work. It calls the parent
 repository's reusable collector at
 `4dfda95d6573250477f991a0421fa6acb9bc0258`, with the exact report set
-`["junit-python-3.11/pytest.xml"]`. Missing or invalid reports fail collection;
+`["junit-python-3.12/pytest.xml"]`. Missing or invalid reports fail collection;
 a successful collection only means evidence is complete, not that tests passed.
 Documentation-only runs retain the existing skip behavior.
 

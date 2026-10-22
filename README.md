@@ -89,8 +89,13 @@ illustrative rather than the current tool catalog.*
 
 ### Requirements
 
-- Python **3.11+**. Exact dependency versions are recorded in `uv.lock`.
+- Python **3.12+**. Exact dependency versions are recorded in `uv.lock`; the
+  Playwright `pyee` 15 override requires Python 3.12 or newer.
 - Core dependencies include FastMCP, MCP, and Pydantic; see [`pyproject.toml`](pyproject.toml).
+- `[tool.uv] override-dependencies` lifts upstream Gradio/Playwright caps for
+  `pillow`, `safehttpx`, `tomlkit`, and `pyee`. Overrides replace upstream
+  Requires-Dist for locking; remove each when upstream metadata permits the fixed
+  version. Use the locked uv commands below when those optional lanes are needed.
 - Keep this package in its own environment, separate from Open WebUI's environment.
 - Docker, browser tooling, Gradio, model weights, and external credentials are
   needed only for their respective optional lanes.
@@ -348,15 +353,18 @@ confidence is not a calibrated probability. See
 ### Optional local Galleria
 
 ```bash
-python -m pip install -e '.[test,galleria]'
-python -m mcp_toolcall_lab.gradio_galleria
+uv sync --locked --extra test --extra galleria
+uv run --locked --extra test --extra galleria python -m mcp_toolcall_lab.gradio_galleria
 ```
 
 Run from a source checkout because the vendored ASCII/Markdown helpers are
 required. This localhost-only editor/viewer needs no model, GPU, or MCP server.
 It uses local filesystem paths and is not a public file service. Its dedicated
-workflow checks Gradio/FastMCP compatibility and UI/HTTP behavior separately from
-the core test environment.
+workflow checks lockfile consistency with `uv lock --check`, imports Gradio and
+FastMCP, and tests UI/HTTP behavior plus MCP Streamable HTTP in the same
+environment. It preserves the `galleria-junit` artifact separately from the core
+test lane. `uv pip check` can disagree with the overridden upstream metadata;
+lock consistency and the exercised UI behavior are separate checks.
 
 ## Documentation and next steps
 
