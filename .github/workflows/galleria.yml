@@ -53,10 +53,10 @@ jobs:
           set -euo pipefail
           log=$(mktemp)
           if ! uv pip check >"$log" 2>&1; then
-            if grep -q 'The package `gradio` requires `pillow>=8.0,<13.0`' "$log" \
+            if grep -qF "The package \`gradio\` requires \`pillow>=8.0,<13.0\`" "$log" \
               && [ "$(grep -c '^The package ' "$log" || true)" = 1 ]; then
               cat "$log"
-              echo 'Expected gradio pillow<13 metadata conflict; pyproject.toml override-dependencies forces pillow>=13.0.0.'
+              echo "Expected gradio pillow<13 metadata conflict; pyproject.toml override-dependencies forces pillow>=13.0.0."
               exit 0
             fi
             cat "$log"
