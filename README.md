@@ -543,7 +543,7 @@ Obsolete `ascii_art` / `markdown_market` imports were replaced with the lab's
 canonical loaders. The old local model launcher and character assets are not required.
 
 The dedicated `Galleria optional UI` workflow installs `.[test,galleria]`, checks
-dependency consistency with `pip check`, imports both Gradio and FastMCP, and runs
+the lockfile with `uv lock --check` (Gradio metadata can disagree with `[tool.uv] override-dependencies` under `uv pip check`), imports both Gradio and FastMCP, and runs
 the Galleria tests (actual UI construction and HTTP responses) plus the existing
 MCP Streamable HTTP protocol tests in that same environment.
 It uploads `galleria-junit` and runs on relevant UI/dependency/vendor changes;

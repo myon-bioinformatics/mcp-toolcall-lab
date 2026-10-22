@@ -48,8 +48,8 @@ jobs:
           python-version: '3.11'
       - name: Sync locked test and galleria dependencies
         run: uv sync --locked --extra test --extra galleria
-      - name: Check shared dependency consistency
-        run: uv pip check
+      - name: Check lockfile matches pyproject (overrides may fail uv pip check)
+        run: uv lock --check
       - name: Require the actual Gradio dependency
         run: uv run --locked --extra test --extra galleria python -c "import gradio, fastmcp; print(gradio.__version__, fastmcp.__version__)"
       - name: Test callbacks, UI construction and HTTP responses
