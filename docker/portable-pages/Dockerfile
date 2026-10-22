@@ -9,6 +9,7 @@ COPY vendor ./vendor
 COPY vendor.lock.json LICENSE ./
 COPY scripts/build_portable_pages.py scripts/write_portfolio_redirect.py ./scripts/
 COPY docs/portable-execution.md ./docs/
+COPY docs/assets/mcp-toolcall-lab-logo.png docs/assets/mcp-toolcall-lab-favicon-artwork.png ./docs/assets/
 ARG SOURCE_SHA
 ARG BUILD_RUN
 ARG BUILD_ATTEMPT
