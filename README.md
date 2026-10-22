@@ -20,8 +20,9 @@ This repository uses deterministic mock APIs and does **not** call a live extern
 
 ## Requirements
 
-- Python 3.11 or newer (`datetime.UTC` and `X | Y` type hints).
+- Python 3.12 or newer (`datetime.UTC` and `X | Y` type hints; `pyee` 15 for Playwright overrides needs 3.12+).
 - `fastmcp>=4.1.1` and `mcp>=2.3.0`, with exact versions in `uv.lock`. Keep this package out of Open WebUI's own environment.
+- `pyproject.toml` `[tool.uv] override-dependencies` lifts transitive pins that optional `gradio` / `browser-test` (Playwright) still cap below current PyPI (`pillow`, `safehttpx`, `tomlkit`, `pyee`). Overrides replace upstream Requires-Dist for locking; remove each entry when upstream metadata no longer blocks the fixed version.
 
 ## Run locally
 
@@ -217,7 +218,7 @@ pip install -e '.[test]'
 pytest -q
 ```
 
-`pip install -e` already puts `src` on the import path, so `PYTHONPATH=src` is not required. Pull requests run the same commands on GitHub Actions with Python 3.11.
+`pip install -e` already puts `src` on the import path, so `PYTHONPATH=src` is not required. Pull requests run the same commands on GitHub Actions with Python 3.12.
 
 Wikipedia article screenshots (`python -m playwright screenshot` against the stub's `/wiki` form) are a dedicated workflow / manual lane: `.github/workflows/wikipedia-article-screenshot.yml`. They are not part of `pytest -q`. CI uses `fixtures/wikipedia/yokohama_extract.json`; live Wikipedia is `workflow_dispatch` `--live` or `MCP_TOOLCALL_LAB_LIVE_WIKIPEDIA=1` locally. See [`docs/wikipedia_tool.md`](docs/wikipedia_tool.md).
 
@@ -542,7 +543,7 @@ Obsolete `ascii_art` / `markdown_market` imports were replaced with the lab's
 canonical loaders. The old local model launcher and character assets are not required.
 
 The dedicated `Galleria optional UI` workflow installs `.[test,galleria]`, checks
-dependency consistency with `pip check`, imports both Gradio and FastMCP, and runs
+the lockfile with `uv lock --check` (Gradio metadata can disagree with `[tool.uv] override-dependencies` under `uv pip check`), imports both Gradio and FastMCP, and runs
 the Galleria tests (actual UI construction and HTTP responses) plus the existing
 MCP Streamable HTTP protocol tests in that same environment.
 It uploads `galleria-junit` and runs on relevant UI/dependency/vendor changes;
