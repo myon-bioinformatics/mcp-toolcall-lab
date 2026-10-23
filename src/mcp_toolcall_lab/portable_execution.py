@@ -157,8 +157,6 @@ def execute(request: Any, *, adapter_path: str | Path | None = None, native_only
             return failure("runtime_unavailable", "Python native-only mode does not duplicate the JavaScript log analyzer.")
         try:
             completed = _portable_node_run(encoded, check=True)
-            if len(completed.stdout) > NODE_RECEIPT_MAX_BYTES:
-                return failure("bridge_failed", "Node receipt exceeds 4 MiB.")
             result = json.loads(completed.stdout)
             if not isinstance(result, dict) or result.get("schema") != CONTRACT:
                 return failure("bridge_failed", "Invalid Node receipt.")

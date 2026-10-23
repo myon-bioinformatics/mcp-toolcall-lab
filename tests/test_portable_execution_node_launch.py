@@ -668,69 +668,86 @@ def test_mutation_stdin_zero_mapping_required(tmp_path, monkeypatch):
         pe._portable_node_run(_LARGE_INPUT, node=script, check=False)
 
 
-def _pytest_on_mutated_portable_execution(replacements: list[tuple[str, str]], test_id: str) -> int:
+_MUTATION_TEST_FILE = Path(__file__).resolve()
+
+
+def _pytest_on_mutated_portable_execution(
+    replacements: list[tuple[str, str]] | None,
+    test_name: str,
+    *,
+    collect_only: bool = False,
+) -> int:
     with tempfile.TemporaryDirectory() as directory:
         overlay = Path(directory)
         shutil.copytree(ROOT / "vendor", overlay / "vendor")
         source = (ROOT / "src/mcp_toolcall_lab/portable_execution.py").read_text(encoding="utf-8")
-        for old, new in replacements:
-            if source.count(old) != 1:
-                raise AssertionError(f"mutation anchor must appear once: {old!r}")
-            source = source.replace(old, new, 1)
+        if replacements is not None:
+            for old, new in replacements:
+                if source.count(old) != 1:
+                    raise AssertionError(f"mutation anchor must appear once: {old!r}")
+                source = source.replace(old, new, 1)
         target_dir = overlay / "src/mcp_toolcall_lab"
         target_dir.mkdir(parents=True)
         shutil.copytree(ROOT / "src/mcp_toolcall_lab/static", target_dir / "static")
         shutil.copytree(ROOT / "src/mcp_toolcall_lab/adapters", target_dir / "adapters")
         shutil.copytree(ROOT / "src/mcp_toolcall_lab/mock", target_dir / "mock")
-        init = ROOT / "src/mcp_toolcall_lab/__init__.py"
-        if init.is_file():
-            shutil.copy(init, target_dir / "__init__.py")
+        (target_dir / "__init__.py").write_text("", encoding="utf-8")
         (target_dir / "portable_execution.py").write_text(source, encoding="utf-8")
+        isolated = overlay / "isolated"
+        isolated.mkdir()
+        isolated_test = isolated / "test_portable_execution_node_launch.py"
+        shutil.copy2(_MUTATION_TEST_FILE, isolated_test)
         env = os.environ.copy()
         env["PYTHONPATH"] = str(overlay / "src") + os.pathsep + env.get("PYTHONPATH", "")
-        completed = subprocess.run(
-            [sys.executable, "-m", "pytest", test_id, "-q", "--tb=no"],
-            cwd=ROOT,
-            env=env,
-            check=False,
-        )
+        node_test_id = f"{isolated_test.name}::{test_name}"
+        argv = [sys.executable, "-m", "pytest"]
+        if collect_only:
+            argv.append("--collect-only")
+        argv.extend([node_test_id, "-q", "--tb=no"])
+        completed = subprocess.run(argv, cwd=isolated, env=env, check=False)
         return completed.returncode
 
 
+def _assert_mutation_subprocess_guard(
+    replacements: list[tuple[str, str]],
+    test_name: str,
+) -> None:
+    assert _pytest_on_mutated_portable_execution(None, test_name, collect_only=True) == 0
+    assert _pytest_on_mutated_portable_execution(None, test_name) == 0
+    assert _pytest_on_mutated_portable_execution(replacements, test_name) == 1
+
+
 def test_mutation_subprocess_broken_timeout_fails_parity_test():
-    rc = _pytest_on_mutated_portable_execution(
+    _assert_mutation_subprocess_guard(
         [
             (
                 '    if exc.code == "ELAUNCHFAILURE" and "timed out" in str(exc):',
                 '    if False and exc.code == "ELAUNCHFAILURE" and "timed out" in str(exc):',
             )
         ],
-        f"{__name__}::test_timeout_matches_legacy",
+        "test_timeout_matches_legacy",
     )
-    assert rc != 0
 
 
 def test_mutation_subprocess_broken_stdin_zero_fails_parity_test():
-    rc = _pytest_on_mutated_portable_execution(
+    _assert_mutation_subprocess_guard(
         [
             (
                 '    if exc.code == "ELAUNCHSTDINCLOSED":',
                 '    if False and exc.code == "ELAUNCHSTDINCLOSED":',
             )
         ],
-        f"{__name__}::test_stdin_closed_zero_exit_returns_stdout",
+        "test_stdin_closed_zero_exit_returns_stdout",
     )
-    assert rc != 0
 
 
 def test_mutation_subprocess_broken_over_cap_mapping_fails_execute_test():
-    rc = _pytest_on_mutated_portable_execution(
+    _assert_mutation_subprocess_guard(
         [
             (
                 '        if exc.code == "ERESPONSETOOLARGE":',
                 '        if False and exc.code == "ERESPONSETOOLARGE":',
             )
         ],
-        f"{__name__}::test_receipt_over_cap_matches_legacy_execute_message",
+        "test_receipt_over_cap_matches_legacy_execute_message",
     )
-    assert rc != 0
