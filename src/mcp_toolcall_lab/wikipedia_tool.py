@@ -329,7 +329,7 @@ def _wiki_headings_to_atx(text: str) -> str:
     Wikipedia's plaintext extract never emits a single ``=`` (that would be
     the article's own title, which is not part of the extract body), so
     level 2 is the shallowest marker actually seen; it is kept as ATX
-    level 2 to match fixtures/stub_front/wiki_yokohama.md's own shape,
+    level 2 to match fixtures/stub_front/wiki_exampleville.md's own shape,
     where the fetched article's title is a separately-added level-1 ATX
     heading wrapping the lead paragraph and every ``==`` section under it.
     """

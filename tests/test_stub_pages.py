@@ -69,7 +69,7 @@ def test_vendored_markdown_py_is_loadable() -> None:
     assert path is not None
     md = load_markdown()
     assert md is not None
-    assert md.split_sections("# Yokohama\n\nbody\n")[0]["title"] == "Yokohama"
+    assert md.split_sections("# Exampleville\n\nbody\n")[0]["title"] == "Exampleville"
     recorded = assert_markdown_provenance()
     assert recorded["commit"] == _locked('vendor/markdown.py')['commit']
     assert recorded["blob_sha"] == _locked('vendor/markdown.py')['blob_sha']
@@ -109,9 +109,9 @@ def test_parse_sections_uses_markdown_py_bodies() -> None:
 
 
 def test_render_rows_uses_markdown_table() -> None:
-    text = render_rows([{"name": "Yokohama", "code": "14109"}])
-    assert "Yokohama" in text
-    assert "14109" in text
+    text = render_rows([{"name": "Exampleville", "code": "90001"}])
+    assert "Exampleville" in text
+    assert "90001" in text
 
 
 _FAKE_REVISION = {
@@ -226,7 +226,7 @@ def test_pages_tree_excludes_raw_mcp_logs(tmp_path: Path) -> None:
             {
                 "turn": {
                     "case": "MCP_SUCCESS",
-                    "assistant": "Yokohama",
+                    "assistant": "Exampleville",
                     "arguments": {"query": "secret-prompt"},
                     "chat_id": "chat_secret",
                     "meta": {"chat_id": "chat_secret"},
@@ -269,14 +269,14 @@ def test_pages_tree_excludes_raw_mcp_logs(tmp_path: Path) -> None:
 
 def test_classify_stub_turn_pass_and_miss() -> None:
     ok = classify_stub_turn(
-        {"case": "MCP_SUCCESS", "assistant": "Yokohama 14109"}, cpu_llm_ok=True
+        {"case": "MCP_SUCCESS", "assistant": "Exampleville 90001"}, cpu_llm_ok=True
     )
     assert ok["verdict"] == "PASS"
     assert ok["cpu_llm_ok"] is True
     miss = classify_stub_turn({"case": "MCP_UNREACHABLE", "assistant": "timed out"})
     assert miss["antipattern_id"] == MCP_UNREACHABLE
     down = classify_stub_turn(
-        {"case": "MCP_SUCCESS", "assistant": "Yokohama"}, cpu_llm_ok=False
+        {"case": "MCP_SUCCESS", "assistant": "Exampleville"}, cpu_llm_ok=False
     )
     assert down["cpu_llm_ok"] is False
     assert CPU_LLM_UNREACHABLE != down["antipattern_id"]

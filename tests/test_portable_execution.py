@@ -200,6 +200,9 @@ console.log(JSON.stringify([ok,miss,mismatch,offline]));'''.replace('CORE', json
             for relative in (logo['src'], favicon['href']):
                 self.assertEqual((target / relative).read_bytes(), (ROOT / 'docs' / relative).read_bytes())
                 self.assertIn(relative, meta['assets'])
+            example = [json.loads(line) for line in (target / 'example.jsonl').read_text().splitlines()]
+            self.assertEqual(example[0]['arguments'], {'query': 'Exampleville'})
+            self.assertEqual(example[0]['result'], [{'code': '90001', 'name': 'Exampleville', 'prefecture': 'Example Region'}])
             for filename, digest in meta['assets'].items():
                 self.assertEqual(hashlib.sha256((target / filename).read_bytes()).hexdigest(), digest)
             self.assertEqual((target / 'runtime/src/mcp_toolcall_lab/static/portable_execution.mjs').read_bytes(), CORE.read_bytes())

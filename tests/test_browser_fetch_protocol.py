@@ -111,11 +111,11 @@ def test_browser_fetch_tools_list_matches_expected_specs(mcp_page) -> None:
 
 def test_browser_fetch_tool_call_success(mcp_page) -> None:
     result = _call(
-        mcp_page, "tools/call", {"name": "find_municipalities", "arguments": {"query": "Yokohama"}}
+        mcp_page, "tools/call", {"name": "find_municipalities", "arguments": {"query": "Exampleville"}}
     )
     assert result["isError"] is False
     assert result["structuredContent"]["result"] == [
-        {"code": "14109", "name": "Yokohama", "prefecture": "Kanagawa"}
+        {"code": "90001", "name": "Exampleville", "prefecture": "Example Region"}
     ]
 
 
@@ -129,7 +129,7 @@ def test_browser_fetch_empty_result(mcp_page) -> None:
 
 def test_browser_fetch_unknown_tool_is_error(mcp_page) -> None:
     result = _call(
-        mcp_page, "tools/call", {"name": "find_transaction_price", "arguments": {"query": "Yokohama"}}
+        mcp_page, "tools/call", {"name": "find_transaction_price", "arguments": {"query": "Exampleville"}}
     )
     assert result["isError"] is True
     assert "find_transaction_price" in result["content"][0]["text"]

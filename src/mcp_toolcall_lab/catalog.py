@@ -56,14 +56,15 @@ TOOL_DESCRIPTIONS = {
     ),
 }
 
+# Exampleville / Example Region / 90001 are fictional public demo data.
 MUNICIPALITIES = (
     {"code": "13101", "name": "Chiyoda", "prefecture": "Tokyo"},
-    {"code": "14109", "name": "Yokohama", "prefecture": "Kanagawa"},
+    {"code": "90001", "name": "Exampleville", "prefecture": "Example Region"},
     {"code": "12207", "name": "Matsudo", "prefecture": "Chiba"},
 )
 
 STATIONS = {
-    "14109": [{"name": "Yokohama", "line": "JR"}],
+    "90001": [{"name": "Exampleville", "line": "JR"}],
     "12207": [{"name": "Matsudo", "line": "JR Joban"}],
     "13101": [{"name": "Tokyo", "line": "JR"}],
 }

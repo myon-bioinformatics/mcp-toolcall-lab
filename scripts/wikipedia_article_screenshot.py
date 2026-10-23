@@ -27,8 +27,8 @@ from pathlib import Path
 from urllib.parse import urlencode
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_FIXTURE = ROOT / "fixtures" / "wikipedia" / "yokohama_extract.json"
-DEFAULT_TITLE = "Yokohama"
+DEFAULT_FIXTURE = ROOT / "fixtures" / "wikipedia" / "exampleville_extract.json"
+DEFAULT_TITLE = "Exampleville"
 DEFAULT_HEADING = "Geography"
 LIVE_ENV = "MCP_TOOLCALL_LAB_LIVE_WIKIPEDIA"
 
@@ -78,8 +78,8 @@ def _wait_for_http(url: str, timeout: float = 8.0) -> None:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out", default="test-results/wiki-screenshots")
-    parser.add_argument("--title", default=DEFAULT_TITLE)
-    parser.add_argument("--heading", default=DEFAULT_HEADING)
+    parser.add_argument("--title", default=None)
+    parser.add_argument("--heading", default=None)
     parser.add_argument("--fixture", default=str(DEFAULT_FIXTURE))
     parser.add_argument(
         "--live",
@@ -90,6 +90,9 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     live = args.live or os.environ.get(LIVE_ENV) == "1"
+    # Fictional article belongs to offline fixtures, never a live lookup.
+    args.title = args.title or ("Mathematics" if live else DEFAULT_TITLE)
+    args.heading = args.heading or ("History" if live else DEFAULT_HEADING)
     if live:
         os.environ.pop(FIXTURE_ENV, None)
     else:

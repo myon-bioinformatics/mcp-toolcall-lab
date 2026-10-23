@@ -10,7 +10,7 @@ on:
       message:
         description: "Chat text to type before Send"
         required: false
-        default: "Find municipalities named Yokohama"
+        default: "Find municipalities named Exampleville"
   pull_request:
     paths:
       - "docker/openwebui-smoke/**"
@@ -77,7 +77,7 @@ jobs:
           MCP_TOOLCALL_LOG: ${{ github.workspace }}/test-results/mcp-toolcalls.jsonl
           OPENAI_MOCK_LOG: ${{ github.workspace }}/test-results/openai-mock.jsonl
           ANTIPATTERN_LOG: ${{ github.workspace }}/test-results/antipatterns.jsonl
-          OPENWEBUI_CHAT_MESSAGE: ${{ github.event.inputs.message || 'Find municipalities named Yokohama' }}
+          OPENWEBUI_CHAT_MESSAGE: ${{ github.event.inputs.message || 'Find municipalities named Exampleville' }}
         run: uv run --locked --extra test --extra browser-test pytest tests/real_chat_ui/test_mcp_toolcall_lab_openwebui_docker.py -v
 
       - name: Capture Docker logs (time, level, content)

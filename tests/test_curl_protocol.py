@@ -106,10 +106,10 @@ def test_curl_tools_list_matches_expected_specs(curl_session: McpCurlSession) ->
 
 
 def test_curl_tools_call_success(curl_session: McpCurlSession) -> None:
-    result = curl_session.call_tool("find_municipalities", {"query": "Yokohama"})
+    result = curl_session.call_tool("find_municipalities", {"query": "Exampleville"})
     assert result["isError"] is False
     assert result["structuredContent"]["result"] == [
-        {"code": "14109", "name": "Yokohama", "prefecture": "Kanagawa"}
+        {"code": "90001", "name": "Exampleville", "prefecture": "Example Region"}
     ]
 
 
@@ -121,7 +121,7 @@ def test_curl_tools_call_empty_result(curl_session: McpCurlSession) -> None:
 
 
 def test_curl_unknown_tool_is_error(curl_session: McpCurlSession) -> None:
-    result = curl_session.call_tool("find_transaction_price", {"query": "Yokohama"})
+    result = curl_session.call_tool("find_transaction_price", {"query": "Exampleville"})
     assert result["isError"] is True
     assert "find_transaction_price" in result["content"][0]["text"]
 

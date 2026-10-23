@@ -49,7 +49,7 @@ from tests.test_streamable_http_protocol import running_mcp_server
 
 ROOT = Path(__file__).resolve().parents[1]
 DENO_DIR = ROOT / "deploy" / "wikipedia-mcp"
-WIKI_FIXTURE = ROOT / "fixtures" / "wikipedia" / "yokohama_extract.json"
+WIKI_FIXTURE = ROOT / "fixtures" / "wikipedia" / "exampleville_extract.json"
 DENO = shutil.which("deno") or str(Path.home() / ".deno" / "bin" / "deno")
 
 pytestmark = pytest.mark.integration
@@ -375,7 +375,7 @@ def test_deno_tools_call_article_and_section_use_wikipedia_fixture(deno_session:
                 "jsonrpc": "2.0",
                 "id": 10,
                 "method": "tools/call",
-                "params": {"name": "fetch_wikipedia_article", "arguments": {"title": "Yokohama"}},
+                "params": {"name": "fetch_wikipedia_article", "arguments": {"title": "Exampleville"}},
             }
         ).text
     )["result"]
@@ -383,8 +383,8 @@ def test_deno_tools_call_article_and_section_use_wikipedia_fixture(deno_session:
     payload = article["structuredContent"]
     if isinstance(payload, dict) and "result" in payload and "canonical_title" not in payload:
         payload = payload["result"]
-    assert payload["canonical_title"] == "Yokohama"
-    assert "14109" in payload["extract"]
+    assert payload["canonical_title"] == "Exampleville"
+    assert "90001" in payload["extract"]
     assert any(row["heading"] == "Geography" for row in payload["headings"])
     assert json.loads(article["content"][0]["text"]) == payload
 
@@ -394,13 +394,13 @@ def test_deno_tools_call_article_and_section_use_wikipedia_fixture(deno_session:
                 "jsonrpc": "2.0",
                 "id": 11,
                 "method": "tools/call",
-                "params": {"name": "fetch_wikipedia_section", "arguments": {"title": "Yokohama"}},
+                "params": {"name": "fetch_wikipedia_section", "arguments": {"title": "Exampleville"}},
             }
         ).text
     )["result"]
     assert listed["isError"] is False
     rows = listed["structuredContent"]["result"]
-    assert {"heading": "Yokohama"} in rows
+    assert {"heading": "Exampleville"} in rows
     assert {"heading": "Geography"} in rows
     assert all("body" not in row for row in rows)
 
@@ -412,7 +412,7 @@ def test_deno_tools_call_article_and_section_use_wikipedia_fixture(deno_session:
                 "method": "tools/call",
                 "params": {
                     "name": "fetch_wikipedia_section",
-                    "arguments": {"title": "Yokohama", "heading": "Geography"},
+                    "arguments": {"title": "Exampleville", "heading": "Geography"},
                 },
             }
         ).text
@@ -422,7 +422,7 @@ def test_deno_tools_call_article_and_section_use_wikipedia_fixture(deno_session:
         {
             "heading": "Geography",
             "heading_markdown": "## Geography",
-            "body": "Kanagawa Prefecture, south of Tokyo. The mock station is JR Yokohama.",
+            "body": "Example Region, a fictional area. The mock station is JR Exampleville.",
         }
     ]
 
@@ -434,7 +434,7 @@ def test_deno_tools_call_article_and_section_use_wikipedia_fixture(deno_session:
                 "method": "tools/call",
                 "params": {
                     "name": "fetch_wikipedia_section",
-                    "arguments": {"title": "Yokohama", "heading": "Climate"},
+                    "arguments": {"title": "Exampleville", "heading": "Climate"},
                 },
             }
         ).text
@@ -449,7 +449,7 @@ def test_deno_tools_call_article_and_section_use_wikipedia_fixture(deno_session:
                 "method": "tools/call",
                 "params": {
                     "name": "fetch_wikipedia_section",
-                    "arguments": {"title": "Yokohama", "heading": "no-such-heading"},
+                    "arguments": {"title": "Exampleville", "heading": "no-such-heading"},
                 },
             }
         ).text
@@ -465,12 +465,12 @@ def test_deno_tools_call_article_and_section_use_wikipedia_fixture(deno_session:
                 "method": "tools/call",
                 "params": {
                     "name": "fetch_wikipedia_article",
-                    "arguments": {"title": "Yokohama, Japan"},
+                    "arguments": {"title": "Exampleville, Demo"},
                 },
             }
         ).text
     )["result"]
-    assert redirected["structuredContent"]["canonical_title"] == "Yokohama"
+    assert redirected["structuredContent"]["canonical_title"] == "Exampleville"
 
 
 def test_deno_unknown_tool_and_missing_title_are_iserror(deno_session: DenoMcpSession) -> None:
@@ -480,7 +480,7 @@ def test_deno_unknown_tool_and_missing_title_are_iserror(deno_session: DenoMcpSe
                 "jsonrpc": "2.0",
                 "id": 20,
                 "method": "tools/call",
-                "params": {"name": "find_municipalities", "arguments": {"query": "Yokohama"}},
+                "params": {"name": "find_municipalities", "arguments": {"query": "Exampleville"}},
             }
         ).text
     )["result"]
@@ -552,7 +552,7 @@ def test_deno_rejects_injected_lang_as_tool_error(deno_session: DenoMcpSession) 
                     "method": "tools/call",
                     "params": {
                         "name": "fetch_wikipedia_article",
-                        "arguments": {"title": "Yokohama", "lang": lang},
+                        "arguments": {"title": "Exampleville", "lang": lang},
                     },
                 }
             ).text
@@ -560,7 +560,7 @@ def test_deno_rejects_injected_lang_as_tool_error(deno_session: DenoMcpSession) 
         assert result["isError"] is True
         text = result["content"][0]["text"]
         assert "invalid wikipedia language code" in text
-        assert "14109" not in text
+        assert "90001" not in text
 
 
 def test_deno_session_expires_after_ttl() -> None:
@@ -672,7 +672,7 @@ def test_deno_wikipedia_fetch_rate_limit() -> None:
                 "method": "tools/call",
                 "params": {
                     "name": "fetch_wikipedia_article",
-                    "arguments": {"title": "Yokohama"},
+                    "arguments": {"title": "Exampleville"},
                 },
             }
             first = extract_sse_data(session.post({**payload, "id": 40}).text)["result"]

@@ -3,7 +3,7 @@
 LibreChat (and Open WebUI) talk to a model over ``GET /v1/models`` and
 ``POST /v1/chat/completions``. This server does not call a real LLM. When the
 request includes tools whose name contains ``find_municipalities`` and the user
-asked about Yokohama / municipalities, it returns an OpenAI ``tool_calls``
+asked about Exampleville / municipalities, it returns an OpenAI ``tool_calls``
 payload so the chat UI can execute the MCP tool. A follow-up request that
 already has ``role: tool`` gets a final assistant message containing the
 mock result.
@@ -183,7 +183,7 @@ def _has_tool_result(messages: list[dict[str, Any]]) -> bool:
 
 def _user_wants_municipality(text: str) -> bool:
     lowered = text.lower()
-    return "yokohama" in lowered or "municipalit" in lowered or "市区町村" in lowered
+    return "exampleville" in lowered or "municipalit" in lowered or "市区町村" in lowered
 
 
 def tool_call_ids_from_message(message: dict[str, Any]) -> list[str]:
@@ -243,7 +243,7 @@ def wire_messages_projection(messages: list[dict[str, Any]]) -> list[dict[str, A
     ]
 
 
-def _tool_call_message(tool_name: str, query: str = "Yokohama") -> dict[str, Any]:
+def _tool_call_message(tool_name: str, query: str = "Exampleville") -> dict[str, Any]:
     call_id = new_call_id()
     return {
         "role": "assistant",
@@ -265,7 +265,7 @@ def _final_message() -> dict[str, Any]:
     return {
         "role": "assistant",
         "content": (
-            "Yokohama (code 14109) is in Kanagawa. "
+            "Exampleville (code 90001) is in Example Region. "
             "This came from the mcp-toolcall-lab mock tool find_municipalities."
         ),
     }
@@ -296,7 +296,7 @@ def decide_assistant_message(body: dict[str, Any]) -> dict[str, Any]:
         "role": "assistant",
         "content": (
             "Tools were advertised but this prompt does not map to a lab mock tool. "
-            f"Ask for Yokohama municipalities. tools={names}"
+            f"Ask for Exampleville municipalities. tools={names}"
         ),
     }
 

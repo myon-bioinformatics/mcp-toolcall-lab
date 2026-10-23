@@ -4,7 +4,7 @@
 #   docker compose -f docker/stub-pages/docker-compose.yml up --build
 #   curl -s http://127.0.0.1:8765/health
 #   curl -s http://127.0.0.1:8765/api/turn -H 'Content-Type: application/json' \
-#     -d '{"prompt":"Find municipalities named Yokohama"}'
+#     -d '{"prompt":"Find municipalities named Exampleville"}'
 #
 # Service DNS (compose network, not host-gateway):
 #   mcp-mock:8000/mcp

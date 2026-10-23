@@ -2,7 +2,7 @@
 
 ``load_wikipedia_article`` reuses a process-wide TTL/LRU cache so heading
 switches do not refetch. Tests that mock urlopen would otherwise leak
-articles across cases (a later Yokohama fetch could hit the previous
+articles across cases (a later Exampleville fetch could hit the previous
 test's payload). Default ``pytest -q`` stays network-free.
 """
 

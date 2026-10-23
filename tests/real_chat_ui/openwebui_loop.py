@@ -292,7 +292,7 @@ def assert_openwebui_tool_loop(
     mcp_events: list[dict[str, Any]],
     page_url: str,
     ui_text: str,
-    expected_fragment: str = "Yokohama",
+    expected_fragment: str = "Exampleville",
     mcp_tool: str = "find_municipalities",
     ui_message_ids: list[str] | None = None,
 ) -> dict[str, Any]:

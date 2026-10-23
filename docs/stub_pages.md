@@ -146,7 +146,7 @@ python -m mcp_toolcall_lab.stub_front serve --port 8765
 
 Deep-link the wiki panel as
 `https://myon-bioinformatics.github.io/mcp-toolcall-lab/#wiki`
-(optional `#wiki?title=Yokohama&lang=ja`; or `index.html?view=wiki`,
+(optional `#wiki?title=Mathematics&lang=en`; or `index.html?view=wiki`,
 which the hash script treats like `#wiki`). `write_pages()` copies
 `pages-hash.js` and `pages-wiki.js` next to `index.html`. Do not
 confuse that with `stub-demo.js` (local/test only).

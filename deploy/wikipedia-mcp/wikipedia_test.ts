@@ -96,7 +96,7 @@ Deno.test("loadWikipediaArticle rejects injected lang without calling fetch", as
   try {
     for (const lang of ["evil.com/", "evil.com", "#", "@"]) {
       await assertRejects(
-        () => loadWikipediaArticle("Yokohama", lang),
+        () => loadWikipediaArticle("Exampleville", lang),
         WikipediaFetchError,
         "invalid wikipedia language code",
       );
@@ -118,12 +118,12 @@ Deno.test("getOrLoad single-flights the same cache key", async () => {
     loads += 1;
     await gate;
     return {
-      article: { canonical_title: "Yokohama", lang: "en", extract: "lead" },
-      aliases: ["Yokohama"],
+      article: { canonical_title: "Exampleville", lang: "en", extract: "lead" },
+      aliases: ["Exampleville"],
     };
   };
-  const first = cache.getOrLoad("Yokohama", "en", loader);
-  const second = cache.getOrLoad("Yokohama", "en", loader);
+  const first = cache.getOrLoad("Exampleville", "en", loader);
+  const second = cache.getOrLoad("Exampleville", "en", loader);
   release();
   const [a, b] = await Promise.all([first, second]);
   assertEquals(loads, 1);

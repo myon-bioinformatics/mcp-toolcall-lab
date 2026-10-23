@@ -23,7 +23,7 @@
   var MCP_PATTERNS = [
     { tokens: ["station", "駅", "find_stations"], tool: "find_stations" },
     { tokens: ["price", "transaction", "価格", "find_transaction"], tool: "find_transaction_prices" },
-    { tokens: ["yokohama", "横浜", "municipalit", "市区町村", "find_municipalities"], tool: "find_municipalities" },
+    { tokens: ["exampleville", "サンプル市", "municipalit", "市区町村", "find_municipalities"], tool: "find_municipalities" },
   ];
 
   function slugify(title) {
@@ -162,7 +162,7 @@
       id: ids.input,
       "data-testid": ids.inputTestId,
       rows: "2",
-      placeholder: 'Try "Yokohama", "Find municipalities", or "# Tracing"',
+      placeholder: 'Try "Exampleville", "Find municipalities", or "# Tracing"',
     });
     var button = el("button", { id: ids.send, "data-testid": ids.sendTestId, type: "submit" }, "Send");
     form.appendChild(select);

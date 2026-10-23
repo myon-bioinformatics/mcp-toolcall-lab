@@ -120,10 +120,10 @@ def test_httpx_tools_list_matches_expected_specs(httpx_session: McpHttpxSession)
 
 
 def test_httpx_tools_call_success(httpx_session: McpHttpxSession) -> None:
-    result = httpx_session.call_tool("find_municipalities", {"query": "Yokohama"})
+    result = httpx_session.call_tool("find_municipalities", {"query": "Exampleville"})
     assert result["isError"] is False
     assert result["structuredContent"]["result"] == [
-        {"code": "14109", "name": "Yokohama", "prefecture": "Kanagawa"}
+        {"code": "90001", "name": "Exampleville", "prefecture": "Example Region"}
     ]
 
 
@@ -135,7 +135,7 @@ def test_httpx_tools_call_empty_result(httpx_session: McpHttpxSession) -> None:
 
 
 def test_httpx_unknown_tool_is_error(httpx_session: McpHttpxSession) -> None:
-    result = httpx_session.call_tool("find_transaction_price", {"query": "Yokohama"})
+    result = httpx_session.call_tool("find_transaction_price", {"query": "Exampleville"})
     assert result["isError"] is True
     assert "find_transaction_price" in result["content"][0]["text"]
 
@@ -150,7 +150,7 @@ def test_httpx_missing_required_argument_is_error(httpx_session: McpHttpxSession
 def test_httpx_tools_call_reuses_the_same_session_across_calls(httpx_session: McpHttpxSession) -> None:
     """The one httpx.Client from the fixture (and its Mcp-Session-Id) serves several calls in a row."""
     for _ in range(3):
-        result = httpx_session.call_tool("find_municipalities", {"query": "Yokohama"})
+        result = httpx_session.call_tool("find_municipalities", {"query": "Exampleville"})
         assert result["isError"] is False
 
 
@@ -161,7 +161,7 @@ def test_httpx_timeout_on_slow_tool() -> None:
         try:
             session.initialize()
             with pytest.raises(httpx.TimeoutException):
-                session.call_tool("find_stations", {"municipality_code": "14109"}, timeout=0.5)
+                session.call_tool("find_stations", {"municipality_code": "90001"}, timeout=0.5)
         finally:
             session.close()
 
@@ -181,6 +181,6 @@ def test_httpx_default_call_still_times_out_using_the_clients_own_timeout() -> N
         try:
             session.initialize()
             with pytest.raises(httpx.TimeoutException):
-                session.call_tool("find_stations", {"municipality_code": "14109"})
+                session.call_tool("find_stations", {"municipality_code": "90001"})
         finally:
             session.close()

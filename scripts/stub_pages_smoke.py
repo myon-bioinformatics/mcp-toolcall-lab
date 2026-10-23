@@ -27,7 +27,7 @@ from mcp_toolcall_lab.antipatterns import (  # noqa: E402
 
 STUB = os.environ.get("STUB_BASE_URL", "http://127.0.0.1:8765").rstrip("/")
 CPU = os.environ.get("CPU_LLM_BASE_URL", "http://127.0.0.1:8080").rstrip("/")
-PROMPT = os.environ.get("STUB_CHAT_MESSAGE", "Find municipalities named Yokohama")
+PROMPT = os.environ.get("STUB_CHAT_MESSAGE", "Find municipalities named Exampleville")
 # "lite-stub" (demos/cpu_llm_lite.py, always available) or "real-gguf"
 # (docker-compose.gguf.yml overlay, opt-in — see docs/stub_pages.md).
 CPU_LLM_BACKEND = os.environ.get("CPU_LLM_BACKEND", "lite-stub")

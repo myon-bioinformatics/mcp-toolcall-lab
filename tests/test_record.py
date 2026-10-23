@@ -101,9 +101,9 @@ def test_record_call_keeps_meta_and_adds_debug(tmp_path: Path, monkeypatch) -> N
     monkeypatch.setenv("MCP_TOOLCALL_LOG", str(log))
     record_call(
         tool="find_municipalities",
-        arguments={"query": "Yokohama"},
+        arguments={"query": "Exampleville"},
         outcome="success",
-        result=[{"name": "Yokohama"}],
+        result=[{"name": "Exampleville"}],
         meta={"chat_id": "chat_wire", "source": "stub-front"},
         debug={"chat_id": "chat_wire", "chat_id_source": "meta", "message_id": "owui-msg-row"},
         duration_ms=1.5,
@@ -130,9 +130,9 @@ def test_protocol_events_are_not_tool_calls(tmp_path: Path, monkeypatch) -> None
     )
     record_call(
         tool="find_municipalities",
-        arguments={"query": "Yokohama"},
+        arguments={"query": "Exampleville"},
         outcome="success",
-        result=[{"name": "Yokohama"}],
+        result=[{"name": "Exampleville"}],
         debug={"session_id": "sess-1", "request_id": "req-2"},
     )
     events = [json.loads(line) for line in log.read_text(encoding="utf-8").splitlines()]
@@ -164,7 +164,7 @@ def test_live_server_takes_x_chat_id_then_reuses_session() -> None:
                     "method": "tools/call",
                     "params": {
                         "name": "find_municipalities",
-                        "arguments": {"query": "Yokohama"},
+                        "arguments": {"query": "Exampleville"},
                     },
                 },
             )
@@ -181,7 +181,7 @@ def test_live_server_takes_x_chat_id_then_reuses_session() -> None:
                     "method": "tools/call",
                     "params": {
                         "name": "find_stations",
-                        "arguments": {"municipality_code": "14109"},
+                        "arguments": {"municipality_code": "90001"},
                     },
                 },
             )

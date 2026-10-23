@@ -55,7 +55,7 @@ def build(out: Path, source_sha: str) -> None:
         previous = os.environ.get('MCP_TOOLCALL_LOG')
         os.environ['MCP_TOOLCALL_LOG'] = str(log)
         try:
-            for query in ('Yokohama', 'not-a-known-municipality'):
+            for query in ('Exampleville', 'not-a-known-municipality'):
                 result = dispatch_tool('find_municipalities', {'query': query})
                 record_call(tool='find_municipalities', arguments={'query': query}, outcome='success' if result else 'empty', result=result, meta={'source': 'build-time deterministic mock; no MCP transport'})
         finally:

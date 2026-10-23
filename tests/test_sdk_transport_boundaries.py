@@ -63,9 +63,9 @@ def _recording_client() -> tuple[httpx2.AsyncClient, list[str]]:
 
 
 async def call(url, path):
-    kwargs = {"tool_name": "find_municipalities", "arguments": {"query": "Yokohama"}}
+    kwargs = {"tool_name": "find_municipalities", "arguments": {"query": "Exampleville"}}
     if path == "chat":
-        trace = await send_via_chat(url, user_text="Where is Yokohama?", **kwargs)
+        trace = await send_via_chat(url, user_text="Where is Exampleville?", **kwargs)
         assert trace.tool_result_message["role"] == "tool"
         assert trace.tool_result_message["tool_call_id"] == trace.call_id
         return trace.mcp_result
@@ -95,7 +95,7 @@ async def test_same_origin_redirect_preserves_tool_call(path):
         async with asyncio.timeout(5):
             result = await call(origin + "/redirect", path)
         assert not result.is_error
-        assert "Yokohama" in result.content[0].text
+        assert "Exampleville" in result.content[0].text
 
 
 @pytest.mark.parametrize("path", ["chat", "direct"])
@@ -154,7 +154,7 @@ async def test_sdk_get_stream_keeps_session_alive(short_idle_sessions):
                     original = seen[-1]
                     await session.list_tools()
                     await asyncio.sleep(IDLE_TIMEOUT * 3)
-                    result = await session.call_tool("find_municipalities", {"query": "Yokohama"})
+                    result = await session.call_tool("find_municipalities", {"query": "Exampleville"})
                     assert not result.is_error
                     assert seen[-1] == original
 
@@ -184,7 +184,7 @@ async def test_idle_http_session_returns_404_then_fresh_chat_succeeds(short_idle
             assert expired.status_code == 404
         result = await call(url, "chat")
         assert not result.is_error
-        assert "Yokohama" in result.content[0].text
+        assert "Exampleville" in result.content[0].text
 
 
 async def test_deleted_sdk_session_surfaces_error_then_new_connection_succeeds():
@@ -202,10 +202,10 @@ async def test_deleted_sdk_session_surfaces_error_then_new_connection_succeeds()
                         assert deleted.status_code == 200
                     async with asyncio.timeout(5):
                         with pytest.raises(MCPError, match="Session not found"):
-                            await session.call_tool("find_municipalities", {"query": "Yokohama"})
+                            await session.call_tool("find_municipalities", {"query": "Exampleville"})
         result = await call(url, "direct")
         assert not result.is_error
-        assert "Yokohama" in result.content[0].text
+        assert "Exampleville" in result.content[0].text
 
 
 async def test_session_capacity_error_preserves_existing_connection(short_idle_sessions):

@@ -91,28 +91,28 @@ def test_chat_id_is_minted_once_and_stable_across_turns(demo_page) -> None:
     chat_id_line = page.locator('[data-testid="stub-demo-chat-id"]')
     first = chat_id_line.inner_text()
     assert "chat_" in first
-    _send(page, "Yokohama")
+    _send(page, "Exampleville")
     assert chat_id_line.inner_text() == first, "chat_id must be minted once at mount, not per turn"
     assert errors == []
 
 
 def test_heading_hit_returns_a_real_body(demo_page) -> None:
     page, errors = demo_page
-    _send(page, "Yokohama")
+    _send(page, "Exampleville")
     text = _last_turn_text(page)
     assert "HEADING_HIT" in text
-    assert "14109" in text  # Yokohama's mock municipality code, from the corpus body
+    assert "90001" in text  # Exampleville's mock municipality code, from the corpus body
     assert errors == []
 
 
 def test_mcp_pattern_is_labelled_not_faked(demo_page) -> None:
     page, errors = demo_page
-    _send(page, "Find municipalities named Yokohama")
+    _send(page, "Find municipalities named Exampleville")
     text = _last_turn_text(page)
     assert "MCP_PATTERN" in text
     assert "find_municipalities" in text
     assert "no MCP server behind it" in text
-    assert "14109" not in text, "a static page with no MCP client must never fabricate a result row"
+    assert "90001" not in text, "a static page with no MCP client must never fabricate a result row"
     assert errors == []
 
 
@@ -121,5 +121,5 @@ def test_miss_lists_known_headings(demo_page) -> None:
     _send(page, "this heading does not exist xyz")
     text = _last_turn_text(page)
     assert "HEADING_MISS" in text
-    assert "Yokohama" in text  # one of the corpus's own known headings
+    assert "Exampleville" in text  # one of the corpus's own known headings
     assert errors == []

@@ -74,8 +74,8 @@ jobs:
           PY
       - name: Exercise browser input, snapshot miss and stale-result handling
         run: |
-          python -m pip install playwright==1.63.0
-          python -m playwright install --with-deps chromium
+          python -m pip install "playwright>=1.63.0"
+          python -m playwright install --with-deps --only-shell chromium
           python scripts/check_portable_browser.py --site _portable_site --screenshot test-results/portable-desktop.png
       - name: Preserve browser evidence
         if: always()

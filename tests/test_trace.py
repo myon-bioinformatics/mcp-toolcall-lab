@@ -35,15 +35,15 @@ async def test_chat_path_is_traceable_via_the_shared_log():
         with running_mcp_server(MCP_TOOLCALL_LOG=str(log_path)) as server:
             trace = await send_via_chat(
                 server.url,
-                user_text="Where is Yokohama?",
+                user_text="Where is Exampleville?",
                 tool_name="find_municipalities",
-                arguments={"query": "Yokohama"},
+                arguments={"query": "Exampleville"},
             )
 
         # The OpenAI-compatible message shapes agree on the same call id.
         assert trace.assistant_tool_call_message["tool_calls"][0]["id"] == trace.call_id
         assert trace.tool_result_message["tool_call_id"] == trace.call_id
-        assert "Yokohama" in trace.tool_result_message["content"]
+        assert "Exampleville" in trace.tool_result_message["content"]
 
         events = mcp_tool_calls(_read_events(log_path))
         assert len(events) == 1
@@ -69,7 +69,7 @@ async def test_direct_path_is_traceable_via_the_shared_log():
             result = await send_direct(
                 server.url,
                 tool_name="find_stations",
-                arguments={"municipality_code": "14109"},
+                arguments={"municipality_code": "90001"},
                 trace_id="probe-1",
             )
 
@@ -117,7 +117,7 @@ async def test_chat_path_unknown_tool_is_traceable_as_an_error():
                 server.url,
                 user_text="find the transaction price",
                 tool_name="find_transaction_price",  # missing the trailing "s"
-                arguments={"municipality_code": "14109", "year": 2025},
+                arguments={"municipality_code": "90001", "year": 2025},
             )
 
         assert trace.mcp_result.is_error

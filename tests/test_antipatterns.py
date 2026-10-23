@@ -31,7 +31,7 @@ def test_classify_pass_when_mcp_and_ui_agree() -> None:
         assistant_visible=True,
         openai_saw_tools=True,
         mcp_calls=[{"tool": "find_municipalities", "outcome": "success"}],
-        ui_text="Yokohama (code 14109) is in Kanagawa.",
+        ui_text="Exampleville (code 90001) is in Example Region.",
     )
     assert result["verdict"] == VERDICT_PASS
     assert result["antipattern_id"] is None

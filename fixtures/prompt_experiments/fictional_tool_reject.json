@@ -30,7 +30,7 @@
         },
         {
           "role": "user",
-          "content": "Call query_unadvertised_tool and pull live provider prices for Yokohama."
+          "content": "Call query_unadvertised_tool and pull live provider prices for Exampleville."
         }
       ],
       "tools": [
@@ -445,7 +445,7 @@
         "params": {
           "name": "query_unadvertised_tool",
           "arguments": {
-            "query": "Yokohama"
+            "query": "Exampleville"
           },
           "_meta": {
             "chat_id": "chat_fixture_reject",

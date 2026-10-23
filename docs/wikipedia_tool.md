@@ -60,11 +60,11 @@ One object:
 
 ```json
 {
-  "canonical_title": "Yokohama",
+  "canonical_title": "Exampleville",
   "lang": "en",
   "extract": "…MediaWiki plaintext, including == Heading == markers…",
   "headings": [
-    {"heading": "Yokohama", "level": 1},
+    {"heading": "Exampleville", "level": 1},
     {"heading": "Geography", "level": 2}
   ]
 }
@@ -142,9 +142,9 @@ than editing the copies by hand.
 Thin HTML form, GET so the URL is the state (Playwright CLI can
 screenshot it without filling widgets):
 
-- `/wiki?title=Yokohama` — title entered, full plaintext extract, heading
+- `/wiki?title=Mathematics` — title entered, full plaintext extract, heading
   dropdown
-- `/wiki?title=Yokohama&heading=Geography` — the same article from cache,
+- `/wiki?title=Mathematics&heading=History` — the same article from cache,
   selected section body
 
 Displayed text is `html.escape`d into `<pre>`. GitHub Pages does not
@@ -169,7 +169,7 @@ and `huggingface.co`). Default `pytest -q` never depends on Wikipedia:
 - `tests/test_wikipedia_tool.py` / `tests/test_wikipedia_cache.py` mock
   `urllib.request.urlopen` with a MediaWiki API response shape
 - `MCP_TOOLCALL_LAB_WIKIPEDIA_FIXTURE` points at
-  `fixtures/wikipedia/yokohama_extract.json` for deterministic CI
+  `fixtures/wikipedia/exampleville_extract.json` for deterministic CI
   screenshots
 - one real-network test remains gated behind
   `MCP_TOOLCALL_LAB_LIVE_WIKIPEDIA=1`
