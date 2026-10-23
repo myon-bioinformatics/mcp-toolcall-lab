@@ -203,13 +203,17 @@ def _complete_fake_run(argv: list[str], **kwargs) -> subprocess.CompletedProcess
         if proc.stderr:
             stderr_chunks.append(proc.stderr.read())
 
-    threading.Thread(target=read_stdout, daemon=True).start()
-    threading.Thread(target=read_stderr, daemon=True).start()
+    stdout_thread = threading.Thread(target=read_stdout, daemon=True)
+    stderr_thread = threading.Thread(target=read_stderr, daemon=True)
+    stdout_thread.start()
+    stderr_thread.start()
     try:
         rc = proc.wait(timeout=timeout)
     except subprocess.TimeoutExpired:
         proc.kill()
         raise
+    stdout_thread.join()
+    stderr_thread.join()
     stdout = stdout_chunks[0] if stdout_chunks else b""
     stderr = stderr_chunks[0] if stderr_chunks else b""
     return subprocess.CompletedProcess(tuple(argv), rc, stdout, stderr)
