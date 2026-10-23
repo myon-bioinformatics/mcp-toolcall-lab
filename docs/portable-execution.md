@@ -37,7 +37,7 @@ No API keys, paid model, browser Python runtime or external host is needed.
 
 ## Reuse without Pages
 
-Requires Python 3.12+ and Node 22+. No Python/npm packages are installed by this
+Requires Python 3.12+ and Node 24+. No Python/npm packages are installed by this
 slice. From the repository root (or the extracted `runtime.zip` root):
 
 ```sh

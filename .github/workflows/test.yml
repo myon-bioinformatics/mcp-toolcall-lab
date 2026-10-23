@@ -57,6 +57,10 @@ jobs:
     needs: [changes, vendor-locked]
     if: needs.changes.outputs.product_changed == 'true'
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: ["24", latest]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -73,6 +77,9 @@ jobs:
           persist-credentials: false
       - name: Verify checked-in vendor copies
         run: python -S .vendor-sync-tools/vendor_sync.py check --manifest vendor.lock.json
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ matrix.node-version }}
       - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
         with:
           deno-version: v2.x
@@ -89,7 +96,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: junit-python-3.12
+          name: junit-python-3.12-node-${{ matrix.node-version }}
           path: reports/pytest.xml
           if-no-files-found: error
           retention-days: 14
@@ -103,8 +110,8 @@ jobs:
     uses: myon-bioinformatics/myon-bioinformatics/.github/workflows/reusable-junit-identity.yml@2192ff22acafdd09e80ac722df91ee937aaedd5e
     with:
       commit-sha: ${{ github.event.pull_request.head.sha || github.sha }}
-      artifact-pattern: junit-python-3.12
-      expected-reports: '["junit-python-3.12/pytest.xml"]'
+      artifact-pattern: junit-python-3.12-node-*
+      expected-reports: '["junit-python-3.12-node-24/pytest.xml", "junit-python-3.12-node-latest/pytest.xml"]'
       output-artifact: python-failure-identity
 
   public-resolver-compat:

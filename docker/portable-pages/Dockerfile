@@ -1,5 +1,5 @@
 # Build-time runtimes only. The final target contains static files, not a service.
-FROM node:22-bookworm-slim AS node
+FROM node:24-bookworm-slim AS node
 FROM python:3.12-slim-bookworm AS build
 RUN apt-get update && apt-get install -y --no-install-recommends libstdc++6 libatomic1 && rm -rf /var/lib/apt/lists/*
 COPY --from=node /usr/local/bin/node /usr/local/bin/node

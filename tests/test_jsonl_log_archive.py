@@ -1,8 +1,10 @@
-"""JSONL log archive: grep parity, integrity, and mutation detection."""
+"""JSONL log archive: literal search parity, integrity, and mutation detection."""
 
 from __future__ import annotations
 
+import hashlib
 import json
+import struct
 import os
 import subprocess
 import sys
@@ -14,25 +16,19 @@ from mcp_toolcall_lab.jsonl_log_archive import (
     ArchiveError,
     JsonlArchive,
     build_archive,
+    BLOCK_LINES,
+    _literal_ngrams,
+    _serialize_index,
+    ngrams_23,
 )
 
 FIXTURE = Path(__file__).parent / "fixtures" / "jsonl_log_archive_sample.jsonl"
 
 
-def _grep_lines(path: Path, needle: str) -> list[tuple[int, str]]:
-    out = subprocess.run(
-        ["grep", "-F", "-n", needle, str(path)],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-    hits: list[tuple[int, str]] = []
-    for row in out.stdout.splitlines():
-        if not row:
-            continue
-        num, rest = row.split(":", 1)
-        hits.append((int(num), rest))
-    return hits
+def _literal_lines(path: Path, needle: str) -> list[tuple[int, str]]:
+    return [(i, line) for i, line in enumerate(
+        path.read_text(encoding="utf-8").splitlines(), start=1
+    ) if needle in line]
 
 
 def _build_tmp(tmp_path: Path, lines: list[str]) -> tuple[Path, Path]:
@@ -68,9 +64,9 @@ def sample_archive(tmp_path: Path) -> tuple[Path, Path]:
         "ANTIPATTERN",
     ],
 )
-def test_search_matches_grep(sample_archive: tuple[Path, Path], needle: str) -> None:
+def test_search_matches_literal_scan(sample_archive: tuple[Path, Path], needle: str) -> None:
     src, arc = sample_archive
-    want = _grep_lines(src, needle)
+    want = _literal_lines(src, needle)
     got = JsonlArchive(arc).search(needle)
     assert got == want
 
@@ -170,3 +166,105 @@ def test_build_reports_stats(tmp_path: Path) -> None:
     assert stats["lines"] == 300
     assert stats["archive_bytes"] > 0
     assert JsonlArchive(arc).line_count == 300
+
+
+@pytest.fixture()
+def multiblock_archive(tmp_path: Path) -> tuple[Path, JsonlArchive]:
+    # Distinct blocks let tests detect full scans, empty intersections and
+    # false positives where all grams occur but the literal does not.
+    lines = (["ab filler"] * BLOCK_LINES + ["bc filler"] * BLOCK_LINES
+             + ["unique ab bc marker"] * BLOCK_LINES)
+    src, arc = _build_tmp(tmp_path, lines)
+    return src, JsonlArchive(arc)
+
+
+@pytest.mark.parametrize("needle, expected_blocks", [
+    ("missing", []),             # missing posting
+    ("ab bc", [2]),              # selective positive match
+    ("ab bc marker", [2]),
+    ("ab bc missing", []),
+    ("a", [0, 1, 2]),            # too short for an index decision
+    ("", [0, 1, 2]),             # empty literal matches every line
+    (" ", [0, 1, 2]),
+])
+def test_search_limits_decompression(multiblock_archive, monkeypatch, needle, expected_blocks):
+    src, archive = multiblock_archive
+    expanded = []
+    original = archive.decompress_block
+
+    def tracked(block_id):
+        expanded.append(block_id)
+        return original(block_id)
+
+    monkeypatch.setattr(archive, "decompress_block", tracked)
+    assert archive.search(needle) == _literal_lines(src, needle)
+    assert expanded == expected_blocks
+
+
+def test_empty_posting_intersection_skips_decompression(tmp_path, monkeypatch):
+    src, arc = _build_tmp(tmp_path, ["abc"] * BLOCK_LINES + ["bcd"] * BLOCK_LINES)
+    archive = JsonlArchive(arc)
+    assert all(g in archive._postings for g in _literal_ngrams("abcd"))
+    expanded = []
+    monkeypatch.setattr(archive, "decompress_block", lambda b: expanded.append(b))
+    assert archive.search("abcd") == _literal_lines(src, "abcd") == []
+    assert expanded == []
+
+
+def test_candidate_false_positive_is_verified(tmp_path, monkeypatch):
+    src, arc = _build_tmp(tmp_path, ["abc", "bcd"])
+    archive = JsonlArchive(arc)
+    expanded = []
+    original = archive.decompress_block
+
+    def tracked(block_id):
+        expanded.append(block_id)
+        return original(block_id)
+
+    monkeypatch.setattr(archive, "decompress_block", tracked)
+    assert archive.search("abcd") == _literal_lines(src, "abcd") == []
+    assert expanded == [0]
+
+
+def test_empty_archive(tmp_path, monkeypatch):
+    _, arc = _build_tmp(tmp_path, [])
+    archive = JsonlArchive(arc)
+    expanded = []
+    monkeypatch.setattr(archive, "decompress_block", lambda b: expanded.append(b))
+    for needle in ("", "a", "absent"):
+        assert archive.search(needle) == []
+    assert expanded == []
+
+
+@pytest.mark.parametrize("needle", ["xA", "ΟΣ", "日本", "ＡＢ", "ab", "AB", "!!", "a b"])
+def test_unicode_and_exact_literal_semantics(tmp_path, needle):
+    lines = [json.dumps({"note": note}, ensure_ascii=False) for note in
+             ["xA\u030a", "ΟΣΑ", "日本語", "ＡＢ", "AB", "ab", "!!", "a b"]]
+    src, arc = _build_tmp(tmp_path, lines)
+    assert JsonlArchive(arc).search(needle) == _literal_lines(src, needle)
+
+
+def test_version_one_normalized_index_falls_back(tmp_path, monkeypatch):
+    # Construct an actual v1 normalized-only index, not a relabeled v2 one.
+    src, arc = _build_tmp(tmp_path, ['{"note":"xA\u030a ΟΣΑ"}'])
+    archive = JsonlArchive(arc)
+    blob = bytearray(arc.read_bytes())
+    index = _serialize_index({g: {0} for g in ngrams_23(src.read_text(encoding="utf-8"))})
+    off, size = archive.meta["sections"][2]
+    delta = len(index) - size
+    blob[off:off + size] = index
+    struct.pack_into("<H", blob, 8, 1)
+    nsec = struct.unpack_from("<I", blob, 34)[0]
+    for pos in range(38, 38 + nsec * 16, 16):
+        kind, length, start = struct.unpack_from("<IIQ", blob, pos)
+        if kind == 2:
+            length = len(index)
+        elif start > off:
+            start += delta
+        struct.pack_into("<IIQ", blob, pos, kind, length, start)
+    blob[-32:] = hashlib.sha256(blob[:-32]).digest()
+    arc.write_bytes(blob)
+    legacy = JsonlArchive(arc)
+    assert legacy._candidate_blocks("xA") is None
+    assert legacy.search("xA") == _literal_lines(src, "xA")
+    assert legacy.search("ΟΣ") == _literal_lines(src, "ΟΣ")

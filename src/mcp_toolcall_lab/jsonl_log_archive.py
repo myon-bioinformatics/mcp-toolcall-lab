@@ -3,6 +3,8 @@
 Builds a single-file archive from MCP-style JSONL logs (``MCP_TOOLCALL_LOG`` and
 similar): LZMA block compression, zlib+varint reverse index, direct ID lookup,
 and a plain-text summary layer. CLI: build / search / get / summary.
+Version 2 indexes raw literal grams for exact substring search. Version 1
+archives remain readable; their normalized index requires full-scan search.
 """
 
 from __future__ import annotations
@@ -22,7 +24,7 @@ from pathlib import Path
 from typing import Any
 
 MAGIC = b"JLOGARC1"
-FORMAT_VERSION = 1
+FORMAT_VERSION = 2
 BLOCK_LINES = 128
 FOOTER_SIZE = 32
 
@@ -59,6 +61,11 @@ def ngrams_23(text: str) -> list[str]:
             if " " not in g:
                 out.append(g)
     return out
+
+
+def _literal_ngrams(text: str) -> set[str]:
+    """Raw grams preserve substring membership, including Unicode boundaries."""
+    return {text[i : i + n] for n in (2, 3) for i in range(len(text) - n + 1)}
 
 
 def encode_varint(value: int) -> bytes:
@@ -133,7 +140,7 @@ def _parse_header(blob: bytes) -> dict[str, Any]:
     if blob[:8] != MAGIC:
         raise ArchiveError("bad magic")
     version = struct.unpack_from("<H", blob, 8)[0]
-    if version != FORMAT_VERSION:
+    if version not in (1, FORMAT_VERSION):
         raise ArchiveError(f"unsupported version {version}")
     block_lines = struct.unpack_from("<I", blob, 10)[0]
     line_count = struct.unpack_from("<Q", blob, 14)[0]
@@ -149,6 +156,7 @@ def _parse_header(blob: bytes) -> dict[str, Any]:
         sections[kind] = (off, size)
         pos += 16
     return {
+        "version": version,
         "header_size": pos,
         "block_lines": block_lines,
         "line_count": line_count,
@@ -330,7 +338,7 @@ def build_archive(
         for rel, line in enumerate(chunk):
             line_no = base_line + rel + 1
             _collect_ids(line_no, line, id_table)
-            for g in ngrams_23(line):
+            for g in _literal_ngrams(line):
                 postings[g].add(block_id)
             if include_sim:
                 sim_rows.append(_sim_sign(line))
@@ -460,19 +468,23 @@ class JsonlArchive:
                 yield base + rel + 1, line
 
     def _candidate_blocks(self, needle: str) -> set[int] | None:
-        grams = ngrams_23(needle)
+        # None means the index cannot decide; an empty set proves no match.
+        # Version 1 normalized whole lines, which is not substring-preserving
+        # (e.g. a combining mark after a needle can compose its final letter).
+        if self.meta["version"] == 1:
+            return None
+        grams = _literal_ngrams(needle)
         if not grams:
             return None
-        sets: list[set[int]] = []
-        for g in grams:
-            blocks = self._postings.get(g)
+        out: set[int] | None = None
+        for gram in grams:
+            blocks = self._postings.get(gram)
             if not blocks:
-                return None
-            sets.append(set(blocks))
-        out = sets[0].copy()
-        for s in sets[1:]:
-            out &= s
-        return out if out else None
+                return set()
+            out = set(blocks) if out is None else out.intersection(blocks)
+            if not out:
+                return set()
+        return out
 
     def search(self, needle: str) -> list[tuple[int, str]]:
         candidates = self._candidate_blocks(needle)

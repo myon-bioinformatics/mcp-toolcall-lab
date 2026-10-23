@@ -25,6 +25,11 @@ def test_vendor_lock_lists_expected_sources():
         ("myon-bioinformatics/myon-bioinformatics", "LICENSE", "vendor/myon-bioinformatics-LICENSE"),
         ("myon-bioinformatics/gh_identity", "gh_identity.py", "vendor/gh_identity.py"),
         ("myon-bioinformatics/gh_identity", "LICENSE", "vendor/gh_identity-LICENSE"),
+        (
+            "myon-bioinformatics/myon-bioinformatics",
+            "node_launch.py",
+            "vendor/node_launch.py",
+        ),
     }
     actual = {(e["repository"], e["source"], e["destination"]) for e in lock["files"]}
     assert actual == expected
