@@ -20,6 +20,7 @@ ROOT = Path(__file__).resolve().parents[1]
 CORE = pe.CORE
 _STDIN_CLOSED_PAYLOAD = b"x" * 70000 + b"\n"
 _LARGE_INPUT = b"k: v\n" + b"#" * (4 * 1024 * 1024 - 5)
+_OVER_CAP_BYTES = 5_000_000
 
 
 class _FakeNodeSpec(NamedTuple):
@@ -28,6 +29,7 @@ class _FakeNodeSpec(NamedTuple):
     close_stdin_unread: bool = False
     stdin_close_exit_code: int = 3
     stdin_close_stdout: bytes = b""
+    stdout_bytes: bytes = b""
 
 
 _FAKE_NODE_SPECS: dict[str, _FakeNodeSpec] = {}
@@ -96,6 +98,7 @@ class _FakeNodePopen:
         close_stdin_unread: bool = False,
         stdin_close_exit_code: int = 3,
         stdin_close_stdout: bytes = b"",
+        stdout_bytes: bytes = b"",
         **_kwargs: object,
     ) -> None:
         self.args = command
@@ -103,6 +106,7 @@ class _FakeNodePopen:
         self._close_stdin_unread = close_stdin_unread
         self._stdin_close_exit_code = stdin_close_exit_code
         self._stdin_close_stdout = stdin_close_stdout
+        self._stdout_bytes = stdout_bytes
         stdout_r, stdout_w = os.pipe()
         stderr_r, stderr_w = os.pipe()
         if close_stdin_unread:
@@ -143,6 +147,8 @@ class _FakeNodePopen:
 
             threading.Thread(target=drain_stdin, daemon=True).start()
             stdout, stderr, rc = _run_fake_on_eval(self._on_eval)
+            if self._stdout_bytes:
+                stdout = self._stdout_bytes
             try:
                 if stdout:
                     os.write(self._stdout_w, stdout)
@@ -174,6 +180,7 @@ def _complete_fake_run(argv: list[str], **kwargs) -> subprocess.CompletedProcess
         close_stdin_unread=spec.close_stdin_unread,
         stdin_close_exit_code=spec.stdin_close_exit_code,
         stdin_close_stdout=spec.stdin_close_stdout,
+        stdout_bytes=spec.stdout_bytes,
     )
     input_data = kwargs.get("input")
     if input_data is not None:
@@ -185,13 +192,26 @@ def _complete_fake_run(argv: list[str], **kwargs) -> subprocess.CompletedProcess
             except (BrokenPipeError, OSError):
                 pass
     timeout = kwargs.get("timeout")
+    stdout_chunks: list[bytes] = []
+    stderr_chunks: list[bytes] = []
+
+    def read_stdout() -> None:
+        if proc.stdout:
+            stdout_chunks.append(proc.stdout.read())
+
+    def read_stderr() -> None:
+        if proc.stderr:
+            stderr_chunks.append(proc.stderr.read())
+
+    threading.Thread(target=read_stdout, daemon=True).start()
+    threading.Thread(target=read_stderr, daemon=True).start()
     try:
         rc = proc.wait(timeout=timeout)
     except subprocess.TimeoutExpired:
         proc.kill()
         raise
-    stdout = proc.stdout.read() if proc.stdout else b""
-    stderr = proc.stderr.read() if proc.stderr else b""
+    stdout = stdout_chunks[0] if stdout_chunks else b""
+    stderr = stderr_chunks[0] if stderr_chunks else b""
     return subprocess.CompletedProcess(tuple(argv), rc, stdout, stderr)
 
 
@@ -226,6 +246,7 @@ def _node_launch_process_layer_stub(monkeypatch):
             close_stdin_unread=spec.close_stdin_unread,
             stdin_close_exit_code=spec.stdin_close_exit_code,
             stdin_close_stdout=spec.stdin_close_stdout,
+            stdout_bytes=spec.stdout_bytes,
             **kwargs,
         )
 
@@ -243,6 +264,7 @@ def _write_fake_node(
     close_stdin_unread: bool = False,
     stdin_close_exit_code: int = 3,
     stdin_close_stdout: bytes = b"",
+    stdout_bytes: bytes = b"",
 ) -> Path:
     name = "fake_node.exe" if os.name == "nt" else "fake_node"
     dest = tmp_path / name
@@ -253,6 +275,7 @@ def _write_fake_node(
         close_stdin_unread=close_stdin_unread,
         stdin_close_exit_code=stdin_close_exit_code,
         stdin_close_stdout=stdin_close_stdout,
+        stdout_bytes=stdout_bytes,
     )
     return dest
 
@@ -316,6 +339,33 @@ def _assert_same_outcome(old_call, new_call):
         raise AssertionError(f"legacy raised {old_exc!r}, new succeeded")
     new_value = new_call()
     assert _proc_bytes(old_value) == _proc_bytes(new_value)
+
+
+def _legacy_execute_over_cap(request: dict, node: Path) -> dict:
+    encoded = pe.canonical_request(request).encode()
+    completed = _legacy_portable_node_run(encoded, node=node, check=True)
+    if len(completed.stdout) > pe.NODE_RECEIPT_MAX_BYTES:
+        return pe.failure("bridge_failed", "Node receipt exceeds 4 MiB.")
+    raise AssertionError("expected over-cap stdout")
+
+
+def test_receipt_over_cap_matches_legacy_execute_message(tmp_path, monkeypatch):
+    script = _write_fake_node(
+        tmp_path,
+        version="v24.0.0",
+        on_eval="pass",
+        stdout_bytes=b"x" * _OVER_CAP_BYTES,
+    )
+    monkeypatch.setenv("NODE", str(script))
+    pe._node_launch_module().clear_probe_cache()
+    request = {
+        "schema": pe.CONTRACT,
+        "operation": "trace_summary",
+        "input": {"jsonl": ""},
+    }
+    legacy = _legacy_execute_over_cap(request, script)
+    assert legacy["error"]["message"] == "Node receipt exceeds 4 MiB."
+    assert pe.execute(request) == legacy
 
 
 def test_normal_run_matches_legacy(tmp_path):
@@ -665,5 +715,18 @@ def test_mutation_subprocess_broken_stdin_zero_fails_parity_test():
             )
         ],
         f"{__name__}::test_stdin_closed_zero_exit_returns_stdout",
+    )
+    assert rc != 0
+
+
+def test_mutation_subprocess_broken_over_cap_mapping_fails_execute_test():
+    rc = _pytest_on_mutated_portable_execution(
+        [
+            (
+                '        if exc.code == "ERESPONSETOOLARGE":',
+                '        if False and exc.code == "ERESPONSETOOLARGE":',
+            )
+        ],
+        f"{__name__}::test_receipt_over_cap_matches_legacy_execute_message",
     )
     assert rc != 0

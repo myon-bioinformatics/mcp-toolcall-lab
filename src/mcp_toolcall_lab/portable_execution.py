@@ -29,6 +29,10 @@ CORE = Path(__file__).with_name("static") / "portable_cli.mjs"
 _NODE_LAUNCH: Any = None
 
 
+class ReceiptTooLargeError(Exception):
+    """Node stdout exceeded NODE_RECEIPT_MAX_BYTES."""
+
+
 def failure(code: str, message: str, status: str = "unsupported") -> dict[str, Any]:
     return {"schema": CONTRACT, "status": status, "execution_mode": "unsupported", "model_inference_performed": False, "metrics": None, "confidence": None, "error": {"code": code, "message": message}}
 
@@ -125,6 +129,8 @@ def _portable_node_run(
     except node_launch.NodeNotFoundError as exc:
         _raise_portable_node_not_found(exc, node)
     except node_launch.LaunchError as exc:
+        if exc.code == "ERESPONSETOOLARGE":
+            raise ReceiptTooLargeError() from exc
         if check and exc.code == "ELAUNCHFAILURE" and exc.status and "timed out" not in str(exc):
             raise subprocess.CalledProcessError(exc.status, command, exc.stdout, exc.stderr) from exc
         completed = _map_node_launch_error(exc, command, timeout)
@@ -157,6 +163,8 @@ def execute(request: Any, *, adapter_path: str | Path | None = None, native_only
             if not isinstance(result, dict) or result.get("schema") != CONTRACT:
                 return failure("bridge_failed", "Invalid Node receipt.")
             return result
+        except ReceiptTooLargeError:
+            return failure("bridge_failed", "Node receipt exceeds 4 MiB.")
         except (OSError, subprocess.SubprocessError, ValueError, RuntimeError):
             return failure("bridge_failed", "Node log-analysis process failed or exceeded its 15-second bridge limit.")
     if operation != "adapter_lookup":
@@ -199,6 +207,7 @@ def main() -> None:
         result = execute(request, adapter_path=args.adapter, native_only=args.native_only)
     except (ValueError, UnicodeError, RecursionError):
         result = failure("invalid_input", "Expected one UTF-8 JSON request no larger than 2 MiB.")
+    # Reuse the lab ledger, but do not copy raw user input into it.
     if log := os.environ.get("MCP_TOOLCALL_LOG"):
         append_jsonl(log, {"event": "portable/execution", "status": result["status"], "execution_mode": result["execution_mode"], "provenance": result.get("provenance")})
     print(json.dumps(result, ensure_ascii=False, allow_nan=False))
