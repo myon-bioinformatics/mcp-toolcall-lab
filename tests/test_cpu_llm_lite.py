@@ -11,10 +11,10 @@ if str(DEMOS) not in sys.path:
 import cpu_llm_lite as cpu  # noqa: E402
 
 
-def test_cpu_lite_emits_tool_call_for_yokohama() -> None:
+def test_cpu_lite_emits_tool_call_for_exampleville() -> None:
     message = cpu.decide(
         {
-            "messages": [{"role": "user", "content": "Find municipalities named Yokohama"}],
+            "messages": [{"role": "user", "content": "Find municipalities named Exampleville"}],
             "tools": [{"type": "function", "function": {"name": "find_municipalities"}}],
         }
     )

@@ -24,7 +24,7 @@
   "use strict";
 
   var DEFAULT_LANG = "en";
-  var DEFAULT_TITLE = "Yokohama";
+  var DEFAULT_TITLE = "";
   var HEADING_RE = /^(=+)\s*(.+?)\s*=+\s*$/;
   var LANG_RE = /^[a-z]{2,12}(?:-[a-z0-9]+)*$/i;
   var MISSING_TITLE = "Enter a Wikipedia title.";

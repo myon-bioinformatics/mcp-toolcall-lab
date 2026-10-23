@@ -84,7 +84,7 @@ function html(): string {
     "<style>body{font:16px system-ui;max-width:48rem;margin:2rem auto;padding:0 1rem}textarea{width:100%;min-height:5rem}button{margin:.5rem 0;padding:.5rem 1rem}pre{white-space:pre-wrap;background:#f5f5f5;padding:1rem}</style>",
     "<h1>Offline MCP chat stub</h1>",
     "<p>Deterministic fixture replay. No model, API key, or external API is used.</p>",
-    '<textarea id="prompt">Find municipalities named Yokohama.</textarea>',
+    '<textarea id="prompt">Find municipalities named Exampleville.</textarea>',
     '<button id="send">Send</button><pre id="out"></pre>',
     "<script>",
     'const out=document.querySelector("#out");',

@@ -79,19 +79,19 @@ def test_wiki_headings_to_atx_maps_equals_to_hashes() -> None:
 
 def test_fetch_article_sections_parses_a_mocked_response(monkeypatch: pytest.MonkeyPatch) -> None:
     extract = (
-        "Yokohama is a mock municipality in this lab.\n\n"
+        "Exampleville is a mock municipality in this lab.\n\n"
         "== Geography ==\n"
-        "Kanagawa Prefecture, south of Tokyo.\n\n"
+        "Example Region, a fictional area.\n\n"
         "== History ==\n"
         "The lab does not call a live encyclopedia.\n"
     )
-    _mock_extract_response(monkeypatch, title="Yokohama", extract=extract)
+    _mock_extract_response(monkeypatch, title="Exampleville", extract=extract)
 
-    sections = fetch_article_sections("Yokohama")
+    sections = fetch_article_sections("Exampleville")
     titles = [s.title for s in sections]
-    assert titles == ["Yokohama", "Geography", "History"]
+    assert titles == ["Exampleville", "Geography", "History"]
     assert "mock municipality" in sections[0].body
-    assert "Kanagawa Prefecture" in sections[1].body
+    assert "Example Region" in sections[1].body
     assert "does not call a live encyclopedia" in sections[2].body
 
 
@@ -137,28 +137,28 @@ def test_fetch_article_sections_raises_on_network_error(monkeypatch: pytest.Monk
 
     monkeypatch.setattr(wt.urllib.request, "urlopen", always_fails)
     with pytest.raises(WikipediaFetchError, match="could not fetch"):
-        fetch_article_sections("Yokohama")
+        fetch_article_sections("Exampleville")
 
 
 def test_fetch_wikipedia_section_lists_headings_when_none_given(monkeypatch: pytest.MonkeyPatch) -> None:
     extract = "Intro.\n\n== Geography ==\nBody.\n\n== History ==\nBody two.\n"
-    _mock_extract_response(monkeypatch, title="Yokohama", extract=extract)
+    _mock_extract_response(monkeypatch, title="Exampleville", extract=extract)
 
-    rows = fetch_wikipedia_section("Yokohama")
-    assert rows == [{"heading": "Yokohama"}, {"heading": "Geography"}, {"heading": "History"}]
+    rows = fetch_wikipedia_section("Exampleville")
+    assert rows == [{"heading": "Exampleville"}, {"heading": "Geography"}, {"heading": "History"}]
     assert all("body" not in row for row in rows), "the pulldown listing must not include body text"
 
 
 def test_fetch_wikipedia_section_returns_the_matched_body(monkeypatch: pytest.MonkeyPatch) -> None:
-    extract = "Intro.\n\n== Geography ==\nKanagawa Prefecture, south of Tokyo.\n"
-    _mock_extract_response(monkeypatch, title="Yokohama", extract=extract)
+    extract = "Intro.\n\n== Geography ==\nExample Region, a fictional area.\n"
+    _mock_extract_response(monkeypatch, title="Exampleville", extract=extract)
 
-    rows = fetch_wikipedia_section("Yokohama", "Geography")
+    rows = fetch_wikipedia_section("Exampleville", "Geography")
     assert rows == [
         {
             "heading": "Geography",
             "heading_markdown": "## Geography",
-            "body": "Kanagawa Prefecture, south of Tokyo.",
+            "body": "Example Region, a fictional area.",
         }
     ]
 
@@ -168,17 +168,17 @@ def test_fetch_wikipedia_section_heading_markdown_reflects_the_real_level(monkey
     # level 3, nested under it) -> ATX "###" -- heading_markdown must use
     # the section's own level, not a hardcoded "##".
     extract = "Intro.\n\n== Geography ==\nBody.\n\n=== Climate ===\nMild.\n"
-    _mock_extract_response(monkeypatch, title="Yokohama", extract=extract)
+    _mock_extract_response(monkeypatch, title="Exampleville", extract=extract)
 
-    assert fetch_wikipedia_section("Yokohama", "Geography")[0]["heading_markdown"] == "## Geography"
-    assert fetch_wikipedia_section("Yokohama", "Climate")[0]["heading_markdown"] == "### Climate"
+    assert fetch_wikipedia_section("Exampleville", "Geography")[0]["heading_markdown"] == "## Geography"
+    assert fetch_wikipedia_section("Exampleville", "Climate")[0]["heading_markdown"] == "### Climate"
 
 
 def test_fetch_wikipedia_section_fuzzy_matches_a_partial_heading(monkeypatch: pytest.MonkeyPatch) -> None:
     extract = "Intro.\n\n== Geography and climate ==\nBody.\n"
-    _mock_extract_response(monkeypatch, title="Yokohama", extract=extract)
+    _mock_extract_response(monkeypatch, title="Exampleville", extract=extract)
 
-    rows = fetch_wikipedia_section("Yokohama", "geography")
+    rows = fetch_wikipedia_section("Exampleville", "geography")
     assert rows == [
         {"heading": "Geography and climate", "heading_markdown": "## Geography and climate", "body": "Body."}
     ]
@@ -186,13 +186,13 @@ def test_fetch_wikipedia_section_fuzzy_matches_a_partial_heading(monkeypatch: py
 
 def test_fetch_wikipedia_section_unmatched_heading_is_empty_not_error(monkeypatch: pytest.MonkeyPatch) -> None:
     extract = "Intro.\n\n== Geography ==\nBody.\n"
-    _mock_extract_response(monkeypatch, title="Yokohama", extract=extract)
+    _mock_extract_response(monkeypatch, title="Exampleville", extract=extract)
 
-    assert fetch_wikipedia_section("Yokohama", "this heading does not exist xyz") == []
+    assert fetch_wikipedia_section("Exampleville", "this heading does not exist xyz") == []
 
 
 def test_shipped_fixture_is_used_instead_of_network(monkeypatch: pytest.MonkeyPatch) -> None:
-    fixture = Path(__file__).resolve().parents[1] / "fixtures" / "wikipedia" / "yokohama_extract.json"
+    fixture = Path(__file__).resolve().parents[1] / "fixtures" / "wikipedia" / "exampleville_extract.json"
     monkeypatch.setenv(FIXTURE_ENV, str(fixture))
 
     def fail_network(request, timeout=0):  # noqa: ARG001
@@ -201,13 +201,13 @@ def test_shipped_fixture_is_used_instead_of_network(monkeypatch: pytest.MonkeyPa
     import mcp_toolcall_lab.wikipedia_tool as wt
 
     monkeypatch.setattr(wt.urllib.request, "urlopen", fail_network)
-    article, lookup = load_wikipedia_article("Yokohama")
+    article, lookup = load_wikipedia_article("Exampleville")
     assert lookup == "miss"
-    assert article.canonical_title == "Yokohama"
-    assert "14109" in article.extract
+    assert article.canonical_title == "Exampleville"
+    assert "90001" in article.extract
     assert "== Geography ==" in article.extract
-    result = fetch_wikipedia_article("Yokohama, Japan")
-    assert result["canonical_title"] == "Yokohama"
+    result = fetch_wikipedia_article("Exampleville, Demo")
+    assert result["canonical_title"] == "Exampleville"
     assert any(row["heading"] == "Geography" for row in result["headings"])
     with pytest.raises(WikipediaFetchError, match="no en.wikipedia.org article"):
         load_wikipedia_article("This Title Is Not In The Fixture")
@@ -219,7 +219,7 @@ def test_shipped_fixture_is_used_instead_of_network(monkeypatch: pytest.MonkeyPa
     reason="live network to en.wikipedia.org; opt in with MCP_TOOLCALL_LAB_LIVE_WIKIPEDIA=1",
 )
 def test_live_wikipedia_fetch_finds_a_real_section() -> None:
-    sections = fetch_article_sections("Yokohama")
+    sections = fetch_article_sections("Mathematics")
     titles = {s.title.lower() for s in sections}
     assert titles, "a real Wikipedia article should have at least one section"
-    assert any("geograph" in title or "history" in title for title in titles)
+    assert any("history" in title or "area" in title for title in titles)

@@ -99,7 +99,7 @@ def test_shared_call_id_joins_mcp_and_openai_hops(tmp_path: Path) -> None:
                 "kind": "chat.completions",
                 "completion_id": "chatcmpl-xyz",
                 "call_ids": ["call_" + "b" * 24],
-                "user": "Find municipalities named Yokohama",
+                "user": "Find municipalities named Exampleville",
             }
         )
         + "\n",

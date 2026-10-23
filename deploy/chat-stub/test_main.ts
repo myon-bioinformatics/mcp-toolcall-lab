@@ -59,7 +59,7 @@ Deno.test("replays the official Streamable HTTP handshake", async () => {
       jsonrpc: "2.0",
       id: 3,
       method: "tools/call",
-      params: { name: "find_municipalities", arguments: { query: "Yokohama" } },
+      params: { name: "find_municipalities", arguments: { query: "Exampleville" } },
     }),
   }));
   const result = parseSse(await called.text());
@@ -85,7 +85,7 @@ Deno.test("unknown tools are returned as an MCP tool error", async () => {
 });
 
 Deno.test("chat endpoint returns OpenAI tools/tool_calls and role tool mapping", async () => {
-  const body = await chatResponse("Find municipalities named Yokohama.");
+  const body = await chatResponse("Find municipalities named Exampleville.");
   assertEquals(body.fixture_id, "available_tool_success", "success fixture selected");
   assertEquals(body.ui.chat_id, "chat_fixture_available", "chat id");
   assertEquals(body.ui.ui_message_id, "msg_fixture_available", "UI message id");

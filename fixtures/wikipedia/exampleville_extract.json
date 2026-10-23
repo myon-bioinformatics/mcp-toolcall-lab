@@ -1,0 +1,19 @@
+{
+  "batchcomplete": "",
+  "query": {
+    "redirects": [
+      {
+        "from": "Exampleville, Demo",
+        "to": "Exampleville"
+      }
+    ],
+    "pages": {
+      "9000001": {
+        "pageid": 9000001,
+        "ns": 0,
+        "title": "Exampleville",
+        "extract": "Exampleville is a mock municipality in this lab (code 90001, Example Region).\nThis extract is MediaWiki plaintext from action=query&prop=extracts, not scraped HTML.\n\n== Geography ==\nExample Region, a fictional area. The mock station is JR Exampleville.\n\n== History ==\nThe lab does not call a live external provider. Transaction-price rows for 90001 are always the same condominium mock.\n\n=== Climate ===\nMild in this fixture; nested under History only so heading levels can be asserted.\n\n== See also ==\nFind municipalities, Find stations, Tracing.\n"
+      }
+    }
+  }
+}

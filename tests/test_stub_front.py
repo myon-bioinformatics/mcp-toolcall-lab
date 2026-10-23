@@ -38,16 +38,16 @@ def test_corpus_has_readme_and_wiki_headings() -> None:
     sections = load_corpus(DEFAULT_CORPUS)
     titles = {section.title for section in sections}
     assert "Find municipalities" in titles
-    assert "Yokohama" in titles
+    assert "Exampleville" in titles
     assert "Geography" in titles
-    yokohama = lookup_heading("Yokohama", sections, fuzzy=False)
-    assert yokohama is not None
-    assert "14109" in yokohama.body
+    exampleville = lookup_heading("Exampleville", sections, fuzzy=False)
+    assert exampleville is not None
+    assert "90001" in exampleville.body
 
 
 def test_exact_heading_wins_over_mcp_keyword() -> None:
-    sections = parse_sections("# Yokohama\n\nFrom the corpus.\n")
-    classified = classify_prompt("Yokohama", sections)
+    sections = parse_sections("# Exampleville\n\nFrom the corpus.\n")
+    classified = classify_prompt("Exampleville", sections)
     assert classified["kind"] == "heading"
     assert classified["section"].body == "From the corpus."
 
@@ -63,12 +63,12 @@ def test_heading_select_is_on_the_composer_page() -> None:
     assert "source-url" not in html
 
 
-def test_sentence_with_yokohama_takes_mcp_path() -> None:
+def test_sentence_with_exampleville_takes_mcp_path() -> None:
     sections = load_corpus(DEFAULT_CORPUS)
-    classified = classify_prompt("Find municipalities named Yokohama", sections)
+    classified = classify_prompt("Find municipalities named Exampleville", sections)
     assert classified["kind"] == "mcp"
     assert classified["tool"] == "find_municipalities"
-    assert classified["arguments"]["query"] == "Yokohama"
+    assert classified["arguments"]["query"] == "Exampleville"
 
 
 def test_reply_heading_and_mcp_inprocess(tmp_path: Path, monkeypatch) -> None:
@@ -79,10 +79,10 @@ def test_reply_heading_and_mcp_inprocess(tmp_path: Path, monkeypatch) -> None:
     assert heading.chat_id.startswith("chat_")
     assert "find_municipalities" in heading.assistant
 
-    mcp_ok = reply("Where is Yokohama?", chat_id=heading.chat_id)
+    mcp_ok = reply("Where is Exampleville?", chat_id=heading.chat_id)
     assert mcp_ok.case == CASE_MCP_SUCCESS
     assert mcp_ok.tool == "find_municipalities"
-    assert "14109" in mcp_ok.assistant
+    assert "90001" in mcp_ok.assistant
     row = json.loads(log.read_text(encoding="utf-8").splitlines()[0])
     assert row["meta"]["chat_id"] == heading.chat_id
     assert row["meta"]["source"] == "stub-front"
@@ -107,7 +107,7 @@ def test_jsonrpc_error_is_not_classified_empty(monkeypatch) -> None:
     monkeypatch.setattr(stub_front, "McpStdlibSession", lambda *args, **kwargs: _Fake())
     outcome, payload, via = stub_front._call_mcp(
         tool="find_municipalities",
-        arguments={"query": "Yokohama"},
+        arguments={"query": "Exampleville"},
         chat_id="chat_x",
         call_id="call_x",
         mcp_url="http://127.0.0.1:9/mcp",
@@ -134,14 +134,14 @@ def test_stub_front_lists_tools_before_call(monkeypatch) -> None:
             seen.append("call_tool")
             return {
                 "result": {
-                    "structuredContent": {"result": [{"code": "14109", "name": "Yokohama"}]}
+                    "structuredContent": {"result": [{"code": "90001", "name": "Exampleville"}]}
                 }
             }
 
     monkeypatch.setattr(stub_front, "McpStdlibSession", lambda *args, **kwargs: _Fake())
     outcome, payload, via = stub_front._call_mcp(
         tool="find_municipalities",
-        arguments={"query": "Yokohama"},
+        arguments={"query": "Exampleville"},
         chat_id="chat_x",
         call_id="call_x",
         mcp_url="http://127.0.0.1:9/mcp",
@@ -149,7 +149,7 @@ def test_stub_front_lists_tools_before_call(monkeypatch) -> None:
     assert via == "mcp"
     assert outcome == "success"
     assert seen == ["initialize", "list_tools", "call_tool"]
-    assert payload[0]["name"] == "Yokohama"
+    assert payload[0]["name"] == "Exampleville"
 
 
 def test_mcp_empty_case() -> None:
@@ -164,7 +164,7 @@ def test_mcp_empty_case() -> None:
 
 def test_cli_turn_one_liner() -> None:
     proc = subprocess.run(
-        [sys.executable, "-m", "mcp_toolcall_lab.stub_front", "turn", "--heading", "Yokohama", "--chat-id", "chat_" + "b" * 24],
+        [sys.executable, "-m", "mcp_toolcall_lab.stub_front", "turn", "--heading", "Exampleville", "--chat-id", "chat_" + "b" * 24],
         cwd=ROOT,
         check=True,
         capture_output=True,
@@ -173,7 +173,7 @@ def test_cli_turn_one_liner() -> None:
     payload = json.loads(proc.stdout)
     assert payload["case"] == CASE_HEADING_HIT
     assert payload["chat_id"] == "chat_" + "b" * 24
-    assert "14109" in payload["assistant"]
+    assert "90001" in payload["assistant"]
 
 
 def test_html_exposes_librechat_and_owui_locators() -> None:
@@ -194,7 +194,7 @@ def test_html_exposes_librechat_and_owui_locators() -> None:
         assert f'id="{OWUI_INPUT}"' in html
         assert f'id="{OWUI_SEND}"' in html
         chat_id = url.rstrip("/").rsplit("/", 1)[-1]
-        body = f"prompt=Yokohama".encode("utf-8")
+        body = f"prompt=Exampleville".encode("utf-8")
         request = Request(
             f"{base}/c/{chat_id}",
             data=body,
@@ -204,10 +204,10 @@ def test_html_exposes_librechat_and_owui_locators() -> None:
         with urlopen(request, timeout=5) as response:
             page = response.read().decode("utf-8")
         assert f'id="{OWUI_RESPONSE}"' in page
-        assert "14109" in page
+        assert "90001" in page
         api = Request(
             f"{base}/api/turn",
-            data=json.dumps({"prompt": "Find municipalities named Yokohama", "chat_id": chat_id}).encode(),
+            data=json.dumps({"prompt": "Find municipalities named Exampleville", "chat_id": chat_id}).encode(),
             headers={"Content-Type": "application/json"},
             method="POST",
         )
@@ -221,6 +221,6 @@ def test_html_exposes_librechat_and_owui_locators() -> None:
 
 
 def test_main_turn_exit(capsys) -> None:
-    code = main(["turn", "--heading", "Yokohama", "--chat-id", "chat_cli"])
+    code = main(["turn", "--heading", "Exampleville", "--chat-id", "chat_cli"])
     assert code == 0
     assert json.loads(capsys.readouterr().out)["case"] == CASE_HEADING_HIT

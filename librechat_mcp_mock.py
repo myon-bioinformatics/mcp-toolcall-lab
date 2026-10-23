@@ -723,7 +723,7 @@ def _wiki_headings_to_atx(text: str) -> str:
     Wikipedia's plaintext extract never emits a single ``=`` (that would be
     the article's own title, which is not part of the extract body), so
     level 2 is the shallowest marker actually seen; it is kept as ATX
-    level 2 to match fixtures/stub_front/wiki_yokohama.md's own shape,
+    level 2 to match fixtures/stub_front/wiki_exampleville.md's own shape,
     where the fetched article's title is a separately-added level-1 ATX
     heading wrapping the lead paragraph and every ``==`` section under it.
     """
@@ -1229,14 +1229,15 @@ TOOL_DESCRIPTIONS = {
     ),
 }
 
+# Exampleville / Example Region / 90001 are fictional public demo data.
 MUNICIPALITIES = (
     {"code": "13101", "name": "Chiyoda", "prefecture": "Tokyo"},
-    {"code": "14109", "name": "Yokohama", "prefecture": "Kanagawa"},
+    {"code": "90001", "name": "Exampleville", "prefecture": "Example Region"},
     {"code": "12207", "name": "Matsudo", "prefecture": "Chiba"},
 )
 
 STATIONS = {
-    "14109": [{"name": "Yokohama", "line": "JR"}],
+    "90001": [{"name": "Exampleville", "line": "JR"}],
     "12207": [{"name": "Matsudo", "line": "JR Joban"}],
     "13101": [{"name": "Tokyo", "line": "JR"}],
 }

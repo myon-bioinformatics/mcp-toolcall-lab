@@ -62,7 +62,7 @@ def classify_observation(
     openai_saw_tools: bool | None,
     mcp_calls: list[dict[str, Any]],
     ui_text: str,
-    expected_ui_fragment: str = "Yokohama",
+    expected_ui_fragment: str = "Exampleville",
 ) -> dict[str, Any]:
     """Return a verdict plus antipattern_id (None on PASS)."""
     if not logged_in:
@@ -106,11 +106,11 @@ def classify_stub_turn(turn: dict[str, Any], *, cpu_llm_ok: bool | None = None) 
     """Classify one stub-front turn. A miss is an anti-pattern, not a crash."""
     case = str(turn.get("case") or "")
     assistant = str(turn.get("assistant") or "")
-    if case == "MCP_SUCCESS" and "yokohama" in assistant.lower():
+    if case == "MCP_SUCCESS" and "exampleville" in assistant.lower():
         result = {
             "verdict": VERDICT_PASS,
             "antipattern_id": None,
-            "detail": "stub Send reached MCP and the body showed Yokohama",
+            "detail": "stub Send reached MCP and the body showed Exampleville",
             "case": case,
         }
     elif case == "MCP_UNREACHABLE":
@@ -118,9 +118,9 @@ def classify_stub_turn(turn: dict[str, Any], *, cpu_llm_ok: bool | None = None) 
     elif case == "MCP_ERROR":
         result = _anti(MCP_ERROR, assistant or "stub MCP tools/call error")
     elif case == "MCP_EMPTY":
-        result = _anti(UI_NO_RESULT, "MCP returned empty; UI had no Yokohama rows")
+        result = _anti(UI_NO_RESULT, "MCP returned empty; UI had no Exampleville rows")
     elif case == "MCP_SUCCESS":
-        result = _anti(UI_NO_RESULT, "MCP succeeded but Yokohama was not in the assistant body")
+        result = _anti(UI_NO_RESULT, "MCP succeeded but Exampleville was not in the assistant body")
     else:
         result = _anti(MCP_NOT_CALLED, f"stub case={case or 'missing'} did not take the MCP path")
     result["case"] = case

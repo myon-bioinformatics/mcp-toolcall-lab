@@ -71,12 +71,12 @@ def test_cli_list_matches_expected_specs(mcp_url: str) -> None:
 
 
 def test_cli_call_success(mcp_url: str) -> None:
-    result = _call(mcp_url, "find_municipalities", query="Yokohama")
+    result = _call(mcp_url, "find_municipalities", query="Exampleville")
     assert result.returncode == 0, result.stderr
     payload = json.loads(result.stdout)
     assert payload["is_error"] is False
     assert payload["structured_content"]["result"] == [
-        {"code": "14109", "name": "Yokohama", "prefecture": "Kanagawa"}
+        {"code": "90001", "name": "Exampleville", "prefecture": "Example Region"}
     ]
 
 
@@ -91,6 +91,6 @@ def test_cli_call_empty_result(mcp_url: str) -> None:
 
 def test_unknown_tool_fails_client_side(mcp_url: str) -> None:
     """Unlike the raw-protocol tests, the CLI never sends this to the server."""
-    result = _call(mcp_url, "find_transaction_price", query="Yokohama")
+    result = _call(mcp_url, "find_transaction_price", query="Exampleville")
     assert result.returncode != 0
     assert "find_transaction_price" in result.stdout

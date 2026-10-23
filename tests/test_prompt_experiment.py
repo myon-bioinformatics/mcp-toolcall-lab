@@ -147,7 +147,7 @@ def test_available_tool_success_tools_call_send_and_return() -> None:
     ui = case["ui"]
     assert request["method"] == MCP_TOOLS_CALL
     assert params["name"] == "find_municipalities"
-    assert params["arguments"] == {"query": "Yokohama"}
+    assert params["arguments"] == {"query": "Exampleville"}
     assert params["_meta"]["chat_id"] == ui["chat_id"]
     assert params["_meta"]["call_id"] == ui["tool_call_id"]
     assert request_header(hop, "X-Chat-Id") == ui["chat_id"]
@@ -155,7 +155,7 @@ def test_available_tool_success_tools_call_send_and_return() -> None:
     assert request_header(hop, "Mcp-Session-Id") == ui["mcp_session_id"]
     assert result["isError"] is False
     assert result["structuredContent"]["result"] == [
-        {"code": "14109", "name": "Yokohama", "prefecture": "Kanagawa"}
+        {"code": "90001", "name": "Exampleville", "prefecture": "Example Region"}
     ]
     assert json.loads(result["content"][0]["text"]) == result["structuredContent"]["result"]
 
@@ -271,7 +271,7 @@ def test_audit_jsonl_is_comparison_fields_only(tmp_path: Path) -> None:
     path = tmp_path / "prompt-experiments.jsonl"
     write_audit(path, audits)
     text = path.read_text(encoding="utf-8")
-    assert "Yokohama" not in text
+    assert "Exampleville" not in text
     assert "query_unadvertised_tool" not in text
     assert "live provider" not in text
     assert "arguments" not in text
