@@ -1,14 +1,16 @@
 # Wikipedia-only Streamable HTTP MCP (Deno Deploy)
 
 Keyless MCP endpoint that advertises **only** `fetch_wikipedia_article` and
-`fetch_wikipedia_section`. Pages `#wiki` is **not** wired to this server in
-this change; that connection (and any OpenAI `tools` / `tool_calls` → MCP →
-`role: tool` browser loop) is a follow-up.
+`fetch_wikipedia_section`. Published Pages `#wiki` is the browser client of
+this server (`pages_wiki.js` → `POST /mcp`). Bake the absolute URL with
+`MCP_TOOLCALL_LAB_PAGES_MCP_URL` when generating `_site/`. An OpenAI
+`tools` / `tool_calls` → MCP → `role: tool` browser loop is still a
+separate follow-up.
 
 No live external provider API, no API keys, no custom JSON event rows. The wire is official MCP
 Streamable HTTP: JSON-RPC 2.0 on `POST /mcp`, SSE `event: message` for
 responses, empty **202** for `notifications/initialized`, `Mcp-Session-Id`,
-and CORS so a later github.io client can `fetch()` it.
+and CORS so github.io can `fetch()` it.
 
 `GET /mcp` (SSE resume / `Last-Event-ID`) is **not** implemented. Only
 `POST /mcp` and `OPTIONS /mcp` (CORS preflight) are MCP. `GET /health` is a

@@ -1,4 +1,4 @@
-"""Browser MediaWiki client for published Pages #wiki — no live network."""
+"""Browser Wikipedia MCP client for published Pages #wiki — no live network."""
 
 from __future__ import annotations
 
@@ -13,6 +13,8 @@ from mcp_toolcall_lab.stub_front import (
     PAGES_WIKI_BROWSER_NOTE,
     PAGES_WIKI_JS_NAME,
     PAGES_WIKI_JS_SOURCE,
+    PAGES_WIKI_MCP_URL_ENV,
+    WIKI_EXTRACT_NOTE,
     write_pages,
 )
 
@@ -24,7 +26,16 @@ const wiki = require(process.argv[1]);
 const fixture = require(process.argv[2]);
 const assert = require("assert");
 
+const MCP = "https://example.deno.dev/mcp";
 const extract = fixture.query.pages["9000001"].extract;
+
+const sseParsed = wiki.extractSseData(
+  'event: message\ndata: {"jsonrpc":"2.0","id":1,"result":{"ok":true}}\n\n'
+);
+assert.strictEqual(sseParsed.jsonrpc, "2.0");
+assert.strictEqual(sseParsed.id, 1);
+assert.strictEqual(sseParsed.result.ok, true);
+assert.ok(!("event" in sseParsed));
 
 const sections = wiki.parseWikiSections(extract);
 assert.deepStrictEqual(
@@ -75,19 +86,9 @@ assert.strictEqual(
   "Lead &lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;"
 );
 
-const url = wiki.buildApiUrl("Exampleville", "en");
-assert.ok(url.startsWith("https://en.wikipedia.org/w/api.php?"));
-assert.ok(url.includes("action=query"));
-assert.ok(url.includes("prop=extracts"));
-assert.ok(url.includes("explaintext=1"));
-assert.ok(url.includes("exsectionformat=wiki"));
-assert.ok(url.includes("redirects=1"));
-assert.ok(url.includes("format=json"));
-assert.ok(url.includes("origin=*"));
-assert.ok(url.includes("titles=Exampleville"));
-assert.strictEqual(wiki.buildApiUrl("", "en"), "");
-assert.strictEqual(wiki.buildApiUrl("Exampleville", "en.evil"), "");
-assert.ok(wiki.buildApiUrl("Exampleville", "JA").startsWith("https://ja.wikipedia.org/"));
+assert.strictEqual(wiki.normalizeLang("JA"), "ja");
+assert.strictEqual(wiki.normalizeLang("en.evil"), "");
+assert.strictEqual(wiki.normalizeLang(""), wiki.DEFAULT_LANG);
 
 const parsed = wiki.parseExtractPayload(fixture, "Exampleville, Demo", "en");
 assert.strictEqual(parsed.ok, true);
@@ -133,36 +134,190 @@ assert.ok(historyView.body.includes("=== Climate ==="));
 assert.ok(historyView.body.includes("Mild in this fixture"));
 assert.ok(!historyView.body.includes("== See also =="));
 
-wiki.loadArticle("", "en").then((empty) => {
+const wrapped = wiki.unwrapArticle(
+  {
+    jsonrpc: "2.0",
+    id: 9,
+    result: {
+      content: [{ type: "text", text: JSON.stringify({ result: {
+        canonical_title: "Exampleville",
+        lang: "en",
+        extract: parsed.extract,
+      }}) }],
+      structuredContent: { result: {
+        canonical_title: "Exampleville",
+        lang: "en",
+        extract: parsed.extract,
+      }},
+      isError: false,
+    },
+  },
+  "Exampleville",
+  "en"
+);
+assert.strictEqual(wrapped.ok, true);
+assert.strictEqual(wrapped.canonical_title, "Exampleville");
+
+function headers(map) {
+  return {
+    get: (name) => {
+      const key = String(name).toLowerCase();
+      if (map[name] != null) return map[name];
+      if (map[key] != null) return map[key];
+      return null;
+    },
+  };
+}
+
+function sse(obj) {
+  return {
+    ok: true,
+    status: 200,
+    headers: headers({ "mcp-session-id": "sess_labtoken.1.mac" }),
+    text: () => Promise.resolve("event: message\ndata: " + JSON.stringify(obj) + "\n\n"),
+  };
+}
+
+function accepted() {
+  return {
+    ok: true,
+    status: 202,
+    headers: headers({ "mcp-session-id": "sess_labtoken.1.mac" }),
+    text: () => Promise.resolve(""),
+  };
+}
+
+function articleRpc() {
+  const article = {
+    canonical_title: parsed.canonical_title,
+    lang: "en",
+    extract: parsed.extract,
+    headings: parsed.sections.map((s) => ({ heading: s.title, level: s.level })),
+  };
+  return {
+    jsonrpc: "2.0",
+    id: 3,
+    result: {
+      content: [{ type: "text", text: JSON.stringify(article) }],
+      structuredContent: article,
+      isError: false,
+    },
+  };
+}
+
+function listRpc() {
+  return {
+    jsonrpc: "2.0",
+    id: 2,
+    result: {
+      tools: [{ name: "fetch_wikipedia_article" }, { name: "fetch_wikipedia_section" }],
+    },
+  };
+}
+
+wiki.loadArticle("", "en", null, MCP).then((empty) => {
   assert.strictEqual(empty.ok, false);
   assert.strictEqual(empty.error, wiki.MISSING_TITLE);
+  return wiki.loadArticle("Exampleville", "en");
+}).then((noUrl) => {
+  assert.strictEqual(noUrl.ok, false);
+  assert.strictEqual(noUrl.error, wiki.MISSING_MCP);
 
   let fetchCalls = 0;
-  const fakeFetch = (url) => {
+  const fakeFetch = (url, init) => {
     fetchCalls += 1;
-    assert.ok(String(url).includes("origin=*"));
-    assert.ok(String(url).includes("titles=Exampleville"));
-    return Promise.resolve({ ok: true, json: () => Promise.resolve(fixture) });
+    assert.strictEqual(url, MCP);
+    assert.strictEqual(init.method, "POST");
+    assert.ok(String(init.headers.Accept).includes("text/event-stream"));
+    assert.ok(!String(init.body).includes("origin=*"));
+    const body = JSON.parse(init.body);
+    assert.strictEqual(body.jsonrpc, "2.0");
+    if (body.method === "initialize") {
+      assert.strictEqual(body.params.protocolVersion, wiki.PROTOCOL_VERSION);
+      return Promise.resolve(sse({ jsonrpc: "2.0", id: 1, result: { protocolVersion: wiki.PROTOCOL_VERSION } }));
+    }
+    if (body.method === "notifications/initialized") {
+      assert.ok(body.id == null);
+      assert.ok(init.headers["Mcp-Session-Id"]);
+      return Promise.resolve(accepted());
+    }
+    if (body.method === "tools/list") {
+      assert.ok(init.headers["Mcp-Session-Id"]);
+      return Promise.resolve(sse(listRpc()));
+    }
+    if (body.method === "tools/call") {
+      assert.strictEqual(body.params.name, wiki.ARTICLE_TOOL);
+      assert.strictEqual(body.params.arguments.title, "Exampleville");
+      assert.strictEqual(body.params.arguments.lang, "en");
+      return Promise.resolve(sse(articleRpc()));
+    }
+    throw new Error("unexpected method " + body.method);
   };
-  const session = wiki.createSession(fakeFetch);
+  const session = wiki.createSession(fakeFetch, MCP);
   return session.load("Exampleville", "en").then((article) => {
     assert.strictEqual(article.ok, true);
+    assert.strictEqual(article.canonical_title, "Exampleville");
     assert.strictEqual(session.fetches(), 1);
+    assert.deepStrictEqual(session.hops(), [
+      "initialize",
+      "notifications/initialized",
+      "tools/list",
+      "tools/call",
+    ]);
+    assert.strictEqual(session.sessionId(), "sess_labtoken.1.mac");
     const geo = session.selectHeading("Geography");
     assert.strictEqual(session.fetches(), 1);
+    assert.deepStrictEqual(session.hops(), [
+      "initialize",
+      "notifications/initialized",
+      "tools/list",
+      "tools/call",
+    ]);
     assert.ok(geo.body.includes("Example Region"));
+    assert.ok(!geo.body.includes("== History =="));
     const full = session.selectHeading("");
     assert.strictEqual(session.fetches(), 1);
     assert.ok(full.body.includes("== Geography =="));
-    return wiki.loadArticle("Exampleville", "en", () => Promise.reject(new Error("Failed to fetch")));
+    return session.load("Exampleville", "en").then((second) => {
+      assert.strictEqual(second.ok, true);
+      assert.strictEqual(session.fetches(), 2);
+      assert.deepStrictEqual(session.hops(), [
+        "initialize",
+        "notifications/initialized",
+        "tools/list",
+        "tools/call",
+        "tools/call",
+      ]);
+      assert.ok(fetchCalls >= 5);
+      return wiki.loadArticle(
+        "Exampleville",
+        "en",
+        () => Promise.reject(new Error("Failed to fetch")),
+        MCP
+      );
+    });
   }).then((netErr) => {
     assert.strictEqual(netErr.ok, false);
     assert.ok(netErr.error.includes("could not fetch"));
     assert.ok(netErr.error.includes("Failed to fetch"));
-    return wiki.loadArticle("Exampleville", "en", () => Promise.resolve({ ok: false, status: 503 }));
+    return wiki.loadArticle(
+      "Exampleville",
+      "en",
+      () => Promise.resolve({
+        ok: false,
+        status: 503,
+        headers: { get: () => null },
+        text: () => Promise.resolve(""),
+      }),
+      MCP
+    );
   }).then((httpErr) => {
     assert.strictEqual(httpErr.ok, false);
     assert.ok(httpErr.error.includes("HTTP 503"));
+    return wiki.loadArticle("Exampleville", "en.evil", fakeFetch, MCP);
+  }).then((badLang) => {
+    assert.strictEqual(badLang.ok, false);
+    assert.ok(badLang.error.includes("Unsupported language"));
     console.log("ok");
   });
 }).catch((err) => {
@@ -192,12 +347,16 @@ def test_pages_wiki_js_is_valid_javascript() -> None:
     assert result.returncode == 0, result.stderr
 
 
-def test_write_pages_includes_mediawiki_ui_mount(tmp_path: Path) -> None:
+def test_write_pages_includes_wikipedia_mcp_ui_mount(tmp_path: Path) -> None:
     out = write_pages(tmp_path / "site").parent
     html = (out / "index.html").read_text(encoding="utf-8")
     assert PAGES_WIKI_BROWSER_NOTE in html
+    assert WIKI_EXTRACT_NOTE in html
     assert 'id="pages-wiki-app"' in html
     assert 'data-testid="pages-wiki-app"' in html
+    assert 'data-mcp-url="' in html
+    assert 'data-testid="pages-wiki-mcp-endpoint"' in html
+    assert PAGES_WIKI_MCP_URL_ENV in html
     assert 'data-testid="pages-wiki-form"' in html
     assert 'data-testid="pages-wiki-title"' in html
     assert 'name="title" value=""' in html
@@ -214,9 +373,27 @@ def test_write_pages_includes_mediawiki_ui_mount(tmp_path: Path) -> None:
     assert 'href="#wiki"' in html
     assert 'data-pages-view="wiki"' in html
     assert 'action="/wiki"' not in html
+    assert "w/api.php" not in html
+    assert "buildApiUrl" not in (out / PAGES_WIKI_JS_NAME).read_text(encoding="utf-8")
     assert "Try it (static, no MCP)" not in html
     assert "mcpToolcallLabStubDemo" not in html
     assert "Corpus headings" not in html
+    wiki = html[html.index('data-pages-view="wiki"') :]
+    i_disc = wiki.index('data-testid="pages-wiki-disclaimer"')
+    i_form = wiki.index('data-testid="pages-wiki-form"')
+    i_heading = wiki.index('data-testid="pages-wiki-heading"')
+    i_note = wiki.index('data-testid="pages-wiki-extract-note"')
+    i_extract = wiki.index('data-testid="pages-wiki-extract"')
+    assert i_disc < i_form < i_heading < i_note < i_extract
+    assert PAGES_WIKI_BROWSER_NOTE in wiki[i_disc:i_form]
+    assert WIKI_EXTRACT_NOTE in wiki[i_note:i_extract]
+
+
+def test_write_pages_bakes_mcp_url_from_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv(PAGES_WIKI_MCP_URL_ENV, "https://wiki-mcp.example/mcp")
+    html = write_pages(tmp_path / "site").read_text(encoding="utf-8")
+    assert 'data-mcp-url="https://wiki-mcp.example/mcp"' in html
+    assert "https://wiki-mcp.example/mcp" in html[html.index('data-testid="pages-wiki-mcp-endpoint"') :]
 
 
 def test_exampleville_fixture_is_mediawiki_extract_shape() -> None:

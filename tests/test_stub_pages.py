@@ -334,7 +334,7 @@ def test_gguf_overlay_pins_image_digest_and_uses_curl_healthcheck() -> None:
 
 
 def test_write_pages_does_not_embed_the_static_try_it_demo(tmp_path: Path) -> None:
-    """Published Pages is generation + browser MediaWiki #wiki + CI summary.
+    """Published Pages is generation + browser Wikipedia MCP #wiki + CI summary.
 
     The mock heading-pulldown demo is a local asset (write_stub_demo_page),
     not the github.io index — that pulldown was a fixtures/stub_front corpus,

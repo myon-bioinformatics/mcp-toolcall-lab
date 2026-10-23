@@ -285,11 +285,12 @@ network opt-in, and extraction limits are documented in
 ### Static Pages versus local execution
 
 [GitHub Pages](https://myon-bioinformatics.github.io/mcp-toolcall-lab/) is a static
-workspace/report, not a hosted Python/MCP inference service. Its tool catalog is
-generated from the shared Python catalog; the `#wiki` panel uses browser-side
-MediaWiki API access, not MCP. The `#pixiv` panel extracts pasted revision source
-offline; it does not fetch the live article like the Python tools. The local
-`/wiki` endpoint is a separate stub:
+workspace/report, not a hosted Python inference service. Its tool catalog is
+generated from the shared Python catalog; the `#wiki` panel is a browser
+Streamable HTTP MCP client of the Wikipedia-only Deno server (`POST /mcp`;
+set `MCP_TOOLCALL_LAB_PAGES_MCP_URL` when publishing). The `#pixiv` panel
+extracts pasted revision source offline; it does not fetch the live article
+like the Python tools. The local `/wiki` endpoint is a separate stub:
 
 ```bash
 python -m mcp_toolcall_lab.stub_front turn --heading Exampleville
