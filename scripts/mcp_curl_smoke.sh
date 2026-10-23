@@ -51,10 +51,10 @@ curl -sS -X POST "$URL" \
     -d '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' \
     | extract_data | python3 -m json.tool
 
-echo "== tools/call find_municipalities (query=Yokohama) ==" >&2
+echo "== tools/call find_municipalities (query=Exampleville) ==" >&2
 curl -sS -X POST "$URL" \
     -H "Content-Type: application/json" \
     -H "Accept: $ACCEPT" \
     -H "Mcp-Session-Id: $session_id" \
-    -d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"find_municipalities","arguments":{"query":"Yokohama"}}}' \
+    -d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"find_municipalities","arguments":{"query":"Exampleville"}}}' \
     | extract_data | python3 -m json.tool

@@ -30,7 +30,7 @@
         },
         {
           "role": "user",
-          "content": "Find municipalities named Yokohama."
+          "content": "Find municipalities named Exampleville."
         }
       ],
       "tools": [
@@ -114,7 +114,7 @@
                 "type": "function",
                 "function": {
                   "name": "find_municipalities",
-                  "arguments": "{\"query\":\"Yokohama\"}"
+                  "arguments": "{\"query\":\"Exampleville\"}"
                 }
               }
             ]
@@ -136,7 +136,7 @@
           },
           {
             "role": "user",
-            "content": "Find municipalities named Yokohama."
+            "content": "Find municipalities named Exampleville."
           },
           {
             "role": "assistant",
@@ -147,7 +147,7 @@
                 "type": "function",
                 "function": {
                   "name": "find_municipalities",
-                  "arguments": "{\"query\":\"Yokohama\"}"
+                  "arguments": "{\"query\":\"Exampleville\"}"
                 }
               }
             ]
@@ -155,7 +155,7 @@
           {
             "role": "tool",
             "tool_call_id": "call_fixture_available012345678901",
-            "content": "[{\"code\":\"14109\",\"name\":\"Yokohama\",\"prefecture\":\"Kanagawa\"}]"
+            "content": "[{\"code\":\"90001\",\"name\":\"Exampleville\",\"prefecture\":\"Example Region\"}]"
           }
         ],
         "tools": [
@@ -232,7 +232,7 @@
             "finish_reason": "stop",
             "message": {
               "role": "assistant",
-              "content": "Yokohama (code 14109) is in Kanagawa."
+              "content": "Exampleville (code 90001) is in Example Region."
             }
           }
         ]
@@ -570,7 +570,7 @@
           "params": {
             "name": "find_municipalities",
             "arguments": {
-              "query": "Yokohama"
+              "query": "Exampleville"
             },
             "_meta": {
               "chat_id": "chat_fixture_available",
@@ -585,7 +585,7 @@
           "Mcp-Session-Id": "sess_fixture_available",
           "Cache-Control": "no-cache, no-transform"
         },
-        "response_sse": "event: message\r\ndata: {\"jsonrpc\":\"2.0\",\"id\":3,\"result\":{\"_meta\":{\"fastmcp\":{\"wrap_result\":true}},\"content\":[{\"type\":\"text\",\"text\":\"[{\\\"code\\\":\\\"14109\\\",\\\"name\\\":\\\"Yokohama\\\",\\\"prefecture\\\":\\\"Kanagawa\\\"}]\"}],\"structuredContent\":{\"result\":[{\"code\":\"14109\",\"name\":\"Yokohama\",\"prefecture\":\"Kanagawa\"}]},\"isError\":false}}\r\n\r\n",
+        "response_sse": "event: message\r\ndata: {\"jsonrpc\":\"2.0\",\"id\":3,\"result\":{\"_meta\":{\"fastmcp\":{\"wrap_result\":true}},\"content\":[{\"type\":\"text\",\"text\":\"[{\\\"code\\\":\\\"90001\\\",\\\"name\\\":\\\"Exampleville\\\",\\\"prefecture\\\":\\\"Example Region\\\"}]\"}],\"structuredContent\":{\"result\":[{\"code\":\"90001\",\"name\":\"Exampleville\",\"prefecture\":\"Example Region\"}]},\"isError\":false}}\r\n\r\n",
         "response": {
           "jsonrpc": "2.0",
           "id": 3,
@@ -598,15 +598,15 @@
             "content": [
               {
                 "type": "text",
-                "text": "[{\"code\":\"14109\",\"name\":\"Yokohama\",\"prefecture\":\"Kanagawa\"}]"
+                "text": "[{\"code\":\"90001\",\"name\":\"Exampleville\",\"prefecture\":\"Example Region\"}]"
               }
             ],
             "structuredContent": {
               "result": [
                 {
-                  "code": "14109",
-                  "name": "Yokohama",
-                  "prefecture": "Kanagawa"
+                  "code": "90001",
+                  "name": "Exampleville",
+                  "prefecture": "Example Region"
                 }
               ]
             },

@@ -64,7 +64,7 @@ deno task start
 
 No `--unstable-kv`. Optional: `MCP_HOST`, `MCP_PORT` / `PORT`,
 `MCP_SESSION_SECRET`, and
-`MCP_TOOLCALL_LAB_WIKIPEDIA_FIXTURE=/abs/path/to/fixtures/wikipedia/yokohama_extract.json`
+`MCP_TOOLCALL_LAB_WIKIPEDIA_FIXTURE=/abs/path/to/fixtures/wikipedia/exampleville_extract.json`
 to serve the vendored MediaWiki extract instead of calling Wikipedia.
 
 Handshake (same product order as Open WebUI / PR #23 fixtures):

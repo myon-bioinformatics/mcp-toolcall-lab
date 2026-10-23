@@ -27,18 +27,18 @@ class MockCatalogTest(unittest.TestCase):
 
     def test_municipality_search_is_deterministic(self):
         self.assertEqual(
-            search_municipalities("yokohama"),
-            [{"code": "14109", "name": "Yokohama", "prefecture": "Kanagawa"}],
+            search_municipalities("exampleville"),
+            [{"code": "90001", "name": "Exampleville", "prefecture": "Example Region"}],
         )
 
     def test_blank_municipality_query_is_empty_not_error(self):
         self.assertEqual(search_municipalities("  "), [])
 
     def test_japanese_municipality_query_is_empty_in_this_mock(self):
-        self.assertEqual(search_municipalities("横浜"), [])
+        self.assertEqual(search_municipalities("サンプル市"), [])
 
     def test_transaction_price_is_mock_data(self):
-        result = search_transaction_prices("14109", 2025)
+        result = search_transaction_prices("90001", 2025)
         self.assertEqual(result[0]["source"], "mock")
         self.assertEqual(result[0]["year"], 2025)
 
@@ -50,11 +50,11 @@ class MockCatalogTest(unittest.TestCase):
 
     def test_dispatch_tool_matches_search_helpers(self):
         self.assertEqual(
-            dispatch_tool("find_municipalities", {"query": "Yokohama"}),
-            search_municipalities("Yokohama"),
+            dispatch_tool("find_municipalities", {"query": "Exampleville"}),
+            search_municipalities("Exampleville"),
         )
         with self.assertRaises(KeyError):
-            dispatch_tool("find_transaction_price", {"municipality_code": "14109", "year": 2025})
+            dispatch_tool("find_transaction_price", {"municipality_code": "90001", "year": 2025})
 
     def test_dispatch_tool_routes_to_fetch_wikipedia_section(self):
         # The only tool here that is not a deterministic mock -- mocked at
@@ -63,19 +63,19 @@ class MockCatalogTest(unittest.TestCase):
         # tests/test_wikipedia_tool.py for the real fetch/parse coverage).
         with mock.patch("mcp_toolcall_lab.catalog.fetch_wikipedia_section") as fetch:
             fetch.return_value = [{"heading": "Geography", "body": "..."}]
-            result = dispatch_tool("fetch_wikipedia_section", {"title": "Yokohama", "heading": "Geography"})
-        fetch.assert_called_once_with("Yokohama", "Geography", lang="en")
+            result = dispatch_tool("fetch_wikipedia_section", {"title": "Exampleville", "heading": "Geography"})
+        fetch.assert_called_once_with("Exampleville", "Geography", lang="en")
         self.assertEqual(result, [{"heading": "Geography", "body": "..."}])
 
     def test_dispatch_tool_routes_to_fetch_wikipedia_article(self):
         with mock.patch("mcp_toolcall_lab.catalog.fetch_wikipedia_article") as fetch:
             fetch.return_value = {
-                "canonical_title": "Yokohama",
+                "canonical_title": "Exampleville",
                 "lang": "en",
                 "extract": "Lead.",
-                "headings": [{"heading": "Yokohama", "level": 1}],
+                "headings": [{"heading": "Exampleville", "level": 1}],
             }
-            result = dispatch_tool("fetch_wikipedia_article", {"title": "Yokohama"})
-        fetch.assert_called_once_with("Yokohama", lang="en")
-        self.assertEqual(result["canonical_title"], "Yokohama")
+            result = dispatch_tool("fetch_wikipedia_article", {"title": "Exampleville"})
+        fetch.assert_called_once_with("Exampleville", lang="en")
+        self.assertEqual(result["canonical_title"], "Exampleville")
         self.assertEqual(result["extract"], "Lead.")

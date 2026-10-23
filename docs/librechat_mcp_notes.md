@@ -90,7 +90,7 @@ compose network (`mcp-toolcall-lab`) as:
 
 1. `mcp-mock` — this repo's Streamable HTTP MCP server (`librechat_mcp_mock.py`)
 2. `openai-mock` — `demos/openai_toolcall_mock.py`, a stdlib OpenAI-compatible
-   server that emits `tool_calls` for Yokohama / municipalities (LibreChat
+   server that emits `tool_calls` for Exampleville / municipalities (LibreChat
    prefixes MCP tools as `find_municipalities_mcp_<server>`)
 
 LibreChat talks to them by service DNS (`http://mcp-mock:8000/mcp`,
@@ -107,7 +107,7 @@ Whether MCP actually ran is classified afterwards
 
 | Verdict | Meaning |
 | --- | --- |
-| PASS | Send reached MCP and the chat showed Yokohama |
+| PASS | Send reached MCP and the chat showed Exampleville |
 | ANTIPATTERN / `MCP_PICKER_OFF` | `/v1/chat/completions` had no `tools` |
 | ANTIPATTERN / `MCP_NOT_CALLED` | Send worked; `MCP_TOOLCALL_LOG` is empty |
 | ANTIPATTERN / `UI_NO_RESULT` | MCP succeeded; the transcript did not |

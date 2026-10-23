@@ -1,17 +1,17 @@
-# Yokohama
+# Exampleville
 
-Yokohama is a mock municipality in this lab (code 14109, Kanagawa).
+Exampleville is a fictional mock municipality in this lab (code 90001, Example Region).
 This page is a tiny Wikipedia-shaped article — ATX headings only, not a
 dump of the live encyclopedia.
 
 ## Geography
 
-Kanagawa Prefecture, south of Tokyo. The mock station is JR Yokohama.
+Example Region, a fictional area. The mock station is JR Exampleville.
 
 ## History
 
 The lab does not call a live external provider. Transaction-price
-rows for 14109 are always the same condominium mock.
+rows for 90001 are always the same condominium mock.
 
 ## See also
 

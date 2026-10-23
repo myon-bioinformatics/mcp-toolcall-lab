@@ -2,7 +2,7 @@ name: wikipedia-article-screenshot
 
 # Stdlib stub /wiki screenshots via `python -m playwright screenshot`.
 # Default pytest (`test` workflow, `uv run --locked` then `pytest -q`) does not run this.
-# Deterministic CI uses fixtures/wikipedia/yokohama_extract.json.
+# Deterministic CI uses fixtures/wikipedia/exampleville_extract.json.
 # Live Wikipedia is workflow_dispatch --live only (or a local --live run).
 on:
   workflow_dispatch:
@@ -30,16 +30,16 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: "3.11"
+          python-version: "3.12"
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
-          python-version: "3.11"
+          python-version: "3.12"
       - name: Install stub + Playwright CLI
         run: uv run --locked --extra test --extra browser-test playwright install --with-deps --only-shell chromium
       - name: Screenshot title-entered and heading-selected (fixture)
         if: ${{ github.event_name != 'workflow_dispatch' || inputs.live_wikipedia != true }}
         env:
-          MCP_TOOLCALL_LAB_WIKIPEDIA_FIXTURE: ${{ github.workspace }}/fixtures/wikipedia/yokohama_extract.json
+          MCP_TOOLCALL_LAB_WIKIPEDIA_FIXTURE: ${{ github.workspace }}/fixtures/wikipedia/exampleville_extract.json
         run: uv run --locked --extra test --extra browser-test python scripts/wikipedia_article_screenshot.py --out test-results/wiki-screenshots
       - name: Screenshot title-entered and heading-selected (live Wikipedia)
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.live_wikipedia == true }}

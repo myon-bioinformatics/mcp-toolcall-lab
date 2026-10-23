@@ -10,7 +10,7 @@ on:
       message:
         description: "Prompt to send through the stub /api/turn"
         required: false
-        default: "Find municipalities named Yokohama"
+        default: "Find municipalities named Exampleville"
       use_real_gguf:
         description: "Swap the lite cpu-llm stand-in for a real tiny GGUF (llama.cpp). Needs internet to huggingface.co."
         type: boolean
@@ -128,7 +128,7 @@ jobs:
           STUB_BASE_URL: http://127.0.0.1:8765
           CPU_LLM_BASE_URL: http://127.0.0.1:8080
           CPU_LLM_BACKEND: ${{ github.event.inputs.use_real_gguf == 'true' && 'real-gguf' || 'lite-stub' }}
-          STUB_CHAT_MESSAGE: ${{ github.event.inputs.message || 'Find municipalities named Yokohama' }}
+          STUB_CHAT_MESSAGE: ${{ github.event.inputs.message || 'Find municipalities named Exampleville' }}
           STUB_LAST_RUN: ${{ github.workspace }}/test-results/last-run.json
           ANTIPATTERN_LOG: ${{ github.workspace }}/test-results/antipatterns.jsonl
           MCP_TOOLCALL_LOG: ${{ github.workspace }}/test-results/mcp-toolcalls.jsonl

@@ -40,8 +40,8 @@ ClientRole = Literal["under_test", "reference"]
 LocatorKind = Literal["css", "testid", "id", "label", "role"]
 
 LIBRECHAT_MCP_DELIMITER = "_mcp_"
-SAMPLE_PROMPT = "Find municipalities named Yokohama"
-SAMPLE_RESULT_FRAGMENT = "Yokohama"
+SAMPLE_PROMPT = "Find municipalities named Exampleville"
+SAMPLE_RESULT_FRAGMENT = "Exampleville"
 
 
 @dataclass(frozen=True)
@@ -208,7 +208,7 @@ LIBRECHAT = ChatFrontend(
     ),
     response=ResponseContract(
         container=None,
-        ready_substrings=(SAMPLE_RESULT_FRAGMENT, "No MCP tools", "Kanagawa", "error"),
+        ready_substrings=(SAMPLE_RESULT_FRAGMENT, "No MCP tools", "Example Region", "error"),
         notes=(
             "LibreChat has no single response id like OWUI. Wait on body text "
             "signals, then classify via MCP_TOOLCALL_LOG."
@@ -294,7 +294,7 @@ OPENWEBUI = ChatFrontend(
             provenance="src/lib/components/chat/Messages/ResponseMessage.svelte",
             notes="Use .last — each assistant message has this id.",
         ),
-        ready_substrings=(SAMPLE_RESULT_FRAGMENT, "Kanagawa"),
+        ready_substrings=(SAMPLE_RESULT_FRAGMENT, "Example Region"),
         notes="Assert table/pre/li inside the last response-content-container.",
     ),
     mcp=McpWireContract(
@@ -346,7 +346,7 @@ STUB = ChatFrontend(
     ),
     response=ResponseContract(
         container=OPENWEBUI.response.container,
-        ready_substrings=(SAMPLE_RESULT_FRAGMENT, "Kanagawa", "empty list"),
+        ready_substrings=(SAMPLE_RESULT_FRAGMENT, "Example Region", "empty list"),
         notes="OWUI #response-content-container plus LibreChat testids on the composer.",
     ),
     mcp=McpWireContract(
@@ -359,7 +359,7 @@ STUB = ChatFrontend(
     ),
     one_liners=(
         "python -m mcp_toolcall_lab.frontends stub",
-        "python -m mcp_toolcall_lab.stub_front turn --heading Yokohama",
+        "python -m mcp_toolcall_lab.stub_front turn --heading Exampleville",
         "python -m mcp_toolcall_lab.stub_front serve --port 8765",
         "python -m mcp_toolcall_lab.chat_ui send --client stub --url http://127.0.0.1:8765",
     ),
@@ -412,7 +412,7 @@ def catalog() -> dict[str, Any]:
             "send_openwebui": OPENWEBUI.one_liners[-2],
             "trace_probe": "python -m mcp_toolcall_lab.trace_probe --chat-id chat_lab1",
             "trace_kinds": "python -m mcp_toolcall_lab.trace_probe kinds",
-            "stub_front_turn": "python -m mcp_toolcall_lab.stub_front turn --heading Yokohama",
+            "stub_front_turn": "python -m mcp_toolcall_lab.stub_front turn --heading Exampleville",
             "stub_front_serve": "python -m mcp_toolcall_lab.stub_front serve --port 8765",
             "docker_logs": "python -m mcp_toolcall_lab.docker_logs capture -f docker/openwebui-smoke/docker-compose.yml -o test-results/docker-logs",
         },

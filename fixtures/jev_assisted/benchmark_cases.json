@@ -52,8 +52,8 @@
     "family_confidence": 0.96
   },
   {
-    "id": "wikipedia-yokohama",
-    "state": "Look up the history section for Yokohama on Wikipedia.",
+    "id": "wikipedia-exampleville",
+    "state": "Look up the history section for Exampleville on Wikipedia.",
     "expected_tool_family": "wikipedia",
     "needs_probability": 0.96,
     "chosen_family": "wikipedia",

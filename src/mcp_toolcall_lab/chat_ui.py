@@ -5,7 +5,7 @@ Playwright is imported only for ``send``. ``describe`` is stdlib + this package:
     python -m mcp_toolcall_lab.chat_ui describe
     python -m mcp_toolcall_lab.chat_ui describe librechat
     python -m mcp_toolcall_lab.chat_ui send --client librechat --url http://127.0.0.1:3080
-    python -m mcp_toolcall_lab.chat_ui send --client openwebui --url http://127.0.0.1:3000 --prompt "Find municipalities named Yokohama"
+    python -m mcp_toolcall_lab.chat_ui send --client openwebui --url http://127.0.0.1:3000 --prompt "Find municipalities named Exampleville"
 
 ``send`` prints one JSON object (flags + optional anti-pattern classification
 + a ``trace`` harvest of chat/call/completion/UI ids). Pin a lab key with

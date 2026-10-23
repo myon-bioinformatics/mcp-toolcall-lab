@@ -54,16 +54,16 @@ def test_heading_switch_is_a_cache_hit(monkeypatch: pytest.MonkeyPatch) -> None:
 
     def fake_urlopen(request, timeout=0):  # noqa: ARG001
         calls["n"] += 1
-        return _FakeResponse(_payload(title="Yokohama", extract=extract))
+        return _FakeResponse(_payload(title="Exampleville", extract=extract))
 
     _install_urlopen(monkeypatch, fake_urlopen)
 
-    listed = fetch_wikipedia_section("Yokohama")
-    geography = fetch_wikipedia_section("Yokohama", "Geography")
-    history = fetch_wikipedia_section("Yokohama", "History")
+    listed = fetch_wikipedia_section("Exampleville")
+    geography = fetch_wikipedia_section("Exampleville", "Geography")
+    history = fetch_wikipedia_section("Exampleville", "History")
 
     assert calls["n"] == 1
-    assert [row["heading"] for row in listed] == ["Yokohama", "Geography", "History"]
+    assert [row["heading"] for row in listed] == ["Exampleville", "Geography", "History"]
     assert geography[0]["body"] == "South of Tokyo."
     assert history[0]["body"] == "A port."
     cache = get_article_cache()
@@ -77,12 +77,12 @@ def test_cache_miss_then_hit_same_title(monkeypatch: pytest.MonkeyPatch) -> None
 
     def fake_urlopen(request, timeout=0):  # noqa: ARG001
         calls["n"] += 1
-        return _FakeResponse(_payload(title="Yokohama", extract=extract))
+        return _FakeResponse(_payload(title="Exampleville", extract=extract))
 
     _install_urlopen(monkeypatch, fake_urlopen)
 
-    first, first_lookup = load_wikipedia_article("Yokohama")
-    second, second_lookup = load_wikipedia_article("Yokohama")
+    first, first_lookup = load_wikipedia_article("Exampleville")
+    second, second_lookup = load_wikipedia_article("Exampleville")
     assert first_lookup == "miss"
     assert second_lookup == "hit"
     assert first is second
@@ -96,15 +96,15 @@ def test_redirect_reuses_canonical_entry(monkeypatch: pytest.MonkeyPatch) -> Non
     def fake_urlopen(request, timeout=0):  # noqa: ARG001
         calls["n"] += 1
         url = request.full_url
-        alias = "Yokohama, Japan" if "Yokohama%2C+Japan" in url or "Yokohama,+Japan" in url else None
-        return _FakeResponse(_payload(title="Yokohama", extract=extract, redirect_from=alias))
+        alias = "Exampleville, Demo" if "Exampleville%2C+Demo" in url or "Exampleville,+Demo" in url else None
+        return _FakeResponse(_payload(title="Exampleville", extract=extract, redirect_from=alias))
 
     _install_urlopen(monkeypatch, fake_urlopen)
 
-    redirected, lookup = load_wikipedia_article("Yokohama, Japan")
+    redirected, lookup = load_wikipedia_article("Exampleville, Demo")
     assert lookup == "miss"
-    assert redirected.canonical_title == "Yokohama"
-    canonical, canonical_lookup = load_wikipedia_article("Yokohama")
+    assert redirected.canonical_title == "Exampleville"
+    canonical, canonical_lookup = load_wikipedia_article("Exampleville")
     assert canonical_lookup == "hit"
     assert canonical is redirected
     assert calls["n"] == 1
@@ -114,8 +114,8 @@ def test_redirect_reuses_canonical_entry(monkeypatch: pytest.MonkeyPatch) -> Non
     # land on the same entry rather than allocate a second slot.
     reset_article_cache()
     calls["n"] = 0
-    first, _ = load_wikipedia_article("Yokohama")
-    alias, alias_lookup = load_wikipedia_article("Yokohama, Japan")
+    first, _ = load_wikipedia_article("Exampleville")
+    alias, alias_lookup = load_wikipedia_article("Exampleville, Demo")
     assert alias_lookup == "miss"
     assert alias is first
     assert len(get_article_cache()) == 1
@@ -129,15 +129,15 @@ def test_ttl_expiry_is_a_miss(monkeypatch: pytest.MonkeyPatch) -> None:
     reset_article_cache(cache)
 
     def fake_urlopen(request, timeout=0):  # noqa: ARG001
-        return _FakeResponse(_payload(title="Yokohama", extract=extract))
+        return _FakeResponse(_payload(title="Exampleville", extract=extract))
 
     _install_urlopen(monkeypatch, fake_urlopen)
 
-    _, first_lookup = load_wikipedia_article("Yokohama")
+    _, first_lookup = load_wikipedia_article("Exampleville")
     clock["t"] = 9.9
-    _, still_hit = load_wikipedia_article("Yokohama")
+    _, still_hit = load_wikipedia_article("Exampleville")
     clock["t"] = 10.0
-    _, expired = load_wikipedia_article("Yokohama")
+    _, expired = load_wikipedia_article("Exampleville")
     assert first_lookup == "miss"
     assert still_hit == "hit"
     assert expired == "miss"
@@ -150,41 +150,41 @@ def test_lru_evicts_oldest_canonical_article(monkeypatch: pytest.MonkeyPatch) ->
 
     def fake_urlopen(request, timeout=0):  # noqa: ARG001
         url = str(getattr(request, "full_url", request))
-        title = "Tokyo" if "Tokyo" in url else "Yokohama" if "Yokohama" in url else "Osaka"
+        title = "Tokyo" if "Tokyo" in url else "Exampleville" if "Exampleville" in url else "Osaka"
         return _FakeResponse(_payload(title=title, extract=f"{title} lead.\n"))
 
     _install_urlopen(monkeypatch, fake_urlopen)
 
-    load_wikipedia_article("Yokohama")
+    load_wikipedia_article("Exampleville")
     clock["t"] = 1.0
     load_wikipedia_article("Tokyo")
     clock["t"] = 2.0
     load_wikipedia_article("Osaka")
     assert len(cache) == 2
-    assert cache.get("Yokohama") is None
+    assert cache.get("Exampleville") is None
     assert cache.get("Tokyo") is not None
     assert cache.get("Osaka") is not None
 
     clock["t"] = 3.0
     load_wikipedia_article("Tokyo")  # hit, becomes most-recent
     clock["t"] = 4.0
-    load_wikipedia_article("Yokohama")  # miss, should evict Osaka
+    load_wikipedia_article("Exampleville")  # miss, should evict Osaka
     assert cache.get("Osaka") is None
     assert cache.get("Tokyo") is not None
-    assert cache.get("Yokohama") is not None
+    assert cache.get("Exampleville") is not None
 
 
 def test_fetch_wikipedia_article_shape(monkeypatch: pytest.MonkeyPatch) -> None:
     extract = "Lead paragraph.\n\n== Geography ==\nSouth of Tokyo.\n"
     _install_urlopen(
         monkeypatch,
-        lambda request, timeout=0: _FakeResponse(_payload(title="Yokohama", extract=extract)),
+        lambda request, timeout=0: _FakeResponse(_payload(title="Exampleville", extract=extract)),
     )
-    result = fetch_wikipedia_article("Yokohama")
-    assert result["canonical_title"] == "Yokohama"
+    result = fetch_wikipedia_article("Exampleville")
+    assert result["canonical_title"] == "Exampleville"
     assert result["lang"] == "en"
     assert result["extract"] == extract
-    assert result["headings"][0] == {"heading": "Yokohama", "level": 1}
+    assert result["headings"][0] == {"heading": "Exampleville", "level": 1}
     assert {"heading": "Geography", "level": 2} in result["headings"]
     assert "body" not in result
 
@@ -197,7 +197,7 @@ def test_slow_miss_does_not_block_hit_on_a_warm_key() -> None:
     """
 
     cache = WikipediaExtractCache(maxsize=8, ttl_seconds=60.0)
-    cache.put(WikipediaArticle(canonical_title="Yokohama", lang="en", extract="warm lead."))
+    cache.put(WikipediaArticle(canonical_title="Exampleville", lang="en", extract="warm lead."))
 
     started_load = threading.Event()
     release_load = threading.Event()
@@ -225,9 +225,9 @@ def test_slow_miss_does_not_block_hit_on_a_warm_key() -> None:
         try:
             if not started_load.wait(timeout=5):
                 raise TimeoutError("slow miss never entered the loader")
-            article, lookup = cache.get_or_load("Yokohama", "en", forbidden_loader)
+            article, lookup = cache.get_or_load("Exampleville", "en", forbidden_loader)
             assert lookup == "hit"
-            assert article.canonical_title == "Yokohama"
+            assert article.canonical_title == "Exampleville"
             assert article.extract == "warm lead."
         except BaseException as exc:  # noqa: BLE001
             errors.append(exc)
@@ -296,7 +296,7 @@ def test_cache_survives_concurrent_heading_reads(monkeypatch: pytest.MonkeyPatch
 
     def fake_urlopen(request, timeout=0):  # noqa: ARG001
         calls["n"] += 1
-        return _FakeResponse(_payload(title="Yokohama", extract=extract))
+        return _FakeResponse(_payload(title="Exampleville", extract=extract))
 
     _install_urlopen(monkeypatch, fake_urlopen)
 
@@ -305,7 +305,7 @@ def test_cache_survives_concurrent_heading_reads(monkeypatch: pytest.MonkeyPatch
     def worker() -> None:
         try:
             started.wait(timeout=5)
-            load_wikipedia_article("Yokohama")
+            load_wikipedia_article("Exampleville")
         except BaseException as exc:  # noqa: BLE001
             errors.append(exc)
 
@@ -324,7 +324,7 @@ def test_network_error_is_not_cached(monkeypatch: pytest.MonkeyPatch) -> None:
 
     _install_urlopen(monkeypatch, always_fails)
     with pytest.raises(WikipediaFetchError):
-        load_wikipedia_article("Yokohama")
+        load_wikipedia_article("Exampleville")
     cache = get_article_cache()
     assert len(cache) == 0
     assert cache.misses == 1

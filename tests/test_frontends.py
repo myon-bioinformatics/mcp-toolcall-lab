@@ -131,15 +131,15 @@ def test_wait_for_assistant_requires_a_new_bubble_when_min_count_set() -> None:
     page = _FakePage(n=1, last_text="hello")
     assert wait_for_assistant(page, OPENWEBUI, min_count=2) is False
     page.n = 2
-    page.last_text = "Yokohama (code 14109)"
+    page.last_text = "Exampleville (code 90001)"
     assert (
         wait_for_assistant(
             page,
             OPENWEBUI,
             min_count=2,
-            text_in_last="Yokohama",
+            text_in_last="Exampleville",
         )
         is True
     )
     assert page.calls[-1][0]["n"] == 2
-    assert page.calls[-1][0]["text"] == "yokohama"
+    assert page.calls[-1][0]["text"] == "exampleville"

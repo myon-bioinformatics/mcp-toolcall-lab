@@ -143,7 +143,7 @@ terminal with the same environment, exercise a deterministic mock:
 
 ```bash
 fastmcp list http://127.0.0.1:8000/mcp --json
-fastmcp call http://127.0.0.1:8000/mcp find_municipalities query=Yokohama --json
+fastmcp call http://127.0.0.1:8000/mcp find_municipalities query=Exampleville --json
 scripts/mcp_curl_smoke.sh
 scripts/mcp_fastmcp_cli_smoke.sh
 ```
@@ -292,7 +292,7 @@ offline; it does not fetch the live article like the Python tools. The local
 `/wiki` endpoint is a separate stub:
 
 ```bash
-python -m mcp_toolcall_lab.stub_front turn --heading Yokohama
+python -m mcp_toolcall_lab.stub_front turn --heading Exampleville
 python -m mcp_toolcall_lab.stub_front serve --port 8765
 python -m mcp_toolcall_lab.stub_front pages --out _site --last-run test-results/last-run.json
 ```
@@ -302,6 +302,10 @@ is pinned from web-ui; tool execution, fixtures, traces, and protocol behavior
 remain owned here. See [Pages/stub boundaries](docs/stub_pages.md),
 [local stub roadmap](docs/stub_front_roadmap.md), and the separate
 [Wikipedia-only Deno MCP deployment](docs/wikipedia_mcp_deploy.md).
+
+The public municipality examples use fictional Exampleville / Example Region
+(code `90001`), not a user location. Live Wikipedia starts with an empty title;
+offline article fixtures are synthetic.
 
 ## Tests and optional experiments
 

@@ -23,14 +23,14 @@ URL="${1:-http://127.0.0.1:8000/mcp}"
 echo "== fastmcp list ==" >&2
 fastmcp list "$URL" --json
 
-echo "== fastmcp call find_municipalities query=Yokohama ==" >&2
-fastmcp call "$URL" find_municipalities query=Yokohama --json
+echo "== fastmcp call find_municipalities query=Exampleville ==" >&2
+fastmcp call "$URL" find_municipalities query=Exampleville --json
 
 echo "== fastmcp call find_stations (unknown municipality -> empty result) ==" >&2
 fastmcp call "$URL" find_stations municipality_code=00000 --json
 
 echo "== fastmcp call find_transaction_price (unknown tool -> non-zero exit) ==" >&2
-if fastmcp call "$URL" find_transaction_price query=Yokohama --json; then
+if fastmcp call "$URL" find_transaction_price query=Exampleville --json; then
     echo "expected a non-zero exit for an unknown tool" >&2
     exit 1
 fi

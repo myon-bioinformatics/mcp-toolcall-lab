@@ -120,9 +120,9 @@ async def test_initialize_list_and_call_via_streamable_http(mcp_url: str):
         tools = await session.list_tools()
         assert advertised_specs_from_list_tools(tools.tools) == EXPECTED_TOOL_SPECS
 
-        result = await session.call_tool("find_municipalities", {"query": "Yokohama"})
+        result = await session.call_tool("find_municipalities", {"query": "Exampleville"})
         assert not result.is_error
-        assert "Yokohama" in result.content[0].text
+        assert "Exampleville" in result.content[0].text
 
 
 @pytest.mark.integration
@@ -141,15 +141,15 @@ async def test_librechat_standalone_file_advertises_the_same_tool_specs_over_htt
             tools = await session.list_tools()
             assert advertised_specs_from_list_tools(tools.tools) == EXPECTED_TOOL_SPECS
 
-            result = await session.call_tool("find_municipalities", {"query": "Yokohama"})
+            result = await session.call_tool("find_municipalities", {"query": "Exampleville"})
             assert not result.is_error
-            assert "Yokohama" in result.content[0].text
+            assert "Exampleville" in result.content[0].text
 
 
 @pytest.mark.integration
 async def test_unknown_tool_is_error(mcp_url: str):
     async for session in _session(mcp_url):
-        result = await session.call_tool("find_transaction_price", {"query": "Yokohama"})
+        result = await session.call_tool("find_transaction_price", {"query": "Exampleville"})
         assert result.is_error
         assert "find_transaction_price" in result.content[0].text
 
@@ -167,7 +167,7 @@ async def test_type_mismatch_is_error(mcp_url: str):
     async for session in _session(mcp_url):
         result = await session.call_tool(
             "find_transaction_prices",
-            {"municipality_code": 14109, "year": 2025},
+            {"municipality_code": 90001, "year": 2025},
         )
         assert result.is_error
         assert "string" in result.content[0].text.lower() or "municipality_code" in result.content[0].text
@@ -191,7 +191,7 @@ async def test_timeout_raises_on_slow_tool():
             async with ClientSession(read_stream, write_stream) as session:
                 await session.initialize()
                 task = asyncio.create_task(
-                    session.call_tool("find_stations", {"municipality_code": "14109"})
+                    session.call_tool("find_stations", {"municipality_code": "90001"})
                 )
                 try:
                     with pytest.raises(TimeoutError):
@@ -209,7 +209,7 @@ async def test_jsonl_log_records_success_empty_and_error():
         log_path = str(Path(tmp) / "toolcalls.jsonl")
         with running_mcp_server(MCP_TOOLCALL_LOG=log_path) as server:
             async for session in _session(server.url):
-                ok = await session.call_tool("find_municipalities", {"query": "Yokohama"})
+                ok = await session.call_tool("find_municipalities", {"query": "Exampleville"})
                 assert not ok.is_error
                 empty = await session.call_tool("find_stations", {"municipality_code": "00000"})
                 assert not empty.is_error

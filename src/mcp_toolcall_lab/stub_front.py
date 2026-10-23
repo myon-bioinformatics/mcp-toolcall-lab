@@ -10,7 +10,7 @@ LibreChat / Open WebUI stay the products under test. This module is a
   ``#response-content-container``) so Playwright can point here without Docker.
 * ``/c/{chat_id}`` mints and keeps a lab chat id, then puts it on MCP
   ``_meta`` *and* ``X-Chat-Id`` so the mock log is never an orphan row.
-* Prompts that look like the lab tools (Yokohama / stations / prices) take
+* Prompts that look like the lab tools (Exampleville / stations / prices) take
   the MCP path instead of heading lookup — the case split the real UIs hide.
 
 No FastMCP / Playwright import on the serve path. MCP is optional urllib
@@ -18,7 +18,7 @@ JSON-RPC (``initialize`` → ``tools/list`` → ``tools/call``, the same
 handshake Open WebUI and LibreChat use); without ``--mcp`` the catalog is
 called in-process and still logged.
 
-    python -m mcp_toolcall_lab.stub_front turn --heading "Yokohama"
+    python -m mcp_toolcall_lab.stub_front turn --heading "Exampleville"
     python -m mcp_toolcall_lab.stub_front serve --port 8765
     python -m mcp_toolcall_lab.stub_front serve --mcp http://127.0.0.1:8000/mcp
 """
@@ -129,8 +129,8 @@ def load_corpus(root: Path | None = None) -> list[Section]:
 
 def _municipality_query(text: str) -> str:
     lowered = text.lower()
-    if "yokohama" in lowered or "横浜" in text:
-        return "Yokohama"
+    if "exampleville" in lowered or "サンプル市" in text:
+        return "Exampleville"
     if "matsudo" in lowered:
         return "Matsudo"
     if "chiyoda" in lowered or "tokyo" in lowered:
@@ -142,8 +142,8 @@ def _station_args(text: str) -> dict[str, Any]:
     lowered = text.casefold()
     if "00000" in text or "unknown" in lowered:
         code = "00000"
-    elif "yokohama" in lowered or "横浜" in text:
-        code = "14109"
+    elif "exampleville" in lowered or "サンプル市" in text:
+        code = "90001"
     elif "matsudo" in lowered:
         code = "12207"
     else:
@@ -156,10 +156,10 @@ MCP_PATTERNS: tuple[tuple[tuple[str, ...], str, Any], ...] = (
     (
         ("price", "transaction", "価格", "find_transaction"),
         "find_transaction_prices",
-        lambda _text: {"municipality_code": "14109", "year": 2025},
+        lambda _text: {"municipality_code": "90001", "year": 2025},
     ),
     (
-        ("yokohama", "横浜", "municipalit", "市区町村", "find_municipalities"),
+        ("exampleville", "サンプル市", "municipalit", "市区町村", "find_municipalities"),
         "find_municipalities",
         lambda text: {"query": _municipality_query(text)},
     ),
@@ -449,7 +449,7 @@ def pages_summary(
         "cpu_llm_completion_ok": last_run.get("cpu_llm_completion_ok"),
         "stub_ok": health.get("status") == 200,
         "turn_http": last_run.get("turn_http"),
-        "showed_expected_fragment": "yokohama" in assistant.lower(),
+        "showed_expected_fragment": "exampleville" in assistant.lower(),
         "observation_n": len(observations),
         "antipattern_ids": ids,
     }
@@ -703,7 +703,7 @@ def _pages_wiki_markdown(md: Any) -> str:
             "that path is the local stdlib stub. MCP tools / local form:",
             md.code_block(PAGES_WIKI_SERVE, lang="bash"),
             "CI screenshots of the local stub still use "
-            "`fixtures/wikipedia/yokohama_extract.json`. A heading switch on this "
+            "`fixtures/wikipedia/exampleville_extract.json`. A heading switch on this "
             "panel reuses the in-memory extract (no second fetch).",
         ],
     )
@@ -717,7 +717,7 @@ def _pages_wiki_app_html(*, cache_bust: str = "") -> str:
         '<form id="pages-wiki-form" data-testid="pages-wiki-form">'
         "<p>"
         '<label for="pages-wiki-title">Wikipedia title</label> '
-        '<input id="pages-wiki-title" name="title" value="Yokohama" '
+        '<input id="pages-wiki-title" name="title" value="" '
         'placeholder="Article title" data-testid="pages-wiki-title">'
         "</p>"
         "<p>"
@@ -1158,7 +1158,7 @@ def _page(chat_id: str, turns: list[Turn], prompt: str = "", sections: list[Sect
             f'<article id="{OWUI_RESPONSE}">{_assistant_html(turn.assistant)}</article>'
             f"</section>"
         )
-    thread = "\n".join(bubbles) or "<p>Send a heading (e.g. <code>Find municipalities</code>) or <code>Yokohama</code>.</p>"
+    thread = "\n".join(bubbles) or "<p>Send a heading (e.g. <code>Find municipalities</code>) or <code>Exampleville</code>.</p>"
     options = ['<option value="">(heading)</option>']
     for section in sections or []:
         options.append(f'<option value="{html.escape(section.title)}">{html.escape(section.title)}</option>')

@@ -66,7 +66,7 @@ split. It is not a product clone and not a CommonMark engine.
 ## One-liners
 
 ```bash
-python -m mcp_toolcall_lab.stub_front turn --heading "Yokohama"
+python -m mcp_toolcall_lab.stub_front turn --heading "Exampleville"
 python -m mcp_toolcall_lab.stub_front serve --port 8765   # then open /wiki
 python -m mcp_toolcall_lab.trace_probe --chat-id chat_lab1
 ```

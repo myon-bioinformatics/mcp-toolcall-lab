@@ -16,7 +16,7 @@ import openai_toolcall_mock as mock  # noqa: E402
 
 def test_no_tools_is_plain_text_for_picker_off() -> None:
     message = mock.decide_assistant_message(
-        {"messages": [{"role": "user", "content": "Find municipalities named Yokohama"}]}
+        {"messages": [{"role": "user", "content": "Find municipalities named Exampleville"}]}
     )
     assert message.get("tool_calls") is None
     assert "No MCP tools were attached" in message["content"]
@@ -24,7 +24,7 @@ def test_no_tools_is_plain_text_for_picker_off() -> None:
 
 def test_librechat_prefixed_tool_name_emits_tool_call() -> None:
     body = {
-        "messages": [{"role": "user", "content": "Find municipalities named Yokohama"}],
+        "messages": [{"role": "user", "content": "Find municipalities named Exampleville"}],
         "tools": [
             {
                 "type": "function",
@@ -37,26 +37,26 @@ def test_librechat_prefixed_tool_name_emits_tool_call() -> None:
     }
     message = mock.decide_assistant_message(body)
     assert message["tool_calls"][0]["function"]["name"] == "find_municipalities_mcp_lab"
-    assert "Yokohama" in message["tool_calls"][0]["function"]["arguments"]
+    assert "Exampleville" in message["tool_calls"][0]["function"]["arguments"]
 
 
-def test_tool_result_turn_returns_yokohama() -> None:
+def test_tool_result_turn_returns_exampleville() -> None:
     message = mock.decide_assistant_message(
         {
             "messages": [
-                {"role": "user", "content": "Find municipalities named Yokohama"},
+                {"role": "user", "content": "Find municipalities named Exampleville"},
                 {"role": "assistant", "tool_calls": [{"id": "call_1"}]},
-                {"role": "tool", "tool_call_id": "call_1", "content": '[{"name":"Yokohama"}]'},
+                {"role": "tool", "tool_call_id": "call_1", "content": '[{"name":"Exampleville"}]'},
             ]
         }
     )
-    assert "Yokohama" in message["content"]
+    assert "Exampleville" in message["content"]
     assert message.get("tool_calls") is None
 
 
 def test_completion_and_call_ids_are_prefixed() -> None:
     body = {
-        "messages": [{"role": "user", "content": "Find municipalities named Yokohama"}],
+        "messages": [{"role": "user", "content": "Find municipalities named Exampleville"}],
         "tools": [{"type": "function", "function": {"name": "find_municipalities_mcp_lab"}}],
     }
     message = mock.decide_assistant_message(body)
@@ -76,7 +76,7 @@ def test_completion_and_call_ids_are_prefixed() -> None:
 
 def test_openwebui_prefixed_tool_name_emits_tool_call() -> None:
     body = {
-        "messages": [{"role": "user", "content": "Find municipalities named Yokohama"}],
+        "messages": [{"role": "user", "content": "Find municipalities named Exampleville"}],
         "tools": [
             {
                 "type": "function",
@@ -91,7 +91,7 @@ def test_openwebui_prefixed_tool_name_emits_tool_call() -> None:
     assert message["tool_calls"][0]["function"]["name"] == "lab_find_municipalities"
     projected = mock.wire_messages_projection(
         [
-            {"role": "user", "content": "Find municipalities named Yokohama"},
+            {"role": "user", "content": "Find municipalities named Exampleville"},
             message,
             {"role": "tool", "tool_call_id": message["tool_calls"][0]["id"], "content": "[]"},
         ]

@@ -7,12 +7,12 @@ deterministic "model": send the title, get this section's body.
 
 `find_municipalities` looks up mock cities by name or prefecture.
 
-Known rows: Chiyoda (13101, Tokyo), Yokohama (14109, Kanagawa),
+Known rows: Chiyoda (13101, Tokyo), Exampleville (90001, Example Region),
 Matsudo (12207, Chiba). A blank query is empty, not an error.
 
 ## Find stations
 
-`find_stations` takes a `municipality_code`. Yokohama → JR Yokohama;
+`find_stations` takes a `municipality_code`. Exampleville → JR Exampleville;
 unknown codes return `[]`.
 
 ## Tracing

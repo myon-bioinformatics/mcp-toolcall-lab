@@ -39,7 +39,7 @@ same compose network (`mcp-toolcall-lab-openwebui`) as:
 
 1. `mcp-mock` — this repo's Streamable HTTP MCP server (`openwebui_mcp_mock.py`)
 2. `openai-mock` — `demos/openai_toolcall_mock.py`, a stdlib OpenAI-compatible
-   server that emits `tool_calls` for Yokohama / municipalities (Open WebUI
+   server that emits `tool_calls` for Exampleville / municipalities (Open WebUI
    prefixes MCP tools as `{info.id}_{tool}` on the OpenAI wire, e.g.
    `lab_find_municipalities`; the MCP `tools/call` name stays
    `find_municipalities`)
@@ -66,7 +66,7 @@ The Playwright job asserts the product loop, not a lab stand-in:
 4. MCP Streamable HTTP `initialize` (and `notifications/initialized` when sent)
 5. `tools/list` → `tools/call`
 6. follow-up completion with `role: "tool"` and the same `tool_call_id`
-7. final assistant text containing Yokohama in `#response-content-container`
+7. final assistant text containing Exampleville in `#response-content-container`
 8. UI message id: `X-OpenWebUI-Message-Id` on MCP `tools/call` equals a
    message id from Open WebUI's own `GET /api/v1/chats/{id}` history
    (not a lab `chat_*` / `call_*`, not an unsubstituted `{{MESSAGE_ID}}`).

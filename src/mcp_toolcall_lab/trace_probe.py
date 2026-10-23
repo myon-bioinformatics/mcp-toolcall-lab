@@ -17,7 +17,7 @@ Typical use::
         --url 'http://127.0.0.1:3080/c/66f012345678901234567890'
 
 Same ID string in two hops joins them (union-find). We do **not** join on
-shared user text by default — every Yokohama smoke would collapse into one
+shared user text by default — every Exampleville smoke would collapse into one
 blob. Pin a ``chat_id`` (or any other minted id) and the probe returns the
 cluster hanging off it.
 

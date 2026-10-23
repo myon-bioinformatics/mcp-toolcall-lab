@@ -67,7 +67,7 @@ def decide(body: dict[str, Any]) -> dict[str, Any]:
             break
     lowered = user.lower()
     municipality = next((name for name in names if "find_municipalities" in name), None)
-    if municipality and ("yokohama" in lowered or "municipalit" in lowered):
+    if municipality and ("exampleville" in lowered or "municipalit" in lowered):
         return {
             "role": "assistant",
             "content": None,
@@ -77,7 +77,7 @@ def decide(body: dict[str, Any]) -> dict[str, Any]:
                     "type": "function",
                     "function": {
                         "name": municipality,
-                        "arguments": json.dumps({"query": "Yokohama"}),
+                        "arguments": json.dumps({"query": "Exampleville"}),
                     },
                 }
             ],
@@ -86,7 +86,7 @@ def decide(body: dict[str, Any]) -> dict[str, Any]:
         "role": "assistant",
         "content": (
             f"lab-cpu-lite heard {user!r}. Accuracy is out of scope. "
-            "Ask for Yokohama municipalities with tools attached to try MCP."
+            "Ask for Exampleville municipalities with tools attached to try MCP."
         ),
     }
 
