@@ -347,8 +347,8 @@ def validate_summary_artifact(artifact: dict[str, Any], *, log_bytes: bytes | No
               and type(runtime_observed["observed_default_top_k"]) is int and runtime_observed["observed_default_top_k"] == sampler["top_k"]
               and runtime_observed["verification"] == "Owned local process; version/revision checked and executable bytes hashed. The version string alone is not producer authentication.",
               "Invalid runtime observation.")
-        version = runtime["version"].removeprefix("b")
-        _need(re.search(r"\bversion:\s*(?:b)?" + re.escape(version) + r"\s*\(" + re.escape(runtime["revision"][:7]) + r"[0-9a-f]*\)", runtime_observed["version_output"]) is not None,
+        from .portable_summary_build import runtime_version_matches
+        _need(runtime_version_matches(runtime_observed["version_output"], runtime),
               "Runtime observation version/revision mismatch.")
         build = artifact["build"]
         _need(isinstance(build, dict) and set(build) == {"source_sha", "build_run", "build_attempt"}

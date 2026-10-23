@@ -48,7 +48,7 @@ def synthetic_result(selection_request):
     log_key = hashlib.sha256(raw).hexdigest()
     receipt = {**observed, "schema": "lab-summary-receipt/1", "status": "generated",
                "execution_mode": "build_time_llama_cpp", "confidence": None,
-               "generated_text": text, "truncated": False, "runtime_observed": {"version_output": "version: 11046 (60081bb2)\nSYNTHETIC UNIT TEST ONLY",
+               "generated_text": text, "truncated": False, "runtime_observed": {"version_output": "version: 0.4.1-dev (build 11046, commit 60081bb2b)\nSYNTHETIC UNIT TEST ONLY",
                    "binary_sha256": "f" * 64, "observed_default_top_k": 40,
                    "verification": "Owned local process; version/revision checked and executable bytes hashed. The version string alone is not producer authentication."},
                "confidence_reason": "Uncalibrated model output; no probability of correctness is claimed.",
@@ -587,3 +587,40 @@ def test_coverage_rejects_invalid_records_instead_of_inventing_counts(selection_
     case["source_sha256"] = "f" * 64
     with pytest.raises(corpus.CorpusError):
         corpus.summarize_case_coverage(iter([case]))
+
+
+@pytest.mark.parametrize("version", [
+    "version: 0.4.1-dev (build 11046, commit 60081bb2b)",
+    "version: 11046 (60081bb2)",
+    "version: b11046 (60081bb)",
+    f"version: 0.4.1-dev (build 11046, commit {build.RUNTIME['revision']})",
+])
+def test_runtime_observation_accepts_recorded_build_and_entire_revision(selection_request, version):
+    artifact, raw = synthetic_result(selection_request)
+    artifact['receipt']['runtime_observed']['version_output'] = version
+    assert corpus.validate_summary_artifact(artifact, log_bytes=raw) == artifact
+
+
+@pytest.mark.parametrize("version", [
+    "version: 0.4.1-dev (build 11045, commit 60081bb2b)",
+    "version: 0.4.1-dev (build 11046, commit deadbeef0)",
+    "version: 0.4.1-dev (build 11046, commit 60081bb2b0)",
+    "version: 0.4.1-dev (build 11046, commit 60081bbdeadbeef)",
+    "version: 11046 (60081bbdeadbeef)",
+    "version: 11046 (60081bb2b0)",
+    f"version: 0.4.1-dev (build 11046, commit {build.RUNTIME['revision']}0)",
+    "version: 11046 (60081bb2)\nversion: 11045 (60081bb2)",
+])
+def test_runtime_observation_rejects_wrong_build_or_commit_extension(selection_request, version):
+    artifact, raw = synthetic_result(selection_request)
+    artifact['receipt']['runtime_observed']['version_output'] = version
+    with pytest.raises(corpus.CorpusError, match='version/revision'):
+        corpus.validate_summary_artifact(artifact, log_bytes=raw)
+
+
+def test_artifact_validator_uses_shared_runtime_matcher(selection_request):
+    artifact, raw = synthetic_result(selection_request)
+    with patch.object(build, 'runtime_version_matches', return_value=False) as matcher:
+        with pytest.raises(corpus.CorpusError, match='version/revision'):
+            corpus.validate_summary_artifact(artifact, log_bytes=raw)
+    matcher.assert_called_once_with(artifact['receipt']['runtime_observed']['version_output'], artifact['summary_request']['runtime'])

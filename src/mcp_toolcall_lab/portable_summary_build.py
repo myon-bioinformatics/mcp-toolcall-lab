@@ -175,6 +175,32 @@ def verify_model(model_path: Path) -> None:
         raise SummaryBuildError("Model SHA-256 does not match the pinned public GGUF.")
 
 
+def runtime_version_matches(output: str, runtime: dict[str, Any]) -> bool:
+    """Check one version line against the recorded build and full revision.
+
+    Current upstream prints a semantic version plus build/commit; historical
+    receipts print the build directly. The semantic label is syntax, not an
+    alternative identity: both forms must match the exact recorded build and
+    every reported commit character, not merely its first seven characters.
+    """
+    if not isinstance(output, str) or not 0 < len(output) <= 4096 or not isinstance(runtime, dict):
+        return False
+    expected_build = runtime.get("version")
+    revision = runtime.get("revision")
+    if (not isinstance(expected_build, str) or re.fullmatch(r"b?[0-9]+", expected_build) is None
+            or not isinstance(revision, str) or re.fullmatch(r"[0-9a-f]{40}", revision) is None):
+        return False
+    lines = [line.strip() for line in output.splitlines() if line.lstrip().startswith("version:")]
+    if len(lines) != 1:
+        return False
+    legacy = re.fullmatch(r"version:[ \t]+b?([0-9]+)[ \t]+\(([0-9a-f]{7,40})\)", lines[0])
+    modern = re.fullmatch(
+        r"version:[ \t]+[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z][0-9A-Za-z.-]*)?"
+        r"(?:\+[0-9A-Za-z][0-9A-Za-z.-]*)?[ \t]+\(build ([0-9]+), commit ([0-9a-f]{7,40})\)", lines[0])
+    match = legacy or modern
+    return match is not None and match.group(1) == expected_build.removeprefix("b") and revision.startswith(match.group(2))
+
+
 def verify_runtime(binary: Path) -> dict[str, Any]:
     try:
         result = subprocess.run([str(binary), "--version"], capture_output=True, timeout=15, check=True)
@@ -199,9 +225,7 @@ def verify_runtime(binary: Path) -> dict[str, Any]:
                 detail += f"; pre-inference --version stderr tail: {tail}"
         raise SummaryBuildError(f"Cannot inspect llama-server --version ({detail}).") from exc
     version = (result.stdout + result.stderr).decode("utf-8", errors="replace")
-    # llama.cpp prints: version: 11046 (60081bb2), followed by compiler details.
-    match = re.search(r"\bversion:\s*(?:b)?11046\s*\(([0-9a-f]{7,40})\)", version)
-    if match is None or not RUNTIME["revision"].startswith(match.group(1)):
+    if not runtime_version_matches(version, RUNTIME):
         raise SummaryBuildError("llama-server version/revision does not match the pinned runtime.")
     with binary.open("rb") as handle:
         binary_sha256 = hashlib.file_digest(handle, "sha256").hexdigest()

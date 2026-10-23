@@ -202,6 +202,36 @@ console.log(createHash('sha256').update(JSON.stringify(sort(JSON.parse(readFileS
                 observed = summary.verify_runtime(binary)
                 self.assertEqual(observed['binary_sha256'], hashlib.sha256(binary.read_bytes()).hexdigest())
 
+    def test_runtime_version_matches_actual_pinned_format_and_entire_commit_prefix(self):
+        actual = 'version: 0.4.1-dev (build 11046, commit 60081bb2b)'
+        accepted = [actual, actual + '\nbuilt with compiler details\n',
+            'version: 11046 (60081bb2)', 'version: b11046 (60081bb)',
+            f'version: 0.4.1-dev (build 11046, commit {summary.RUNTIME["revision"]})']
+        rejected = [actual.replace('build 11046', 'build 11045'),
+            actual.replace('60081bb2b', 'deadbeef0'),
+            actual.replace('60081bb2b', '60081bb2deadbeef'),
+            actual.replace('60081bb2b', '60081bb2b0'),  # matching prefix, wrong extension
+            actual.replace('60081bb2b', '60081b'),
+            actual.replace('60081bb2b', summary.RUNTIME['revision'] + '0'),
+            actual.replace('build 11046', 'build 011046'),
+            actual + ' trailing text', actual + '\n' + accepted[2],
+            'version: 11046 (60081bbdeadbeef)', 'version: 11046 (60081bb2b0)',
+            actual.replace('0.4.1-dev', 'not-a-version'), 'prefix ' + actual]
+        for output in accepted:
+            with self.subTest(accepted=output):
+                self.assertTrue(summary.runtime_version_matches(output, summary.RUNTIME))
+        for output in rejected:
+            with self.subTest(rejected=output):
+                self.assertFalse(summary.runtime_version_matches(output, summary.RUNTIME))
+        with tempfile.TemporaryDirectory() as temporary:
+            binary = Path(temporary) / 'llama-server'
+            binary.write_bytes(b'TEST ONLY: no runtime execution')
+            result = subprocess.CompletedProcess([], 0, b'', actual.encode())
+            with patch.object(summary.subprocess, 'run', return_value=result):
+                observed = summary.verify_runtime(binary)
+            self.assertEqual(observed['version_output'], actual)
+            self.assertEqual(observed['binary_sha256'], hashlib.sha256(binary.read_bytes()).hexdigest())
+
     def test_runtime_preflight_failure_reports_bounded_stderr_without_input_or_stdout(self):
         binary = Path('/unit-test/llama-server')
         failure = subprocess.CalledProcessError(127, [str(binary), '--version'],
