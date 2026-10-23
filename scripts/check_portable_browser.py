@@ -168,6 +168,35 @@ def check(site: Path, screenshot: Path, executable: str | None = None, *, requir
                     assert not require_generated, 'Docker export was expected to execute the pinned model'
                     assert actual['status'] == 'not_generated'
                     assert actual['generated_text'] is None
+            # Read every declared generated receipt through the actual UI. A token
+            # cap is a partial output, never a completed-quality claim. No model runs.
+            captured_partial = False
+            for index, choice in enumerate(choices):
+                entry = manifest['entries'][choice['source_selection_request_sha256']]
+                if entry['status'] != 'generated':
+                    continue
+                expected = json.loads((site / 'execution' / entry['receipt']).read_text())['receipt']
+                page.locator('#source-cases').select_option('')
+                page.locator('#source-cases').select_option(str(index))
+                page.wait_for_function("document.querySelector('#summary-lookup').disabled === false")
+                page.locator('#summary-lookup').click()
+                page.wait_for_function("!document.querySelector('#summary-lookup').disabled")
+                actual = json.loads(page.locator('#summary-notes').text_content())
+                assert actual['status'] == 'generated'
+                assert actual['provenance']['source_selection_request_sha256'] == choice['source_selection_request_sha256']
+                assert actual['generated_text'] == expected['generated_text']
+                assert page.locator('#generated-summary').inner_text() == expected['generated_text']
+                assert actual['truncated'] is expected['truncated']
+                assert actual['confidence'] is None
+                status = page.locator('#summary-status').inner_text()
+                assert status.startswith('Partial output:') is expected['truncated'], status
+                assert 'confidence is unknown' in status and 'quality is not guaranteed' in status
+                if expected['truncated']:
+                    assert 'stopped at the token limit' in status
+                    if not captured_partial:
+                        screenshot.parent.mkdir(parents=True, exist_ok=True)
+                        page.screenshot(path=str(screenshot.with_name(screenshot.stem + '-truncated.png')), full_page=True)
+                        captured_partial = True
             assert all(url == base + 'source-summary-manifest.json' or (((url.startswith(base + 'summaries/') and url.endswith('.json')) or (url.startswith(base + 'summary-logs/') and url.endswith('.jsonl'))) and '?' not in url) for url in requests), requests
             page.locator('#source-text').fill('Edited after lookup.')
             assert page.locator('#generated-summary').inner_text() == ''

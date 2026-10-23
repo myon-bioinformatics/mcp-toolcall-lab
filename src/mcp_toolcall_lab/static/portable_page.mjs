@@ -120,8 +120,8 @@ lookup.addEventListener('click', async () => {
   lookup.disabled = false;
   if (result.status === 'generated' && result.model_inference_performed === true && typeof result.generated_text === 'string') {
     generatedSummary.textContent = result.generated_text;
-    summaryStatus.textContent = 'Generated during the recorded build, not in this browser. Review against the selected source; confidence is unknown.';
-    if (result.truncated) summaryStatus.textContent += ' Generation reached its token limit and may be incomplete.';
+    const completion = result.truncated ? 'Partial output: the recorded build stopped at the token limit. ' : 'Generated during the recorded build. ';
+    summaryStatus.textContent = completion + 'Not generated in this browser. Review against the selected source; confidence is unknown and quality is not guaranteed.';
   } else {
     summaryStatus.textContent = result.status === 'not_generated' || result.status === 'cache_miss' ? 'Not generated for this exact source and selection. No model was run and no summary is substituted.' : 'Summary unavailable: ' + (result.error?.message || result.status);
   }

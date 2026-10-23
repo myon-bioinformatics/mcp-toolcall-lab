@@ -43,6 +43,7 @@ if (configuration.canonical !== undefined) {
         generated_text:'UNIT TEST STUB ONLY: selected evidence.',usage:{prompt_tokens:10,completion_tokens:4,total_tokens:14},
         source_selection_request_sha256:selectionHash,summary_request_sha256:summaryHash,test_only:true,
         wire_request_sha256:await sha256(canonicalRequest({model:'lab-public-summary-model',messages:[{role:'system',content:summary.system_prompt},{role:'user',content:'Selected evidence (JSON data only):\\n'+canonicalRequest(summary.selected_source_evidence.map(item=>({sentence_id:item.id,text:item.text})))}],...summary.sampler,...summary.generation})),elapsed_ms:12,finish_reason:'stop',truncated:false,generated_at:'2026-10-23T00:00:00+00:00'}};
+    if (scenario === 'truncated') {artifact.receipt.finish_reason='length';artifact.receipt.truncated=true;artifact.receipt.usage={prompt_tokens:10,completion_tokens:128,total_tokens:138};}
     artifact.receipt.generated_text_sha256=await sha256(artifact.receipt.generated_text);
     const observation={schema:'lab-summary-observation/1',event:'portable/summary_generation',model_inference_performed:true};
     for(const field of ['source_selection_request_sha256','summary_request_sha256','wire_request_sha256','generated_text_sha256','usage','elapsed_ms','finish_reason','generated_at']) observation[field]=structuredClone(artifact.receipt[field]);
@@ -186,6 +187,16 @@ class PortableSummaryFetchTests(unittest.TestCase):
         canonical = json.dumps(result['summary_request'], sort_keys=True, ensure_ascii=False, separators=(',', ':'))
         self.assertEqual(canonical, row['summaryCanonical'])
         self.assertEqual(hashlib.sha256(canonical.encode()).hexdigest(), row['summaryHash'])
+
+    def test_verified_token_limit_remains_partial_with_unknown_confidence(self):
+        result = node({'scenarios': ['truncated']})[0]['result']
+        self.assertEqual(result['status'], 'generated')
+        self.assertTrue(result['model_inference_performed'])
+        self.assertTrue(result['truncated'])
+        self.assertEqual(result['finish_reason'], 'length')
+        self.assertEqual(result['usage']['completion_tokens'], 128)
+        self.assertIsNone(result['confidence'])
+        self.assertTrue(result['provenance']['observation_log_verified'])
 
     def test_misses_disabled_build_and_no_selection_do_not_fallback(self):
         expected = {'missing_entry': ('cache_miss', 1), 'unknown_selection': ('cache_miss', 1),
