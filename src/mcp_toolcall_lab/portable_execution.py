@@ -34,7 +34,7 @@ def request_sha256(request: dict[str, Any]) -> str:
     return hashlib.sha256(canonical_request(request).encode("utf-8")).hexdigest()
 
 
-def execute(request: Any, *, adapter_path: str | Path | None = None, native_only: bool = False) -> dict[str, Any]:
+def execute(request: Any, *, adapter_path: str | Path | None = None, summary_dir: str | Path | None = None, native_only: bool = False) -> dict[str, Any]:
     if not isinstance(request, dict) or set(request) != {"schema", "operation", "input"} or request.get("schema") != CONTRACT:
         return failure("invalid_input", "Expected schema, operation and input only, with schema lab-execution/1.")
     try:
@@ -44,19 +44,24 @@ def execute(request: Any, *, adapter_path: str | Path | None = None, native_only
     if len(encoded) > MAX_REQUEST_BYTES:
         return failure("invalid_input", "Request exceeds 2 MiB.")
     operation = request["operation"]
-    if operation == "trace_summary":
+    if summary_dir is not None and (operation != "source_selection" or adapter_path is not None):
+        return failure("invalid_input", "--summary-dir requires only source_selection, without --adapter.")
+    if operation in ("trace_summary", "source_selection"):
         if native_only:
-            return failure("runtime_unavailable", "Python native-only mode does not duplicate the JavaScript log analyzer.")
+            return failure("runtime_unavailable", "Python native-only mode does not duplicate the JavaScript analyzers.")
         try:
-            completed = subprocess.run([os.environ.get("NODE", "node"), str(CORE), "--native-only"], input=encoded, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=15, check=True)
+            command = [os.environ.get("NODE", "node"), str(CORE), "--native-only"]
+            if summary_dir is not None:
+                command.extend(["--summary-dir", str(summary_dir)])
+            completed = subprocess.run(command, input=encoded, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=15, check=True)
             if len(completed.stdout) > 4 * 1024 * 1024:
                 return failure("bridge_failed", "Node receipt exceeds 4 MiB.")
             result = json.loads(completed.stdout)
-            if not isinstance(result, dict) or result.get("schema") != CONTRACT:
+            if not isinstance(result, dict) or result.get("schema") not in ({CONTRACT, "lab-summary-receipt/1"} if summary_dir is not None else {CONTRACT}):
                 return failure("bridge_failed", "Invalid Node receipt.")
             return result
         except (OSError, subprocess.SubprocessError, ValueError):
-            return failure("bridge_failed", "Node log-analysis process failed or exceeded its 15-second bridge limit.")
+            return failure("bridge_failed", "Node analysis process failed or exceeded its 15-second bridge limit.")
     if operation != "adapter_lookup":
         return failure("invalid_input", "Unknown operation; no execution was performed.")
     data = request["input"]
@@ -87,6 +92,7 @@ def execute(request: Any, *, adapter_path: str | Path | None = None, native_only
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--adapter", type=Path)
+    parser.add_argument("--summary-dir", type=Path, help="Verify exact local static summary artifacts; no model or network call")
     parser.add_argument("--native-only", action="store_true")
     args = parser.parse_args()
     raw = sys.stdin.buffer.read(MAX_REQUEST_BYTES + 1)
@@ -94,7 +100,7 @@ def main() -> None:
         if len(raw) > MAX_REQUEST_BYTES:
             raise ValueError("too large")
         request = json.loads(raw.decode("utf-8"))
-        result = execute(request, adapter_path=args.adapter, native_only=args.native_only)
+        result = execute(request, adapter_path=args.adapter, summary_dir=args.summary_dir, native_only=args.native_only)
     except (ValueError, UnicodeError, RecursionError):
         result = failure("invalid_input", "Expected one UTF-8 JSON request no larger than 2 MiB.")
     # Reuse the lab ledger, but do not copy raw user input into it.

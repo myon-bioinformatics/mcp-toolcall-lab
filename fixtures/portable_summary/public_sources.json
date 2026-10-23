@@ -1,0 +1,17 @@
+{
+  "schema": "lab-public-summary-fixtures/1",
+  "privacy": "Synthetic, repository-owned public examples only. No user or personal data.",
+  "sources": [
+    {
+      "id": "research-archive",
+      "title": "Fictional public research archive",
+      "text": "The demo archive stores public research notes. Each note keeps its source reference and selected evidence. Readers choose keyword hints before selecting evidence sentences. A build-time language model summarizes only the selected evidence.",
+      "choices": [
+        {"id": "overview", "label": "All four sentences", "keywords": [], "sentence_indexes": [0, 1, 2, 3]},
+        {"id": "evidence", "label": "Evidence references and selection", "keywords": ["evidence"], "sentence_indexes": [1, 2]},
+        {"id": "summary", "label": "Evidence and build-time summary", "keywords": ["evidence"], "sentence_indexes": [1, 3]},
+        {"id": "archive", "label": "Archive and source references", "keywords": [], "sentence_indexes": [0, 1]}
+      ]
+    }
+  ]
+}

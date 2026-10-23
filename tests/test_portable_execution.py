@@ -69,6 +69,55 @@ class PortableExecutionTests(unittest.TestCase):
         self.assertTrue(all(not r['calibrated'] for r in result['recorded_confidence']))
         self.assertEqual(len(result['annotations']), 2)
 
+    def test_source_selection_uses_same_node_core_and_stale_ids_fail_closed(self):
+        text = 'Graphs connect nodes. Graphs support routing. 原文を選択します。'
+        value = request('source_selection', text=text, keywords=[], sentence_ids=[])
+        initial = execute(value)
+        self.assertEqual(initial, node(value))
+        self.assertEqual(initial['selection_status'], 'none_selected')
+        value['input']['sentence_ids'] = [initial['sentences'][0]['id']]
+        selected = execute(value)
+        self.assertEqual(selected, node(value))
+        self.assertFalse(selected['model_inference_performed'])
+        self.assertIsNone(selected['confidence'])
+        self.assertIsNone(selected['summary_request']['generated_text'])
+        self.assertEqual(selected['summary_request']['runtime_status'], 'build_time_only')
+        self.assertEqual(selected['provenance']['request_sha256'], request_sha256(value))
+        value['input']['text'] += ' New source.'
+        self.assertEqual(execute(value)['status'], 'unsupported')
+        self.assertEqual(execute(value, native_only=True)['error']['code'], 'runtime_unavailable')
+
+    def test_summary_directory_uses_shared_verifier_in_both_clis(self):
+        from mcp_toolcall_lab.portable_summary_build import build_summaries
+        with tempfile.TemporaryDirectory() as directory:
+            out = Path(directory) / 'artifacts'
+            manifest = build_summaries(out, source_sha='a' * 40)
+            value = manifest['sources'][0]['choices'][0]['source_selection_request']
+            left = execute(value, summary_dir=out)
+            right = node(value, '--summary-dir', out)
+            self.assertEqual(left, right)
+            self.assertEqual(left['status'], 'not_generated')
+            self.assertIsNone(left['generated_text'])
+            self.assertFalse(left['model_inference_performed'])
+            missing = request('source_selection', text='A new local source.', keywords=[], sentence_ids=[])
+            missing['input']['sentence_ids'] = [execute(missing)['sentences'][0]['id']]
+            self.assertEqual(execute(missing, summary_dir=out), node(missing, '--summary-dir', out))
+            self.assertEqual(execute(missing, summary_dir=out)['status'], 'cache_miss')
+            self.assertEqual(execute(request(), summary_dir=out)['error']['code'], 'invalid_input')
+            # Out-of-band paths cannot make the local fetcher follow symlinks.
+            original = out / 'source-summary-manifest.json'
+            outside = Path(directory) / 'outside.json'
+            original.rename(outside)
+            original.symlink_to(outside)
+            self.assertEqual(execute(value, summary_dir=out)['error']['code'], 'artifact_unavailable')
+            self.assertEqual(execute(value, summary_dir=out), node(value, '--summary-dir', out))
+
+    def test_summary_cli_rejects_missing_or_conflicting_options(self):
+        value = request('source_selection', text='Source.', keywords=[], sentence_ids=[])
+        for args in [('--summary-dir',), ('--summary-dir', '--native-only'), ('--summary-dir', '.', '--summary-dir', '.')]:
+            self.assertEqual(node(value, *args)['error']['code'], 'invalid_input')
+        self.assertEqual(execute(value, summary_dir='.', adapter_path='x')['error']['code'], 'invalid_input')
+
     def test_empty_logs_are_zero_observations_not_confidence(self):
         result = execute(request(jsonl=' \n\n'))
         self.assertEqual(result['metrics']['records'], 0)
@@ -78,7 +127,9 @@ class PortableExecutionTests(unittest.TestCase):
         values = [None, [], {}, {'schema': CONTRACT, 'operation': 'trace_summary', 'input': {'jsonl': ''}, 'ignored': 1},
                   request('unknown', jsonl=''), request(jsonl=4), request(jsonl='not json'), request(jsonl='{}\n[]'),
                   request('adapter_lookup', selector={'query': 'a', 'position': 'b'}), request('adapter_lookup', selector={'query': ''}),
-                  request('adapter_lookup', selector={'query': False}), request('adapter_lookup', selector={'prompt': 'infer'})]
+                  request('adapter_lookup', selector={'query': False}), request('adapter_lookup', selector={'prompt': 'infer'}),
+                  {'schema': CONTRACT, 'operation': [], 'input': {}},
+                  {'schema': CONTRACT, 'operation': {}, 'input': {}}]
         for value in values:
             with self.subTest(value=value):
                 left, right = execute(value), node(value)
@@ -184,6 +235,13 @@ console.log(JSON.stringify([ok,miss,mismatch,offline]));'''.replace('CORE', json
             self.assertIn('location.replace', (out / 'index.html').read_text())
             meta = json.loads((target / 'build.json').read_text())
             self.assertEqual(meta['source_sha'], sha)
+            self.assertEqual(meta['summaries']['status'], 'not_generated')
+            self.assertFalse(meta['summaries']['model_inference_performed'])
+            manifest = json.loads((target / 'source-summary-manifest.json').read_text())
+            self.assertEqual(len(manifest['entries']), 4)
+            self.assertTrue(all(entry['status'] == 'not_generated' and entry['receipt'] is None for entry in manifest['entries'].values()))
+            self.assertFalse((target / 'summaries').exists())
+            self.assertFalse(any(path.suffix == '.gguf' for path in target.rglob('*')))
             example = [json.loads(line) for line in (target / 'example.jsonl').read_text().splitlines()]
             self.assertEqual(example[0]['arguments'], {'query': 'Exampleville'})
             self.assertEqual(example[0]['result'], [{'code': '90001', 'name': 'Exampleville', 'prefecture': 'Example Region'}])
@@ -208,6 +266,23 @@ console.log(JSON.stringify([ok,miss,mismatch,offline]));'''.replace('CORE', json
         docker = (ROOT / 'docker/portable-pages/Dockerfile').read_text()
         self.assertIn('FROM scratch AS artifact', docker)
         self.assertNotIn('CMD', docker)
+
+    def test_export_rejects_private_output_overlap_or_preexisting_files(self):
+        with tempfile.TemporaryDirectory() as directory:
+            out = Path(directory) / 'site'
+            command = [sys.executable, '-S', str(ROOT / 'scripts/build_portable_pages.py'), '--out', str(out), '--source-sha', 'a' * 40]
+            for flag in ('--reviewed-corpus', '--result-cache', '--model', '--llama-server'):
+                result = subprocess.run([*command, flag, str(out / 'private')], env=ENV, capture_output=True)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn(b'outside the public output', result.stderr)
+                self.assertFalse(out.exists())
+            out.mkdir()
+            (out / 'private.txt').write_text('Unpublished input')
+            result = subprocess.run(command, env=ENV, capture_output=True)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn(b'fresh empty directory', result.stderr)
+            self.assertEqual((out / 'private.txt').read_text(), 'Unpublished input')
+            self.assertFalse((out / 'execution').exists())
 
 
 if __name__ == '__main__':

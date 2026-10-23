@@ -7,11 +7,19 @@ on:
       - "vendor/**"
       - "vendor.lock.json"
       - "scripts/build_portable_pages.py"
+      - "scripts/fetch_tiny_cpu_gguf.py"
+      - "fixtures/portable_summary/**"
       - "scripts/check_portable_browser.py"
+      - "scripts/check_incremental_summary_build.py"
       - "scripts/write_portfolio_redirect.py"
       - "docker/portable-pages/**"
       - "docs/portable-execution.md"
+      - "docs/build-time-summaries.md"
+      - "docs/summary-corpus.md"
       - "tests/test_portable_execution.py"
+      - "tests/test_portable_source.py"
+      - "tests/test_portable_summary*.py"
+      - "tests/test_incremental_summary_build.py"
       - ".github/workflows/portable-pages.yml"
   push:
     branches: [main]
@@ -20,11 +28,19 @@ on:
       - "vendor/**"
       - "vendor.lock.json"
       - "scripts/build_portable_pages.py"
+      - "scripts/fetch_tiny_cpu_gguf.py"
+      - "fixtures/portable_summary/**"
       - "scripts/check_portable_browser.py"
+      - "scripts/check_incremental_summary_build.py"
       - "scripts/write_portfolio_redirect.py"
       - "docker/portable-pages/**"
       - "docs/portable-execution.md"
+      - "docs/build-time-summaries.md"
+      - "docs/summary-corpus.md"
       - "tests/test_portable_execution.py"
+      - "tests/test_portable_source.py"
+      - "tests/test_portable_summary*.py"
+      - "tests/test_incremental_summary_build.py"
       - ".github/workflows/portable-pages.yml"
   workflow_dispatch:
 
@@ -38,7 +54,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
         with:
@@ -50,12 +66,17 @@ jobs:
       - name: Test portable execution contract and bidirectional runtime
         env:
           PYTHONPATH: src
-        run: python -m unittest discover -s tests -p 'test_portable_execution.py' -v
+        run: |
+          python -m pip install "pytest>=9.1.1"
+          python -m pytest -q tests/test_portable_*.py tests/test_incremental_summary_build.py
       - name: Export static files from Docker build
         env:
           SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
           DOCKER_BUILDKIT: "1"
-        run: docker build --file docker/portable-pages/Dockerfile --target artifact --build-arg SOURCE_SHA="$SOURCE_SHA" --build-arg BUILD_RUN="$GITHUB_RUN_ID" --build-arg BUILD_ATTEMPT="$GITHUB_RUN_ATTEMPT" --output type=local,dest=_portable_site .
+        run: |
+          docker build --file docker/portable-pages/Dockerfile --target artifact --build-arg SOURCE_SHA="$SOURCE_SHA" --build-arg BUILD_RUN="$GITHUB_RUN_ID" --build-arg BUILD_ATTEMPT="$GITHUB_RUN_ATTEMPT" --output type=local,dest=_portable_site .
+          # Same local BuildKit graph: reuse the verified build, not a second inference run.
+          docker build --file docker/portable-pages/Dockerfile --target summary-handoff --build-arg SOURCE_SHA="$SOURCE_SHA" --build-arg BUILD_RUN="$GITHUB_RUN_ID" --build-arg BUILD_ATTEMPT="$GITHUB_RUN_ATTEMPT" --output type=local,dest=_summary_handoff .
       - name: Verify exported runtime without the source checkout
         run: |
           cd _portable_site/execution/runtime
@@ -67,12 +88,28 @@ jobs:
               receipt = json.load(open(filename))
               assert receipt['status'] == 'ok', receipt
               assert receipt['model_inference_performed'] is False
+          manifest = json.load(open('../source-summary-manifest.json'))
+          assert manifest['status'] == 'generated', manifest
+          selection = manifest['sources'][0]['choices'][0]['source_selection_request']
+          json.dump(selection, open('/tmp/source-selection.json', 'w'))
+          PY
+          PYTHONPATH=src python -S -m mcp_toolcall_lab.portable_execution --summary-dir .. < /tmp/source-selection.json > /tmp/python-summary.json
+          node src/mcp_toolcall_lab/static/portable_cli.mjs --summary-dir .. < /tmp/source-selection.json > /tmp/node-summary.json
+          python - <<'PY'
+          import json
+          python = json.load(open('/tmp/python-summary.json'))
+          node = json.load(open('/tmp/node-summary.json'))
+          assert python == node
+          assert python['status'] == 'generated', python
+          assert python['model_inference_performed'] is True
+          assert python['confidence'] is None
+          assert python['provenance']['observation_log_verified'] is True
           PY
       - name: Exercise browser input, snapshot miss and stale-result handling
         run: |
           python -m pip install "playwright>=1.63.0"
           python -m playwright install --with-deps --only-shell chromium
-          python scripts/check_portable_browser.py --site _portable_site --screenshot test-results/portable-desktop.png
+          python scripts/check_portable_browser.py --site _portable_site --screenshot test-results/portable-desktop.png --require-generated
       - name: Preserve browser evidence
         if: always()
         uses: actions/upload-artifact@v7
@@ -85,6 +122,12 @@ jobs:
         with:
           name: portable-pages-static
           path: _portable_site/
+          if-no-files-found: error
+      - name: Preserve reviewed-public incremental corpus handoff
+        uses: actions/upload-artifact@v7
+        with:
+          name: portable-summary-handoff
+          path: _summary_handoff/
           if-no-files-found: error
       - name: Upload Pages artifact
         if: github.ref == 'refs/heads/main'
