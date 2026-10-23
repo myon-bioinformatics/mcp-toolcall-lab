@@ -64,9 +64,16 @@ and `truncated`, never hidden by inventing a completed sentence.
 
 ## Public evidence boundary
 
-The default seed `fixtures/portable_summary/public_sources.json` contains only a
-fictional research archive and four explicitly declared keyword/sentence choices.
-It is checksum-pinned for privacy review. It is a seed, not the permanent corpus.
+The default seed `fixtures/portable_summary/public_sources.json` contains 12
+canonical, distinct keyword/sentence cases across four synthetic subject sources:
+research archive (4), seedling light trial (3), gear-housing tests (3), and audio
+duration study (2). The original archive text and its four choice hashes remain
+unchanged. Sources are 239–284 UTF-8 bytes, with no user data or personal geography.
+Five cases select no keyword filter, five select one keyword, and two select two
+keywords. Two cases select one sentence, nine select two to four sentences, and one
+selects five. Reordered arrays or renamed caller IDs do not count as new cases.
+These are input/selection coverage counts, not model-quality measurements.
+The fixture is checksum-pinned for privacy review. It is a seed, not the permanent corpus.
 The build budget is at most 16 **uncached generations**,
 4 KiB per public source, and eight selected sentences / 2 KiB evidence per
 summary. No automatic exhaustive combination generation is performed.
@@ -214,7 +221,9 @@ PYTHONPATH=src python3 -S scripts/check_incremental_summary_build.py check \
 The first fresh Python process generates one fixed synthetic case, then archives
 its complete corpus. The second fresh process reloads that corpus, appends a
 **different source**, reuses the exact first result and generates only the missing
-one. The check verifies two actual generation observations total, one reuse, two
+one. That second process explicitly submits both the old and new cases, verifying
+one duplicate and one genuinely novel addition. The check verifies two actual
+generation observations total, one reuse, two
 process IDs, and unchanged previous artifact/log bytes. Its final complete corpus
 and check evidence appear under `validation/` in the separate handoff target.
 Failure exits nonzero. No synthetic mock result is a fallback for real execution.

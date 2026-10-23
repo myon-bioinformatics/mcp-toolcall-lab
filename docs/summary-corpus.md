@@ -8,8 +8,12 @@ collection, establish quality, or make execution deterministic across machines.
 Nothing in this subsystem uploads, publishes, downloads models, schedules work,
 or launches inference. Browser-entered text stays in that browser unless its user
 explicitly downloads it. A browser export is **not** approval to publish it.
-The default build may seed the reviewed synthetic fixture; later rounds can supply
-an explicitly reviewed corpus and reuse an explicitly selected local result cache.
+The default build may seed the reviewed synthetic fixture: 12 unique cases across
+four subjects (research archive, seedling light trial, gear-housing tests, and audio
+duration study). Later rounds can supply an explicitly reviewed corpus and reuse
+an explicitly selected local result cache. These are distinct-input/selection
+coverage counts, not accuracy measurements; array permutations and caller ID changes
+never add new cases.
 
 ## Local request ingestion
 

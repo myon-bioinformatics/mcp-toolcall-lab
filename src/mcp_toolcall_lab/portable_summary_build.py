@@ -27,7 +27,7 @@ from .mock.common import append_jsonl
 
 ROOT = Path(__file__).resolve().parents[2]
 FIXTURE = ROOT / "fixtures/portable_summary/public_sources.json"
-FIXTURE_SHA256 = "089db02b5c54aed57437d16bdf83350e88ed73c1f89b01ff83b8a351459c3f68"
+FIXTURE_SHA256 = "9970f8a8b0cd3d8a828a8b2c98c27be2e7b78b34cc3ec8c9887fd8c10188dd7e"
 MODEL = {
     "repo": "bartowski/SmolLM2-135M-Instruct-GGUF",
     "revision": "09816acd5d99df7be770d85ea30822623dab342c",

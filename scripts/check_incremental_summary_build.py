@@ -375,8 +375,11 @@ def run_check(*, out: Path, source_sha: str, model: Path, llama_server: Path) ->
     inputs = out / "reviewed-inputs"
     inputs.mkdir()
     cases = [_synthetic_case(0), _synthetic_case(1)]
-    for index, case in enumerate(cases, 1):
-        (inputs / f"round-{index}.jsonl").write_text(canonical_request(case) + "\n", encoding="utf-8")
+    # Re-submit the prior case with the new case in round two. The real build
+    # must report the duplicate, not count or generate it as a new case.
+    for index, additions in enumerate(([cases[0]], cases), 1):
+        (inputs / f"round-{index}.jsonl").write_text(
+            "".join(canonical_request(case) + "\n" for case in additions), encoding="utf-8")
     common = ["--source-sha", source_sha, "--model", str(model.resolve()), "--llama-server", str(llama_server.resolve())]
     first = out / "round-1"
     second = out / "round-2"
@@ -394,6 +397,9 @@ def run_check(*, out: Path, source_sha: str, model: Path, llama_server: Path) ->
           and reports[1]["counts_after"]["results"] == 2
           and reports[1]["input_snapshot_sha256"] == reports[0]["corpus_snapshot_sha256"],
           "The second process did not restore the complete first-round corpus and append the different case.")
+    _need(reports[1]["submitted_additions"] == 2 and reports[1]["distinct_cases_added"] == 1
+          and reports[1]["duplicate_additions"] == 1,
+          "The repeated case was not reported as a duplicate during the real second round.")
     manifests = [json.loads((directory / "execution/source-summary-manifest.json").read_text(encoding="utf-8")) for directory in (first, second)]
     old_key = cases[0]["source_selection_request_sha256"]
     old_entry, reused_entry = manifests[0]["entries"][old_key], manifests[1]["entries"][old_key]

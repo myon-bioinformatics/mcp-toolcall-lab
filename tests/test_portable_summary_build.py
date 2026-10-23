@@ -11,7 +11,9 @@ from unittest.mock import Mock, patch
 
 from mcp_toolcall_lab import portable_summary_build as summary
 from mcp_toolcall_lab.portable_execution import canonical_request, execute, request_sha256
-from mcp_toolcall_lab.portable_summary_corpus import SummaryCorpus, make_case
+from mcp_toolcall_lab.portable_summary_corpus import (
+    SummaryCorpus, make_case, normalize_selection_request, summarize_case_coverage,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE_SHA = 'a' * 40
@@ -43,10 +45,14 @@ class PortableSummaryBuildTests(unittest.TestCase):
     def setUpClass(cls):
         cls.sources = summary.declared_sources()
         cls.selection = cls.sources[0]['choices'][1]['source_selection_request']
+        cls.case_count = sum(len(source['choices']) for source in cls.sources)
 
     def test_fixture_is_pinned_bounded_and_synthetic(self):
         self.assertEqual(hashlib.sha256(summary.FIXTURE.read_bytes()).hexdigest(), summary.FIXTURE_SHA256)
-        self.assertEqual(len(self.sources), 1)
+        self.assertEqual(len(self.sources), 4)
+        self.assertEqual(self.case_count, 12)
+        self.assertLessEqual(self.case_count, summary.MAX_CHOICES)
+        self.assertEqual(summary.MAX_CHOICES, 16)
         self.assertEqual(len(self.sources[0]['choices']), 4)
         for source in self.sources:
             self.assertLessEqual(len(source['text'].encode()), summary.MAX_PUBLIC_SOURCE_BYTES)
@@ -59,6 +65,48 @@ class PortableSummaryBuildTests(unittest.TestCase):
             fixture.write_text(json.dumps({'sources': [{'text': 'Private text.'}]}))
             with self.assertRaisesRegex(summary.SummaryBuildError, 'checksum'):
                 summary.declared_sources(fixture)
+
+    def test_seed_cases_are_meaningfully_distinct_and_canonical(self):
+        cases = []
+        semantic_keys = set()
+        for source in self.sources:
+            for choice in source['choices']:
+                request = choice['source_selection_request']
+                self.assertEqual(request, normalize_selection_request(request))
+                case = make_case(request, choice['id'])
+                self.assertEqual(case['source_selection_request_sha256'], choice['source_selection_request_sha256'])
+                semantic_keys.add((case['source_sha256'], frozenset(request['input']['keywords']),
+                                   frozenset(request['input']['sentence_ids'])))
+                cases.append(case)
+        self.assertEqual(len(semantic_keys), 12)
+        self.assertEqual(len({source['source_sha256'] for source in self.sources}), 4)
+        coverage = summarize_case_coverage(iter(cases))
+        self.assertEqual((coverage['discovered_cases'], coverage['unique_cases'], coverage['duplicate_cases'],
+                          coverage['distinct_sources']), (12, 12, 0, 4))
+        self.assertEqual(coverage['keyword_count_buckets'], {'0': 5, '1': 5, '2-4': 2, '5-8': 0, '9+': 0})
+        self.assertEqual(coverage['selected_sentence_count_buckets'], {'1': 2, '2-4': 9, '5-8': 1, '9+': 0})
+        # Permutations/caller labels are not what makes this fixture broader.
+        with tempfile.TemporaryDirectory() as temporary:
+            store = SummaryCorpus(temporary)
+            for index, case in enumerate(cases):
+                request = case['source_selection_request']
+                store.ingest_request(request, f'original-{index}')
+                reordered = copy.deepcopy(request)
+                reordered['input']['keywords'].reverse()
+                reordered['input']['sentence_ids'].reverse()
+                store.ingest_request(reordered, f'renamed-{index}')
+            self.assertEqual(store.check()['cases'], 12)
+
+    def test_original_research_source_and_four_choices_remain_compatible(self):
+        original = self.sources[0]
+        self.assertEqual(original['id'], 'research-archive')
+        self.assertEqual(original['source_sha256'], 'f37eec719848c47b5c64fb171c5690556d07a3f5a3329807b540010fa1a64037')
+        self.assertEqual([(choice['id'], choice['source_selection_request_sha256']) for choice in original['choices']], [
+            ('overview', '4deeae35e7a20b261cb3b85441814363ef730d93131630f2a776f3706c9db6f1'),
+            ('evidence', '683107a558b80796dff223c8e8601f03f83bc9791d36929dbb654e8993a67616'),
+            ('summary', '03ce499c11402927c4aea2991b5337d83acad32a896fe78a527c00f58bd776ec'),
+            ('archive', '8903965066bf9f8c195184c4e97533b9f9fc6422b99947eea0f4bde3451849ae'),
+        ])
 
     def test_exact_request_binds_source_keywords_evidence_and_sampler(self):
         selection = copy.deepcopy(self.selection)
@@ -302,12 +350,12 @@ console.log(createHash('sha256').update(JSON.stringify(sort(JSON.parse(readFileS
         with tempfile.TemporaryDirectory() as temporary, patch.object(summary, 'owned_server', fake_server):
             out = Path(temporary)
             manifest = summary.build_summaries(out, source_sha=SOURCE_SHA, model_path=Path('unit-test-only'), llama_server=Path('unit-test-only'))
-            self.assertEqual(client.request.call_count, 4)
+            self.assertEqual(client.request.call_count, self.case_count)
             log_bytes = (out / 'summary-build.jsonl').read_bytes()
             log_hash = hashlib.sha256(log_bytes).hexdigest()
             rows = [json.loads(line) for line in log_bytes.splitlines()]
-            self.assertEqual(len(rows), 4)
-            self.assertEqual(manifest['observation_log'], {'path': 'summary-build.jsonl', 'sha256': log_hash, 'lines': 4})
+            self.assertEqual(len(rows), self.case_count)
+            self.assertEqual(manifest['observation_log'], {'path': 'summary-build.jsonl', 'sha256': log_hash, 'lines': self.case_count})
             self.assertNotIn(self.sources[0]['text'], log_bytes.decode())
             self.assertNotIn('Offline unit-test response', log_bytes.decode())
             self.assertNotIn('tools/call', log_bytes.decode())
@@ -336,7 +384,7 @@ console.log(createHash('sha256').update(JSON.stringify(sort(JSON.parse(readFileS
                 self.assertIsNone(artifact['receipt']['confidence'])
                 self.assertIn('not guarantee', artifact['receipt']['determinism_note'])
                 self.assertNotIn('model_path', artifact['receipt'])
-            self.assertEqual(len(list((out / 'summaries').iterdir())), 4)
+            self.assertEqual(len(list((out / 'summaries').iterdir())), self.case_count)
 
     def test_partial_generation_failure_never_publishes_receipts(self):
         client = Mock()
@@ -371,16 +419,16 @@ console.log(createHash('sha256').update(JSON.stringify(sort(JSON.parse(readFileS
             with patch.object(summary, 'owned_server', fake_server):
                 first = summary.build_summaries(root / 'first', source_sha=SOURCE_SHA,
                     model_path=Path('unit-test-only'), llama_server=Path('unit-test-only'), result_cache=cache_path)
-            self.assertEqual(client.request.call_count, 4)
-            self.assertEqual(first['new_generations'], 4)
+            self.assertEqual(client.request.call_count, self.case_count)
+            self.assertEqual(first['new_generations'], self.case_count)
             store = SummaryCorpus(cache_path)
             store.archive()
-            self.assertEqual(store.check()['results'], 4)
+            self.assertEqual(store.check()['results'], self.case_count)
             with patch.object(summary, 'owned_server') as server:
                 second = summary.build_summaries(root / 'second', source_sha='b' * 40,
                     model_path=Path('missing-but-unused'), llama_server=Path('missing-but-unused'), result_cache=cache_path)
                 server.assert_not_called()
-            self.assertEqual(second['reused_results'], 4)
+            self.assertEqual(second['reused_results'], self.case_count)
             self.assertEqual(second['new_generations'], 0)
             self.assertFalse(second['model_inference_performed'])
             self.assertIsNone(second['observation_log'])
@@ -394,7 +442,7 @@ console.log(createHash('sha256').update(JSON.stringify(sort(JSON.parse(readFileS
                 artifact = json.loads(reused)
                 log_path = artifact['receipt']['observation_log']['path']
                 self.assertEqual((root / 'first' / log_path).read_bytes(), (root / 'second' / log_path).read_bytes())
-            browser_results = fetch_static_in_node(root / 'second', [choice['source_selection_request'] for choice in self.sources[0]['choices']])
+            browser_results = fetch_static_in_node(root / 'second', [choice['source_selection_request'] for source in self.sources for choice in source['choices']])
             self.assertTrue(all(result['status'] == 'generated' for result in browser_results), browser_results)
             self.assertTrue(all(result['reused'] and result['provenance']['observation_log_verified'] for result in browser_results))
             self.assertTrue(all(result['build']['source_sha'] == SOURCE_SHA and result['delivery_build']['source_sha'] == 'b' * 40 for result in browser_results))
@@ -431,19 +479,19 @@ console.log(createHash('sha256').update(JSON.stringify(sort(JSON.parse(readFileS
             self.assertEqual(partial['reused_results'], 1)
             self.assertEqual(partial['new_generations'], 0)
             self.assertFalse(partial['model_inference_performed'])
-            self.assertEqual(sum(e['status'] == 'not_generated' for e in partial['entries'].values()), 3)
+            self.assertEqual(sum(e['status'] == 'not_generated' for e in partial['entries'].values()), self.case_count - 1)
             cached_entry = next(e for e in partial['entries'].values() if e['status'] == 'generated')
             self.assertTrue((root / 'partial' / cached_entry['receipt']).is_file())
-            browser_results = fetch_static_in_node(root / 'partial', [choice['source_selection_request'] for choice in self.sources[0]['choices']])
+            browser_results = fetch_static_in_node(root / 'partial', [choice['source_selection_request'] for source in self.sources for choice in source['choices']])
             self.assertEqual(sum(result['status'] == 'generated' for result in browser_results), 1, browser_results)
-            self.assertEqual(sum(result['status'] == 'not_generated' for result in browser_results), 3, browser_results)
+            self.assertEqual(sum(result['status'] == 'not_generated' for result in browser_results), self.case_count - 1, browser_results)
             with patch.object(summary, 'owned_server', retry_server):
                 second = summary.build_summaries(root / 'retry', source_sha='b' * 40, **kwargs)
-            self.assertEqual(retry.request.call_count, 3)
+            self.assertEqual(retry.request.call_count, self.case_count - 1)
             self.assertEqual(second['reused_results'], 1)
-            self.assertEqual(second['new_generations'], 3)
-            self.assertEqual(len((root / 'retry/summary-build.jsonl').read_text().splitlines()), 3)
-            self.assertEqual(SummaryCorpus(root / 'cache').check()['results'], 4)
+            self.assertEqual(second['new_generations'], self.case_count - 1)
+            self.assertEqual(len((root / 'retry/summary-build.jsonl').read_text().splitlines()), self.case_count - 1)
+            self.assertEqual(SummaryCorpus(root / 'cache').check()['results'], self.case_count)
 
     def test_owned_server_cleanup_and_no_environment_recipe_override(self):
         binary, model = Path('/unit-test/llama-server'), Path('/unit-test/model.gguf')

@@ -76,7 +76,7 @@ def check(site: Path, screenshot: Path, executable: str | None = None, *, requir
             page.locator('#source-text').fill(source)
             page.locator('#source-extract').click()
             page.wait_for_function("document.querySelector('#source-status').textContent.includes('candidate sentences')")
-            initial = json.loads(page.locator('#source-notes').inner_text())
+            initial = json.loads(page.locator('#source-notes').text_content())
             assert initial['model_inference_performed'] is False
             assert initial['confidence'] is None
             keyword = next(item['id'] for item in initial['keyword_options'] if item['text'] == 'Graphs')
@@ -84,7 +84,7 @@ def check(site: Path, screenshot: Path, executable: str | None = None, *, requir
             page.wait_for_function("document.querySelector('#source-status').textContent.startsWith('2 candidate sentences')")
             page.locator('#sentence-options input').first.check()
             page.wait_for_function("document.querySelector('#source-status').textContent.includes('1 selected')")
-            selected = json.loads(page.locator('#source-notes').inner_text())
+            selected = json.loads(page.locator('#source-notes').text_content())
             assert selected['summary_request']['generated_text'] is None
             assert page.locator('#summary-download').is_enabled()
             assert page.locator('#selected-evidence').inner_text() == 'Graphs connect nodes.'
@@ -128,7 +128,7 @@ def check(site: Path, screenshot: Path, executable: str | None = None, *, requir
             # Explicit lookup can only read the static manifest and hashed artifacts.
             page.locator('#summary-lookup').click()
             page.wait_for_function("document.querySelector('#summary-status').textContent.startsWith('Not generated for')")
-            missing = json.loads(page.locator('#summary-notes').inner_text())
+            missing = json.loads(page.locator('#summary-notes').text_content())
             assert missing['generated_text'] is None
             assert missing['model_inference_performed'] is False
             assert missing['confidence'] is None
@@ -156,7 +156,7 @@ def check(site: Path, screenshot: Path, executable: str | None = None, *, requir
             for _ in range(2):
                 page.locator('#summary-lookup').click()
                 page.wait_for_function("!document.querySelector('#summary-lookup').disabled")
-                actual = json.loads(page.locator('#summary-notes').inner_text())
+                actual = json.loads(page.locator('#summary-notes').text_content())
                 if manifest['entries'][choices[0]['source_selection_request_sha256']]['status'] == 'generated':
                     assert actual['status'] == 'generated', actual
                     assert actual['model_inference_performed'] is True

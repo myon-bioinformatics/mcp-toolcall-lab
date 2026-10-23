@@ -91,6 +91,9 @@ def test_two_clean_processes_preserve_complete_archive_and_generate_only_missing
     assert report['status'] == 'verified'
     assert [(r['new_generations'], r['reused_results']) for r in report['rounds']] == [(1, 0), (1, 1)]
     assert report['rounds'][1]['input_snapshot_sha256'] == report['rounds'][0]['corpus_snapshot_sha256']
+    assert report['rounds'][1]['submitted_additions'] == 2
+    assert report['rounds'][1]['distinct_cases_added'] == 1
+    assert report['rounds'][1]['duplicate_additions'] == 1
     store = SummaryCorpus(output / 'corpus')
     assert store.check()['cases'] == 2 and store.check()['results'] == 2
     assert all(case['review']['classification'] == 'reviewed_public' for case in store.iter_cases())
@@ -279,7 +282,7 @@ def test_capture_actual_pinned_pages_results_then_reload_without_inference(tmp_p
     captured = tmp_path / 'captured'
     with patch.object(handoff, 'build_summaries', side_effect=AssertionError('capture must not invoke a build')):
         report = handoff.capture_execution(execution=execution, out=captured, source_sha=SOURCE_SHA)
-    assert report['captured_results'] == report['selected_cases'] == 4
+    assert report['captured_results'] == report['selected_cases'] == len(cases) == 12
     assert report['missing_results'] == report['new_generations'] == 0
     assert report['model_inference_performed'] is False
     store = SummaryCorpus(captured / 'corpus')
@@ -289,9 +292,9 @@ def test_capture_actual_pinned_pages_results_then_reload_without_inference(tmp_p
     assert set(path.name for path in captured.iterdir()) == {'corpus', 'report.json'}
     restored = tmp_path / 'restored'
     result = handoff.run_round(out=restored, source_sha='b' * 40, input_corpus=captured / 'corpus')
-    assert result['new_generations'] == 0 and result['reused_results'] == 4
+    assert result['new_generations'] == 0 and result['reused_results'] == len(cases)
     assert result['model_inference_performed'] is False
-    assert len(ledger.read_text().splitlines()) == 4
+    assert len(ledger.read_text().splitlines()) == len(cases)
     for artifact in execution.glob('summaries/*.json'):
         assert artifact.read_bytes() == (restored / 'execution/summaries' / artifact.name).read_bytes()
         path = json.loads(artifact.read_text())['receipt']['observation_log']['path']
@@ -334,8 +337,8 @@ def test_capture_missing_results_is_honest_and_no_arbitrary_files_transfer(tmp_p
     (execution / 'arbitrary-personal.txt').write_text('Must not transfer.')
     captured = tmp_path / 'captured'
     report = handoff.capture_execution(execution=execution, out=captured, source_sha=SOURCE_SHA)
-    assert report['captured_results'] == 0 and report['missing_results'] == 4
-    assert report['counts_after']['cases'] == 4 and report['counts_after']['results'] == 0
+    assert report['captured_results'] == 0 and report['missing_results'] == 12
+    assert report['counts_after']['cases'] == 12 and report['counts_after']['results'] == 0
     assert not list(captured.rglob('arbitrary-personal.txt'))
 
 
