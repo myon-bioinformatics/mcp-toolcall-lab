@@ -11,6 +11,8 @@ on:
       - "scripts/write_portfolio_redirect.py"
       - "docker/portable-pages/**"
       - "docs/portable-execution.md"
+      - "docs/assets/mcp-toolcall-lab-logo.png"
+      - "docs/assets/mcp-toolcall-lab-favicon-artwork.png"
       - "tests/test_portable_execution.py"
       - ".github/workflows/portable-pages.yml"
   push:
@@ -24,6 +26,8 @@ on:
       - "scripts/write_portfolio_redirect.py"
       - "docker/portable-pages/**"
       - "docs/portable-execution.md"
+      - "docs/assets/mcp-toolcall-lab-logo.png"
+      - "docs/assets/mcp-toolcall-lab-favicon-artwork.png"
       - "tests/test_portable_execution.py"
       - ".github/workflows/portable-pages.yml"
   workflow_dispatch:
