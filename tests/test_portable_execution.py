@@ -265,6 +265,8 @@ console.log(JSON.stringify([ok,miss,mismatch,offline]));'''.replace('CORE', json
         self.assertEqual(publishers, ['portable-pages.yml'])
         docker = (ROOT / 'docker/portable-pages/Dockerfile').read_text()
         self.assertIn('FROM scratch AS artifact', docker)
+        self.assertIn('ENV LD_LIBRARY_PATH=/app', docker)
+        self.assertLess(docker.index('RUN /app/llama-server --version'), docker.index('RUN python3 -S scripts/fetch_tiny_cpu_gguf.py'))
         self.assertNotIn('CMD', docker)
 
     def test_export_rejects_private_output_overlap_or_preexisting_files(self):

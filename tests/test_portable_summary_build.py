@@ -202,6 +202,32 @@ console.log(createHash('sha256').update(JSON.stringify(sort(JSON.parse(readFileS
                 observed = summary.verify_runtime(binary)
                 self.assertEqual(observed['binary_sha256'], hashlib.sha256(binary.read_bytes()).hexdigest())
 
+    def test_runtime_preflight_failure_reports_bounded_stderr_without_input_or_stdout(self):
+        binary = Path('/unit-test/llama-server')
+        failure = subprocess.CalledProcessError(127, [str(binary), '--version'],
+            output=b'PRIVATE STDOUT MUST NOT BE REPORTED',
+            stderr=b'X' * 6000 + b'\n\x1b[31mllama-server: error while loading shared libraries: libllama-server-impl.so: cannot open shared object file: No such file or directory\x1b[0m\n')
+        with patch.object(summary.subprocess, 'run', side_effect=failure) as run:
+            with self.assertRaises(summary.SummaryBuildError) as observed:
+                summary.verify_runtime(binary)
+        message = str(observed.exception)
+        self.assertIn('exit code 127', message)
+        self.assertIn('libllama-server-impl.so', message)
+        self.assertIn('pre-inference --version stderr tail', message)
+        self.assertNotIn('PRIVATE STDOUT', message)
+        self.assertNotIn('\x1b', message)
+        self.assertLess(len(message), 2300)
+        self.assertEqual(run.call_args.args[0], [str(binary), '--version'])
+        self.assertEqual(run.call_args.kwargs['timeout'], 15)
+        self.assertTrue(run.call_args.kwargs['check'])
+        for error, expected in [(OSError(2, 'missing', '/private/not-a-source'), 'OS error 2'),
+                                (subprocess.TimeoutExpired([str(binary), '--version'], 15), '15-second timeout')]:
+            with patch.object(summary.subprocess, 'run', side_effect=error):
+                with self.assertRaises(summary.SummaryBuildError) as caught:
+                    summary.verify_runtime(binary)
+            self.assertIn(expected, str(caught.exception))
+            self.assertNotIn('/private/', str(caught.exception))
+
     def test_wire_has_only_selected_evidence_no_tools_or_external_url(self):
         request = summary.prepare_summary_request(self.selection)
         body = summary.completion_body(request)

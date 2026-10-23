@@ -179,7 +179,25 @@ def verify_runtime(binary: Path) -> dict[str, Any]:
     try:
         result = subprocess.run([str(binary), "--version"], capture_output=True, timeout=15, check=True)
     except (OSError, subprocess.SubprocessError) as exc:
-        raise SummaryBuildError("Cannot inspect llama-server --version.") from exc
+        # This command has only --version: no model, source, evidence or prompt
+        # argument has been sent. Expose a bounded stderr diagnostic here, never
+        # server responses/logs from the later inference process.
+        if isinstance(exc, subprocess.CalledProcessError):
+            detail = f"exit code {exc.returncode}"
+        elif isinstance(exc, subprocess.TimeoutExpired):
+            detail = "15-second timeout"
+        else:
+            detail = f"OS error {getattr(exc, 'errno', None)}"  # no exception filename
+        stderr = getattr(exc, "stderr", None)
+        if isinstance(stderr, bytes):
+            stderr = stderr[-8192:].decode("utf-8", errors="replace")
+        if isinstance(stderr, str):
+            tail = stderr[-2048:]
+            tail = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", tail)
+            tail = " ".join("".join(char for char in tail if char.isprintable() or char in "\n\t").split())
+            if tail:
+                detail += f"; pre-inference --version stderr tail: {tail}"
+        raise SummaryBuildError(f"Cannot inspect llama-server --version ({detail}).") from exc
     version = (result.stdout + result.stderr).decode("utf-8", errors="replace")
     # llama.cpp prints: version: 11046 (60081bb2), followed by compiler details.
     match = re.search(r"\bversion:\s*(?:b)?11046\s*\(([0-9a-f]{7,40})\)", version)

@@ -4,6 +4,10 @@ FROM ghcr.io/ggml-org/llama.cpp:server@sha256:9002e60256635720c05c50455fdebf992a
 RUN apt-get update && apt-get install -y --no-install-recommends python3 ca-certificates libstdc++6 libatomic1 && rm -rf /var/lib/apt/lists/*
 COPY --from=node /usr/local/bin/node /usr/local/bin/node
 WORKDIR /source
+# The pinned image places shared llama/server libraries beside the executable.
+ENV LD_LIBRARY_PATH=/app
+# Fail before downloading the model, preserving loader diagnostics in CI.
+RUN /app/llama-server --version
 COPY scripts/fetch_tiny_cpu_gguf.py ./scripts/
 # Existing commit/size/SHA-pinned public model. No credentials or inference API.
 RUN python3 -S scripts/fetch_tiny_cpu_gguf.py /models/model.gguf
