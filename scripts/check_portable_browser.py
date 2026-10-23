@@ -27,6 +27,9 @@ def check(site: Path, screenshot: Path, executable: str | None = None, *, requir
             page.on('pageerror', lambda error: errors.append(str(error)))
             base = f'http://127.0.0.1:{server.server_port}/mcp-toolcall-lab/execution/'
             page.goto(base)
+            # Legacy trace controls live inside a collapsed disclosure. Exercise
+            # the real visible control rather than forcing clicks on hidden UI.
+            page.locator('#advanced > summary').click()
             page.wait_for_function("document.querySelector('#status').textContent.startsWith('Input ready')")
             page.locator('#run').click()
             page.wait_for_function("document.querySelector('#status').textContent === 'ok · deterministic_log_analysis'")
