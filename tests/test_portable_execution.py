@@ -1,5 +1,6 @@
 """Portable contract tests need only stdlib Python + Node, not MCP or a model."""
 import hashlib
+from html.parser import HTMLParser
 import json
 import os
 from pathlib import Path
@@ -243,6 +244,21 @@ console.log(JSON.stringify([ok,miss,mismatch,offline]));'''.replace('CORE', json
             self.assertTrue(all(entry['status'] == 'not_generated' and entry['receipt'] is None for entry in manifest['entries'].values()))
             self.assertFalse((target / 'summaries').exists())
             self.assertFalse(any(path.suffix == '.gguf' for path in target.rglob('*')))
+            elements = []
+            class BrandingParser(HTMLParser):
+                def handle_starttag(self, tag, attrs):
+                    elements.append((tag, dict(attrs)))
+            BrandingParser().feed((target / 'index.html').read_text())
+            logo = next(attrs for tag, attrs in elements if tag == 'img' and attrs.get('class') == 'brand-logo')
+            favicon = next(attrs for tag, attrs in elements if tag == 'link' and attrs.get('rel') == 'icon')
+            self.assertEqual(logo['src'], 'assets/mcp-toolcall-lab-logo.png')
+            self.assertEqual(favicon['href'], 'assets/mcp-toolcall-lab-favicon-artwork.png')
+            self.assertEqual(favicon['type'], 'image/png')
+            self.assertEqual(favicon['sizes'], '180x180')
+            self.assertTrue(logo['alt'])
+            for relative in (logo['src'], favicon['href']):
+                self.assertEqual((target / relative).read_bytes(), (ROOT / 'docs' / relative).read_bytes())
+                self.assertIn(relative, meta['assets'])
             example = [json.loads(line) for line in (target / 'example.jsonl').read_text().splitlines()]
             self.assertEqual(example[0]['arguments'], {'query': 'Exampleville'})
             self.assertEqual(example[0]['result'], [{'code': '90001', 'name': 'Exampleville', 'prefecture': 'Example Region'}])
@@ -269,6 +285,10 @@ console.log(JSON.stringify([ok,miss,mismatch,offline]));'''.replace('CORE', json
         self.assertIn('ENV LD_LIBRARY_PATH=/app', docker)
         self.assertLess(docker.index('RUN /app/llama-server --version'), docker.index('RUN python3 -S scripts/fetch_tiny_cpu_gguf.py'))
         self.assertNotIn('CMD', docker)
+        workflow = (ROOT / '.github/workflows/portable-pages.yml').read_text()
+        for name in ('mcp-toolcall-lab-logo.png', 'mcp-toolcall-lab-favicon-artwork.png'):
+            self.assertIn('docs/assets/' + name, docker)
+            self.assertEqual(workflow.count('      - "docs/assets/' + name + '"'), 2)
 
     def test_export_rejects_private_output_overlap_or_preexisting_files(self):
         with tempfile.TemporaryDirectory() as directory:

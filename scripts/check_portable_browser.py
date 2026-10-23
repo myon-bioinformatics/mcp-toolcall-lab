@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+import hashlib
 import json
 from pathlib import Path
 import shutil
@@ -30,6 +31,28 @@ def check(site: Path, screenshot: Path, executable: str | None = None, *, requir
             # Legacy trace controls live inside a collapsed disclosure. Exercise
             # the real visible control rather than forcing clicks on hidden UI.
             page.locator('#advanced > summary').click()
+            logo = page.locator('.brand-logo')
+            assert logo.is_visible()
+            page.wait_for_function("document.querySelector('.brand-logo').naturalWidth === 460")
+            assert logo.evaluate('(img) => img.naturalHeight') == 500
+            favicon = page.locator('link[rel=icon]')
+            assert favicon.get_attribute('type') == 'image/png'
+            assert favicon.get_attribute('sizes') == '180x180'
+            meta = page.request.get(base + 'build.json').json()
+            for locator, attribute in [(logo, 'src'), (favicon, 'href')]:
+                relative = locator.get_attribute(attribute)
+                url = locator.evaluate('(element, attribute) => element[attribute]', attribute)
+                assert url == base + relative
+                response = page.request.get(url)
+                assert response.status == 200
+                assert response.headers['content-type'].startswith('image/png')
+                assert hashlib.sha256(response.body()).hexdigest() == meta['assets'][relative]
+            assert page.evaluate('''async () => {
+                const icon = new Image();
+                icon.src = document.querySelector('link[rel=icon]').href;
+                await icon.decode();
+                return icon.naturalWidth === 180 && icon.naturalHeight === 180;
+            }''')
             page.wait_for_function("document.querySelector('#status').textContent.startsWith('Input ready')")
             page.locator('#run').click()
             page.wait_for_function("document.querySelector('#status').textContent === 'ok · deterministic_log_analysis'")
@@ -211,6 +234,8 @@ def check(site: Path, screenshot: Path, executable: str | None = None, *, requir
             page.screenshot(path=str(screenshot), full_page=True)
             page.set_viewport_size({'width': 390, 'height': 844})
             assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
+            assert logo.is_visible()
+            assert logo.evaluate('(img) => img.naturalWidth') == 460
             page.screenshot(path=str(screenshot.with_name(screenshot.stem + '-mobile.png')), full_page=True)
             assert not errors, errors
             browser.close()

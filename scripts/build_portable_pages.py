@@ -56,6 +56,10 @@ def build(out: Path, source_sha: str, *, model_path: Path | None = None, llama_s
         shutil.copyfile(ROOT / 'docs' / name, runtime / name)
     for source, destination in [('portable_page.html', 'index.html'), ('portable_page.mjs', 'portable_page.mjs'), ('terminal.css', 'terminal.css')]:
         shutil.copyfile(STATIC / source, target / destination)
+    # Reuse the README branding byte-for-byte, with execution-local URLs.
+    (target / 'assets').mkdir()
+    for name in ('mcp-toolcall-lab-logo.png', 'mcp-toolcall-lab-favicon-artwork.png'):
+        shutil.copyfile(ROOT / 'docs/assets' / name, target / 'assets' / name)
     meta = {'schema': 'lab-portable-build/1', 'source_sha': source_sha, 'source_url': f'https://github.com/myon-bioinformatics/mcp-toolcall-lab/commit/{source_sha}', 'build_run': os.environ.get('GITHUB_RUN_ID') or None, 'build_attempt': os.environ.get('GITHUB_RUN_ATTEMPT') or None, 'execution': 'build-time deterministic mock functions; no MCP transport or model inference', 'runtime': {'python': subprocess.check_output(['python3', '--version'], text=True).strip(), 'node': subprocess.check_output(['node', '--version'], text=True).strip()}}
     with tempfile.TemporaryDirectory() as temporary:
         log = Path(temporary) / 'calls.jsonl'

@@ -17,6 +17,7 @@ COPY vendor.lock.json LICENSE ./
 COPY scripts/build_portable_pages.py scripts/write_portfolio_redirect.py scripts/check_incremental_summary_build.py ./scripts/
 COPY fixtures/portable_summary ./fixtures/portable_summary
 COPY docs/portable-execution.md docs/build-time-summaries.md docs/summary-corpus.md ./docs/
+COPY docs/assets/mcp-toolcall-lab-logo.png docs/assets/mcp-toolcall-lab-favicon-artwork.png ./docs/assets/
 ARG SOURCE_SHA
 ARG BUILD_RUN
 ARG BUILD_ATTEMPT
