@@ -151,16 +151,40 @@ def package_version(name: str) -> str | None:
         return None
 
 
-def command_metadata(args: list[str]) -> dict[str, Any]:
+def command_metadata(args: list[str], *, output_filter: Callable[[str], str] | None = None) -> dict[str, Any]:
     """Only call fixed, read-only version/package-query commands, never a shell."""
     if shutil.which(args[0]) is None:
         return {"status": "not_installed"}
     try:
         proc = subprocess.run(args, capture_output=True, text=True, timeout=10, check=False)
+        output = output_filter(proc.stdout) if output_filter is not None else proc.stdout
         return {"status": "ok" if proc.returncode == 0 else "unavailable",
-                "exit_code": proc.returncode, "output": proc.stdout.strip()[:8192]}
+                "exit_code": proc.returncode, "output": output.strip()[:8192]}
     except (OSError, subprocess.TimeoutExpired) as exc:
         return {"status": "unavailable"} | error_details(exc)
+
+
+def dpkg_trust_metadata() -> dict[str, Any]:
+    def installed_trust_packages(output: str) -> str:
+        selected = []
+        for line in output.splitlines():
+            fields = line.split("\t", 2)
+            if len(fields) != 3:
+                continue
+            status, package, version = fields
+            if status == "installed" and (
+                package in {"ca-certificates", "openssl"} or re.fullmatch(r"libssl[34](?:t64)?", package)
+            ):
+                selected.append(f"{package}\t{version}")
+        return "\n".join(selected)
+
+    # Query the database once, not optional package names/patterns: dpkg-query
+    # exits 1 for any absent match (e.g. libssl4 on a libssl3t64-based image).
+    # Filter before truncation so unrelated installed packages cannot hide these.
+    return command_metadata(
+        ["dpkg-query", "-W", "-f=${db:Status-Status}\t${Package}\t${Version}\n"],
+        output_filter=installed_trust_packages,
+    )
 
 
 def file_metadata(path: str | None, *, show_path: bool = True) -> dict[str, Any]:
@@ -220,7 +244,7 @@ def runtime_metadata() -> dict[str, Any]:
         "uv_executable": uv,
         "security_version_floors": {name: version_floor(name, versions[name]) for name in VERSION_FLOORS},
         "os_trust_packages": {
-            "dpkg": command_metadata(["dpkg-query", "-W", "-f=${Package}\t${Version}\n", "ca-certificates", "openssl", "libssl3*", "libssl4*"]),
+            "dpkg": dpkg_trust_metadata(),
             "apk": command_metadata(["apk", "info", "-v", "ca-certificates", "ca-certificates-bundle", "openssl", "libssl3"]),
             "rpm": command_metadata(["rpm", "-q", "ca-certificates", "openssl", "openssl-libs"]),
         },

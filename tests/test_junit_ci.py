@@ -79,6 +79,9 @@ def test_jsonl_archive_portability_uses_locked_uv():
     assert "astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e" in workflow
     assert "python-version: ${{ matrix.python }}" in workflow
     assert "run: uv run --locked --extra test pytest -q tests/test_jsonl_log_archive.py" in workflow
-    assert "run: python -S src/mcp_toolcall_lab/jsonl_log_archive.py --help" in workflow
+    assert 'version: "0.13.5"' in workflow
+    assert "actions/setup-python@" not in workflow
+    assert "run: uv python install ${{ matrix.python }}" in workflow
+    assert "run: uv run --no-project python -S src/mcp_toolcall_lab/jsonl_log_archive.py --help" in workflow
     assert "pip install pytest" not in workflow
     assert "python -m pytest" not in workflow

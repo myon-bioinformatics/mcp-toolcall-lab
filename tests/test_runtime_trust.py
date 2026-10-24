@@ -245,6 +245,45 @@ class SummaryTests(unittest.TestCase):
 
 
 class MetadataAndClientTests(unittest.TestCase):
+    def test_dpkg_inventory_succeeds_without_optional_legacy_libraries(self) -> None:
+        # A no-pattern database query succeeds when libssl3/libssl4 are absent.
+        # Trixie's installed libssl3t64 must still be recorded, even after many
+        # unrelated packages and alongside removed packages' config records.
+        output = "installed\tunrelated-package\t1.0\n" * 400
+        output += (
+            "installed\tca-certificates\t20250419+deb13u1\n"
+            "installed\topenssl\t3.5.5-1~deb13u1\n"
+            "installed\tlibssl3t64\t3.5.5-1~deb13u1\n"
+            "config-files\tlibssl3\t3.0.0\n"
+            "not-installed\tlibssl4\t\n"
+        )
+        proc = SimpleNamespace(returncode=0, stdout=output)
+        with patch.object(trust.shutil, "which", return_value="/usr/bin/dpkg-query"), \
+             patch.object(trust.subprocess, "run", return_value=proc) as run:
+            result = trust.dpkg_trust_metadata()
+        self.assertEqual(result, {
+            "status": "ok", "exit_code": 0,
+            "output": "ca-certificates\t20250419+deb13u1\nopenssl\t3.5.5-1~deb13u1\nlibssl3t64\t3.5.5-1~deb13u1",
+        })
+        self.assertEqual(run.call_args.args[0], [
+            "dpkg-query", "-W", "-f=${db:Status-Status}\t${Package}\t${Version}\n",
+        ])
+
+    def test_dpkg_actual_query_failure_remains_unavailable(self) -> None:
+        proc = SimpleNamespace(returncode=2, stdout="")
+        with patch.object(trust.shutil, "which", return_value="/usr/bin/dpkg-query"), \
+             patch.object(trust.subprocess, "run", return_value=proc):
+            result = trust.dpkg_trust_metadata()
+        self.assertEqual(result["status"], "unavailable")
+        self.assertEqual(result["exit_code"], 2)
+
+    def test_dpkg_missing_command_is_not_installed(self) -> None:
+        with patch.object(trust.shutil, "which", return_value=None), \
+             patch.object(trust.subprocess, "run") as run:
+            result = trust.dpkg_trust_metadata()
+        self.assertEqual(result, {"status": "not_installed"})
+        run.assert_not_called()
+
     def test_env_values_always_redacted(self) -> None:
         result = trust.env_metadata({"SSL_CERT_FILE": "/SECRET.pem", "HTTPS_PROXY": "https://secret@proxy", "UNRELATED": "x"})
         self.assertEqual(len(result), 2)
