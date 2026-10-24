@@ -27,7 +27,8 @@ FIXTURE = Path(__file__).parent / "fixtures" / "jsonl_log_archive_sample.jsonl"
 
 def _literal_lines(path: Path, needle: str) -> list[tuple[int, str]]:
     return [(i, line) for i, line in enumerate(
-        path.read_text(encoding="utf-8").splitlines(), start=1
+        (lambda text: text.split("\n")[:-1] if text.endswith("\n") else text.split("\n"))(
+            path.read_text(encoding="utf-8")), start=1
     ) if needle in line]
 
 
@@ -189,6 +190,25 @@ def test_cli_get_id_not_found_exit_1(sample_archive: tuple[Path, Path]) -> None:
     assert ok.returncode == 0 and "pull/42" in ok.stdout
     miss = subprocess.run(_cli("get", str(arc), "--id", "#999999"), capture_output=True, text=True)
     assert miss.returncode == 1 and miss.stdout == ""
+
+
+@pytest.mark.parametrize("separator", ["\\u2028", "\\u2029", "\\u0085"])
+def test_jsonl_unicode_separators_remain_in_same_record(
+    tmp_path: Path, separator: str
+) -> None:
+    # Input JSON strings legally contain these literal Unicode characters.
+    # splitlines() would silently convert two JSONL records into three.
+    lines = [
+        json.dumps({"text": "alpha" + separator + "beta"}, ensure_ascii=False),
+        json.dumps({"text": "next"}, ensure_ascii=False),
+    ]
+    source, archive_path = _build_tmp(tmp_path, lines)
+    archive = JsonlArchive(archive_path)
+    assert archive.line_count == 2
+    assert list(archive.iter_lines()) == [(1, lines[0]), (2, lines[1])]
+    assert archive.get_line(1) == lines[0]
+    assert archive.search("beta") == [(1, lines[0])]
+    assert _literal_lines(source, "beta") == [(1, lines[0])]
 
 
 def test_cli_broken_pipe_is_quiet(tmp_path: Path) -> None:
