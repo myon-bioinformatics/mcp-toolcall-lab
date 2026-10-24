@@ -1,0 +1,123 @@
+name: component-runtime
+
+# Rebuild every first-party runtime and test its actual TLS clients. No deployment.
+on:
+  pull_request:
+    paths:
+      - 'docker/**'
+      - 'pyproject.toml'
+      - 'uv.lock'
+      - 'scripts/check_runtime_trust.py'
+      - 'tests/test_runtime_trust.py'
+      - '.github/workflows/component-runtime.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: librechat-mcp
+            dockerfile: docker/librechat-smoke/Dockerfile.mcp
+            target: ''
+            trust_args: --require-fastmcp
+          - name: openwebui-mcp
+            dockerfile: docker/openwebui-smoke/Dockerfile.mcp
+            target: ''
+            trust_args: --require-fastmcp
+          - name: openai-mock
+            dockerfile: docker/librechat-smoke/Dockerfile.openai
+            target: ''
+            trust_args: ''
+          - name: stub-cpu
+            dockerfile: docker/stub-pages/Dockerfile.cpu
+            target: ''
+            trust_args: ''
+          - name: stub-front
+            dockerfile: docker/stub-pages/Dockerfile.stub
+            target: ''
+            trust_args: ''
+          - name: portable-build
+            dockerfile: docker/portable-pages/Dockerfile
+            target: build
+            trust_args: ''
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          version: '0.13.5'
+          python-version: '3.12.15'
+      - name: Verify the Docker dependency export matches uv.lock
+        run: |
+          uv export --locked --no-dev --no-emit-project --no-header --no-annotate --format requirements-txt -o /tmp/runtime-requirements.txt >/dev/null
+          diff -u docker/runtime-requirements.txt /tmp/runtime-requirements.txt
+      - name: Rebuild pinned runtime with no layer cache
+        env:
+          DOCKERFILE: ${{ matrix.dockerfile }}
+          TARGET: ${{ matrix.target }}
+          IMAGE: mcp-lab-${{ matrix.name }}
+          SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          args=()
+          if [ -n "$TARGET" ]; then args+=(--target "$TARGET"); fi
+          docker build --pull --no-cache --file "$DOCKERFILE" "${args[@]}" \
+            --build-arg SOURCE_SHA="$SOURCE_SHA" --build-arg BUILD_RUN="$GITHUB_RUN_ID" \
+            --build-arg BUILD_ATTEMPT="$GITHUB_RUN_ATTEMPT" --tag "$IMAGE" .
+          mkdir -p test-results
+          docker image inspect "$IMAGE" > test-results/image-inspect.json
+      - name: Verify actual container trust and installed component versions
+        env:
+          IMAGE: mcp-lab-${{ matrix.name }}
+          TRUST_ARGS: ${{ matrix.trust_args }}
+        run: |
+          args=()
+          if [ -n "$TRUST_ARGS" ]; then args+=("$TRUST_ARGS"); fi
+          docker run --rm \
+            --mount type=bind,source="$PWD/scripts/check_runtime_trust.py",target=/check_runtime_trust.py,readonly \
+            --mount type=bind,source="$PWD/test-results",target=/evidence \
+            "$IMAGE" python /check_runtime_trust.py --live "${args[@]}" --output /evidence/runtime-trust.json
+      - name: Record portable Node version
+        if: matrix.name == 'portable-build'
+        run: docker run --rm mcp-lab-portable-build node --version > test-results/node-version.txt
+      - name: Preserve runtime receipts even on failure
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: runtime-${{ matrix.name }}
+          path: test-results/
+          if-no-files-found: error
+
+  browser-protocol:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '26.12.1'
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          version: '0.13.5'
+          python-version: '3.15.1'
+      - name: Install the locked real browser
+        run: uv run --locked --extra test --extra browser-test playwright install --with-deps --only-shell chromium
+      - name: Exercise browser fetch and repeated stub flows
+        run: uv run --locked --extra test --extra browser-test pytest -q tests/test_browser_fetch_protocol.py tests/test_stub_demo_browser.py --junitxml=test-results/browser-protocol.xml
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: browser-protocol
+          path: test-results/
+          if-no-files-found: error

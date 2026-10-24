@@ -59,7 +59,7 @@ job; they are artifacts, not Pages content.
 ## Real tiny GGUF (opt-in)
 
 `docker-compose.gguf.yml` swaps `cpu-llm` for a **digest-pinned**
-`ghcr.io/ggml-org/llama.cpp:server` (`b11046`, see
+`ghcr.io/ggml-org/llama.cpp:server-b11669` (`v0.7.0`, build `b11669`, see
 `llama.cpp.image.provenance.json`) serving a real model instead of
 `demos/cpu_llm_lite.py`. Healthcheck is the image's own `curl -f /health`
 (no `bash` / `/dev/tcp`).
