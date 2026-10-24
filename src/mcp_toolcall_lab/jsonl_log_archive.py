@@ -13,6 +13,7 @@ import argparse
 import hashlib
 import json
 import lzma
+import os
 import re
 import struct
 import sys
@@ -518,28 +519,32 @@ class JsonlArchive:
 
     def lookup_id(self, token: str) -> list[int]:
         token = token.strip()
-        keys: list[str]
-        if token.startswith("pr:") or token.startswith("sha40:") or token.startswith("sha7:") or token.startswith("bc:"):
+        keys: list[str] = []
+        sha_prefix: str | None = None
+        if token.startswith(("pr:", "sha40:", "sha7:", "bc:")):
             keys = [token]
-        elif re.fullmatch(r"\d{1,9}", token):
-            keys = [f"pr:{token}"]
-        elif re.fullmatch(r"[0-9a-fA-F]{40}", token):
-            keys = [f"sha40:{token.lower()}"]
-        elif re.fullmatch(r"[0-9a-fA-F]{7}", token):
-            keys = [f"sha7:{token.lower()}"]
-        elif token.startswith("bc-"):
-            keys = [f"bc:{token}"]
         else:
-            keys = [f"bc:{token}", f"sha7:{token.lower()}", token]
+            pr = re.fullmatch(r"(?:pr\s*#?|#|pull/)?(\d{1,9})", token, re.IGNORECASE)
+            if pr:
+                keys.append(f"pr:{pr.group(1)}")
+            if re.fullmatch(r"[0-9a-fA-F]{7,40}", token):
+                low = token.lower()
+                if len(low) == 40:
+                    keys.append(f"sha40:{low}")
+                else:
+                    sha_prefix = low
+                    if len(low) == 7:
+                        keys.append(f"sha7:{low}")
+            elif token.startswith("bc-"):
+                keys.append(f"bc:{token}")
+            elif not keys:
+                keys = [f"bc:{token}", token]
+        if sha_prefix is not None:
+            keys.extend(k for k in self._ids if k.startswith(f"sha40:{sha_prefix}"))
         seen: set[int] = set()
-        out: list[int] = []
         for key in keys:
-            for line_no in self._ids.get(key, []):
-                if line_no not in seen:
-                    seen.add(line_no)
-                    out.append(line_no)
-        out.sort()
-        return out
+            seen.update(self._ids.get(key, []))
+        return sorted(seen)
 
     def similar(self, query: str, k: int = 5) -> list[tuple[int, float]]:
         if _SECTION_SIM not in self.meta["sections"]:
@@ -580,8 +585,21 @@ def cmd_get(args: argparse.Namespace) -> int:
     if args.id is None:
         raise SystemExit("get requires --line or --id")
     lines = arc.lookup_id(args.id)
+    if not lines:
+        print(f"id not found: {args.id}", file=sys.stderr)
+        return 1
     for line_no in lines:
         print(f"{line_no}:{arc.get_line(line_no)}")
+    return 0
+
+
+def cmd_similar(args: argparse.Namespace) -> int:
+    arc = JsonlArchive(Path(args.archive))
+    if _SECTION_SIM not in arc.meta["sections"]:
+        print("archive has no similarity section (build with --sim)", file=sys.stderr)
+        return 1
+    for line_no, score in arc.similar(args.query, k=args.k):
+        print(f"{line_no}\t{score:.3f}\t{arc.get_line(line_no)}")
     return 0
 
 
@@ -616,12 +634,28 @@ def main(argv: Sequence[str] | None = None) -> int:
     p_summary.add_argument("archive", type=Path)
     p_summary.set_defaults(func=cmd_summary)
 
+    p_similar = sub.add_parser("similar", help="approximate similar lines (needs build --sim)")
+    p_similar.add_argument("archive", type=Path)
+    p_similar.add_argument("query")
+    p_similar.add_argument("-k", type=int, default=5)
+    p_similar.set_defaults(func=cmd_similar)
+
     args = parser.parse_args(argv)
     try:
-        return int(args.func(args))
+        rc = int(args.func(args))
+        sys.stdout.flush()
+        return rc
     except ArchiveError as exc:
         print(str(exc), file=sys.stderr)
         return 2
+    except BrokenPipeError:
+        # Reader (e.g. `head`) closed the pipe: stop quietly like grep does.
+        try:
+            devnull = os.open(os.devnull, os.O_WRONLY)
+            os.dup2(devnull, sys.stdout.fileno())
+        except (OSError, ValueError):
+            pass
+        return 0
 
 
 if __name__ == "__main__":

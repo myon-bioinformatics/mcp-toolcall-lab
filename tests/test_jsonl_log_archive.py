@@ -122,36 +122,99 @@ def test_env_archive_must_be_valid() -> None:
     JsonlArchive(path)
 
 
+def _block_payload_offset(arc: Path) -> int:
+    archive = JsonlArchive(arc)
+    section_off, _size = archive.meta["sections"][1]
+    data_start, entries = archive._blocks_info
+    rel_off, size, _crc = entries[0]
+    return section_off + data_start + rel_off + size // 2
+
+
+def _run_probe(path: Path) -> subprocess.CompletedProcess[str]:
+    test_id = f"{Path(__file__).resolve()}::test_env_archive_must_be_valid"
+    env = {**os.environ, "JLOGARC_INTEGRITY_PROBE": str(path)}
+    return subprocess.run(
+        [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", test_id],
+        cwd=Path(__file__).resolve().parents[1],
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+
+
 def test_mutation_subprocess_fails_integrity(tmp_path: Path) -> None:
-    src, arc = _build_tmp(
+    _src, arc = _build_tmp(
         tmp_path,
         [
             '{"event":"tools/call","tool":"ping","note":"日本語"}',
             '{"event":"tools/call","tool":"pong","id":"bc-demoagent0099"}',
         ],
     )
+    clean = _run_probe(arc)
+    assert clean.returncode == 0, clean.stdout + clean.stderr
     mutated = tmp_path / "mutated.jlogarc"
     data = bytearray(arc.read_bytes())
-    data[len(data) // 2] ^= 0xFF
+    # Flip a byte inside an LZMA block payload: only the footer digest and
+    # the block CRC can catch this when the archive is opened.
+    data[_block_payload_offset(arc)] ^= 0xFF
     mutated.write_bytes(data)
-    env = {
-        **os.environ,
-        "JLOGARC_INTEGRITY_PROBE": str(mutated),
-    }
-    result = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "pytest",
-            "-q",
-            f"{__file__}::test_env_archive_must_be_valid",
-        ],
-        cwd=Path(__file__).resolve().parents[1],
-        env=env,
-        capture_output=True,
-        text=True,
-    )
-    assert result.returncode != 0, result.stdout + result.stderr
+    broken = _run_probe(mutated)
+    assert broken.returncode == 1, broken.stdout + broken.stderr
+
+
+@pytest.mark.parametrize("token", ["42", "#42", "PR#42", "pr 42", "pull/42"])
+def test_lookup_pr_forms(sample_archive: tuple[Path, Path], token: str) -> None:
+    _, arc = sample_archive
+    archive = JsonlArchive(arc)
+    assert archive.lookup_id(token) == archive.lookup_id("pr:42") != []
+
+
+def test_lookup_full_sha_by_prefix(tmp_path: Path) -> None:
+    sha = "0123456789abcdef0123456789abcdef01234567"
+    _src, arc = _build_tmp(tmp_path, ['{"a":1}', f'{{"sha":"{sha}"}}', '{"b":2}'])
+    archive = JsonlArchive(arc)
+    for n in (7, 8, 12, 39, 40):
+        assert archive.lookup_id(sha[:n]) == [2]
+        assert archive.lookup_id(sha[:n].upper()) == [2]
+    assert archive.lookup_id("fffffff") == []
+
+
+def _cli(*args: str) -> list[str]:
+    return [sys.executable, str(Path(__file__).resolve().parents[1] / "src" / "mcp_toolcall_lab" / "jsonl_log_archive.py"), *args]
+
+
+def test_cli_get_id_not_found_exit_1(sample_archive: tuple[Path, Path]) -> None:
+    _, arc = sample_archive
+    ok = subprocess.run(_cli("get", str(arc), "--id", "PR#42"), capture_output=True, text=True)
+    assert ok.returncode == 0 and "pull/42" in ok.stdout
+    miss = subprocess.run(_cli("get", str(arc), "--id", "#999999"), capture_output=True, text=True)
+    assert miss.returncode == 1 and miss.stdout == ""
+
+
+def test_cli_broken_pipe_is_quiet(tmp_path: Path) -> None:
+    rows = [json.dumps({"i": i, "t": "needle " + "x" * 200}) for i in range(5000)]
+    _src, arc = _build_tmp(tmp_path, rows)
+    proc = subprocess.Popen(_cli("search", str(arc), "needle"), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    assert proc.stdout is not None
+    proc.stdout.readline()
+    proc.stdout.close()
+    _out, err = proc.communicate(timeout=60)
+    assert proc.returncode == 0
+    assert b"Traceback" not in err
+
+
+def test_cli_similar(tmp_path: Path) -> None:
+    src = tmp_path / "s.jsonl"
+    src.write_text('{"t":"alpha beta gamma"}\n{"t":"日本語のログ"}\n', encoding="utf-8")
+    arc = tmp_path / "s.jlogarc"
+    build_archive(src, arc, include_sim=True)
+    res = subprocess.run(_cli("similar", str(arc), "日本語", "-k", "1"), capture_output=True, text=True, encoding="utf-8")
+    assert res.returncode == 0, res.stderr
+    assert res.stdout.startswith("2\t")
+    plain = tmp_path / "p.jlogarc"
+    build_archive(src, plain)
+    res2 = subprocess.run(_cli("similar", str(plain), "x"), capture_output=True, text=True)
+    assert res2.returncode == 1
 
 
 def test_build_reports_stats(tmp_path: Path) -> None:
