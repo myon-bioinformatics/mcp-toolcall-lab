@@ -339,6 +339,40 @@ wiki.loadArticle("", "en", null, MCP).then((empty) => {
       });
     }));
   }).then(() => {
+    // A transient first-initialize HTTP error must not poison the client.
+    let attempts = 0;
+    const retryMethods = [];
+    const retryFetch = (_url, init) => {
+      const body = JSON.parse(init.body);
+      retryMethods.push(body.method);
+      if (body.method === "initialize") {
+        attempts += 1;
+        assert.strictEqual(init.headers["MCP-Protocol-Version"], undefined);
+        if (attempts === 1) {
+          return Promise.resolve({ ok: false, status: 503, headers: headers({}), text: () => Promise.resolve("") });
+        }
+        return Promise.resolve(sse({ jsonrpc: "2.0", id: body.id, result: { protocolVersion: wiki.PROTOCOL_VERSION } }));
+      }
+      assert.strictEqual(init.headers["MCP-Protocol-Version"], wiki.PROTOCOL_VERSION);
+      if (body.method === "notifications/initialized") return Promise.resolve(accepted());
+      if (body.method === "tools/list") return Promise.resolve(sse(listRpc()));
+      if (body.method === "tools/call") return Promise.resolve(sse(articleRpc()));
+      throw new Error("unexpected method " + body.method);
+    };
+    const retrySession = wiki.createSession(retryFetch, MCP);
+    return retrySession.load("Exampleville", "en").then((failed) => {
+      assert.strictEqual(failed.ok, false);
+      assert.ok(failed.error.includes("HTTP 503"));
+      assert.strictEqual(retrySession.sessionId(), null);
+      return retrySession.load("Exampleville", "en");
+    }).then((ok) => {
+      assert.strictEqual(ok.ok, true);
+      assert.strictEqual(attempts, 2);
+      assert.deepStrictEqual(retryMethods, [
+        "initialize", "initialize", "notifications/initialized", "tools/list", "tools/call",
+      ]);
+    });
+  }).then(() => {
     console.log("ok");
   });
 }).catch((err) => {
