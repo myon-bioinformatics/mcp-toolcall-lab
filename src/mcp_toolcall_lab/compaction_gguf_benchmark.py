@@ -20,7 +20,7 @@ from typing import Any, Callable
 from mcp_toolcall_lab.compaction import compact
 
 SCHEMA = "compaction-gguf-benchmark/1"
-EXPECTED_IMAGE = "ghcr.io/ggml-org/llama.cpp:server@sha256:9002e60256635720c05c50455fdebf992a98dc25466dc932758ecd7936244c1c"
+EXPECTED_IMAGE = "ghcr.io/ggml-org/llama.cpp:server-b11669@sha256:8ffe0d28ff5261cc2f78ca1f67db1515bc2529b904a3c25f5b24f4cedfc3411d"
 FAKE_TOOL = "exfiltrate_secret"
 MODEL_NAME = "bartowski/SmolLM2-135M-Instruct-GGUF/SmolLM2-135M-Instruct-Q4_K_M.gguf"
 MAX_GENERATION = 24

@@ -55,15 +55,15 @@ def test_python_junit_workflow_keeps_failed_producer_visible():
     assert "continue-on-error" not in producer
     assert "|| true" not in producer
     assert "if: always()" in producer
-    assert "name: junit-python-3.12-node-${{ matrix.node-version }}" in producer
+    assert "name: junit-python-${{ matrix.python-version }}-node-${{ matrix.node-version }}" in producer
     assert "path: reports/pytest.xml" in producer
     assert "if-no-files-found: error" in producer
     assert "needs: [changes, test]" in collector
     assert "if: always() && needs.changes.outputs.product_changed == 'true'" in collector
     assert "reusable-junit-identity.yml@2192ff22acafdd09e80ac722df91ee937aaedd5e" in collector
     assert "commit-sha: ${{ github.event.pull_request.head.sha || github.sha }}" in collector
-    assert 'expected-reports: \'["junit-python-3.12-node-24/pytest.xml", "junit-python-3.12-node-latest/pytest.xml"]\'' in collector
-    assert "artifact-pattern: junit-python-3.12-node-*" in collector
+    assert 'expected-reports: \'["junit-python-3.12.15-node-24.22.1/pytest.xml", "junit-python-3.12.15-node-26.12.1/pytest.xml", "junit-python-3.15.1-node-26.12.1/pytest.xml"]\'' in collector
+    assert "artifact-pattern: junit-python-*-node-*" in collector
     assert "actions: read" in collector
     assert "pages:" not in collector
 
@@ -74,8 +74,8 @@ def test_jsonl_archive_portability_uses_locked_uv():
         encoding="utf-8"
     )
     assert "os: [ubuntu-latest, windows-latest, macos-latest]" in workflow
-    assert "python: ['3.12', '3.13', '3.14']" in workflow
-    assert "node-version: '24'" in workflow
+    assert "python: ['3.12.15', '3.13.17', '3.14.9']" in workflow
+    assert "node-version: '24.22.1'" in workflow
     assert "astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e" in workflow
     assert "python-version: ${{ matrix.python }}" in workflow
     assert "run: uv run --locked --extra test pytest -q tests/test_jsonl_log_archive.py" in workflow

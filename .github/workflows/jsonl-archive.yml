@@ -26,7 +26,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        python: ['3.12', '3.13', '3.14']
+        python: ['3.12.15', '3.13.17', '3.14.9']
     env:
       PYTHONPATH: src
       PYTHONUTF8: '1'
@@ -39,9 +39,10 @@ jobs:
           python-version: ${{ matrix.python }}
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: '24'
+          node-version: '24.22.1'
       - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
         with:
+          version: "0.13.5"
           python-version: ${{ matrix.python }}
           cache-python: true
       - run: node --version
