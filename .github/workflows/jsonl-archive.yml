@@ -41,7 +41,8 @@ jobs:
         with:
           version: "0.13.5"
           python-version: ${{ matrix.python }}
-          cache-python: true
+          cache-python: false
+          enable-cache: false
       # The same exact patch is available through uv on all three platforms,
       # including security-only Python releases missing from setup-python.
       - name: Install exact managed Python
