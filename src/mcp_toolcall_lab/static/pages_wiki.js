@@ -407,6 +407,13 @@
             throw new Error("tools/list advertised non-Wikipedia tools");
           }
           return true;
+        }).catch(function (err) {
+          // Failure can be transient (offline, 429/503, expired session).
+          // Invalidate partial initialization and let the next load retry.
+          ready = null;
+          sessionId = null;
+          negotiatedVersion = null;
+          throw err;
         });
       return ready;
     }
