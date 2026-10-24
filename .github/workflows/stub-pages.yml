@@ -150,7 +150,14 @@ jobs:
         env:
           STUB_LAST_RUN: ${{ github.workspace }}/test-results/last-run.json
           PYTHONPATH: src
+          MCP_TOOLCALL_LAB_PAGES_MCP_URL: ${{ vars.MCP_TOOLCALL_LAB_PAGES_MCP_URL }}
         run: |
+          # No endpoint means direct browser → MediaWiki. A configured public
+          # MCP endpoint must use HTTPS; never silently ignore bad settings.
+          if [[ -n "$MCP_TOOLCALL_LAB_PAGES_MCP_URL" && "$MCP_TOOLCALL_LAB_PAGES_MCP_URL" != https://* ]]; then
+            echo "::error title=Invalid Wikipedia MCP endpoint::Optional MCP_TOOLCALL_LAB_PAGES_MCP_URL must be HTTPS; leave it empty for direct Wikipedia access"
+            exit 1
+          fi
           python -m mcp_toolcall_lab.stub_front pages --out _site \
             --last-run test-results/last-run.json \
             --observations test-results/antipatterns.jsonl

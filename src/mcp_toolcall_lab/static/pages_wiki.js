@@ -1,13 +1,15 @@
 /*
- * Browser-side MediaWiki extract client for the published GitHub Pages
- * #wiki panel. Fetches https://{lang}.wikipedia.org/w/api.php with
- * origin=* (CORS). Not an MCP tool call, and not the local GET /wiki
- * stub form.
+ * Browser-side Wikipedia Streamable HTTP MCP client for the published
+ * GitHub Pages #wiki panel. Speaks JSON-RPC 2.0 POST /mcp:
+ * initialize → notifications/initialized → tools/list → tools/call
+ * (fetch_wikipedia_article). Heading switches reuse the in-memory extract.
+ *
+ * Without a configured MCP endpoint, fetch MediaWiki directly with origin=*.
+ * No API key or persistent hosted backend is required. Configured MCP failures
+ * remain visible; they do not silently switch transports.
  *
  * Vanilla JS, no build step. write_pages() copies this file next to
- * index.html as pages-wiki.js. parseWikiSections / sectionView /
- * parseExtractPayload / buildApiUrl / loadArticle are the contracts
- * tests/test_pages_wiki.py exercises via node.
+ * index.html as pages-wiki.js. Contracts in tests/test_pages_wiki.py.
  */
 (function (root, factory) {
   "use strict";
@@ -25,9 +27,15 @@
 
   var DEFAULT_LANG = "en";
   var DEFAULT_TITLE = "";
+  var PROTOCOL_VERSION = "2025-06-18";
+  var ACCEPT = "application/json, text/event-stream";
+  var ARTICLE_TOOL = "fetch_wikipedia_article";
+  var SECTION_TOOL = "fetch_wikipedia_section";
   var HEADING_RE = /^(=+)\s*(.+?)\s*=+\s*$/;
-  var LANG_RE = /^[a-z]{2,12}(?:-[a-z0-9]+)*$/i;
+  /** MediaWiki-like codes; matches deploy/wikipedia-mcp lang gate. */
+  var LANG_RE = /^[a-z0-9-]{2,24}$/i;
   var MISSING_TITLE = "Enter a Wikipedia title.";
+  var MISSING_MCP = "Wikipedia MCP URL is not configured.";
 
   function escapeHtml(text) {
     return String(text)
@@ -47,22 +55,6 @@
       return "";
     }
     return cleaned.toLowerCase();
-  }
-
-  function buildApiUrl(title, lang) {
-    var safeLang = normalizeLang(lang);
-    if (!safeLang) {
-      return "";
-    }
-    var cleaned = String(title || "").trim();
-    if (!cleaned) {
-      return "";
-    }
-    var query =
-      "action=query&prop=extracts&explaintext=1&exsectionformat=wiki" +
-      "&redirects=1&format=json&origin=*&titles=" +
-      encodeURIComponent(cleaned);
-    return "https://" + safeLang + ".wikipedia.org/w/api.php?" + query;
   }
 
   function headingLabel(level, title) {
@@ -228,7 +220,253 @@
     };
   }
 
-  function loadArticle(title, lang, fetchImpl) {
+  function headerGet(headers, name) {
+    if (!headers) {
+      return null;
+    }
+    var lower = String(name).toLowerCase();
+    if (typeof headers.get === "function") {
+      return headers.get(name) || headers.get(lower);
+    }
+    return headers[name] || headers[lower] || null;
+  }
+
+  function extractSseData(text) {
+    var raw = String(text || "");
+    var lines = raw.split(/\r?\n/);
+    var i;
+    for (i = 0; i < lines.length; i++) {
+      if (lines[i].indexOf("data:") === 0) {
+        return JSON.parse(lines[i].slice(5).replace(/^\s+/, ""));
+      }
+    }
+    return JSON.parse(raw);
+  }
+
+  function contentText(result) {
+    var content = result && result.content;
+    if (!content || !content.length) {
+      return "";
+    }
+    return content[0] && content[0].text != null ? String(content[0].text) : "";
+  }
+
+  function unwrapArticle(rpc, title, lang) {
+    var safeLang = normalizeLang(lang) || DEFAULT_LANG;
+    var cleaned = String(title || "").trim();
+    if (!rpc || typeof rpc !== "object") {
+      return { ok: false, error: "could not fetch '" + cleaned + "' from MCP: bad JSON" };
+    }
+    if (rpc.error) {
+      return { ok: false, error: rpc.error.message || "MCP error" };
+    }
+    var result = rpc.result;
+    if (!result || typeof result !== "object") {
+      return { ok: false, error: "could not fetch '" + cleaned + "' from MCP: missing result" };
+    }
+    if (result.isError) {
+      return { ok: false, error: contentText(result) || "Wikipedia tool error" };
+    }
+    var payload = result.structuredContent;
+    if (payload && typeof payload === "object" && payload.result && payload.canonical_title == null) {
+      payload = payload.result;
+    }
+    if (!payload || typeof payload !== "object" || payload.canonical_title == null) {
+      try {
+        payload = JSON.parse(contentText(result) || "null");
+      } catch (err) {
+        payload = null;
+      }
+    }
+    if (!payload || typeof payload !== "object") {
+      return { ok: false, error: "could not fetch '" + cleaned + "' from MCP: missing article" };
+    }
+    var extract = payload.extract == null ? "" : String(payload.extract);
+    return {
+      ok: true,
+      canonical_title: String(payload.canonical_title || cleaned),
+      lang: String(payload.lang || safeLang),
+      extract: extract,
+      sections: parseWikiSections(extract),
+    };
+  }
+
+  function readBody(response) {
+    if (!response) {
+      return Promise.resolve("");
+    }
+    if (response.status === 202) {
+      return Promise.resolve("");
+    }
+    if (typeof response.text === "function") {
+      return Promise.resolve(response.text());
+    }
+    return Promise.resolve(response.body != null ? String(response.body) : "");
+  }
+
+  function createMcpClient(fetchImpl, mcpUrl, hops) {
+    var sessionId = null;
+    var negotiatedVersion = null;
+    var nextId = 1;
+    var ready = null;
+    var doFetch = fetchImpl || (typeof fetch === "function" ? fetch : null);
+
+    function post(payload) {
+      if (hops) {
+        hops.push(payload.method);
+      }
+      var headers = {
+        "Content-Type": "application/json",
+        Accept: ACCEPT,
+      };
+      if (sessionId) {
+        headers["Mcp-Session-Id"] = sessionId;
+      }
+      // Required on every HTTP request AFTER a successful initialize.
+      if (negotiatedVersion) {
+        headers["MCP-Protocol-Version"] = negotiatedVersion;
+      }
+      return Promise.resolve(
+        doFetch(mcpUrl, {
+          method: "POST",
+          headers: headers,
+          body: JSON.stringify(payload),
+        }),
+      ).then(function (response) {
+        if (!response) {
+          throw new Error("empty MCP response");
+        }
+        var sid = headerGet(response.headers, "mcp-session-id") || headerGet(response.headers, "Mcp-Session-Id");
+        if (sid) {
+          sessionId = sid;
+        }
+        if (response.ok === false && response.status !== 202) {
+          var status = response.status != null ? String(response.status) : "network";
+          throw new Error("HTTP " + status);
+        }
+        return readBody(response).then(function (text) {
+          if (response.status === 202 || (payload.method && String(payload.method).indexOf("notifications/") === 0)) {
+            return { status: response.status, rpc: null };
+          }
+          return { status: response.status, rpc: extractSseData(text) };
+        });
+      });
+    }
+
+    function handshake() {
+      if (ready) {
+        return ready;
+      }
+      if (!doFetch) {
+        ready = Promise.reject(new Error("fetch is unavailable"));
+        return ready;
+      }
+      if (!mcpUrl) {
+        ready = Promise.reject(new Error(MISSING_MCP));
+        return ready;
+      }
+      ready = post({
+        jsonrpc: "2.0",
+        id: nextId,
+        method: "initialize",
+        params: {
+          protocolVersion: PROTOCOL_VERSION,
+          capabilities: {},
+          clientInfo: { name: "mcp-toolcall-lab-pages-wiki", version: "0.0.1" },
+        },
+      })
+        .then(function (init) {
+          nextId += 1;
+          if (!sessionId) {
+            throw new Error("missing Mcp-Session-Id");
+          }
+          if (init.rpc && init.rpc.error) {
+            throw new Error(init.rpc.error.message || "initialize failed");
+          }
+          var version = init.rpc && init.rpc.result && init.rpc.result.protocolVersion;
+          if (version !== PROTOCOL_VERSION) {
+            throw new Error("unsupported MCP protocol version: " + String(version || "missing"));
+          }
+          negotiatedVersion = version;
+          return post({ jsonrpc: "2.0", method: "notifications/initialized" });
+        })
+        .then(function () {
+          return post({ jsonrpc: "2.0", id: nextId, method: "tools/list", params: {} });
+        })
+        .then(function (listed) {
+          nextId += 1;
+          var tools = (((listed.rpc || {}).result || {}).tools) || [];
+          var names = [];
+          var i;
+          for (i = 0; i < tools.length; i++) {
+            names.push(tools[i].name);
+          }
+          if (names.indexOf(ARTICLE_TOOL) === -1 || names.indexOf(SECTION_TOOL) === -1) {
+            throw new Error("tools/list is not the Wikipedia MCP catalog");
+          }
+          if (names.indexOf("find_municipalities") !== -1) {
+            throw new Error("tools/list advertised non-Wikipedia tools");
+          }
+          return true;
+        }).catch(function (err) {
+          // Failure can be transient (offline, 429/503, expired session).
+          // Invalidate partial initialization and let the next load retry.
+          ready = null;
+          sessionId = null;
+          negotiatedVersion = null;
+          throw err;
+        });
+      return ready;
+    }
+
+    return {
+      sessionId: function () {
+        return sessionId;
+      },
+      callArticle: function (title, lang) {
+        return handshake().then(function () {
+          var id = nextId;
+          nextId += 1;
+          return post({
+            jsonrpc: "2.0",
+            id: id,
+            method: "tools/call",
+            params: {
+              name: ARTICLE_TOOL,
+              arguments: { title: title, lang: lang },
+            },
+          }).then(function (called) {
+            return unwrapArticle(called.rpc, title, lang);
+          });
+        }).catch(function (err) {
+          // A failed call may mean the established session expired. Surface the
+          // error now; reinitialize on the next explicit load, without fallback.
+          ready = null;
+          sessionId = null;
+          negotiatedVersion = null;
+          throw err;
+        });
+      },
+    };
+  }
+
+  function buildApiUrl(title, lang) {
+    var safeLang = normalizeLang(lang);
+    if (!safeLang) {
+      return "";
+    }
+    var cleaned = String(title || "").trim();
+    if (!cleaned) {
+      return "";
+    }
+    var query =
+      "action=query&prop=extracts&explaintext=1&exsectionformat=wiki" +
+      "&redirects=1&format=json&origin=*&titles=" +
+      encodeURIComponent(cleaned);
+    return "https://" + safeLang + ".wikipedia.org/w/api.php?" + query;
+  }
+
+  function loadDirectArticle(title, lang, fetchImpl) {
     var cleaned = String(title || "").trim();
     if (!cleaned) {
       return Promise.resolve({ ok: false, error: MISSING_TITLE });
@@ -271,13 +509,39 @@
       });
   }
 
-  function createSession(fetchImpl) {
+  function loadArticle(title, lang, fetchImpl, mcpUrl) {
+    var cleaned = String(title || "").trim();
+    if (!cleaned) {
+      return Promise.resolve({ ok: false, error: MISSING_TITLE });
+    }
+    var safeLang = normalizeLang(lang);
+    if (!safeLang) {
+      return Promise.resolve({ ok: false, error: "Unsupported language code." });
+    }
+    var url = String(mcpUrl || "").trim();
+    if (!url) {
+      return loadDirectArticle(cleaned, safeLang, fetchImpl);
+    }
+    var client = createMcpClient(fetchImpl, url, null);
+    return client.callArticle(cleaned, safeLang).catch(function (err) {
+      var detail = err && err.message ? err.message : String(err);
+      return { ok: false, error: "could not fetch '" + cleaned + "' from MCP: " + detail };
+    });
+  }
+
+  function createSession(fetchImpl, mcpUrl) {
     var article = null;
     var heading = "";
     var fetches = 0;
+    var hops = [];
+    var url = String(mcpUrl || "").trim();
+    var client = createMcpClient(fetchImpl, url, hops);
     return {
       fetches: function () {
         return fetches;
+      },
+      hops: function () {
+        return hops.slice();
       },
       article: function () {
         return article;
@@ -285,13 +549,40 @@
       heading: function () {
         return heading;
       },
+      sessionId: function () {
+        return client.sessionId();
+      },
       load: function (title, lang) {
         fetches += 1;
         heading = "";
-        return loadArticle(title, lang, fetchImpl).then(function (result) {
-          article = result.ok ? result : null;
-          return result;
-        });
+        var cleaned = String(title || "").trim();
+        if (!cleaned) {
+          article = null;
+          return Promise.resolve({ ok: false, error: MISSING_TITLE });
+        }
+        var safeLang = normalizeLang(lang);
+        if (!safeLang) {
+          article = null;
+          return Promise.resolve({ ok: false, error: "Unsupported language code." });
+        }
+        if (!url) {
+          return loadDirectArticle(cleaned, safeLang, fetchImpl).then(function (result) {
+            article = result.ok ? result : null;
+            return result;
+          });
+        }
+        return client.callArticle(cleaned, safeLang).then(
+          function (result) {
+            article = result.ok ? result : null;
+            return result;
+          },
+          function (err) {
+            var detail = err && err.message ? err.message : String(err);
+            var failed = { ok: false, error: "could not fetch '" + cleaned + "' from MCP: " + detail };
+            article = null;
+            return failed;
+          },
+        );
       },
       selectHeading: function (nextHeading) {
         heading = String(nextHeading || "");
@@ -383,7 +674,8 @@
     }
     var loc = options.location || {};
     var hist = options.history;
-    var session = createSession(options.fetch);
+    var mcpUrl = options.mcpUrl || (root.getAttribute && root.getAttribute("data-mcp-url")) || "";
+    var session = createSession(options.fetch, mcpUrl);
     var titleInput = qs(root, "pages-wiki-title");
     var langInput = qs(root, "pages-wiki-lang");
     var headingSelect = qs(root, "pages-wiki-heading");
@@ -522,15 +814,20 @@
   return {
     DEFAULT_LANG: DEFAULT_LANG,
     DEFAULT_TITLE: DEFAULT_TITLE,
+    PROTOCOL_VERSION: PROTOCOL_VERSION,
+    ARTICLE_TOOL: ARTICLE_TOOL,
+    SECTION_TOOL: SECTION_TOOL,
     MISSING_TITLE: MISSING_TITLE,
+    MISSING_MCP: MISSING_MCP,
     escapeHtml: escapeHtml,
     normalizeLang: normalizeLang,
-    buildApiUrl: buildApiUrl,
     headingLabel: headingLabel,
     parseWikiSections: parseWikiSections,
     findSection: findSection,
     sectionView: sectionView,
     parseExtractPayload: parseExtractPayload,
+    extractSseData: extractSseData,
+    unwrapArticle: unwrapArticle,
     parseWikiHash: parseWikiHash,
     wikiHash: wikiHash,
     viewState: viewState,

@@ -1,14 +1,24 @@
 # Wikipedia-only Streamable HTTP MCP (Deno Deploy)
 
 Keyless MCP endpoint that advertises **only** `fetch_wikipedia_article` and
-`fetch_wikipedia_section`. Pages `#wiki` is **not** wired to this server in
-this change; that connection (and any OpenAI `tools` / `tool_calls` → MCP →
-`role: tool` browser loop) is a follow-up.
+`fetch_wikipedia_section`. Deno is optional and can be kept for local/CI
+protocol tests; deploying or subscribing to a hosted service is not required.
+Published Pages `#wiki` defaults to direct browser → MediaWiki (`origin=*`).
+To opt into MCP, set `MCP_TOOLCALL_LAB_PAGES_MCP_URL` when generating `_site/`
+(or the corresponding GitHub Actions repository variable) to a verified public
+HTTPS `/mcp` endpoint. Leave it empty for direct access. `stub-pages.yml` permits
+an empty value on main/manual runs and rejects a configured non-HTTPS URL.
+MCP errors remain visible and do not silently fall back to direct access.
+The endpoint, CORS, shared session secret and live Wikipedia retrieval must be
+verified separately before claiming that optional hosted MCP works.
+An OpenAI
+`tools` / `tool_calls` → MCP → `role: tool` browser loop is still a
+separate follow-up.
 
 No live external provider API, no API keys, no custom JSON event rows. The wire is official MCP
 Streamable HTTP: JSON-RPC 2.0 on `POST /mcp`, SSE `event: message` for
 responses, empty **202** for `notifications/initialized`, `Mcp-Session-Id`,
-and CORS so a later github.io client can `fetch()` it.
+and CORS so github.io can `fetch()` it.
 
 `GET /mcp` (SSE resume / `Last-Event-ID`) is **not** implemented. Only
 `POST /mcp` and `OPTIONS /mcp` (CORS preflight) are MCP. `GET /health` is a
@@ -81,12 +91,14 @@ curl -sS -X POST http://127.0.0.1:8000/mcp \
   -H 'Content-Type: application/json' \
   -H 'Accept: application/json, text/event-stream' \
   -H 'Mcp-Session-Id: SESSION' \
+  -H 'MCP-Protocol-Version: 2025-06-18' \
   -d '{"jsonrpc":"2.0","method":"notifications/initialized"}'
 
 curl -sS -X POST http://127.0.0.1:8000/mcp \
   -H 'Content-Type: application/json' \
   -H 'Accept: application/json, text/event-stream' \
   -H 'Mcp-Session-Id: SESSION' \
+  -H 'MCP-Protocol-Version: 2025-06-18' \
   -d '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}'
 ```
 
