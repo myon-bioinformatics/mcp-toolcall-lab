@@ -15,8 +15,7 @@
 #     OPENAI_MOCK_LOG=$PWD/test-results/openai-mock.jsonl \
 #     pytest tests/real_chat_ui/test_mcp_toolcall_lab_openwebui_docker.py -v
 #
-# Open WebUI image is the published registry tag. `:main` is intentional for
-# "does the current product still wire MCP?" — pin a digest to replay a run.
+# Latest verified stable Open WebUI release, with an immutable registry digest.
 #
 # GitHub Pages does not host this stack. It is CI / local Docker only.
 networks:
@@ -78,7 +77,7 @@ services:
     restart: "no"
 
   open-webui:
-    image: ghcr.io/open-webui/open-webui:main
+    image: ghcr.io/open-webui/open-webui:v0.12.3@sha256:a537bbe1e6b428820f52ed4a029d7fff97062e24d5cf32c365fba36fd0542def
     ports:
       - "3000:8080"
     env_file:
