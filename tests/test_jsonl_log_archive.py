@@ -198,8 +198,10 @@ def test_cli_broken_pipe_is_quiet(tmp_path: Path) -> None:
     assert proc.stdout is not None
     proc.stdout.readline()
     proc.stdout.close()
-    _out, err = proc.communicate(timeout=60)
-    assert proc.returncode == 0
+    assert proc.wait(timeout=60) == 0
+    assert proc.stderr is not None
+    err = proc.stderr.read()
+    proc.stderr.close()
     assert b"Traceback" not in err
 
 

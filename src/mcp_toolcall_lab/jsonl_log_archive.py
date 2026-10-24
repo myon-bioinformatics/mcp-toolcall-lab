@@ -10,6 +10,7 @@ archives remain readable; their normalized index requires full-scan search.
 from __future__ import annotations
 
 import argparse
+import errno
 import hashlib
 import json
 import lzma
@@ -648,15 +649,18 @@ def main(argv: Sequence[str] | None = None) -> int:
     except ArchiveError as exc:
         print(str(exc), file=sys.stderr)
         return 2
-    except BrokenPipeError:
+    except (BrokenPipeError, OSError) as exc:
+        if not isinstance(exc, BrokenPipeError) and exc.errno not in (errno.EPIPE, errno.EINVAL):
+            raise
         # Reader (e.g. `head`) closed the pipe: stop quietly like grep does.
+        # Drop buffered output so the interpreter's final flush cannot fail.
         try:
             devnull = os.open(os.devnull, os.O_WRONLY)
             os.dup2(devnull, sys.stdout.fileno())
         except (OSError, ValueError):
             pass
+        sys.stdout = open(os.devnull, "w", encoding="utf-8")
         return 0
-
 
 if __name__ == "__main__":
     raise SystemExit(main())
