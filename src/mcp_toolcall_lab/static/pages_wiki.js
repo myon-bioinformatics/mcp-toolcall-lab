@@ -305,6 +305,7 @@
 
   function createMcpClient(fetchImpl, mcpUrl, hops) {
     var sessionId = null;
+    var negotiatedVersion = null;
     var nextId = 1;
     var ready = null;
     var doFetch = fetchImpl || (typeof fetch === "function" ? fetch : null);
