@@ -451,6 +451,18 @@ def test_write_pages_bakes_mcp_url_from_env(tmp_path: Path, monkeypatch: pytest.
     assert "https://wiki-mcp.example/mcp" in html[html.index('data-testid="pages-wiki-mcp-endpoint"') :]
 
 
+
+def test_stub_pages_workflow_wires_mcp_endpoint_before_publish() -> None:
+    workflow = (ROOT / ".github" / "workflows" / "stub-pages.yml").read_text(encoding="utf-8")
+    build = workflow.split("- name: Build static Pages tree", 1)[1].split(
+        "- name: Capture Pages screenshots", 1
+    )[0]
+    assert "MCP_TOOLCALL_LAB_PAGES_MCP_URL: ${{ vars.MCP_TOOLCALL_LAB_PAGES_MCP_URL }}" in build
+    assert 'if [[ "$GITHUB_EVENT_NAME" != "pull_request" ]]' in build
+    assert 'if [[ "$MCP_TOOLCALL_LAB_PAGES_MCP_URL" != https://* ]]' in build
+    assert "exit 1" in build
+    assert "python -m mcp_toolcall_lab.stub_front pages --out _site" in build
+
 def test_exampleville_fixture_is_mediawiki_extract_shape() -> None:
     payload = json.loads(FIXTURE.read_text(encoding="utf-8"))
     page = payload["query"]["pages"]["9000001"]
