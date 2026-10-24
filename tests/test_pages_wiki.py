@@ -374,6 +374,33 @@ wiki.loadArticle("", "en", null, MCP).then((empty) => {
         "initialize", "initialize", "notifications/initialized", "tools/list", "tools/call",
       ]);
     });
+  }).then(async () => {
+    // An expired established session must be discarded before a user retry.
+    let inits = 0, calls = 0;
+    const recovering = wiki.createSession(async (_url, init) => {
+      const body = JSON.parse(init.body);
+      if (body.method === "initialize") {
+        inits++;
+        assert.strictEqual(init.headers["Mcp-Session-Id"], undefined);
+        assert.strictEqual(init.headers["MCP-Protocol-Version"], undefined);
+        return sse({jsonrpc: "2.0", id: body.id, result: {protocolVersion: wiki.PROTOCOL_VERSION}});
+      }
+      if (body.method === "notifications/initialized") return accepted();
+      if (body.method === "tools/list") return sse(listRpc());
+      if (++calls === 2) return {ok: false, status: 404, headers: headers({})};
+      return sse(articleRpc());
+    }, MCP);
+    assert.strictEqual((await recovering.load("Exampleville", "en")).ok, true);
+    const failed = await recovering.load("Exampleville", "en");
+    assert.strictEqual(failed.ok, false);
+    assert.ok(failed.error.includes("HTTP 404"));
+    assert.strictEqual(recovering.sessionId(), null);
+    assert.strictEqual((await recovering.load("Exampleville", "en")).ok, true);
+    assert.strictEqual(inits, 2);
+    assert.deepStrictEqual(recovering.hops(), [
+      "initialize", "notifications/initialized", "tools/list", "tools/call", "tools/call",
+      "initialize", "notifications/initialized", "tools/list", "tools/call",
+    ]);
   }).then(() => {
     console.log("ok");
   });

@@ -438,6 +438,13 @@
           }).then(function (called) {
             return unwrapArticle(called.rpc, title, lang);
           });
+        }).catch(function (err) {
+          // A failed call may mean the established session expired. Surface the
+          // error now; reinitialize on the next explicit load, without fallback.
+          ready = null;
+          sessionId = null;
+          negotiatedVersion = null;
+          throw err;
         });
       },
     };
