@@ -108,9 +108,11 @@ def _read_lines(path: Path) -> list[str]:
     text = path.read_text(encoding="utf-8")
     if not text:
         return []
-    lines = text.splitlines()
-    if text.endswith("\n"):
-        return lines
+    # JSONL records are separated by LF only. Unicode line separators such as
+    # U+2028/U+2029/U+0085 are legal within a JSON string, not record breaks.
+    lines = text.split("\n")
+    if lines[-1] == "":
+        lines.pop()
     return lines
 
 
@@ -192,7 +194,10 @@ def _decompress_block(data: bytes) -> list[str]:
     text = raw.decode("utf-8")
     if not text:
         return []
-    return text.splitlines()
+    lines = text.split("\n")
+    if lines[-1] == "":
+        lines.pop()
+    return lines
 
 
 def _serialize_index(postings: dict[str, set[int]]) -> bytes:
