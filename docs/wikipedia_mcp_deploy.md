@@ -3,7 +3,12 @@
 Keyless MCP endpoint that advertises **only** `fetch_wikipedia_article` and
 `fetch_wikipedia_section`. Published Pages `#wiki` is the browser client of
 this server (`pages_wiki.js` → `POST /mcp`). Bake the absolute URL with
-`MCP_TOOLCALL_LAB_PAGES_MCP_URL` when generating `_site/`. An OpenAI
+`MCP_TOOLCALL_LAB_PAGES_MCP_URL` when generating `_site/`. Configure this
+as a GitHub repository Actions variable under Settings → Secrets and variables
+→ Actions → Variables, with a public HTTPS `/mcp` endpoint. The
+`stub-pages.yml` build passes the variable explicitly and fails closed on
+main/manual publication if missing or non-HTTPS (PR previews may omit it).
+An OpenAI
 `tools` / `tool_calls` → MCP → `role: tool` browser loop is still a
 separate follow-up.
 
