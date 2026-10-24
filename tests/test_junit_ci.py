@@ -66,3 +66,19 @@ def test_python_junit_workflow_keeps_failed_producer_visible():
     assert "artifact-pattern: junit-python-3.12-node-*" in collector
     assert "actions: read" in collector
     assert "pages:" not in collector
+
+
+def test_jsonl_archive_portability_uses_locked_uv():
+    """No pip-only drift in the Windows/macOS/Linux x Python archive matrix."""
+    workflow = (Path(__file__).parents[1] / ".github/workflows/jsonl-archive.yml").read_text(
+        encoding="utf-8"
+    )
+    assert "os: [ubuntu-latest, windows-latest, macos-latest]" in workflow
+    assert "python: ['3.12', '3.13', '3.14']" in workflow
+    assert "node-version: '24'" in workflow
+    assert "astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e" in workflow
+    assert "python-version: ${{ matrix.python }}" in workflow
+    assert "run: uv run --locked --extra test pytest -q tests/test_jsonl_log_archive.py" in workflow
+    assert "run: python -S src/mcp_toolcall_lab/jsonl_log_archive.py --help" in workflow
+    assert "pip install pytest" not in workflow
+    assert "python -m pytest" not in workflow
