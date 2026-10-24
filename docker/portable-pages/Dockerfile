@@ -1,5 +1,5 @@
 # Build-time runtimes only. The final target contains static files, not a service.
-FROM node:22-bookworm-slim AS node
+FROM node:24-bookworm-slim AS node
 FROM ghcr.io/ggml-org/llama.cpp:server@sha256:9002e60256635720c05c50455fdebf992a98dc25466dc932758ecd7936244c1c AS build
 RUN apt-get update && apt-get install -y --no-install-recommends python3 ca-certificates libstdc++6 libatomic1 && rm -rf /var/lib/apt/lists/*
 COPY --from=node /usr/local/bin/node /usr/local/bin/node

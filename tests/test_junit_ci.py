@@ -48,19 +48,21 @@ def test_python_junit_workflow_keeps_failed_producer_visible():
     workflow = (Path(__file__).parents[1] / ".github/workflows/test.yml").read_text(encoding="utf-8")
     producer = workflow.split("  test:\n", 1)[1].split("  junit-identity:\n", 1)[0]
     collector = workflow.split("  junit-identity:\n", 1)[1].split("  public-resolver-compat:", 1)[0]
-    assert "astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0" in producer
+    assert "astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2" in producer
+    assert "actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0" in producer
+    assert "node-version: ${{ matrix.node-version }}" in producer
     assert "run: uv run --locked --extra test pytest -q --junitxml=reports/pytest.xml" in producer
     assert "continue-on-error" not in producer
     assert "|| true" not in producer
     assert "if: always()" in producer
-    assert "name: junit-python-3.12" in producer
+    assert "name: junit-python-3.12-node-${{ matrix.node-version }}" in producer
     assert "path: reports/pytest.xml" in producer
     assert "if-no-files-found: error" in producer
     assert "needs: [changes, test]" in collector
     assert "if: always() && needs.changes.outputs.product_changed == 'true'" in collector
     assert "reusable-junit-identity.yml@2192ff22acafdd09e80ac722df91ee937aaedd5e" in collector
     assert "commit-sha: ${{ github.event.pull_request.head.sha || github.sha }}" in collector
-    assert 'expected-reports: \'["junit-python-3.12/pytest.xml"]\'' in collector
-    assert "artifact-pattern: junit-python-3.12" in collector
+    assert 'expected-reports: \'["junit-python-3.12-node-24/pytest.xml", "junit-python-3.12-node-latest/pytest.xml"]\'' in collector
+    assert "artifact-pattern: junit-python-3.12-node-*" in collector
     assert "actions: read" in collector
     assert "pages:" not in collector

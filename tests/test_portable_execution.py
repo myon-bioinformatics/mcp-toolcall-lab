@@ -91,7 +91,7 @@ class PortableExecutionTests(unittest.TestCase):
     def test_summary_directory_uses_shared_verifier_in_both_clis(self):
         from mcp_toolcall_lab.portable_summary_build import build_summaries
         with tempfile.TemporaryDirectory() as directory:
-            out = Path(directory) / 'artifacts'
+            out = Path(directory) / 'artifacts with spaces'
             manifest = build_summaries(out, source_sha='a' * 40)
             value = manifest['sources'][0]['choices'][0]['source_selection_request']
             left = execute(value, summary_dir=out)
@@ -272,6 +272,7 @@ console.log(JSON.stringify([ok,miss,mismatch,offline]));'''.replace('CORE', json
             self.assertEqual(json.loads(proc.stdout)['metrics']['tool_calls'], 2)
             self.assertTrue((extracted / 'LICENSE').is_file())
             self.assertTrue((extracted / 'vendor.lock.json').is_file())
+            self.assertEqual((extracted / 'vendor/node_launch.py').read_bytes(), (ROOT / 'vendor/node_launch.py').read_bytes())
             again = subprocess.run([sys.executable, '-S', str(ROOT / 'scripts/build_portable_pages.py'), '--out', str(out), '--source-sha', sha], env=ENV, capture_output=True)
             self.assertNotEqual(again.returncode, 0)
             self.assertIn(b'stale build receipts', again.stderr)
@@ -282,6 +283,7 @@ console.log(JSON.stringify([ok,miss,mismatch,offline]));'''.replace('CORE', json
         self.assertEqual(publishers, ['portable-pages.yml'])
         docker = (ROOT / 'docker/portable-pages/Dockerfile').read_text()
         self.assertIn('FROM scratch AS artifact', docker)
+        self.assertIn('FROM node:24-bookworm-slim AS node', docker)
         self.assertIn('ENV LD_LIBRARY_PATH=/app', docker)
         self.assertLess(docker.index('RUN /app/llama-server --version'), docker.index('RUN python3 -S scripts/fetch_tiny_cpu_gguf.py'))
         self.assertNotIn('CMD', docker)
