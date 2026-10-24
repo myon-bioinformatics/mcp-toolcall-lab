@@ -30,7 +30,7 @@ split. It is not a product clone and not a CommonMark engine.
   fetch script, `/v1/chat/completions` smoke check distinct from `/health`,
   `cpu_llm_backend` in the published summary
 - GitHub Pages report: generation identity (`build_meta.json` / Commit)
-  + same-origin `#wiki` browser Wikipedia Streamable HTTP MCP form + Last
+  + same-origin `#wiki` browser Wikipedia form (direct / optional MCP) + Last
   Actions snapshot. The mock "Try it" heading pulldown is **not** on the
   published index (`stub_demo.js` remains a local/test asset via
   `write_stub_demo_page()`). `pages-hash.js` hide/shows home vs `#wiki`;
@@ -48,12 +48,12 @@ split. It is not a product clone and not a CommonMark engine.
   plaintext extract (no HTML scraping, no markdown.py HTML conversion),
   heading list from the same fetch, in-process TTL/LRU cache so heading
   switches do not refetch. Stdlib stub `GET /wiki` is the thin
-  server-side form. Pages `#wiki` reaches the same tools via the Deno
-  Streamable HTTP MCP, not MediaWiki `origin=*` from the page. See
+  server-side form. Pages `#wiki` defaults to direct MediaWiki `origin=*`
+  access and optionally reaches the tools through a configured MCP endpoint. See
   `docs/wikipedia_tool.md`.
 - Wikipedia-only Deno Streamable HTTP MCP (`deploy/wikipedia-mcp`): keyless
   `POST /mcp` for `fetch_wikipedia_*`, catalog generated from FastMCP,
-  CORS + HMAC `Mcp-Session-Id`. Pages `#wiki` is the browser client.
+  CORS + HMAC `Mcp-Session-Id`. Pages `#wiki` can optionally be its browser client; local/CI use needs no hosted deployment.
   See `docs/wikipedia_mcp_deploy.md`.
 
 ## Later (unnumbered)

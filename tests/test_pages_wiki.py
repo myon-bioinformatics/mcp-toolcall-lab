@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import os
+import textwrap
 import shutil
 import subprocess
 from pathlib import Path
@@ -218,10 +220,10 @@ function listRpc() {
 wiki.loadArticle("", "en", null, MCP).then((empty) => {
   assert.strictEqual(empty.ok, false);
   assert.strictEqual(empty.error, wiki.MISSING_TITLE);
-  return wiki.loadArticle("Exampleville", "en");
+  return wiki.loadArticle("Exampleville", "en", () => Promise.reject(new Error("offline")));
 }).then((noUrl) => {
   assert.strictEqual(noUrl.ok, false);
-  assert.strictEqual(noUrl.error, wiki.MISSING_MCP);
+  assert.ok(noUrl.error.includes("offline"));
 
   let fetchCalls = 0;
   const fakeFetch = (url, init) => {
@@ -411,7 +413,7 @@ def test_write_pages_includes_wikipedia_mcp_ui_mount(tmp_path: Path) -> None:
     assert 'data-testid="pages-wiki-app"' in html
     assert 'data-mcp-url="' in html
     assert 'data-testid="pages-wiki-mcp-endpoint"' in html
-    assert PAGES_WIKI_MCP_URL_ENV in html
+    assert "disabled (direct browser → Wikipedia)" in html
     assert 'data-testid="pages-wiki-form"' in html
     assert 'data-testid="pages-wiki-title"' in html
     assert 'name="title" value=""' in html
@@ -429,7 +431,7 @@ def test_write_pages_includes_wikipedia_mcp_ui_mount(tmp_path: Path) -> None:
     assert 'data-pages-view="wiki"' in html
     assert 'action="/wiki"' not in html
     assert "w/api.php" not in html
-    assert "buildApiUrl" not in (out / PAGES_WIKI_JS_NAME).read_text(encoding="utf-8")
+    assert "buildApiUrl" in (out / PAGES_WIKI_JS_NAME).read_text(encoding="utf-8")
     assert "Try it (static, no MCP)" not in html
     assert "mcpToolcallLabStubDemo" not in html
     assert "Corpus headings" not in html
@@ -458,8 +460,8 @@ def test_stub_pages_workflow_wires_mcp_endpoint_before_publish() -> None:
         "- name: Capture Pages screenshots", 1
     )[0]
     assert "MCP_TOOLCALL_LAB_PAGES_MCP_URL: ${{ vars.MCP_TOOLCALL_LAB_PAGES_MCP_URL }}" in build
-    assert 'if [[ "$GITHUB_EVENT_NAME" != "pull_request" ]]' in build
-    assert 'if [[ "$MCP_TOOLCALL_LAB_PAGES_MCP_URL" != https://* ]]' in build
+    assert '[[ -n "$MCP_TOOLCALL_LAB_PAGES_MCP_URL" && "$MCP_TOOLCALL_LAB_PAGES_MCP_URL" != https://* ]]' in build
+    assert '"$GITHUB_EVENT_NAME" != "pull_request"' not in build
     assert "exit 1" in build
     assert "python -m mcp_toolcall_lab.stub_front pages --out _site" in build
 
@@ -469,3 +471,73 @@ def test_exampleville_fixture_is_mediawiki_extract_shape() -> None:
     assert page["title"] == "Exampleville"
     assert "== Geography ==" in page["extract"]
     assert "missing" not in page
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node not installed")
+def test_optional_mcp_direct_transport_contract() -> None:
+    script = r"""
+const wiki = require(process.argv[1]);
+const fixture = require(process.argv[2]);
+const assert = require('node:assert/strict');
+(async () => {
+  let calls = 0;
+  const direct = wiki.createSession(async (url, init) => {
+    calls++;
+    assert.equal(init, undefined);
+    const parsed = new URL(url);
+    assert.equal(parsed.origin, 'https://en.wikipedia.org');
+    assert.equal(parsed.pathname, '/w/api.php');
+    assert.equal(parsed.searchParams.get('origin'), '*');
+    assert.equal(parsed.searchParams.get('titles'), 'Exampleville');
+    return {ok: true, json: async () => fixture};
+  }, '');
+  assert.equal((await direct.load('Exampleville', 'en')).ok, true);
+  assert.ok(direct.selectHeading('Geography').body.includes('Example Region'));
+  assert.equal(calls, 1);
+  assert.deepEqual(direct.hops(), []);
+  assert.equal((await direct.load('Exampleville', 'evil.com/')).ok, false);
+  assert.equal(calls, 1);
+  let attempts = 0;
+  const retry = wiki.createSession(async () => {
+    if (++attempts === 1) throw new Error('offline');
+    return {ok: true, json: async () => fixture};
+  });
+  assert.equal((await retry.load('Exampleville', 'en')).ok, false);
+  assert.equal((await retry.load('Exampleville', 'en')).ok, true);
+  let mcpCalls = 0;
+  const mcp = wiki.createSession(async (url, init) => {
+    mcpCalls++;
+    assert.equal(url, 'https://mcp.example/mcp');
+    assert.equal(init.method, 'POST');
+    throw new Error('offline');
+  }, 'https://mcp.example/mcp');
+  assert.equal((await mcp.load('Exampleville', 'en')).ok, false);
+  assert.equal(mcpCalls, 1); // No automatic direct fallback on MCP failure.
+})().catch(e => { console.error(e); process.exitCode = 1; });
+"""
+    result = subprocess.run(
+        ["node", "-e", script, str(PAGES_WIKI_JS_SOURCE), str(FIXTURE)],
+        capture_output=True, text=True,
+    )
+    assert result.returncode == 0, result.stderr + result.stdout
+
+
+def test_unset_endpoint_generates_direct_mode(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv(PAGES_WIKI_MCP_URL_ENV, raising=False)
+    html = write_pages(tmp_path / "site").read_text(encoding="utf-8")
+    assert 'data-mcp-url=""' in html
+    assert "disabled (direct browser → Wikipedia)" in html
+
+
+@pytest.mark.parametrize("event", ["push", "workflow_dispatch"])
+@pytest.mark.parametrize("endpoint,expected", [("", 0), ("https://mcp.example/mcp", 0), ("http://mcp.example/mcp", 1)])
+def test_public_build_endpoint_guard(event: str, endpoint: str, expected: int) -> None:
+    workflow = (ROOT / ".github/workflows/stub-pages.yml").read_text(encoding="utf-8")
+    build = workflow.split("- name: Build static Pages tree", 1)[1]
+    guard = build.split("run: |", 1)[1].split("          python -m mcp_toolcall_lab.stub_front", 1)[0]
+    result = subprocess.run(
+        ["bash", "-c", textwrap.dedent(guard)],
+        env={**os.environ, "GITHUB_EVENT_NAME": event, "MCP_TOOLCALL_LAB_PAGES_MCP_URL": endpoint},
+        capture_output=True, text=True,
+    )
+    assert result.returncode == expected, result.stdout + result.stderr

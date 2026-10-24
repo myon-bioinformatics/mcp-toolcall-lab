@@ -142,7 +142,7 @@ def test_wiki_escapes_extract_that_looks_like_html(monkeypatch) -> None:
 def test_pages_tree_hosts_browser_wikipedia_mcp_not_local_wiki_or_try_it(tmp_path: Path) -> None:
     index = write_pages(tmp_path / "site")
     html = index.read_text(encoding="utf-8")
-    assert "Browser → Wikipedia Streamable HTTP MCP" in html
+    assert "Browser → Wikipedia directly by default" in html
     assert "stub_front serve" in html
     assert 'data-testid="pages-wiki-app"' in html
     assert 'data-mcp-url="' in html
@@ -154,7 +154,7 @@ def test_pages_tree_hosts_browser_wikipedia_mcp_not_local_wiki_or_try_it(tmp_pat
     assert 'href="/wiki"' not in html
     assert 'href="#wiki"' in html
     assert "w/api.php" not in html
-    assert "Browser → Wikipedia Streamable HTTP MCP" in html
+    assert "Browser → Wikipedia directly by default" in html
     assert "Try it (static, no MCP)" not in html
     assert "mcpToolcallLabStubDemo" not in html
 

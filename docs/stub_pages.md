@@ -11,10 +11,13 @@
 # Serverless stub try (GitHub Actions + Pages)
 
 GitHub Pages hosts a **static** report. It cannot keep Docker running
-or the local `GET /wiki` stub backend. It **can** call the Wikipedia-only
-Streamable HTTP MCP from the browser (`POST /mcp`, JSON-RPC 2.0, SSE,
-`Mcp-Session-Id`). Bake the absolute MCP URL with
-`MCP_TOOLCALL_LAB_PAGES_MCP_URL` when generating `_site/`. GitHub Actions
+or the local `GET /wiki` stub backend. The Wiki panel defaults to direct
+browser → MediaWiki (`origin=*`), requiring no hosted Deno service.
+Optionally set `MCP_TOOLCALL_LAB_PAGES_MCP_URL` to a verified HTTPS endpoint
+when generating `_site/` to select Streamable HTTP MCP (JSON-RPC, SSE,
+protocol/session headers). An empty value is valid for publication; configured
+non-HTTPS values are rejected. MCP errors are shown without automatic direct
+fallback. Deno can remain a local/CI experiment. GitHub Actions
 is the compute for the Last Actions snapshot: it starts one compose
 network, sends a turn through the stub, appends anti-patterns as JSONL,
 then publishes `_site/` to
@@ -22,7 +25,7 @@ https://myon-bioinformatics.github.io/mcp-toolcall-lab/.
 
 The published `index.html` stays on one GitHub Pages endpoint. A
 same-origin hash switch (`#wiki`, optional `?view=wiki`) shows an
-in-page browser → Wikipedia MCP form; there is no live `/wiki` path on
+in-page direct Wikipedia / optional MCP form; there is no live `/wiki` path on
 github.io (that URL stays 404 by design — it is the local stub).
 Default view (`#` / empty hash) is generation identity (Commit /
 optional Version, plus `_site/build_meta.json`), a short pointer, and a
@@ -137,8 +140,8 @@ it ignores default `_site/` and the chosen `--out` directory so generating
 (or regenerating) the Pages tree cannot mark a clean checkout dirty.
 
 The home view keeps Last Actions on this host. `#wiki` is a browser
-Wikipedia Streamable HTTP MCP client (title → `tools/call` → headings →
-section, in-memory extract on heading switch). The Python FastMCP
+Wikipedia client (direct MediaWiki by default, optional Streamable HTTP MCP;
+heading switches reuse the in-memory extract). The Python FastMCP
 `fetch_wikipedia_*` tools and the local stub form stay on compose /
 `stub_front serve`.
 
@@ -154,8 +157,8 @@ which the hash script treats like `#wiki`). `write_pages()` copies
 `pages-hash.js` and `pages-wiki.js` next to `index.html`. Do not
 confuse that with `stub-demo.js` (local/test only).
 
-Pages `#wiki` is browser → Deno Wikipedia MCP (`POST /mcp`), not
-MediaWiki `origin=*` from the page and not an OpenAI `tool_calls` loop.
+Pages `#wiki` uses browser → MediaWiki `origin=*` by default, or browser →
+MCP (`POST /mcp`) when explicitly configured. It is not an OpenAI `tool_calls` loop.
 The "Last Actions summary" JSON on the home view is the last
 `stub-pages` smoke snapshot — the actual value of this host — kept
 thinner than generation + the `#wiki` form.

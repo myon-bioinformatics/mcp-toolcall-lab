@@ -1,13 +1,16 @@
 # Wikipedia-only Streamable HTTP MCP (Deno Deploy)
 
 Keyless MCP endpoint that advertises **only** `fetch_wikipedia_article` and
-`fetch_wikipedia_section`. Published Pages `#wiki` is the browser client of
-this server (`pages_wiki.js` → `POST /mcp`). Bake the absolute URL with
-`MCP_TOOLCALL_LAB_PAGES_MCP_URL` when generating `_site/`. Configure this
-as a GitHub repository Actions variable under Settings → Secrets and variables
-→ Actions → Variables, with a public HTTPS `/mcp` endpoint. The
-`stub-pages.yml` build passes the variable explicitly and fails closed on
-main/manual publication if missing or non-HTTPS (PR previews may omit it).
+`fetch_wikipedia_section`. Deno is optional and can be kept for local/CI
+protocol tests; deploying or subscribing to a hosted service is not required.
+Published Pages `#wiki` defaults to direct browser → MediaWiki (`origin=*`).
+To opt into MCP, set `MCP_TOOLCALL_LAB_PAGES_MCP_URL` when generating `_site/`
+(or the corresponding GitHub Actions repository variable) to a verified public
+HTTPS `/mcp` endpoint. Leave it empty for direct access. `stub-pages.yml` permits
+an empty value on main/manual runs and rejects a configured non-HTTPS URL.
+MCP errors remain visible and do not silently fall back to direct access.
+The endpoint, CORS, shared session secret and live Wikipedia retrieval must be
+verified separately before claiming that optional hosted MCP works.
 An OpenAI
 `tools` / `tool_calls` → MCP → `role: tool` browser loop is still a
 separate follow-up.

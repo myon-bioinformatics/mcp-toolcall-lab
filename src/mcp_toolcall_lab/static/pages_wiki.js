@@ -4,8 +4,9 @@
  * initialize → notifications/initialized → tools/list → tools/call
  * (fetch_wikipedia_article). Heading switches reuse the in-memory extract.
  *
- * Not MediaWiki origin=* from the page, not an API key, not a lab JSONL
- * event= row, and not an OpenAI tools / tool_calls loop.
+ * Without a configured MCP endpoint, fetch MediaWiki directly with origin=*.
+ * No API key or persistent hosted backend is required. Configured MCP failures
+ * remain visible; they do not silently switch transports.
  *
  * Vanilla JS, no build step. write_pages() copies this file next to
  * index.html as pages-wiki.js. Contracts in tests/test_pages_wiki.py.
@@ -442,6 +443,65 @@
     };
   }
 
+  function buildApiUrl(title, lang) {
+    var safeLang = normalizeLang(lang);
+    if (!safeLang) {
+      return "";
+    }
+    var cleaned = String(title || "").trim();
+    if (!cleaned) {
+      return "";
+    }
+    var query =
+      "action=query&prop=extracts&explaintext=1&exsectionformat=wiki" +
+      "&redirects=1&format=json&origin=*&titles=" +
+      encodeURIComponent(cleaned);
+    return "https://" + safeLang + ".wikipedia.org/w/api.php?" + query;
+  }
+
+  function loadDirectArticle(title, lang, fetchImpl) {
+    var cleaned = String(title || "").trim();
+    if (!cleaned) {
+      return Promise.resolve({ ok: false, error: MISSING_TITLE });
+    }
+    var safeLang = normalizeLang(lang);
+    if (!safeLang) {
+      return Promise.resolve({ ok: false, error: "Unsupported language code." });
+    }
+    var url = buildApiUrl(cleaned, safeLang);
+    var doFetch = fetchImpl || (typeof fetch === "function" ? fetch : null);
+    if (!doFetch) {
+      return Promise.resolve({
+        ok: false,
+        error: "could not fetch '" + cleaned + "' from " + safeLang + ".wikipedia.org: fetch is unavailable",
+      });
+    }
+    return Promise.resolve()
+      .then(function () {
+        return doFetch(url);
+      })
+      .then(function (response) {
+        if (!response || response.ok === false) {
+          var status = response && response.status != null ? String(response.status) : "network";
+          throw new Error("HTTP " + status);
+        }
+        if (typeof response.json === "function") {
+          return response.json();
+        }
+        return response;
+      })
+      .then(function (payload) {
+        return parseExtractPayload(payload, cleaned, safeLang);
+      })
+      .catch(function (err) {
+        var detail = err && err.message ? err.message : String(err);
+        return {
+          ok: false,
+          error: "could not fetch '" + cleaned + "' from " + safeLang + ".wikipedia.org: " + detail,
+        };
+      });
+  }
+
   function loadArticle(title, lang, fetchImpl, mcpUrl) {
     var cleaned = String(title || "").trim();
     if (!cleaned) {
@@ -453,7 +513,7 @@
     }
     var url = String(mcpUrl || "").trim();
     if (!url) {
-      return Promise.resolve({ ok: false, error: MISSING_MCP });
+      return loadDirectArticle(cleaned, safeLang, fetchImpl);
     }
     var client = createMcpClient(fetchImpl, url, null);
     return client.callArticle(cleaned, safeLang).catch(function (err) {
@@ -499,8 +559,10 @@
           return Promise.resolve({ ok: false, error: "Unsupported language code." });
         }
         if (!url) {
-          article = null;
-          return Promise.resolve({ ok: false, error: MISSING_MCP });
+          return loadDirectArticle(cleaned, safeLang, fetchImpl).then(function (result) {
+            article = result.ok ? result : null;
+            return result;
+          });
         }
         return client.callArticle(cleaned, safeLang).then(
           function (result) {

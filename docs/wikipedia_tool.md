@@ -13,18 +13,19 @@ list derived from that extract.
 
 ## Two fetch paths: Pages `#wiki` vs MCP / local `/wiki`
 
-Published `#wiki` is a browser Streamable HTTP MCP client: it `POST`s
-JSON-RPC to the Deno Wikipedia MCP (`initialize` →
-`notifications/initialized` → `tools/list` → `tools/call`
-`fetch_wikipedia_article`), keeps `Mcp-Session-Id`, and unwraps SSE
-`event: message` payloads. Bake the absolute MCP URL with
-`MCP_TOOLCALL_LAB_PAGES_MCP_URL` when generating Pages (`data-mcp-url`).
-It is **not** MediaWiki `origin=*` from the page and not an OpenAI
-`tool_calls` loop.
+Published `#wiki` fetches MediaWiki directly from the browser by default,
+using `origin=*`. No hosted Deno service or API key is required.
+Optionally bake `MCP_TOOLCALL_LAB_PAGES_MCP_URL` into Pages (`data-mcp-url`)
+to use Streamable HTTP MCP: initialize → initialized → tools/list → tools/call,
+with negotiated protocol and session headers and SSE responses. A configured
+MCP failure is displayed rather than silently switching to direct access.
+Both modes reuse the extract when changing headings. This is not an OpenAI
+`tool_calls` loop. Deno remains available for local/CI protocol verification.
 
 | Surface | Who fetches | How |
 | --- | --- | --- |
-| GitHub Pages `#wiki` | the browser | `fetch` Streamable HTTP MCP `POST /mcp` (Wikipedia-only Deno server; no Docker on github.io) |
+| GitHub Pages `#wiki` (default) | the browser | MediaWiki action API with `origin=*` |
+| GitHub Pages `#wiki` (optional MCP URL) | browser → MCP server | Streamable HTTP `POST /mcp` |
 | Deno Wikipedia MCP (`POST /mcp`) | the MCP server process | `deploy/wikipedia-mcp` Streamable HTTP (keyless, HMAC `Mcp-Session-Id`, `lang` restricted to MediaWiki codes). See `docs/wikipedia_mcp_deploy.md`. |
 | Local `GET /wiki` + FastMCP `fetch_wikipedia_*` | the stub / Python MCP server process | `wikipedia_tool.py` (unchanged) |
 

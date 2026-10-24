@@ -80,13 +80,13 @@ CASE_MCP_UNREACHABLE = "MCP_UNREACHABLE"
 WIKI_PAGES_DISCLAIMER = (
     "This form runs on the local stdlib stub (or a CI job), which fetches "
     "Wikipedia in-process (same path as the MCP tools). Pages #wiki is a "
-    "separate browser → Streamable HTTP MCP client (POST /mcp) and cannot "
+    "separate browser client (direct Wikipedia or optional MCP) and cannot "
     "keep this /wiki backend online."
 )
 PAGES_WIKI_BROWSER_NOTE = (
-    "Browser → Wikipedia Streamable HTTP MCP (`POST /mcp`: initialize, "
-    "notifications/initialized, tools/list, tools/call). Not MediaWiki "
-    "`origin=*` from this page, not an API key, and not OpenAI tool_calls."
+    "Browser → Wikipedia directly by default (MediaWiki origin=*). "
+    "An optional configured endpoint uses Streamable HTTP MCP instead. "
+    "No API key or hosted Deno service is required. Not OpenAI tool_calls."
 )
 WIKI_EXTRACT_NOTE = (
     "MediaWiki plaintext extract, HTML-escaped. "
@@ -679,10 +679,10 @@ def _pages_wiki_back_html() -> str:
 def _pages_home_markdown(md: Any, summary_text: str) -> str:
     return "\n".join(
         [
-            "This host's [Wiki](#wiki) panel calls the Wikipedia-only Streamable "
-            "HTTP MCP from the browser (`POST /mcp`, JSON-RPC 2.0, SSE "
-            "`event: message`, `Mcp-Session-Id`). It is not MediaWiki `origin=*` "
-            "from the page and not an OpenAI `tool_calls` loop. Local `GET /wiki` "
+            "This host's [Wiki](#wiki) panel fetches Wikipedia directly in the "
+            "browser by default. An optionally configured endpoint selects "
+            "Streamable HTTP MCP (`POST /mcp`, JSON-RPC 2.0, SSE, "
+            "`Mcp-Session-Id`). No hosted Deno service is required. Local `GET /wiki` "
             "still needs compose or `stub_front serve`.",
             "",
             "[Repository diagnostics](repository-diagnostics.html) · "
@@ -707,9 +707,10 @@ def _pages_home_markdown(md: Any, summary_text: str) -> str:
 
 def _pages_wiki_markdown(md: Any) -> str:
     return md.section(
-        "Wikipedia extract (browser → Streamable HTTP MCP)",
+        "Wikipedia extract (direct browser / optional MCP)",
         [
-            "This `#wiki` panel speaks official MCP Streamable HTTP "
+            "This `#wiki` panel defaults to direct MediaWiki access. "
+            "With an optional endpoint it speaks MCP Streamable HTTP "
             "(`initialize` → `notifications/initialized` → `tools/list` → "
             "`tools/call` `fetch_wikipedia_article`). Heading switches reuse "
             "the in-memory extract (no second fetch). github.io `/wiki` stays "
@@ -724,7 +725,7 @@ def _pages_wiki_markdown(md: Any) -> str:
 def _pages_wiki_app_html(*, cache_bust: str = "") -> str:
     """Raw HTML for the browser Wikipedia MCP form. Kept outside markdown.py."""
     mcp_url = pages_wiki_mcp_url()
-    endpoint = mcp_url or f"(set {PAGES_WIKI_MCP_URL_ENV} when publishing Pages)"
+    endpoint = mcp_url or "disabled (direct browser → Wikipedia)"
     return (
         f'<p data-testid="pages-wiki-disclaimer">{html.escape(PAGES_WIKI_BROWSER_NOTE)}</p>'
         f'<p data-testid="pages-wiki-mcp-endpoint">MCP: {html.escape(endpoint)}</p>'
@@ -843,8 +844,8 @@ def write_pages(
 
     The published ``index.html`` stays on one origin/endpoint. ``#wiki`` (and
     optional ``?view=wiki``) is an in-page view switch, not a github.io
-    ``/wiki`` path (that URL stays 404). The ``#wiki`` panel POSTs
-    Streamable HTTP MCP (`initialize` → tools/call). Local Docker
+    ``/wiki`` path (that URL stays 404). The ``#wiki`` panel fetches MediaWiki directly unless an optional MCP
+    endpoint is configured (`initialize` → tools/call). Local Docker
     ``GET /wiki`` is unchanged.
     """
     from mcp_toolcall_lab.mock.common import read_jsonl
@@ -867,7 +868,7 @@ def write_pages(
     else:
         home_inner = "<pre>" + html.escape(summary_text) + "</pre>"
         wiki_inner = (
-            "<h2>Wikipedia extract (browser → Streamable HTTP MCP)</h2>"
+            "<h2>Wikipedia extract (direct browser / optional MCP)</h2>"
             f"<p>{html.escape(PAGES_WIKI_BROWSER_NOTE)}</p>"
             "<pre>" + html.escape(PAGES_WIKI_SERVE) + "</pre>"
         )
