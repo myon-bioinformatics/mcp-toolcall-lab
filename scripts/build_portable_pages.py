@@ -1,4 +1,4 @@
-"""Build-only static export and exact request receipts; no service or remote call."""
+"""Static export, optionally generating declared summaries in an owned local model."""
 from __future__ import annotations
 
 import argparse
@@ -15,6 +15,7 @@ from mcp_toolcall_lab.adapters.engine_adapter import distill_engine_adapter, exp
 from mcp_toolcall_lab.catalog import dispatch_tool
 from mcp_toolcall_lab.portable_execution import CONTRACT, execute, request_sha256
 from mcp_toolcall_lab.record import record_call
+from mcp_toolcall_lab.portable_summary_build import build_summaries
 from write_portfolio_redirect import write_redirect
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -25,17 +26,23 @@ def write_json(path: Path, value: object) -> None:
     path.write_text(json.dumps(value, ensure_ascii=False, indent=2, allow_nan=False) + '\n', encoding='utf-8')
 
 
-def build(out: Path, source_sha: str) -> None:
+def build(out: Path, source_sha: str, *, model_path: Path | None = None, llama_server: Path | None = None,
+          reviewed_corpus: Path | None = None, result_cache: Path | None = None, case_offset: int = 0, case_limit: int = 16) -> None:
     if not source_sha or len(source_sha) != 40 or any(c not in '0123456789abcdef' for c in source_sha):
         raise ValueError('source_sha must be the exact 40-character source commit')
     target = out / 'execution'
     if target.exists():
         raise ValueError('Output execution directory already exists; use a fresh output to avoid stale build receipts.')
+    if out.exists() and (not out.is_dir() or any(out.iterdir())):
+        raise ValueError('Static output must be a fresh empty directory; existing files may contain private data.')
+    for private in (reviewed_corpus, result_cache, model_path, llama_server):
+        if private is not None and Path(private).resolve().is_relative_to(out.resolve()):
+            raise ValueError('Model, executable, reviewed corpus and result cache must stay outside the public output directory.')
     write_redirect(out)
     target.mkdir(parents=True, exist_ok=True)
     (target / 'results').mkdir(exist_ok=True)
     # The CLI package is directly reusable, not a Pages-specific fork. No models
-    # or log files are copied; only the allowlisted source package + vendor dependencies.
+    # or private log files are copied; only allowlisted source/dependencies/fixtures.
     runtime = target / 'runtime'
     shutil.copytree(ROOT / 'src/mcp_toolcall_lab', runtime / 'src/mcp_toolcall_lab', ignore=shutil.ignore_patterns('__pycache__', '*.pyc'), dirs_exist_ok=True)
     # Existing markdown_lib resolves vendor relative to the source package.
@@ -43,6 +50,10 @@ def build(out: Path, source_sha: str) -> None:
     shutil.copyfile(ROOT / 'LICENSE', runtime / 'LICENSE')
     shutil.copyfile(ROOT / 'vendor.lock.json', runtime / 'vendor.lock.json')
     shutil.copyfile(ROOT / 'docs/portable-execution.md', runtime / 'README.md')
+    (runtime / 'fixtures/portable_summary').mkdir(parents=True)
+    shutil.copyfile(ROOT / 'fixtures/portable_summary/public_sources.json', runtime / 'fixtures/portable_summary/public_sources.json')
+    for name in ('build-time-summaries.md', 'summary-corpus.md'):
+        shutil.copyfile(ROOT / 'docs' / name, runtime / name)
     for source, destination in [('portable_page.html', 'index.html'), ('portable_page.mjs', 'portable_page.mjs'), ('terminal.css', 'terminal.css')]:
         shutil.copyfile(STATIC / source, target / destination)
     # Reuse the README branding byte-for-byte, with execution-local URLs.
@@ -79,6 +90,14 @@ def build(out: Path, source_sha: str) -> None:
             write_json(target / filename, req)
             key = request_sha256(req)
             write_json(target / 'results' / f'{key}.json', {'request': req, 'request_sha256': key, 'receipt': receipt, 'build': meta})
+    summary_manifest = build_summaries(target, source_sha=source_sha, model_path=model_path, llama_server=llama_server,
+                                      reviewed_corpus=reviewed_corpus, result_cache=result_cache, case_offset=case_offset, case_limit=case_limit)
+    meta['summaries'] = {'status': summary_manifest['status'], 'declared_requests': len(summary_manifest['entries']),
+                         'model_inference_performed': summary_manifest['model_inference_performed'],
+                         'new_generations': summary_manifest['new_generations'], 'reused_results': summary_manifest['reused_results']}
+    meta['execution'] = (f"build-time deterministic mock functions; no MCP transport; summaries: {summary_manifest['status']}; "
+                         f"new local llama.cpp generations: {summary_manifest['new_generations']}; "
+                         f"verified prior results reused: {summary_manifest['reused_results']}")
     # Archive has the same public runtime, useful without Pages or a running server.
     with zipfile.ZipFile(target / 'runtime.zip', 'w', zipfile.ZIP_DEFLATED) as archive:
         for path in sorted(runtime.rglob('*')):
@@ -93,5 +112,12 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--out', type=Path, required=True)
     parser.add_argument('--source-sha', default=os.environ.get('GITHUB_SHA'))
+    parser.add_argument('--model', type=Path, help='Verified pinned local GGUF, used only during this build')
+    parser.add_argument('--llama-server', type=Path, help='Pinned local llama-server executable, never hosted by Pages')
+    parser.add_argument('--reviewed-corpus', type=Path, help='Explicitly reviewed public JSONL/archive corpus, not browser uploads')
+    parser.add_argument('--result-cache', type=Path, help='Local append-only result store, reused only by exact recipe key')
+    parser.add_argument('--case-offset', type=int, default=0)
+    parser.add_argument('--case-limit', type=int, default=16)
     args = parser.parse_args()
-    build(args.out, args.source_sha)
+    build(args.out, args.source_sha, model_path=args.model, llama_server=args.llama_server,
+          reviewed_corpus=args.reviewed_corpus, result_cache=args.result_cache, case_offset=args.case_offset, case_limit=args.case_limit)
