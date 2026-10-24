@@ -26,10 +26,14 @@ FIXTURE = Path(__file__).parent / "fixtures" / "jsonl_log_archive_sample.jsonl"
 
 
 def _literal_lines(path: Path, needle: str) -> list[tuple[int, str]]:
-    return [(i, line) for i, line in enumerate(
-        (lambda text: text.split("\n")[:-1] if text.endswith("\n") else text.split("\n"))(
-            path.read_text(encoding="utf-8")), start=1
-    ) if needle in line]
+    # Match grep's LF record boundaries, not Python's Unicode splitlines().
+    text = path.read_text(encoding="utf-8")
+    if not text:
+        return []
+    lines = text.split("\n")
+    if lines[-1] == "":
+        lines.pop()
+    return [(i, line) for i, line in enumerate(lines, start=1) if needle in line]
 
 
 def _build_tmp(tmp_path: Path, lines: list[str]) -> tuple[Path, Path]:
