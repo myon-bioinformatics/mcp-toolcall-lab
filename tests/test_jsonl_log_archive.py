@@ -192,7 +192,7 @@ def test_cli_get_id_not_found_exit_1(sample_archive: tuple[Path, Path]) -> None:
     assert miss.returncode == 1 and miss.stdout == ""
 
 
-@pytest.mark.parametrize("separator", ["\\u2028", "\\u2029", "\\u0085"])
+@pytest.mark.parametrize("separator", ["\u2028", "\u2029", "\u0085"])
 def test_jsonl_unicode_separators_remain_in_same_record(
     tmp_path: Path, separator: str
 ) -> None:
