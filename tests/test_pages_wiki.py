@@ -233,9 +233,12 @@ wiki.loadArticle("", "en", null, MCP).then((empty) => {
     const body = JSON.parse(init.body);
     assert.strictEqual(body.jsonrpc, "2.0");
     if (body.method === "initialize") {
+      assert.strictEqual(init.headers["MCP-Protocol-Version"], undefined);
       assert.strictEqual(body.params.protocolVersion, wiki.PROTOCOL_VERSION);
       return Promise.resolve(sse({ jsonrpc: "2.0", id: 1, result: { protocolVersion: wiki.PROTOCOL_VERSION } }));
     }
+    // All post-initialize requests MUST use the server-negotiated version.
+    assert.strictEqual(init.headers["MCP-Protocol-Version"], wiki.PROTOCOL_VERSION);
     if (body.method === "notifications/initialized") {
       assert.ok(body.id == null);
       assert.ok(init.headers["Mcp-Session-Id"]);
@@ -318,6 +321,24 @@ wiki.loadArticle("", "en", null, MCP).then((empty) => {
   }).then((badLang) => {
     assert.strictEqual(badLang.ok, false);
     assert.ok(badLang.error.includes("Unsupported language"));
+    // An unsupported or missing negotiated protocol version must stop the
+    // handshake before notifications/initialized, tools/list or tools/call.
+    return Promise.all(["2024-11-05", null].map((version) => {
+      let calls = 0;
+      return wiki.loadArticle("Exampleville", "en", (_url, init) => {
+        calls += 1;
+        assert.strictEqual(JSON.parse(init.body).method, "initialize");
+        assert.strictEqual(init.headers["MCP-Protocol-Version"], undefined);
+        return Promise.resolve(sse({
+          jsonrpc: "2.0", id: 1, result: version ? { protocolVersion: version } : {},
+        }));
+      }, MCP).then((failed) => {
+        assert.strictEqual(failed.ok, false);
+        assert.ok(failed.error.includes("unsupported MCP protocol version"));
+        assert.strictEqual(calls, 1);
+      });
+    }));
+  }).then(() => {
     console.log("ok");
   });
 }).catch((err) => {
