@@ -88,12 +88,14 @@ curl -sS -X POST http://127.0.0.1:8000/mcp \
   -H 'Content-Type: application/json' \
   -H 'Accept: application/json, text/event-stream' \
   -H 'Mcp-Session-Id: SESSION' \
+  -H 'MCP-Protocol-Version: 2025-06-18' \
   -d '{"jsonrpc":"2.0","method":"notifications/initialized"}'
 
 curl -sS -X POST http://127.0.0.1:8000/mcp \
   -H 'Content-Type: application/json' \
   -H 'Accept: application/json, text/event-stream' \
   -H 'Mcp-Session-Id: SESSION' \
+  -H 'MCP-Protocol-Version: 2025-06-18' \
   -d '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}'
 ```
 
