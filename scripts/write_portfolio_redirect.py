@@ -10,7 +10,10 @@ def write_redirect(out: Path) -> None:
     (out / 'index.html').write_text(
         '<!doctype html><html lang="en"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width,initial-scale=1">'
+        '<link rel="icon" type="image/png" href="execution/assets/mcp-toolcall-lab-favicon-artwork.png">'
+        '<link rel="apple-touch-icon" href="execution/assets/mcp-toolcall-lab-favicon-artwork.png">'
         '<title>Tool lab moved to portfolio</title></head><body>'
+        '<img src="execution/assets/mcp-toolcall-lab-logo.png" width="138" height="150" alt="MCP Toolcall Lab logo">'
         f'<p>Wiki, Pixiv and the public report moved to <a href="{TARGET}">the portfolio</a>.</p>'
         '<script>location.replace(' + repr(TARGET) + ' + location.search + location.hash);</script>'
         '</body></html>\n', encoding='utf-8')
