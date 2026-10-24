@@ -150,7 +150,16 @@ jobs:
         env:
           STUB_LAST_RUN: ${{ github.workspace }}/test-results/last-run.json
           PYTHONPATH: src
+          MCP_TOOLCALL_LAB_PAGES_MCP_URL: ${{ vars.MCP_TOOLCALL_LAB_PAGES_MCP_URL }}
         run: |
+          # PR preview may show an unconfigured endpoint, but never publish a
+          # dead #wiki panel from main or a manually dispatched release.
+          if [[ "$GITHUB_EVENT_NAME" != "pull_request" ]]; then
+            if [[ "$MCP_TOOLCALL_LAB_PAGES_MCP_URL" != https://* ]]; then
+              echo "::error title=Wikipedia MCP endpoint missing::Set the repository variable MCP_TOOLCALL_LAB_PAGES_MCP_URL to the public https://.../mcp endpoint"
+              exit 1
+            fi
+          fi
           python -m mcp_toolcall_lab.stub_front pages --out _site \
             --last-run test-results/last-run.json \
             --observations test-results/antipatterns.jsonl
