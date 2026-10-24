@@ -1,0 +1,5 @@
+{"event":"tools/call","tool":"find_municipalities","outcome":"success","note":"日本語テストと稀有語の混在"}
+{"event":"tools/call","tool":"github_ops","outcome":"success","note":"review pull/42 decision=merge"}
+{"event":"tools/call","tool":"trace","outcome":"success","agent":"bc-demoagent0001","sha":"abcdef0123456789abcdef0123456789abcdef01"}
+{"event":"protocol","outcome":"success","note":"ANTIPATTERN catalog reference cafebab shortsha"}
+{"event":"tools/call","tool":"wikipedia_fetch","outcome":"empty","query":"Exampleville"}

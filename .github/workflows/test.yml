@@ -96,7 +96,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: junit-python-3.12
+          name: junit-python-3.12-node-${{ matrix.node-version }}
           path: reports/pytest.xml
           if-no-files-found: error
           retention-days: 14
@@ -110,8 +110,8 @@ jobs:
     uses: myon-bioinformatics/myon-bioinformatics/.github/workflows/reusable-junit-identity.yml@2192ff22acafdd09e80ac722df91ee937aaedd5e
     with:
       commit-sha: ${{ github.event.pull_request.head.sha || github.sha }}
-      artifact-pattern: junit-python-3.12
-      expected-reports: '["junit-python-3.12/pytest.xml"]'
+      artifact-pattern: junit-python-3.12-node-*
+      expected-reports: '["junit-python-3.12-node-24/pytest.xml", "junit-python-3.12-node-latest/pytest.xml"]'
       output-artifact: python-failure-identity
 
   public-resolver-compat:
