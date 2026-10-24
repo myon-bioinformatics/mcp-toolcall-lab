@@ -321,6 +321,10 @@
       if (sessionId) {
         headers["Mcp-Session-Id"] = sessionId;
       }
+      // Required on every HTTP request AFTER a successful initialize.
+      if (negotiatedVersion) {
+        headers["MCP-Protocol-Version"] = negotiatedVersion;
+      }
       return Promise.resolve(
         doFetch(mcpUrl, {
           method: "POST",
@@ -378,6 +382,11 @@
           if (init.rpc && init.rpc.error) {
             throw new Error(init.rpc.error.message || "initialize failed");
           }
+          var version = init.rpc && init.rpc.result && init.rpc.result.protocolVersion;
+          if (version !== PROTOCOL_VERSION) {
+            throw new Error("unsupported MCP protocol version: " + String(version || "missing"));
+          }
+          negotiatedVersion = version;
           return post({ jsonrpc: "2.0", method: "notifications/initialized" });
         })
         .then(function () {
