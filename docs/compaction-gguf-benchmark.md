@@ -61,7 +61,7 @@ Repo-provided pins:
 - GGUF: `bartowski/SmolLM2-135M-Instruct-GGUF` at
   `09816acd5d99df7be770d85ea30822623dab342c`, Q4_K_M,
   SHA-256 `2e8040ceae7815abe0dcb3540b9995eaa1fa0d2ca9e797d0a635ae4433c68c2d`.
-- llama.cpp: `ghcr.io/ggml-org/llama.cpp:server@sha256:9002e60256635720c05c50455fdebf992a98dc25466dc932758ecd7936244c1c`.
+- llama.cpp: `ghcr.io/ggml-org/llama.cpp:server-b11669@sha256:8ffe0d28ff5261cc2f78ca1f67db1515bc2529b904a3c25f5b24f4cedfc3411d`.
 
 ## Running it
 
@@ -76,7 +76,7 @@ python scripts/fetch_tiny_cpu_gguf.py docker/stub-pages/models/model.gguf
 docker run --detach --name compaction-gguf --cpus=2 --memory=3g \
   -p 127.0.0.1:8080:8080 \
   -v "$PWD/docker/stub-pages/models:/models:ro" \
-  ghcr.io/ggml-org/llama.cpp:server@sha256:9002e60256635720c05c50455fdebf992a98dc25466dc932758ecd7936244c1c \
+  ghcr.io/ggml-org/llama.cpp:server-b11669@sha256:8ffe0d28ff5261cc2f78ca1f67db1515bc2529b904a3c25f5b24f4cedfc3411d \
   -m /models/model.gguf --host 0.0.0.0 --port 8080 \
   --ctx-size 2048 --parallel 1 --threads 2
 # Wait for curl -f http://127.0.0.1:8080/health

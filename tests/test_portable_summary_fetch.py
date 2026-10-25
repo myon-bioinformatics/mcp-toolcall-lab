@@ -20,7 +20,7 @@ if (configuration.canonical !== undefined) {
     delete globalThis.location;
     const recipe = {
       model:{repo:'unit-test/stub',revision:'a'.repeat(40),file:'not-a-real-model.gguf',sha256:'a'.repeat(64),size_bytes:1,license:'TEST ONLY'},
-      runtime:{engine:'llama.cpp',version:'b1',revision:'b'.repeat(40),image:'ghcr.io/ggml-org/llama.cpp:server@sha256:'+'b'.repeat(64),license:'TEST ONLY'},
+      runtime:{engine:'llama.cpp',version:'b1',revision:'b'.repeat(40),image:'ghcr.io/ggml-org/llama.cpp:server-b11669@sha256:'+'b'.repeat(64),license:'TEST ONLY'},
       sampler:{temperature:0,seed:42,top_p:0.75,repeat_penalty:1,top_k:40},
       generation:{max_tokens:128,stream:false,cache_prompt:false},
       server:{context_size:2048,parallel:1,threads:1,batch_size:64,gpu_layers:0},

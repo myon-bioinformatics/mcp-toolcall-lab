@@ -22,10 +22,10 @@ model downloader or an API provider:
   independently exposes the same SHA-256. The repository records the exact
   commit-pinned download URL and earlier verification run in
   `docker/stub-pages/models/model.gguf.provenance.json`.
-- llama.cpp `b11046`, revision `60081bb2b5b3294165a4d67c5cbeebe74c868014`,
+- llama.cpp `b11669`, revision `620d2225cc436ab0b001e3200e590e3b286ef9ab`,
   uses the existing official server image digest
-  `sha256:9002e60256635720c05c50455fdebf992a98dc25466dc932758ecd7936244c1c`.
-  Its [license is MIT](https://github.com/ggml-org/llama.cpp/blob/60081bb2b5b3294165a4d67c5cbeebe74c868014/LICENSE).
+  `sha256:8ffe0d28ff5261cc2f78ca1f67db1515bc2529b904a3c25f5b24f4cedfc3411d`.
+  Its [license is MIT](https://github.com/ggml-org/llama.cpp/blob/620d2225cc436ab0b001e3200e590e3b286ef9ab/LICENSE).
 
 The generator does not download anything. When preparing a build, the existing
 `scripts/fetch_tiny_cpu_gguf.py` fetches and checks the model against its pin.
@@ -47,7 +47,7 @@ The resolved request explicitly records:
 
 - temperature `0`, seed `42`, top-p `0.75`, repeat penalty `1`;
 - integer top-k `40`, the default verified in the
-  [pinned engine source](https://github.com/ggml-org/llama.cpp/blob/60081bb2b5b3294165a4d67c5cbeebe74c868014/common/common.h);
+  [pinned engine source](https://github.com/ggml-org/llama.cpp/blob/620d2225cc436ab0b001e3200e590e3b286ef9ab/common/common.h);
 - `max_tokens=128`, `stream=false`, `cache_prompt=false`;
 - CPU-only launch, one thread, one slot, context size 2048, batch size 64;
 - exact model/runtime identity, system prompt and prompt version.
@@ -55,7 +55,7 @@ The resolved request explicitly records:
 `top_k=0.75` is invalid: top-k counts candidate tokens, unlike top-p's fraction.
 Temperature zero requests greedy sampling. Fixed settings do **not** promise
 identical model output across hardware, runtime builds or floating-point paths.
-The [pinned server documentation](https://github.com/ggml-org/llama.cpp/blob/60081bb2b5b3294165a4d67c5cbeebe74c868014/tools/server/README.md)
+The [pinned server documentation](https://github.com/ggml-org/llama.cpp/blob/620d2225cc436ab0b001e3200e590e3b286ef9ab/tools/server/README.md)
 also documents cache-related nondeterminism. This example records one execution;
 it is not a quality benchmark or a calibrated confidence estimate. In particular,
 the tiny English model is an inexpensive integration demonstration, not a

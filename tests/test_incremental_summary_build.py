@@ -59,7 +59,7 @@ class OfflineClient:
                 'usage':{'prompt_tokens':50,'completion_tokens':10,'total_tokens':60}}
 @contextmanager
 def fake_server(*args):
-    yield OfflineClient(), {'version_output':'version: 11046 (60081bb2)\\nSYNTHETIC UNIT TEST ONLY',
+    yield OfflineClient(), {'version_output':'version: 11669 (620d2225)\\nSYNTHETIC UNIT TEST ONLY',
       'binary_sha256':'f'*64,'verification':'Owned local process; version/revision checked and executable bytes hashed. The version string alone is not producer authentication.',
       'observed_default_top_k':40}
 with patch.object(generation,'owned_server',fake_server):

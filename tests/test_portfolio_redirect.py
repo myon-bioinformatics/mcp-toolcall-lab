@@ -12,6 +12,9 @@ def test_legacy_redirect_preserves_routes_and_public_export_is_still_retained():
         subprocess.run(['python', '-S', str(script), directory], check=True)
         html = (Path(directory) / 'index.html').read_text()
         assert 'https://myon-bioinformatics.github.io/tools/mcp-toolcall-lab/' in html
+        assert 'rel="icon" type="image/png" href="execution/assets/mcp-toolcall-lab-favicon-artwork.png"' in html
+        assert 'rel="apple-touch-icon"' in html
+        assert 'src="execution/assets/mcp-toolcall-lab-logo.png"' in html
         js = html.split('<script>')[1].split('</script>')[0]
         for route in ('#wiki', '#pixiv', ''):
             node = "let result; const location={search:'?view=wiki',hash:" + repr(route) + ",replace:v=>{result=v}};" + js + ";process.stdout.write(result)"

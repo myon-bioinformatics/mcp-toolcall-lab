@@ -18,7 +18,7 @@
 services:
   cpu-llm:
     build: !reset {}
-    image: ghcr.io/ggml-org/llama.cpp:server@sha256:9002e60256635720c05c50455fdebf992a98dc25466dc932758ecd7936244c1c
+    image: ghcr.io/ggml-org/llama.cpp:server-b11669@sha256:8ffe0d28ff5261cc2f78ca1f67db1515bc2529b904a3c25f5b24f4cedfc3411d
     pull_policy: missing
     command:
       - -m

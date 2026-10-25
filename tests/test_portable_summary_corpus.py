@@ -48,7 +48,7 @@ def synthetic_result(selection_request):
     log_key = hashlib.sha256(raw).hexdigest()
     receipt = {**observed, "schema": "lab-summary-receipt/1", "status": "generated",
                "execution_mode": "build_time_llama_cpp", "confidence": None,
-               "generated_text": text, "truncated": False, "runtime_observed": {"version_output": "version: 0.4.1-dev (build 11046, commit 60081bb2b)\nSYNTHETIC UNIT TEST ONLY",
+               "generated_text": text, "truncated": False, "runtime_observed": {"version_output": "version: 0.7.0 (build 11669, commit 620d2225c)\nSYNTHETIC UNIT TEST ONLY",
                    "binary_sha256": "f" * 64, "observed_default_top_k": 40,
                    "verification": "Owned local process; version/revision checked and executable bytes hashed. The version string alone is not producer authentication."},
                "confidence_reason": "Uncalibrated model output; no probability of correctness is claimed.",
@@ -590,10 +590,10 @@ def test_coverage_rejects_invalid_records_instead_of_inventing_counts(selection_
 
 
 @pytest.mark.parametrize("version", [
-    "version: 0.4.1-dev (build 11046, commit 60081bb2b)",
-    "version: 11046 (60081bb2)",
-    "version: b11046 (60081bb)",
-    f"version: 0.4.1-dev (build 11046, commit {build.RUNTIME['revision']})",
+    "version: 0.7.0 (build 11669, commit 620d2225c)",
+    "version: 11669 (620d2225)",
+    "version: b11669 (620d222)",
+    f"version: 0.7.0 (build 11669, commit {build.RUNTIME['revision']})",
 ])
 def test_runtime_observation_accepts_recorded_build_and_entire_revision(selection_request, version):
     artifact, raw = synthetic_result(selection_request)
@@ -602,14 +602,14 @@ def test_runtime_observation_accepts_recorded_build_and_entire_revision(selectio
 
 
 @pytest.mark.parametrize("version", [
-    "version: 0.4.1-dev (build 11045, commit 60081bb2b)",
-    "version: 0.4.1-dev (build 11046, commit deadbeef0)",
-    "version: 0.4.1-dev (build 11046, commit 60081bb2b0)",
-    "version: 0.4.1-dev (build 11046, commit 60081bbdeadbeef)",
-    "version: 11046 (60081bbdeadbeef)",
-    "version: 11046 (60081bb2b0)",
-    f"version: 0.4.1-dev (build 11046, commit {build.RUNTIME['revision']}0)",
-    "version: 11046 (60081bb2)\nversion: 11045 (60081bb2)",
+    "version: 0.7.0 (build 11668, commit 620d2225c)",
+    "version: 0.7.0 (build 11669, commit deadbeef0)",
+    "version: 0.7.0 (build 11669, commit 620d2225c0)",
+    "version: 0.7.0 (build 11669, commit 620d222deadbeef)",
+    "version: 11669 (620d222deadbeef)",
+    "version: 11669 (620d2225c0)",
+    f"version: 0.7.0 (build 11669, commit {build.RUNTIME['revision']}0)",
+    "version: 11669 (620d2225)\nversion: 11668 (620d2225)",
 ])
 def test_runtime_observation_rejects_wrong_build_or_commit_extension(selection_request, version):
     artifact, raw = synthetic_result(selection_request)

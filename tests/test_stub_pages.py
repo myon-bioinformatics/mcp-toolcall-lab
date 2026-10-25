@@ -289,7 +289,9 @@ def test_stub_pages_compose_uses_service_dns() -> None:
     assert "STUB_CPU_LLM_URL: http://cpu-llm:8080/v1" in compose
     assert "host.docker.internal" not in compose
     stub_df = (ROOT / "docker" / "stub-pages" / "Dockerfile.stub").read_text(encoding="utf-8")
-    assert "pip install" not in stub_df
+    assert "runtime-requirements" not in stub_df
+    assert "--no-deps" in stub_df  # only the hash-pinned pip security bootstrap
+    assert "pip @ https://files.pythonhosted.org/" in stub_df
     assert "vendor/markdown.py" in stub_df
     workflow = (ROOT / ".github" / "workflows" / "stub-pages.yml").read_text(encoding="utf-8")
     assert "actions/deploy-pages" not in workflow
@@ -318,12 +320,12 @@ def test_gguf_overlay_pins_image_digest_and_uses_curl_healthcheck() -> None:
     )
     digest = provenance["digest"]
     assert digest.startswith("sha256:")
-    assert f"ghcr.io/ggml-org/llama.cpp:server@{digest}" in overlay
+    assert f"ghcr.io/ggml-org/llama.cpp:{provenance['tag']}@{digest}" in overlay
     assert "build: !reset" in overlay
     assert "environment: !reset" in overlay
     assert "/dev/tcp" not in overlay
     assert 'test: ["CMD", "curl", "-f", "http://127.0.0.1:8080/health"]' in overlay
-    assert provenance["healthcheck"] == ["CMD", "curl", "-f", "http://127.0.0.1:8080/health"]
+    assert provenance["healthcheck"] == ["CMD", "curl", "-f", "http://localhost:8080/health"]
     model_pin = json.loads(
         (ROOT / "docker" / "stub-pages" / "models" / "model.gguf.provenance.json").read_text(
             encoding="utf-8"
@@ -334,7 +336,7 @@ def test_gguf_overlay_pins_image_digest_and_uses_curl_healthcheck() -> None:
 
 
 def test_write_pages_does_not_embed_the_static_try_it_demo(tmp_path: Path) -> None:
-    """Published Pages is generation + browser MediaWiki #wiki + CI summary.
+    """Published Pages is generation + browser Wikipedia MCP #wiki + CI summary.
 
     The mock heading-pulldown demo is a local asset (write_stub_demo_page),
     not the github.io index — that pulldown was a fixtures/stub_front corpus,

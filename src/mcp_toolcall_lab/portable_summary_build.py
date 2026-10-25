@@ -38,9 +38,9 @@ MODEL = {
 }
 RUNTIME = {
     "engine": "llama.cpp",
-    "version": "b11046",
-    "revision": "60081bb2b5b3294165a4d67c5cbeebe74c868014",
-    "image": "ghcr.io/ggml-org/llama.cpp:server@sha256:9002e60256635720c05c50455fdebf992a98dc25466dc932758ecd7936244c1c",
+    "version": "b11669",
+    "revision": "620d2225cc436ab0b001e3200e590e3b286ef9ab",
+    "image": "ghcr.io/ggml-org/llama.cpp:server-b11669@sha256:8ffe0d28ff5261cc2f78ca1f67db1515bc2529b904a3c25f5b24f4cedfc3411d",
     "license": "MIT",
 }
 # Integer-valued parameters deliberately use JSON integers for Python/JS hashes.

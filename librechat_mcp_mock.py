@@ -3,7 +3,7 @@
 
 """Copy this entire file as a standalone mock MCP server for LibreChat tests.
 
-Requires Python 3.11+. Install once with: pip install "fastmcp>=4.1.1"
+Requires Python 3.11+. Install once with: pip install "fastmcp>=4.1.3"
 Run with:                         python librechat_mcp_mock.py
 
 No API key or project-local imports are required. The default endpoint is

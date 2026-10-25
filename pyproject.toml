@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling==1.32.4"]
 build-backend = "hatchling.build"
 
 [project]
@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "FastMCP mock tools for reproducible tool-calling experiments"
 requires-python = ">=3.12"
 dependencies = [
-    "fastmcp>=4.1.1",
+    "fastmcp>=4.1.3",
     "mcp>=2.3.0",
     "pydantic>=2.14.1",
 ]
@@ -19,11 +19,12 @@ mcp-frontends = "mcp_toolcall_lab.frontends:main"
 mcp-trace-probe = "mcp_toolcall_lab.trace_probe:main"
 mcp-stub-front = "mcp_toolcall_lab.stub_front:main"
 mcp-docker-logs = "mcp_toolcall_lab.docker_logs:main"
+mcp-jsonl-log-archive = "mcp_toolcall_lab.jsonl_log_archive:main"
 mcp-portable-execution = "mcp_toolcall_lab.portable_execution:main"
 
 [project.optional-dependencies]
 galleria = [
-    "fastapi>=0.147.0",
+    "fastapi>=0.162.0",
     "gradio>=6.30.0",
 ]
 test = [
@@ -37,7 +38,7 @@ test = [
 # Optional: real-browser fetch() coverage of the HTTP API (tests/test_browser_fetch_protocol.py).
 # Not part of `test`. CI installs it only for browser lanes. Those tests
 # pytest.importorskip when playwright isn't installed. Needs `playwright install chromium` too.
-browser-test = ["playwright>=1.64.0"]
+browser-test = ["playwright>=1.64.1"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/mcp_toolcall_lab"]

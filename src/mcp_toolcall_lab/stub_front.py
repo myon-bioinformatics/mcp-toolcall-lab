@@ -80,17 +80,19 @@ CASE_MCP_UNREACHABLE = "MCP_UNREACHABLE"
 WIKI_PAGES_DISCLAIMER = (
     "This form runs on the local stdlib stub (or a CI job), which fetches "
     "Wikipedia in-process (same path as the MCP tools). Pages #wiki is a "
-    "separate browser → MediaWiki CORS form (no MCP) and cannot keep this "
-    "/wiki backend online."
+    "separate browser client (direct Wikipedia or optional MCP) and cannot "
+    "keep this /wiki backend online."
 )
 PAGES_WIKI_BROWSER_NOTE = (
-    "Browser → MediaWiki API (not MCP). For the MCP Wikipedia tools / local "
-    "stub form, run compose or stub_front serve."
+    "Browser → Wikipedia directly by default (MediaWiki origin=*). "
+    "An optional configured endpoint uses Streamable HTTP MCP instead. "
+    "No API key or hosted Deno service is required. Not OpenAI tool_calls."
 )
 WIKI_EXTRACT_NOTE = (
     "MediaWiki plaintext extract, HTML-escaped. "
     "This page does not scrape Wikipedia HTML or run it through markdown.py."
 )
+PAGES_WIKI_MCP_URL_ENV = "MCP_TOOLCALL_LAB_PAGES_MCP_URL"
 
 # Dual locators live in frontends.py — do not re-string them here.
 LIBRECHAT_INPUT = LIBRECHAT.composer.input.value
@@ -340,7 +342,7 @@ PAGES_FORBIDDEN_NAMES = frozenset(
 )
 
 # Local-only heading → body demo (tests / write_stub_demo_page). Not published
-# on GitHub Pages — that report is generation identity + #wiki MediaWiki UI.
+# on GitHub Pages — that report is generation identity + #wiki MCP UI.
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 STUB_DEMO_JS_SOURCE = STATIC_DIR / "stub_demo.js"
 STUB_DEMO_JS_NAME = "stub-demo.js"
@@ -380,7 +382,9 @@ def _asset_cache_bust(path: Path) -> str:
 
 PAGES_WIKI_SERVE = (
     "python -m mcp_toolcall_lab.stub_front serve --port 8765\n"
-    "# then open /wiki  (http://127.0.0.1:8765/wiki)"
+    "# then open /wiki  (http://127.0.0.1:8765/wiki)\n"
+    "cd deploy/wikipedia-mcp && deno task start\n"
+    "# Pages #wiki POSTs to the MCP URL (MCP_TOOLCALL_LAB_PAGES_MCP_URL)"
 )
 # Pointer shown by the Pages #pixiv panel to the local/MCP path that can
 # fetch dic.pixiv.net automatically -- a plain command block, not a
@@ -660,6 +664,11 @@ def _pages_panel_html(*, view: str, inner: str, hidden: bool = False) -> str:
     )
 
 
+def pages_wiki_mcp_url() -> str:
+    """Absolute Streamable HTTP MCP URL baked into published `#wiki`."""
+    return os.environ.get(PAGES_WIKI_MCP_URL_ENV, "").strip()
+
+
 def _pages_wiki_back_html() -> str:
     return (
         '<p><a href="#" data-pages-nav="home" data-testid="pages-nav-back">'
@@ -670,9 +679,11 @@ def _pages_wiki_back_html() -> str:
 def _pages_home_markdown(md: Any, summary_text: str) -> str:
     return "\n".join(
         [
-            "This host's [Wiki](#wiki) panel fetches Wikipedia from the browser "
-            "(MediaWiki Action API, CORS `origin=*`, no MCP). The MCP tools and "
-            "local `GET /wiki` form still need compose or `stub_front serve`.",
+            "This host's [Wiki](#wiki) panel fetches Wikipedia directly in the "
+            "browser by default. An optionally configured endpoint selects "
+            "Streamable HTTP MCP (`POST /mcp`, JSON-RPC 2.0, SSE, "
+            "`Mcp-Session-Id`). No hosted Deno service is required. Local `GET /wiki` "
+            "still needs compose or `stub_front serve`.",
             "",
             "[Repository diagnostics](repository-diagnostics.html) · "
             "[JSON](repository-diagnostics.json) · "
@@ -696,24 +707,29 @@ def _pages_home_markdown(md: Any, summary_text: str) -> str:
 
 def _pages_wiki_markdown(md: Any) -> str:
     return md.section(
-        "Wikipedia extract (browser → MediaWiki API)",
+        "Wikipedia extract (direct browser / optional MCP)",
         [
-            "This `#wiki` panel calls Wikipedia's Action API from the browser "
-            "(`origin=*`). It is not an MCP tool call. github.io `/wiki` stays 404; "
-            "that path is the local stdlib stub. MCP tools / local form:",
+            "This `#wiki` panel defaults to direct MediaWiki access. "
+            "With an optional endpoint it speaks MCP Streamable HTTP "
+            "(`initialize` → `notifications/initialized` → `tools/list` → "
+            "`tools/call` `fetch_wikipedia_article`). Heading switches reuse "
+            "the in-memory extract (no second fetch). github.io `/wiki` stays "
+            "404; that path is the local stdlib stub. Local MCP / stub form:",
             md.code_block(PAGES_WIKI_SERVE, lang="bash"),
             "CI screenshots of the local stub still use "
-            "`fixtures/wikipedia/exampleville_extract.json`. A heading switch on this "
-            "panel reuses the in-memory extract (no second fetch).",
+            "`fixtures/wikipedia/exampleville_extract.json`.",
         ],
     )
 
 
 def _pages_wiki_app_html(*, cache_bust: str = "") -> str:
-    """Raw HTML for the browser MediaWiki form. Kept outside markdown.py."""
+    """Raw HTML for the browser Wikipedia MCP form. Kept outside markdown.py."""
+    mcp_url = pages_wiki_mcp_url()
+    endpoint = mcp_url or "disabled (direct browser → Wikipedia)"
     return (
         f'<p data-testid="pages-wiki-disclaimer">{html.escape(PAGES_WIKI_BROWSER_NOTE)}</p>'
-        '<div id="pages-wiki-app" data-testid="pages-wiki-app">'
+        f'<p data-testid="pages-wiki-mcp-endpoint">MCP: {html.escape(endpoint)}</p>'
+        f'<div id="pages-wiki-app" data-testid="pages-wiki-app" data-mcp-url="{html.escape(mcp_url, quote=True)}">'
         '<form id="pages-wiki-form" data-testid="pages-wiki-form">'
         "<p>"
         '<label for="pages-wiki-title">Wikipedia title</label> '
@@ -828,8 +844,9 @@ def write_pages(
 
     The published ``index.html`` stays on one origin/endpoint. ``#wiki`` (and
     optional ``?view=wiki``) is an in-page view switch, not a github.io
-    ``/wiki`` path (that URL stays 404). The ``#wiki`` panel fetches
-    MediaWiki from the browser. Local Docker ``GET /wiki`` is unchanged.
+    ``/wiki`` path (that URL stays 404). The ``#wiki`` panel fetches MediaWiki directly unless an optional MCP
+    endpoint is configured (`initialize` → tools/call). Local Docker
+    ``GET /wiki`` is unchanged.
     """
     from mcp_toolcall_lab.mock.common import read_jsonl
 
@@ -851,7 +868,7 @@ def write_pages(
     else:
         home_inner = "<pre>" + html.escape(summary_text) + "</pre>"
         wiki_inner = (
-            "<h2>Wikipedia extract (browser → MediaWiki API)</h2>"
+            "<h2>Wikipedia extract (direct browser / optional MCP)</h2>"
             f"<p>{html.escape(PAGES_WIKI_BROWSER_NOTE)}</p>"
             "<pre>" + html.escape(PAGES_WIKI_SERVE) + "</pre>"
         )

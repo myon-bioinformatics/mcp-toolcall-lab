@@ -27,6 +27,10 @@ on:
   push:
     branches: [main]
     paths:
+      - "docker/runtime-requirements.txt"
+      - "docker/build-requirements.txt"
+      - "pyproject.toml"
+      - "uv.lock"
       - "docker/stub-pages/**"
       - "demos/cpu_llm_lite.py"
       - "vendor/markdown.py"
@@ -48,6 +52,10 @@ on:
       - ".github/workflows/stub-pages.yml"
   pull_request:
     paths:
+      - "docker/runtime-requirements.txt"
+      - "docker/build-requirements.txt"
+      - "pyproject.toml"
+      - "uv.lock"
       - "docker/stub-pages/**"
       - "demos/cpu_llm_lite.py"
       - "vendor/markdown.py"
@@ -80,19 +88,22 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - name: Check out pinned browser-test-kit validators
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: myon-bioinformatics/browser-test-kit
           ref: 6a2e32a4bbe49be5268e6b30040d665a89eecf66
           path: .browser-test-kit
           persist-credentials: false
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
-          python-version: "3.11"
+          python-version: "3.12.15"
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "26.12.1"
 
       - name: Fetch a real tiny GGUF (opt-in)
         if: github.event.inputs.use_real_gguf == 'true'
@@ -150,7 +161,14 @@ jobs:
         env:
           STUB_LAST_RUN: ${{ github.workspace }}/test-results/last-run.json
           PYTHONPATH: src
+          MCP_TOOLCALL_LAB_PAGES_MCP_URL: ${{ vars.MCP_TOOLCALL_LAB_PAGES_MCP_URL }}
         run: |
+          # No endpoint means direct browser → MediaWiki. A configured public
+          # MCP endpoint must use HTTPS; never silently ignore bad settings.
+          if [[ -n "$MCP_TOOLCALL_LAB_PAGES_MCP_URL" && "$MCP_TOOLCALL_LAB_PAGES_MCP_URL" != https://* ]]; then
+            echo "::error title=Invalid Wikipedia MCP endpoint::Optional MCP_TOOLCALL_LAB_PAGES_MCP_URL must be HTTPS; leave it empty for direct Wikipedia access"
+            exit 1
+          fi
           python -m mcp_toolcall_lab.stub_front pages --out _site \
             --last-run test-results/last-run.json \
             --observations test-results/antipatterns.jsonl
@@ -166,15 +184,15 @@ jobs:
             curl -sf http://127.0.0.1:4173/ >/dev/null && break
             sleep 1
           done
-          npx --yes playwright@1.63.0 install --with-deps --only-shell chromium webkit
-          npx --yes playwright@1.63.0 screenshot --browser=chromium --device="Desktop Chrome" --full-page \
+          npx --yes playwright@1.64.1 install --with-deps --only-shell chromium webkit
+          npx --yes playwright@1.64.1 screenshot --browser=chromium --device="Desktop Chrome" --full-page \
             "http://127.0.0.1:4173/#pixiv" test-results/pixiv-pages-desktop.png
-          npx --yes playwright@1.63.0 screenshot --browser=chromium --device="Desktop Chrome" --full-page \
+          npx --yes playwright@1.64.1 screenshot --browser=chromium --device="Desktop Chrome" --full-page \
             "http://127.0.0.1:4173/repository-diagnostics.html" test-results/repository-diagnostics-desktop.png
           # Playwright WebKit can report a non-zero shutdown after writing the PNG;
           # validate the artifact itself, including its PNG signature.
           set +e
-          npx --yes playwright@1.63.0 screenshot --browser=webkit --device="iPhone 13" --full-page \
+          npx --yes playwright@1.64.1 screenshot --browser=webkit --device="iPhone 13" --full-page \
             "http://127.0.0.1:4173/#pixiv" test-results/pixiv-pages-mobile.png \
             >test-results/pixiv-pages-webkit.log 2>&1
           WEBKIT_STATUS=$?
@@ -285,10 +303,10 @@ jobs:
         if: steps.pixiv_live.outputs.live == 'ok'
         run: |
           PIXIV_URL="http://127.0.0.1:8765/pixiv?title=NARUTO"
-          npx --yes playwright@1.63.0 screenshot --browser=chromium --device="Desktop Chrome" --full-page \
+          npx --yes playwright@1.64.1 screenshot --browser=chromium --device="Desktop Chrome" --full-page \
             "$PIXIV_URL" test-results/pixiv-live-desktop.png
           set +e
-          npx --yes playwright@1.63.0 screenshot --browser=webkit --device="iPhone 13" --full-page \
+          npx --yes playwright@1.64.1 screenshot --browser=webkit --device="iPhone 13" --full-page \
             "$PIXIV_URL" test-results/pixiv-live-mobile.png \
             >test-results/pixiv-live-webkit.log 2>&1
           LIVE_WEBKIT_STATUS=$?
@@ -318,7 +336,7 @@ jobs:
 
       - name: Upload observations
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: stub-pages-observations
           path: |

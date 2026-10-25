@@ -17,7 +17,7 @@ from mcp_toolcall_lab.portable_summary_corpus import (
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE_SHA = 'a' * 40
-TEST_RUNTIME = {'version_output': 'version: 11046 (60081bb2)\nSYNTHETIC UNIT TEST ONLY', 'binary_sha256': 'f' * 64, 'verification': 'Owned local process; version/revision checked and executable bytes hashed. The version string alone is not producer authentication.', 'observed_default_top_k': 40}
+TEST_RUNTIME = {'version_output': 'version: 11669 (620d2225)\nSYNTHETIC UNIT TEST ONLY', 'binary_sha256': 'f' * 64, 'verification': 'Owned local process; version/revision checked and executable bytes hashed. The version string alone is not producer authentication.', 'observed_default_top_k': 40}
 REVIEW = {'classification': 'reviewed_public', 'reviewed_by': 'unit-test reviewer', 'reviewed_at': '2026-10-23T00:00:00+00:00'}
 
 
@@ -239,32 +239,32 @@ console.log(createHash('sha256').update(JSON.stringify(sort(JSON.parse(readFileS
                     summary.verify_model(model)
             binary = Path(temporary) / 'llama-server'
             binary.write_bytes(b'unit-test placeholder, never executed')
-            for version in [b'version: 11045 (60081bb2)', b'version: 11046 (deadbeef)',
-                            b'version: 11046 (60081bbdeadbeef)', b'anything']:
+            for version in [b'version: 11668 (620d2225)', b'version: 11669 (deadbeef)',
+                            b'version: 11669 (620d222deadbeef)', b'anything']:
                 completed = subprocess.CompletedProcess([], 0, version, b'')
                 with patch.object(summary.subprocess, 'run', return_value=completed):
                     with self.assertRaisesRegex(summary.SummaryBuildError, 'version/revision'):
                         summary.verify_runtime(binary)
-            completed = subprocess.CompletedProcess([], 0, b'', b'version: 11046 (60081bb2)\nbuilt with test\n')
+            completed = subprocess.CompletedProcess([], 0, b'', b'version: 11669 (620d2225)\nbuilt with test\n')
             with patch.object(summary.subprocess, 'run', return_value=completed):
                 observed = summary.verify_runtime(binary)
                 self.assertEqual(observed['binary_sha256'], hashlib.sha256(binary.read_bytes()).hexdigest())
 
     def test_runtime_version_matches_actual_pinned_format_and_entire_commit_prefix(self):
-        actual = 'version: 0.4.1-dev (build 11046, commit 60081bb2b)'
+        actual = 'version: 0.7.0 (build 11669, commit 620d2225c)'
         accepted = [actual, actual + '\nbuilt with compiler details\n',
-            'version: 11046 (60081bb2)', 'version: b11046 (60081bb)',
-            f'version: 0.4.1-dev (build 11046, commit {summary.RUNTIME["revision"]})']
-        rejected = [actual.replace('build 11046', 'build 11045'),
-            actual.replace('60081bb2b', 'deadbeef0'),
-            actual.replace('60081bb2b', '60081bb2deadbeef'),
-            actual.replace('60081bb2b', '60081bb2b0'),  # matching prefix, wrong extension
-            actual.replace('60081bb2b', '60081b'),
-            actual.replace('60081bb2b', summary.RUNTIME['revision'] + '0'),
-            actual.replace('build 11046', 'build 011046'),
+            'version: 11669 (620d2225)', 'version: b11669 (620d222)',
+            f'version: 0.7.0 (build 11669, commit {summary.RUNTIME["revision"]})']
+        rejected = [actual.replace('build 11669', 'build 11668'),
+            actual.replace('620d2225c', 'deadbeef0'),
+            actual.replace('620d2225c', '620d2225deadbeef'),
+            actual.replace('620d2225c', '620d2225c0'),  # matching prefix, wrong extension
+            actual.replace('620d2225c', '620d22'),
+            actual.replace('620d2225c', summary.RUNTIME['revision'] + '0'),
+            actual.replace('build 11669', 'build 011669'),
             actual + ' trailing text', actual + '\n' + accepted[2],
-            'version: 11046 (60081bbdeadbeef)', 'version: 11046 (60081bb2b0)',
-            actual.replace('0.4.1-dev', 'not-a-version'), 'prefix ' + actual]
+            'version: 11669 (620d222deadbeef)', 'version: 11669 (620d2225c0)',
+            actual.replace('0.7.0', 'not-a-version'), 'prefix ' + actual]
         for output in accepted:
             with self.subTest(accepted=output):
                 self.assertTrue(summary.runtime_version_matches(output, summary.RUNTIME))
@@ -404,8 +404,8 @@ console.log(createHash('sha256').update(JSON.stringify(sort(JSON.parse(readFileS
         for field in ['repo', 'revision', 'file', 'sha256', 'size_bytes']:
             self.assertEqual(summary.MODEL[field], model[field])
         self.assertEqual(summary.RUNTIME['revision'], image['revision'])
-        self.assertEqual(summary.RUNTIME['version'], image['version'])
-        self.assertEqual(summary.RUNTIME['image'], image['image'] + ':server@' + image['digest'])
+        self.assertEqual('v0.7.0 (' + summary.RUNTIME['version'] + ')', image['version'])
+        self.assertEqual(summary.RUNTIME['image'], image['image'] + ':' + image['tag'] + '@' + image['digest'])
 
     def test_verified_cache_reuse_after_archive_never_launches_model(self):
         client = Mock()

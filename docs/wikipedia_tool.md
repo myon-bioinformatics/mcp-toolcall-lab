@@ -13,25 +13,30 @@ list derived from that extract.
 
 ## Two fetch paths: Pages `#wiki` vs MCP / local `/wiki`
 
-The MediaWiki Action API supports CORS via `origin=*`, so a static page
-on github.io **can** `fetch` `https://{lang}.wikipedia.org/w/api.php`
-from the browser. That is what published `#wiki` does. It is **not** an
-MCP tool call.
+Published `#wiki` fetches MediaWiki directly from the browser by default,
+using `origin=*`. No hosted Deno service or API key is required.
+Optionally bake `MCP_TOOLCALL_LAB_PAGES_MCP_URL` into Pages (`data-mcp-url`)
+to use Streamable HTTP MCP: initialize → initialized → tools/list → tools/call,
+with negotiated protocol and session headers and SSE responses. A configured
+MCP failure is displayed rather than silently switching to direct access.
+Both modes reuse the extract when changing headings. This is not an OpenAI
+`tool_calls` loop. Deno remains available for local/CI protocol verification.
 
 | Surface | Who fetches | How |
 | --- | --- | --- |
-| GitHub Pages `#wiki` | the browser | `fetch` MediaWiki Action API with `origin=*` (no MCP, no Docker) |
-| Deno Wikipedia MCP (`POST /mcp`) | the MCP server process | `deploy/wikipedia-mcp` Streamable HTTP (keyless, Deno KV sessions, `lang` restricted to MediaWiki codes). Not wired to Pages yet. See `docs/wikipedia_mcp_deploy.md`. |
+| GitHub Pages `#wiki` (default) | the browser | MediaWiki action API with `origin=*` |
+| GitHub Pages `#wiki` (optional MCP URL) | browser → MCP server | Streamable HTTP `POST /mcp` |
+| Deno Wikipedia MCP (`POST /mcp`) | the MCP server process | `deploy/wikipedia-mcp` Streamable HTTP (keyless, HMAC `Mcp-Session-Id`, `lang` restricted to MediaWiki codes). See `docs/wikipedia_mcp_deploy.md`. |
 | Local `GET /wiki` + FastMCP `fetch_wikipedia_*` | the stub / Python MCP server process | `wikipedia_tool.py` (unchanged) |
 
 A tool that LibreChat / Open WebUI / the stub should call still belongs
 in the MCP catalog, where the **server process** makes the HTTP call.
-GitHub Pages remains a static host: it cannot keep that backend or a
-github.io `/wiki` route (that path stays 404). The published index stays
-`index.html`; `#wiki` (optional `?view=wiki`) hide/shows the browser
-MediaWiki form. Heading switches reuse the in-memory extract (same idea
-as the Python process cache). The mock `stub_demo.js` heading pulldown
-is still not published.
+GitHub Pages remains a static host: it cannot keep the local stub
+backend or a github.io `/wiki` route (that path stays 404). The
+published index stays `index.html`; `#wiki` (optional `?view=wiki`)
+hide/shows the browser MCP form. Heading switches reuse the in-memory
+extract (same idea as the Python process cache). The mock
+`stub_demo.js` heading pulldown is still not published.
 
 ## Why Wikipedia's own API, not HTML scraping
 
@@ -151,13 +156,13 @@ Displayed text is `html.escape`d into `<pre>`. GitHub Pages does not
 host this **server** form (a `/wiki` path on github.io stays 404). Local
 `/wiki` may include a small authored `<style>` block; the published
 Pages `#wiki` panel is a different client: vanilla JS, no authored CSS,
-browser → MediaWiki CORS. `#wiki` is still on `index.html`, not a
-second Pages route.
+browser → Wikipedia Streamable HTTP MCP. `#wiki` is still on
+`index.html`, not a second Pages route.
 
 ```bash
 python -m mcp_toolcall_lab.stub_front serve --port 8765
 # open http://127.0.0.1:8765/wiki
-# Pages browser MediaWiki UI: https://myon-bioinformatics.github.io/mcp-toolcall-lab/#wiki
+# Pages browser MCP UI: https://myon-bioinformatics.github.io/mcp-toolcall-lab/#wiki
 ```
 
 ## Testing without live network
