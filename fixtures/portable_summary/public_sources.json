@@ -1,0 +1,163 @@
+{
+  "schema": "lab-public-summary-fixtures/1",
+  "privacy": "Synthetic, repository-owned public examples only. No user or personal data.",
+  "sources": [
+    {
+      "id": "research-archive",
+      "title": "Fictional public research archive",
+      "text": "The demo archive stores public research notes. Each note keeps its source reference and selected evidence. Readers choose keyword hints before selecting evidence sentences. A build-time language model summarizes only the selected evidence.",
+      "choices": [
+        {
+          "id": "overview",
+          "label": "All four sentences",
+          "keywords": [],
+          "sentence_indexes": [
+            0,
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "id": "evidence",
+          "label": "Evidence references and selection",
+          "keywords": [
+            "evidence"
+          ],
+          "sentence_indexes": [
+            1,
+            2
+          ]
+        },
+        {
+          "id": "summary",
+          "label": "Evidence and build-time summary",
+          "keywords": [
+            "evidence"
+          ],
+          "sentence_indexes": [
+            1,
+            3
+          ]
+        },
+        {
+          "id": "archive",
+          "label": "Archive and source references",
+          "keywords": [],
+          "sentence_indexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    },
+    {
+      "id": "seedling-light-trial",
+      "title": "Fictional seedling light trial",
+      "text": "The trial compares seedlings under two light schedules. Each tray receives the same amount of water. Observers record leaf counts every three days. Seedlings under longer light develop more leaves in this fictional trial. The trial does not measure fruit yield.",
+      "choices": [
+        {
+          "id": "lighting-result",
+          "label": "Light schedules and observed result",
+          "keywords": [
+            "light"
+          ],
+          "sentence_indexes": [
+            0,
+            3
+          ]
+        },
+        {
+          "id": "watering-control",
+          "label": "Shared watering control",
+          "keywords": [
+            "water"
+          ],
+          "sentence_indexes": [
+            1
+          ]
+        },
+        {
+          "id": "measurement-limits",
+          "label": "Measurements, result and unmeasured yield",
+          "keywords": [],
+          "sentence_indexes": [
+            2,
+            3,
+            4
+          ]
+        }
+      ]
+    },
+    {
+      "id": "gear-housing-workshop",
+      "title": "Fictional gear housing workshop",
+      "text": "A fictional workshop tests three reusable gear housings. Printed housings are weighed before the load test. The load test applies the same force to every housing. A cracked housing is removed from later vibration tests. The workshop records material use separately from durability.",
+      "choices": [
+        {
+          "id": "load-procedure",
+          "label": "Weighing and load-test procedure",
+          "keywords": [
+            "load"
+          ],
+          "sentence_indexes": [
+            1,
+            2
+          ]
+        },
+        {
+          "id": "failure-exclusion",
+          "label": "Cracked housing exclusion from vibration tests",
+          "keywords": [
+            "cracked",
+            "vibration"
+          ],
+          "sentence_indexes": [
+            3
+          ]
+        },
+        {
+          "id": "comparison-scope",
+          "label": "Housing comparison and separate material accounting",
+          "keywords": [],
+          "sentence_indexes": [
+            0,
+            1,
+            4
+          ]
+        }
+      ]
+    },
+    {
+      "id": "audio-duration-study",
+      "title": "Synthetic audio duration study",
+      "text": "The synthetic audio experiment compares a flute tone and a drum beat. The flute tone sustains for four seconds. The drum beat decays within one second. Listeners compare the rhythm while playback volume stays fixed. The experiment records duration and rhythm as separate measurements.",
+      "choices": [
+        {
+          "id": "tone-durations",
+          "label": "Flute and drum duration comparison",
+          "keywords": [
+            "flute",
+            "drum"
+          ],
+          "sentence_indexes": [
+            1,
+            2
+          ]
+        },
+        {
+          "id": "full-audio-procedure",
+          "label": "Complete audio experiment and measurement scope",
+          "keywords": [],
+          "sentence_indexes": [
+            0,
+            1,
+            2,
+            3,
+            4
+          ]
+        }
+      ]
+    }
+  ]
+}
