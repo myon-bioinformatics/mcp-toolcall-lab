@@ -104,6 +104,7 @@ def _portable_node_run(
     timeout: float = NODE_BRIDGE_TIMEOUT,
     node: str | os.PathLike[str] | None = None,
     check: bool = True,
+    summary_dir: str | Path | None = None,
 ) -> subprocess.CompletedProcess[bytes]:
     node_launch = _node_launch_module()
     env_var = "NODE"
@@ -111,13 +112,16 @@ def _portable_node_run(
         executable = node_launch.resolve_node(node=node, env_var=env_var)
     except node_launch.NodeNotFoundError as exc:
         _raise_portable_node_not_found(exc, node)
+    arguments = ["--native-only"]
+    if summary_dir is not None:
+        arguments.extend(["--summary-dir", str(summary_dir)])
     command = node_launch.node_command(
-        CORE, "--native-only", node=executable, probe=False, env_var=env_var
+        CORE, *arguments, node=executable, probe=False, env_var=env_var
     )
     try:
         completed = node_launch.run(
             CORE,
-            "--native-only",
+            *arguments,
             input=input,
             timeout=timeout,
             response_max_bytes=NODE_RECEIPT_MAX_BYTES,
@@ -142,7 +146,7 @@ def _portable_node_run(
     return completed
 
 
-def execute(request: Any, *, adapter_path: str | Path | None = None, native_only: bool = False) -> dict[str, Any]:
+def execute(request: Any, *, adapter_path: str | Path | None = None, summary_dir: str | Path | None = None, native_only: bool = False) -> dict[str, Any]:
     if not isinstance(request, dict) or set(request) != {"schema", "operation", "input"} or request.get("schema") != CONTRACT:
         return failure("invalid_input", "Expected schema, operation and input only, with schema lab-execution/1.")
     try:
@@ -152,13 +156,15 @@ def execute(request: Any, *, adapter_path: str | Path | None = None, native_only
     if len(encoded) > MAX_REQUEST_BYTES:
         return failure("invalid_input", "Request exceeds 2 MiB.")
     operation = request["operation"]
-    if operation == "trace_summary":
+    if summary_dir is not None and (operation != "source_selection" or adapter_path is not None):
+        return failure("invalid_input", "--summary-dir requires only source_selection, without --adapter.")
+    if operation in ("trace_summary", "source_selection"):
         if native_only:
-            return failure("runtime_unavailable", "Python native-only mode does not duplicate the JavaScript log analyzer.")
+            return failure("runtime_unavailable", "Python native-only mode does not duplicate the JavaScript analyzers.")
         try:
-            completed = _portable_node_run(encoded, check=True)
+            completed = _portable_node_run(encoded, check=True, summary_dir=summary_dir)
             result = json.loads(completed.stdout)
-            if not isinstance(result, dict) or result.get("schema") != CONTRACT:
+            if not isinstance(result, dict) or result.get("schema") not in ({CONTRACT, "lab-summary-receipt/1"} if summary_dir is not None else {CONTRACT}):
                 return failure("bridge_failed", "Invalid Node receipt.")
             return result
         except ReceiptTooLargeError:
@@ -195,6 +201,7 @@ def execute(request: Any, *, adapter_path: str | Path | None = None, native_only
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--adapter", type=Path)
+    parser.add_argument("--summary-dir", type=Path, help="Verify exact local static summary artifacts; no model or network call")
     parser.add_argument("--native-only", action="store_true")
     args = parser.parse_args()
     raw = sys.stdin.buffer.read(MAX_REQUEST_BYTES + 1)
@@ -202,7 +209,7 @@ def main() -> None:
         if len(raw) > MAX_REQUEST_BYTES:
             raise ValueError("too large")
         request = json.loads(raw.decode("utf-8"))
-        result = execute(request, adapter_path=args.adapter, native_only=args.native_only)
+        result = execute(request, adapter_path=args.adapter, summary_dir=args.summary_dir, native_only=args.native_only)
     except (ValueError, UnicodeError, RecursionError):
         result = failure("invalid_input", "Expected one UTF-8 JSON request no larger than 2 MiB.")
     # Reuse the lab ledger, but do not copy raw user input into it.

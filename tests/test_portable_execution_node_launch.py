@@ -751,3 +751,39 @@ def test_mutation_subprocess_broken_over_cap_mapping_fails_execute_test():
         ],
         "test_receipt_over_cap_matches_legacy_execute_message",
     )
+
+
+@pytest.mark.parametrize("failure_code", [None, "ELAUNCHFAILURE", "ERESPONSETOOLARGE"])
+def test_summary_directory_uses_bounded_launcher_and_preserves_timeout_command(tmp_path, monkeypatch, failure_code):
+    script = _write_fake_node(tmp_path, version="v24.0.0", on_eval="pass")
+    node_launch = pe._node_launch_module()
+    summary_dir = tmp_path / "reviewed summaries"
+    arguments = (CORE, "--native-only", "--summary-dir", str(summary_dir))
+
+    def run(*args, **kwargs):
+        assert args == arguments
+        assert kwargs["input"] == b"source-selection"
+        assert kwargs["timeout"] == pe.NODE_BRIDGE_TIMEOUT == 15
+        assert kwargs["response_max_bytes"] == pe.NODE_RECEIPT_MAX_BYTES == 4 * 1024 * 1024
+        assert kwargs["node"] == str(script)
+        assert kwargs["probe"] is False
+        assert kwargs["check"] is True
+        if failure_code:
+            raise node_launch.LaunchError(
+                "node_launch: Node process timed out" if failure_code == "ELAUNCHFAILURE" else "too large",
+                code=failure_code, stdout=b"partial", stderr=b"diagnostic",
+            )
+        return subprocess.CompletedProcess([str(script), *map(str, args)], 0, b"{}", b"")
+
+    monkeypatch.setattr(node_launch, "run", run)
+    if failure_code == "ELAUNCHFAILURE":
+        with pytest.raises(subprocess.TimeoutExpired) as info:
+            pe._portable_node_run(b"source-selection", node=script, summary_dir=summary_dir)
+        assert info.value.cmd == [str(script), *map(str, arguments)]
+        assert info.value.output == b"partial"
+        assert info.value.stderr == b"diagnostic"
+    elif failure_code == "ERESPONSETOOLARGE":
+        with pytest.raises(pe.ReceiptTooLargeError):
+            pe._portable_node_run(b"source-selection", node=script, summary_dir=summary_dir)
+    else:
+        assert pe._portable_node_run(b"source-selection", node=script, summary_dir=summary_dir).stdout == b"{}"
