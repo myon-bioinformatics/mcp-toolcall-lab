@@ -3,22 +3,25 @@
 The primary Python job in `.github/workflows/test.yml` still installs
 `.[test]` and runs the same pytest suite. It adds
 `--junitxml=reports/pytest.xml` and uploads that exact file as
-`junit-python-3.12` for 14 days with `if: always()`. The pytest step
+`junit-python-3.12-node-24` or `junit-python-3.12-node-latest`, according to
+the Node matrix leg, for 14 days with `if: always()`. The pytest step
 has no error suppression: a failure remains a failed producer job and run.
 
 The dependent `junit-identity` job runs even after producer failure
 when change detection selected non-document work. It calls the parent
 repository's reusable collector at
-`4dfda95d6573250477f991a0421fa6acb9bc0258`, with the exact report set
-`["junit-python-3.12/pytest.xml"]`. Missing or invalid reports fail collection;
+`2192ff22acafdd09e80ac722df91ee937aaedd5e`, selecting
+`junit-python-3.12-node-*` and requiring both exact reports:
+`junit-python-3.12-node-24/pytest.xml` and
+`junit-python-3.12-node-latest/pytest.xml`. Missing or invalid reports fail collection;
 a successful collection only means evidence is complete, not that tests passed.
 Documentation-only runs retain the existing skip behavior.
 
 Raw XML remains an Actions artifact only; it is never added to Pages.
 The compact `python-failure-identity` artifact contains collection evidence
 and bounded failure/error identities, without messages, traceback or parameter
-values. Canonical commit identity is unavailable in this consumer, so its
-`commit_sha` stays null. This is the JUnit compatibility adapter tracked in
+values. The collector receives the exact pull-request head SHA, or `github.sha`
+for other events, as `commit-sha`. This is the JUnit compatibility adapter tracked in
 [the parent Issue #22](https://github.com/myon-bioinformatics/myon-bioinformatics/issues/22),
 not completion of native JSONL/reproduction or cross-repository learning.
 

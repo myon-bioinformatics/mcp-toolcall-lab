@@ -1,10 +1,16 @@
 {
   "image": "ghcr.io/ggml-org/llama.cpp",
-  "tag": "server",
-  "digest": "sha256:9002e60256635720c05c50455fdebf992a98dc25466dc932758ecd7936244c1c",
-  "version": "b11046",
-  "revision": "60081bb2b5b3294165a4d67c5cbeebe74c868014",
-  "amd64_manifest": "sha256:7fdf852303fa3ea0d2d23b909a3595e0319322444a946f8b00df272a17afdd1a",
-  "healthcheck": ["CMD", "curl", "-f", "http://127.0.0.1:8080/health"],
-  "notes": "Multi-arch index digest observed from GHCR on 2026-09-19. Image embeds curl and HEALTHCHECK /health (Ubuntu 24.04)."
+  "tag": "server-b11669",
+  "digest": "sha256:8ffe0d28ff5261cc2f78ca1f67db1515bc2529b904a3c25f5b24f4cedfc3411d",
+  "version": "v0.7.0 (b11669)",
+  "revision": "620d2225cc436ab0b001e3200e590e3b286ef9ab",
+  "amd64_manifest": "sha256:6ec21f39f317dba90a2614e69b7e7e18706d1ff27af1c83a95d8f079e3664c65",
+  "healthcheck": [
+    "CMD",
+    "curl",
+    "-f",
+    "http://localhost:8080/health"
+  ],
+  "notes": "Stable release v0.7.0 and registry manifests verified 2026-10-24. Rolling server builds are intentionally not selected. Native healthcheck uses curl on port 8080; existing GGUF bytes are unchanged.",
+  "source": "https://github.com/ggml-org/llama.cpp/releases/tag/v0.7.0"
 }

@@ -14,8 +14,9 @@
 #     OPENAI_MOCK_LOG=$PWD/test-results/openai-mock.jsonl \
 #     pytest tests/real_chat_ui/test_librechat_docker.py -v
 #
-# LibreChat image is the published registry tag. `:latest` is intentional for
-# "does the current product still wire MCP?" — pin a digest to replay a run.
+# LibreChat publishes development/prerelease images, not a stable release channel.
+# Preserve the existing current-product smoke scope, but pin its verified digest.
+# MongoDB below is for fresh disposable smoke data only, not volume migration.
 networks:
   lab:
     name: mcp-toolcall-lab
@@ -77,13 +78,13 @@ services:
     restart: "no"
 
   mongodb:
-    image: mongo:7.0
+    image: mongo:9.0.4@sha256:dc28ed5a9d0fc616903c3f463bb1e53b92b49f441721b91926e87d90bf957ce8
     command: mongod --noauth
     networks: [lab]
     restart: "no"
 
   librechat:
-    image: registry.librechat.ai/danny-avila/librechat-dev:latest
+    image: registry.librechat.ai/librechat-ai/librechat-dev:latest@sha256:27715af6310e6ed42c36d2630a77b2ab55c6c53e1d3540426cfad7b54a2b6af7
     ports:
       - "3080:3080"
     environment:

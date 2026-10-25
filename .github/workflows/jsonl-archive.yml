@@ -26,7 +26,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        python: ['3.12', '3.13', '3.14']
+        python: ['3.12.15', '3.13.17', '3.14.9']
     env:
       PYTHONPATH: src
       PYTHONUTF8: '1'
@@ -34,18 +34,20 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
-        with:
-          python-version: ${{ matrix.python }}
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: '24'
+          node-version: '24.22.1'
       - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
         with:
+          version: "0.13.5"
           python-version: ${{ matrix.python }}
           cache-python: true
+      # The same exact patch is available through uv on all three platforms,
+      # including security-only Python releases missing from setup-python.
+      - name: Install exact managed Python
+        run: uv python install ${{ matrix.python }}
       - run: node --version
       - name: Standalone standard-library CLI import
-        run: python -S src/mcp_toolcall_lab/jsonl_log_archive.py --help
+        run: uv run --no-project python -S src/mcp_toolcall_lab/jsonl_log_archive.py --help
       - name: Exact results and decompression bounds (locked uv test group)
         run: uv run --locked --extra test pytest -q tests/test_jsonl_log_archive.py
