@@ -42,10 +42,11 @@ jobs:
           version: "0.13.5"
           python-version: ${{ matrix.python }}
           cache-python: true
-      # The same exact patch is available through uv on all three platforms,
-      # including security-only Python releases missing from setup-python.
-      - name: Install exact managed Python
-        run: uv python install ${{ matrix.python }}
+      # setup-uv selects/restores the exact managed Python via UV_PYTHON.
+      # Do not reinstall it: Windows cached minor-version links may not be
+      # safely recreated by a second `uv python install` invocation.
+      - name: Verify exact Python version
+        run: uv run --no-project python -c "import sys; assert '.'.join(map(str, sys.version_info[:3])) == '${{ matrix.python }}', sys.version; print(sys.version)"
       - run: node --version
       - name: Standalone standard-library CLI import
         run: uv run --no-project python -S src/mcp_toolcall_lab/jsonl_log_archive.py --help
