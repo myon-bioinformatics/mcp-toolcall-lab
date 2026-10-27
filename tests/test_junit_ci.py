@@ -69,6 +69,14 @@ def test_python_junit_workflow_keeps_failed_producer_visible():
     assert "pages:" not in collector
 
 
+def test_public_resolver_compat_keeps_legacy_python_coverage():
+    workflow = (Path(__file__).parents[1] / ".github/workflows/test.yml").read_text(encoding="utf-8")
+    resolver = yaml.safe_load(workflow)["jobs"]["public-resolver-compat"]
+    # setup-python publishes Python 3.9 for Ubuntu 24.04, not ubuntu-latest/26.04.
+    assert resolver["runs-on"] == "ubuntu-24.04"
+    assert resolver["strategy"]["matrix"]["python-version"] == ["3.9", "3.10"]
+
+
 def test_jsonl_archive_portability_uses_locked_uv():
     """No pip-only drift in the Windows/macOS/Linux x Python archive matrix."""
     workflow = (Path(__file__).parents[1] / ".github/workflows/jsonl-archive.yml").read_text(
