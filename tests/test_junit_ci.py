@@ -10,6 +10,7 @@ import sys
 import xml.etree.ElementTree as ET
 
 import pytest
+import yaml
 
 
 @pytest.mark.parametrize("failing", [False, True])
@@ -68,6 +69,14 @@ def test_python_junit_workflow_keeps_failed_producer_visible():
     assert "pages:" not in collector
 
 
+def test_public_resolver_compat_keeps_legacy_python_coverage():
+    workflow = (Path(__file__).parents[1] / ".github/workflows/test.yml").read_text(encoding="utf-8")
+    resolver = yaml.safe_load(workflow)["jobs"]["public-resolver-compat"]
+    # setup-python publishes Python 3.9 for Ubuntu 24.04, not ubuntu-latest/26.04.
+    assert resolver["runs-on"] == "ubuntu-24.04"
+    assert resolver["strategy"]["matrix"]["python-version"] == ["3.9", "3.10"]
+
+
 def test_jsonl_archive_portability_uses_locked_uv():
     """No pip-only drift in the Windows/macOS/Linux x Python archive matrix."""
     workflow = (Path(__file__).parents[1] / ".github/workflows/jsonl-archive.yml").read_text(
@@ -81,7 +90,20 @@ def test_jsonl_archive_portability_uses_locked_uv():
     assert "run: uv run --locked --extra test pytest -q tests/test_jsonl_log_archive.py" in workflow
     assert 'version: "0.13.5"' in workflow
     assert "actions/setup-python@" not in workflow
-    assert "run: uv python install ${{ matrix.python }}" in workflow
+    steps = yaml.safe_load(workflow)["jobs"]["archive"]["steps"]
+    setup_uv = [step for step in steps if step.get("uses", "").startswith("astral-sh/setup-uv@")]
+    assert len(setup_uv) == 1
+    assert setup_uv[0]["with"]["python-version"] == "${{ matrix.python }}"
+    assert setup_uv[0]["with"]["cache-python"] is True
+    # setup-uv owns installation; a second install breaks cached Windows links.
+    assert all("uv python install" not in step.get("run", "") for step in steps)
+    verify_python = [step for step in steps if step.get("name") == "Verify exact Python version"]
+    assert len(verify_python) == 1
+    assert verify_python[0]["run"] == (
+        'uv run --no-project python -c "import sys; '
+        "assert '.'.join(map(str, sys.version_info[:3])) == '${{ matrix.python }}', "
+        'sys.version; print(sys.version)"'
+    )
     assert "run: uv run --no-project python -S src/mcp_toolcall_lab/jsonl_log_archive.py --help" in workflow
     assert "pip install pytest" not in workflow
     assert "python -m pytest" not in workflow
