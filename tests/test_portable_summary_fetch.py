@@ -3,6 +3,9 @@ import hashlib
 import json
 from pathlib import Path
 import subprocess
+import os
+import sys
+import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -129,7 +132,9 @@ if (configuration.canonical !== undefined) {
     };
     const result=await fetchSourceSummary(request,base,fetcher);
     const repeated=scenario==='repeated'?await fetchSourceSummary(request,base,fetcher):null;
-    outcomes.push({scenario,result,repeated,calls,summaryHash,selectionHash,summaryCanonical:canonicalRequest(summary),logText});
+    outcomes.push({scenario,result,repeated,calls,summaryHash,selectionHash,summaryCanonical:canonicalRequest(summary),logText,
+      fixture:scenario==='local_fixture'?{request,files:{'source-summary-manifest.json':JSON.stringify(manifest),
+        ['summaries/'+summaryHash+'.json']:JSON.stringify(artifact),[artifact.receipt.observation_log.path]:logText}}:null});
   }
   console.log(JSON.stringify(outcomes));
 }
@@ -256,6 +261,54 @@ class PortableSummaryFetchTests(unittest.TestCase):
         self.assertEqual(rows[1]['result'], rows[1]['repeated'])
         self.assertEqual(rows[0]['result'], rows[2]['result'])
         self.assertEqual(len(rows[1]['calls']), 6)
+
+    def test_local_artifacts_and_python_bridge_fail_closed(self):
+        fixture = node({'scenarios': ['local_fixture']})[0]['fixture']
+        cli = ROOT / 'src/mcp_toolcall_lab/static/portable_cli.mjs'
+        env = {**os.environ, 'PYTHONPATH': str(ROOT / 'src')}
+        env.pop('MCP_TOOLCALL_LOG', None)
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory)
+            for name, content in fixture['files'].items():
+                target = base / name
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text(content, encoding='utf-8')
+            commands = [
+                ['node', str(cli)],
+                [sys.executable, '-S', '-m', 'mcp_toolcall_lab.portable_execution'],
+            ]
+
+            def run(command, request=None, extra=None):
+                completed = subprocess.run(
+                    command + ['--summary-dir', directory] + (extra or []),
+                    input=json.dumps(request or fixture['request']), text=True,
+                    capture_output=True, check=True, timeout=20, env=env,
+                )
+                return json.loads(completed.stdout)
+
+            for command in commands:
+                self.assertEqual(run(command)['status'], 'generated')
+                invalid = {**fixture['request'], 'input': {
+                    **fixture['request']['input'], 'text': 'changed source',
+                }}
+                self.assert_unavailable(run(command, invalid), 'invalid_input')
+                self.assertEqual(run(command, extra=['--adapter', 'unused'])['error']['code'], 'invalid_input')
+
+            artifact = next(base.glob('summaries/*.json'))
+            original = artifact.read_text(encoding='utf-8')
+            artifact.write_text('{broken', encoding='utf-8')
+            for command in commands:
+                self.assert_unavailable(run(command), 'artifact_mismatch')
+            artifact.unlink()
+            outside = base / 'outside.json'
+            outside.write_text(original, encoding='utf-8')
+            try:
+                artifact.symlink_to(outside)
+            except (OSError, NotImplementedError):
+                # Windows environments may not grant symlink privileges.
+                return
+            for command in commands:
+                self.assert_unavailable(run(command), 'artifact_unavailable')
 
     def test_observation_log_integrity_no_raw_data_and_original_build(self):
         scenarios = ['bad_text_checksum', 'wrong_log_line', 'bad_log_line_checksum', 'tampered_log',
