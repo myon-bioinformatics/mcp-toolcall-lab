@@ -1,7 +1,19 @@
 # Streamable HTTP MCP mock. Same compose network as Open WebUI (service name: mcp-mock).
-FROM python:3.12-slim
+FROM python:3.15.1-slim-trixie@sha256:08275f764e022331c6d3e3ca55d8cce01fa4684b02111adf0445d71806fe7941
+# Ordinary signed Debian security update; no custom CA trust overrides.
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates=20250419+deb13u1 \
+    && rm -rf /var/lib/apt/lists/*
+# Hash-pinned bootstrap from the Python security advisory (see docs/software-components.md).
+RUN python -m pip install --no-cache-dir --no-deps \
+    "pip @ https://files.pythonhosted.org/packages/3f/06/3e4420302363fbb71be3c7f35ce042f54bfca330e3e66b3a2e3c4cca579f/pip-26.2.2-py3-none-any.whl#sha256=fd7f4dfa8190e014013b9f08f3e973f4e4c26ffd179a204895533a7254813a70"
 WORKDIR /app
-RUN pip install --no-cache-dir "fastmcp>=4.1.1"
+COPY docker/build-requirements.txt /tmp/build-requirements.txt
+RUN python -m pip install --no-cache-dir --only-binary=:all: --require-hashes --no-deps -r /tmp/build-requirements.txt \
+    && rm /tmp/build-requirements.txt
+COPY docker/runtime-requirements.txt /tmp/runtime-requirements.txt
+RUN python -m pip install --no-cache-dir --require-hashes --no-deps --no-build-isolation -r /tmp/runtime-requirements.txt \
+    && python -m pip check \
+    && rm /tmp/runtime-requirements.txt
 COPY openwebui_mcp_mock.py /app/openwebui_mcp_mock.py
 ENV MCP_HOST=0.0.0.0
 ENV MCP_PORT=8000
