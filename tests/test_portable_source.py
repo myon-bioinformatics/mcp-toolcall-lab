@@ -266,6 +266,21 @@ console.log(JSON.stringify({result, expected:await sha256(canonical)}));
         self.assertEqual(result['result']['sentences'][0]['text'], 'Graph evidence.')
         self.assertEqual(result['result']['selected_keywords'], [])
 
+    def test_normalization_and_utf16_mid_surrogate_ids_are_rejected(self):
+        text = '😀 Café evidence.'
+        initial = node(request(text))
+        digest = initial['provenance']['input_sha256']
+        sentence = initial['sentences'][0]['id']
+        keyword = next(k['id'] for k in initial['keyword_options'] if k['text'] == 'Café')
+        for value in [
+            request('😀 Cafe\u0301 evidence.', sentence_ids=[sentence]),
+            request('😀 Cafe\u0301 evidence.', keywords=[keyword]),
+            request(text, sentence_ids=[f'sentence:{digest}:1:17']),
+            request(text, keywords=[f'keyword:{digest}:1:2']),
+        ]:
+            with self.subTest(value=value):
+                self.assert_invalid(node(value))
+
     def test_stopwords_and_exact_unicode_tokens_are_not_normalized(self):
         result = node(request("The and IS a test. Café Cafe\u0301. don't don't can't."))
         options = {k['text']: k['count'] for k in result['keyword_options']}
