@@ -198,6 +198,8 @@ class RunningDeno:
 @contextmanager
 def running_wikipedia_mcp(
     extra_env: dict[str, str] | None = None,
+    *,
+    entrypoint: Path | None = None,
 ) -> Iterator[RunningDeno]:
     if not Path(DENO).is_file():
         pytest.skip("deno is not installed")
@@ -219,7 +221,7 @@ def running_wikipedia_mcp(
                 "--allow-net",
                 "--allow-env",
                 "--allow-read",
-                "main.ts",
+                str(entrypoint) if entrypoint is not None else "main.ts",
             ],
             cwd=DENO_DIR,
             env=env,
@@ -294,7 +296,7 @@ class DenoMcpSession:
         self.session_id = response.headers.get("mcp-session-id")
         assert self.session_id, response.headers
         notify = self.post({"jsonrpc": "2.0", "method": "notifications/initialized"})
-        assert notify.status_code == 202
+        assert notify.status_code == 202, notify.text
         assert notify.content == b"" or notify.text.strip() == ""
         body = extract_sse_data(response.text)
         return body["result"]
@@ -563,22 +565,45 @@ def test_deno_rejects_injected_lang_as_tool_error(deno_session: DenoMcpSession) 
         assert "90001" not in text
 
 
-def test_deno_session_expires_after_ttl() -> None:
-    with running_wikipedia_mcp(extra_env={"MCP_SESSION_TTL_SECONDS": "1"}) as server:
+@pytest.mark.parametrize("offset_ms", [0, 999])
+def test_deno_session_expires_after_ttl(tmp_path: Path, offset_ms: int) -> None:
+    # Tokens use integer Unix seconds, so a real one-second TTL can expire
+    # between initialize and notifications/initialized at a second boundary.
+    # Control time only in this test's Deno process; keep the real HTTP handler
+    # and HMAC verification, without adding a production clock override.
+    now_ms = 1_700_000_000_000 + offset_ms
+    expires_ms = (now_ms // 1000 + 1) * 1000
+    clock = tmp_path / "clock.txt"
+    clock.write_text(str(now_ms), encoding="utf-8")
+    entrypoint = tmp_path / "clocked_mcp.ts"
+    entrypoint.write_text(
+        f'import {{ handleRequest }} from {json.dumps((DENO_DIR / "mcp.ts").as_uri())};\n'
+        f"Date.now = () => Number(Deno.readTextFileSync({json.dumps(str(clock))}));\n"
+        'Deno.serve({ port: Number(Deno.env.get("MCP_PORT")), hostname: "127.0.0.1" }, handleRequest);\n',
+        encoding="utf-8",
+    )
+    with running_wikipedia_mcp(
+        extra_env={"MCP_SESSION_TTL_SECONDS": "1"}, entrypoint=entrypoint
+    ) as server:
         session = DenoMcpSession(server.url)
         try:
             session.initialize()
+            assert session.session_id
+            assert int(session.session_id.split(".")[1]) * 1000 == expires_ms
+            clock.write_text(str(expires_ms - 1), encoding="utf-8")
             listed = session.post(
                 {"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}}
             )
-            assert listed.status_code == 200
-            time.sleep(1.5)
-            expired = session.post(
-                {"jsonrpc": "2.0", "id": 3, "method": "tools/list", "params": {}}
-            )
-            assert expired.status_code == 400
-            body = expired.json()
-            assert "session" in body["error"]["message"].lower()
+            assert listed.status_code == 200, listed.text
+            for request_id, expired_ms in enumerate((expires_ms, expires_ms + 1000), start=3):
+                clock.write_text(str(expired_ms), encoding="utf-8")
+                expired = session.post(
+                    {"jsonrpc": "2.0", "id": request_id, "method": "tools/list", "params": {}}
+                )
+                assert expired.status_code == 400, expired.text
+                body = expired.json()
+                assert body["error"]["code"] == -32000
+                assert "session" in body["error"]["message"].lower()
         finally:
             session.close()
 
