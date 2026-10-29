@@ -163,7 +163,7 @@ tools does not. Read [`catalog.py`](src/mcp_toolcall_lab/catalog.py) and the
 `openwebui_mcp_mock.py` and `librechat_mcp_mock.py` are generated from the same
 package. Copy the complete client-named file, not isolated functions. After tool
 changes, regenerate both with `python -m mcp_toolcall_lab.export`. On a separate
-VM/container, the standalone server requires FastMCP (`pip install "fastmcp>=4.1.1"`).
+VM/container, the standalone server requires FastMCP (`pip install "fastmcp>=4.1.3"`).
 Set `MCP_HOST=0.0.0.0` only when a trusted client must reach it across network
 namespaces; this does not add authentication.
 
@@ -417,6 +417,8 @@ lock consistency and the exercised UI behavior are separate checks.
   [Open WebUI schema notes](docs/openwebui_schema_notes.md),
   [GitHub operations MCP](docs/github_ops_mcp.md),
   [chat/stub contract](docs/chat_stub_contract.md).
+- **Software versions and trust:** [Pinned component snapshot](docs/software-components.md),
+  [runtime trust receipts](docs/runtime-trust.md).
 - **Evidence and reproducibility:** [Anti-pattern catalog](docs/antipatterns.md),
   [conversation URL identities](docs/conversation-urls.md),
   [history telemetry](docs/history-growth-telemetry.md),

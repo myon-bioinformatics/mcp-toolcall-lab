@@ -116,3 +116,58 @@ publishes a competing root redirect. No Pages settings or credentials change.
 Validation: `PYTHONPATH=src python -m unittest discover -s tests -p 'test_portable_execution.py'`.
 Docker export itself is a separate required CI job; source-level generation is
 not evidence that Docker ran.
+
+
+## Local source selection (no model execution)
+
+The `source_selection` operation uses the same deterministic JavaScript in browser,
+Node and the Python→Node bridge. Input is `{text, keywords, sentence_ids}`; the last
+two fields are arrays of IDs returned from analysis, not arbitrary selector code.
+Start with empty arrays to obtain lexical keyword hints and original sentences.
+The 128 KiB UTF-8 source limit, 1,000-sentence limit and selection limits fail closed.
+At most 128 unique hints are shown, in first-occurrence order, with explicit total
+and truncation metadata. Their counts still cover the whole supplied source.
+
+Keyword counts and punctuation-based sentence boundaries are heuristics, not Jev
+probabilities or evidence of semantic correctness. Confidence remains null. IDs
+bind the full source SHA-256 and original UTF-16 code-unit offsets; edits invalidate
+old IDs, selections and prepared results. Rendered content is plain text.
+
+Selecting sentences prepares a `lab-summary-request/1` file containing only selected
+source evidence and its source identity. This is not generated prose. There is no
+LLM runtime connected to Pages and no source upload. The file may contain private
+text, so inspect it before sharing it. Fixed build settings are temperature 0,
+seed 42, top-p 0.75, repeat penalty 1.0 and the pinned engine's integer top-k
+default 40. Prepared requests are not proof of execution; fixed settings do not
+guarantee identical text across engines or runtime versions.
+
+## Build-time summaries and incremental inputs
+
+The Docker export starts the existing pinned llama.cpp runtime only during the
+build, verifies the pinned public GGUF, and generates a bounded window of declared
+public selections. The final artifact contains no model, server or executable
+runtime. Browser lookup verifies exact input/selection and full recipe hashes,
+original execution provenance and the corresponding content-addressed JSONL log.
+Unknown selections return `cache_miss` or `not_generated` with null text/confidence.
+See [build-time summaries](build-time-summaries.md) for model/license and limits.
+
+Exporting a full input case saves the complete pasted text and selection to the
+user's device. It is never uploaded automatically. Explicitly reviewed cases can
+be imported into the [JSONL corpus](summary-corpus.md), deduplicated, archived and
+selected in bounded build windows. Only missing exact recipe keys invoke the
+model; cache hits retain their original execution and log provenance. Distinct
+inputs/selections, not changing the sampler seed, provide corpus diversity.
+
+The same verifier works without Pages or a web server, through both existing
+CLI hosts. `--summary-dir` selects local static artifacts out of band and never
+performs network or model execution:
+
+```sh
+PYTHONPATH=src python -S -m mcp_toolcall_lab.portable_execution --summary-dir exported/execution < source-selection.json
+node src/mcp_toolcall_lab/static/portable_cli.mjs --summary-dir exported/execution < source-selection.json
+```
+
+The Docker BuildKit result cache is local to that builder. Fresh hosted runners
+do not automatically recover earlier build caches. Persist/restore an explicitly
+reviewed local corpus/result store to continue rounds; no scheduled repository
+writes or private-data publication are configured by this change.
