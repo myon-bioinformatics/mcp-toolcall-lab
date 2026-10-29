@@ -12,12 +12,12 @@
     },
     {
       "repository": "myon-bioinformatics/myon-bioinformatics",
-      "ref": "8faa7a74895a48cf33a46f0c9fcb0210f61f81a8",
-      "commit": "8faa7a74895a48cf33a46f0c9fcb0210f61f81a8",
+      "ref": "9e3da7ae1846e9604ebc24bb5178f7de094a4e77",
+      "commit": "9e3da7ae1846e9604ebc24bb5178f7de094a4e77",
       "source": "gh_ops.py",
       "destination": "vendor/gh_ops.py",
-      "blob_sha": "1741ffedf55cb9624507224ad8a00cf78553c4c2",
-      "sha256": "3f9be2015bdfa86daec100b9595db8b6f78511d83f1e8b3f48b8fed60e594dba"
+      "blob_sha": "cde303be5bd94c1b054f917b11b6b8cbab042741",
+      "sha256": "4b1688961b616a852d3dba49adae480ef67678c0d1f9c6a70a6923b05c50622d"
     },
     {
       "repository": "myon-bioinformatics/markdown",
