@@ -6,7 +6,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW = ROOT / ".github/workflows/test.yml"
-VENDOR_SYNC_PIN = "2192ff22acafdd09e80ac722df91ee937aaedd5e"
+VENDOR_SYNC_PIN = "9e3da7ae1846e9604ebc24bb5178f7de094a4e77"
 
 
 def _workflow():
