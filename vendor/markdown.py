@@ -1,5 +1,5 @@
 # markdown.py
-# metadata: __all__=127 | base_sha=99b6a174a883f60a9c3ed01164a81fd7bd26ff76 | updated_at=2026-09-27T09:40:47Z
+# metadata: __all__=128 | base_sha=99b6a174a883f60a9c3ed01164a81fd7bd26ff76 | updated_at=2026-09-27T09:40:47Z
 """Stdlib-only Markdown utility functions.
 
 This module is intentionally a single file with no CLI / ``main`` entry point.
@@ -24,6 +24,8 @@ __all__ = [
     "extract_raw_html",
     "extract_urls",
     "extract_data_uris",
+    "slugify",
+    "table_of_contents",
     "extract_section",
     "strip_prose_keep_structure",
     "minify_markdown",
@@ -105,6 +107,7 @@ __all__ = [
     "ini_to_markdown",
     "markdown_to_ini",
     "toml_to_markdown",
+    "toml_reader",
     "markdown_to_toml",
     "dotenv_to_markdown",
     "markdown_to_dotenv",
@@ -190,7 +193,7 @@ SUPPORTED = {
         "images ![alt](url)",
         "raw HTML tags (best-effort extraction)",
         "horizontal rules (--- *** ___)",
-        "context helpers: extract_section / strip_prose_keep_structure / minify_markdown / safe_truncate",
+        "context helpers: slugify / table_of_contents / extract_section / strip_prose_keep_structure / minify_markdown / safe_truncate",
         "llm io: split_reasoning / compact_llm_output / llm_output_digest / "
         "extract_identifiers (answer vs. <think>/<thinking>/<reasoning>/Open WebUI "
         "<details type=reasoning> blocks, log-safe compaction, a JSON-able digest, "
@@ -437,7 +440,11 @@ def _scan_lines(lines: list[str]) -> list[_ScannedLine]:
     """Classify lines as ordinary text or fenced-code context.
 
     This is deliberately lexical and dependency-free. It preserves the
-    repository's existing ``_FENCE_RE`` contract.
+    repository's existing ``_FENCE_RE`` contract: while a fence is open, a
+    line beginning with its marker closes it even if text follows. For
+    example, a line with the active triple-backtick marker followed by
+    ``inner`` closes it. Callers that require strict Markdown validation
+    should reject such malformed input separately.
     """
     active_fence: str | None = None
     scanned: list[_ScannedLine] = []
@@ -480,6 +487,78 @@ def _mask_inline_code(text: str) -> str:
             chars[masked_index] = " "
         index = close + len(marker)
     return "".join(chars)
+
+
+def _mask_html_comments(text: str) -> str:
+    """Blank HTML comments, preserving newlines so later spans stay aligned.
+
+    A comment runs from ``<!--`` through ``-->``. With no closing ``-->`` it
+    runs through EOF, the same way an unterminated HTML comment block does.
+    Code protects comment openers; inside a comment, code markers are literal
+    and cannot hide its closing delimiter or open a fence in following text.
+    """
+    out = []
+    active_fence = None
+    in_comment = False
+    for line in text.splitlines(keepends=True):
+        if not in_comment:
+            next_fence, opened, _closed = _advance_fence(active_fence, line.rstrip("\r\n"))
+            in_code = active_fence is not None or opened
+            active_fence = next_fence
+            if in_code:
+                out.append(line)
+                continue
+        chars = list(line)
+        index = 0
+        while index < len(line):
+            if in_comment or line.startswith("<!--", index):
+                end = line.find("-->", index if in_comment else index + 4)
+                stop = len(line) if end < 0 else end + 3
+                for masked_index in range(index, stop):
+                    if chars[masked_index] not in "\r\n":
+                        chars[masked_index] = " "
+                in_comment = end < 0
+                index = stop
+            elif line[index] == "`":
+                end = index + 1
+                while end < len(line) and line[end] == "`":
+                    end += 1
+                marker = line[index:end]
+                close = line.find(marker, end)
+                index = end if close < 0 else close + len(marker)
+            else:
+                index += 1
+        out.append("".join(chars))
+    return "".join(out)
+
+
+def _live_text(content: str) -> str:
+    """``content`` with fenced code and inline code spans blanked, same length.
+
+    Extractors search this view so that Markdown shown inside code (a ``#``
+    comment, a ``[text](url)`` sample) is not reported as a heading, link or
+    image, then read the matched text back from ``content`` at the same span.
+    HTML comments are blanked too, including one that never closes.
+    """
+    # Resolve comment/code precedence before blanking code, so a fence or
+    # backtick inside a comment cannot erase the comment's closing delimiter.
+    raw = _mask_html_comments(content).splitlines(keepends=True)
+    bodies = [line.rstrip("\r\n") for line in raw]
+    out = []
+    for line, body, item in zip(raw, bodies, _scan_lines(bodies)):
+        ending = line[len(body):]
+        if item.in_fenced_code:
+            out.append(" " * len(body) + ending)
+        else:
+            out.append(_mask_inline_code(body) + ending)
+    return "".join(out)
+
+
+def _live_matches(pattern: re.Pattern[str], live: str, content: str):
+    """Matches found in the live view, re-read from ``content`` when possible."""
+    for match in pattern.finditer(live):
+        original = pattern.match(content, match.start())
+        yield original if original is not None and original.end() == match.end() else match
 
 
 # ---------------------------------------------------------------------------
@@ -578,13 +657,16 @@ def extract_sections(content: str) -> list[dict[str, Any]]:
     ``split_sections()`` instead.
     """
     sections: list[dict[str, Any]] = []
-    for line in content.splitlines():
-        match = _HEADING_RE.match(line)
+    for line, live in zip(content.splitlines(), _live_text(content).splitlines()):
+        # Headings inside fenced code are code, not structure.
+        if not live.strip():
+            continue
+        match = _HEADING_RE.match(live)
         if match:
             sections.append(
                 {
                     "level": len(match.group(1)),
-                    "title": match.group(2).strip(),
+                    "title": line[match.start(2):match.end(2)].strip(),
                 }
             )
     return sections
@@ -639,7 +721,7 @@ def _parse_attrs(attr_text: str) -> dict[str, str]:
 
 def _reference_map(content: str) -> dict[str, dict[str, str]]:
     refs: dict[str, dict[str, str]] = {}
-    for line in content.splitlines():
+    for line in _live_text(content).splitlines():
         match = _REF_DEF_RE.match(line)
         if match:
             key = match.group(1).strip().lower()
@@ -651,12 +733,16 @@ def _reference_map(content: str) -> dict[str, dict[str, str]]:
 
 
 def extract_links(content: str) -> list[dict[str, Any]]:
-    """Extract inline and reference-style links (not bare images)."""
+    """Extract inline, reference-style, angle-autolink and HTML links (not bare images).
+
+    Links shown inside fenced code or inline code spans are not reported.
+    """
     refs = _reference_map(content)
+    live = _live_text(content)
     links: list[dict[str, Any]] = []
 
     # Linked images: [![alt](img)](href) — record the outer link.
-    for match in _LINKED_IMAGE_RE.finditer(content):
+    for match in _live_matches(_LINKED_IMAGE_RE, live, content):
         links.append(
             {
                 "text": "",
@@ -667,11 +753,11 @@ def extract_links(content: str) -> list[dict[str, Any]]:
         )
 
     # Mask constructs that would confuse the inline-link regex.
-    masked = _LINKED_IMAGE_RE.sub(lambda m: " " * len(m.group(0)), content)
+    masked = _LINKED_IMAGE_RE.sub(lambda m: " " * len(m.group(0)), live)
     masked = _INLINE_IMAGE_RE.sub(lambda m: " " * len(m.group(0)), masked)
     masked = _REF_IMAGE_RE.sub(lambda m: " " * len(m.group(0)), masked)
 
-    for match in _INLINE_LINK_RE.finditer(masked):
+    for match in _live_matches(_INLINE_LINK_RE, masked, content):
         text = match.group(1)
         links.append(
             {
@@ -682,7 +768,7 @@ def extract_links(content: str) -> list[dict[str, Any]]:
             }
         )
 
-    for match in _REF_LINK_RE.finditer(masked):
+    for match in _live_matches(_REF_LINK_RE, masked, content):
         text = match.group(1)
         key = (match.group(2) or text).strip().lower()
         ref = refs.get(key, {})
@@ -696,7 +782,10 @@ def extract_links(content: str) -> list[dict[str, Any]]:
             }
         )
 
-    for match in _HTML_A_RE.finditer(content):
+    for match in _ANGLE_URL_RE.finditer(masked):
+        links.append({"text": match.group(1), "url": match.group(1), "title": "", "style": "autolink"})
+
+    for match in _live_matches(_HTML_A_RE, live, content):
         attrs = _parse_attrs(match.group(1))
         href = attrs.get("href", "")
         if href:
@@ -712,11 +801,12 @@ def extract_links(content: str) -> list[dict[str, Any]]:
 
 
 def extract_images(content: str) -> list[dict[str, Any]]:
-    """Extract Markdown and HTML images."""
+    """Extract Markdown and HTML images (not those shown inside code)."""
     refs = _reference_map(content)
+    live = _live_text(content)
     images: list[dict[str, Any]] = []
 
-    for match in _INLINE_IMAGE_RE.finditer(content):
+    for match in _live_matches(_INLINE_IMAGE_RE, live, content):
         images.append(
             {
                 "alt": match.group(1),
@@ -726,7 +816,7 @@ def extract_images(content: str) -> list[dict[str, Any]]:
             }
         )
 
-    for match in _REF_IMAGE_RE.finditer(content):
+    for match in _live_matches(_REF_IMAGE_RE, live, content):
         alt = match.group(1)
         key = match.group(2).strip().lower()
         ref = refs.get(key, {})
@@ -740,7 +830,7 @@ def extract_images(content: str) -> list[dict[str, Any]]:
             }
         )
 
-    for match in _HTML_IMG_RE.finditer(content):
+    for match in _live_matches(_HTML_IMG_RE, live, content):
         attrs = _parse_attrs(match.group(1))
         src = attrs.get("src", "")
         if src:
@@ -871,6 +961,105 @@ def extract_data_uris(content: str) -> list[dict[str, str]]:
             "metadata": metadata,
         })
     return found
+
+
+def slugify(text: str) -> str:
+    """Convert supported inline heading text to a GitHub-style anchor slug.
+
+    Lowercase Unicode letters, retain numbers/combining marks, hyphens and
+    underscores, remove other punctuation/symbols, and replace each ASCII space
+    with a hyphen. Other whitespace is removed. The lightweight inline parser
+    handles emphasis, inline code, images and inline links; raw HTML, reference
+    links and platform-specific extensions are not resolved by this helper.
+
+    >>> slugify("Hello World!")
+    'hello-world'
+    >>> slugify("User & Permissions (v2.0)")
+    'user--permissions-v20'
+    """
+    cleaned = _lite_plain(_lite_inline(str(text))).strip().lower()
+    chars = []
+    for char in cleaned:
+        category = unicodedata.category(char)
+        if category[0] in {"L", "N", "M"} or char in "-_":
+            chars.append(char)
+        elif char == " ":
+            chars.append("-")
+    return "".join(chars)
+
+
+def table_of_contents(
+    content: str,
+    *,
+    min_level: int = 1,
+    max_level: int = 6,
+) -> str:
+    """Generate a Markdown bullet list from live top-level ATX headings.
+
+    Fenced code and HTML comments are ignored. Up to three leading spaces and
+    optional closing hashes are accepted. Duplicate slugs are allocated across
+    all ATX headings before level filtering, including collisions with numeric
+    suffixes. Indentation is relative to the included heading hierarchy.
+
+    Labels are escaped plain text, so heading links cannot create nested links.
+    Inline text follows ``slugify``'s lightweight subset. Setext headings,
+    nested headings, and raw HTML block semantics are outside the supported
+    input subset; this is not a complete GitHub Markdown renderer.
+
+    :param content: Markdown source string.
+    :param min_level: Minimum heading level (1..6) to include.
+    :param max_level: Maximum heading level (1..6) to include.
+    """
+    if not isinstance(min_level, int) or isinstance(min_level, bool) or not 1 <= min_level <= 6:
+        raise ValueError("min_level must be an integer between 1 and 6")
+    if not isinstance(max_level, int) or isinstance(max_level, bool) or not 1 <= max_level <= 6:
+        raise ValueError("max_level must be an integer between 1 and 6")
+    if min_level > max_level:
+        raise ValueError("min_level cannot be greater than max_level")
+
+    lines = content.splitlines()
+    live_lines = _mask_html_comments(content).splitlines()
+    scanned = _scan_lines(live_lines)
+    heading_re = re.compile(r"^ {0,3}(#{1,6})(?:[ \t]+(.*)|[ \t]*)$")
+    slug_counts: dict[str, int] = {}
+    items: list[str] = []
+    level_stack: list[int] = []
+
+    for line, live, scan in zip(lines, live_lines, scanned):
+        if scan.in_fenced_code:
+            continue
+        # Match original inline code, not whitespace masking: greedy whitespace
+        # after the ATX marker otherwise swallows a code-only heading's title.
+        match = heading_re.match(live)
+        if not match:
+            continue
+        lvl = len(match.group(1))
+        title = line[match.start(2):match.end(2)].strip() if match.group(2) is not None else ""
+        # Remove live inline comments without interpreting literal code samples.
+        comment_spans = list(re.finditer(r"<!--.*?(?:-->|$)", _mask_inline_code(title)))
+        for comment in reversed(comment_spans):
+            title = title[:comment.start()] + title[comment.end():]
+        title = re.sub(r"(?:^|[ \t]+)#+[ \t]*$", "", title).strip()
+        base_slug = slugify(title)
+        slug = base_slug
+        while slug in slug_counts:
+            slug_counts[base_slug] = slug_counts.get(base_slug, 0) + 1
+            slug = f"{base_slug}-{slug_counts[base_slug]}"
+        slug_counts[slug] = 0
+        if not min_level <= lvl <= max_level:
+            continue
+
+        while level_stack and level_stack[-1] > lvl:
+            level_stack.pop()
+        if not level_stack or level_stack[-1] < lvl:
+            level_stack.append(lvl)
+
+        indent = "  " * (len(level_stack) - 1)
+        link_label = html_module.escape(_lite_plain(_lite_inline(title)), quote=False)
+        link_label = re.sub(r"([\\`*_\[\]])", r"\\\1", link_label)
+        items.append(f"{indent}- [{link_label}](#{slug})")
+
+    return "\n".join(items) + ("\n" if items else "")
 
 
 def inventory(content: str) -> dict[str, Any]:
@@ -1970,15 +2159,37 @@ def table(headers: Any, rows: Any) -> str:
 def _display_width(value: Any) -> int:
     """Return a terminal-style display width for a Markdown table cell.
 
-    Combining marks take no column; full-width and wide East Asian characters
-    take two. Ambiguous-width characters deliberately stay one column so the
-    result is stable across common Western and Japanese terminals.
+    Combining marks and format characters (zero-width space, ZWJ, variation
+    selectors) take no column; full-width and wide East Asian characters take
+    two. Ambiguous-width characters deliberately stay one column so the result
+    is stable across common Western and Japanese terminals. Emoji sequences
+    count once: a skin-tone modifier or a ZWJ-joined part adds nothing, and
+    VS16 (emoji presentation) widens a narrow base to two. Cross-checked
+    against the npm ``string-width`` package in ``tests/test_mirror_js.py``.
     """
     width = 0
+    previous = 0
+    pictographic = False
+    joined = False
     for char in str(value):
-        if unicodedata.combining(char):
+        if char == "\u200d":
+            # ZWJ glues emoji into one glyph; between letters it is just invisible.
+            joined = pictographic
             continue
-        width += 2 if unicodedata.east_asian_width(char) in {"F", "W"} else 1
+        if char == "\ufe0f":
+            if previous == 1:
+                width += 1
+                previous = 2
+            continue
+        if (unicodedata.combining(char) or unicodedata.category(char) in {"Mn", "Me", "Cf"}
+                or (previous and 0x1F3FB <= ord(char) <= 0x1F3FF)):
+            continue
+        if joined:
+            joined = False
+            continue
+        previous = 2 if unicodedata.east_asian_width(char) in {"F", "W"} else 1
+        pictographic = ord(char) >= 0x1F000 or 0x2600 <= ord(char) <= 0x27BF
+        width += previous
     return width
 
 
@@ -2686,19 +2897,171 @@ def _toml_dumps(value: Any) -> str:
     return "".join(line + "\n" for line in lines)
 
 
+_TOML_NODE_SCRIPT = r"""
+let text = '';
+process.stdin.setEncoding('utf8');
+process.stdin.on('data', (c) => (text += c)).on('end', () => {
+  let toml;
+  try { toml = require('smol-toml'); } catch (e) { process.stderr.write('missing'); process.exit(3); }
+  let value;
+  try { value = toml.parse(text, {integersAsBigInt: true}); } catch (e) { process.stderr.write('invalid:' + e.message); process.exit(4); }
+  // Tag every container as well as every numeric scalar. Literal TOML keys
+  // cannot then impersonate metadata, and integral floats remain floats.
+  function encode(v) {
+    if (typeof v === 'bigint') return ['int', v.toString()];
+    if (typeof v === 'number') {
+      if (!Number.isFinite(v)) throw new Error('non-finite float');
+      return ['float', Object.is(v, -0) ? '-0.0' : v.toString()];
+    }
+    if (v && typeof v === 'object' && typeof v.toISOString === 'function') throw new Error('datetime');
+    if (Array.isArray(v)) return ['array', v.map(encode)];
+    if (v && typeof v === 'object') return ['table', Object.entries(v).map(([k, child]) => [k, encode(child)])];
+    return ['scalar', v];
+  }
+  try {
+    process.stdout.write(JSON.stringify(encode(value)));
+  } catch (e) { process.stderr.write('subset:' + e.message); process.exit(5); }
+});
+"""
+_TOML_READER: list[str | None] = []
+_NODE_LAUNCH: Any = None
+
+
+def _node_launch_module() -> Any:
+    global _NODE_LAUNCH
+    if _NODE_LAUNCH is None:
+        import importlib.util
+        from pathlib import Path
+
+        path = Path(__file__).resolve().parent / "vendor" / "node_launch.py"
+        spec = importlib.util.spec_from_file_location("_vendored_node_launch", path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        _NODE_LAUNCH = module
+    return _NODE_LAUNCH
+
+
+def _decode_node_process_bytes(data: Any) -> str:
+    if isinstance(data, str):
+        return data
+    if not data:
+        return ""
+    return data.decode("utf-8", errors="replace")
+
+
+def _toml_node_run(
+    target: str,
+    *args: Any,
+    timeout: float = 30,
+    **kwargs: Any,
+) -> Any:
+    """Run vendored ``node_launch`` for TOML helpers with ``subprocess``-compatible errors."""
+    import subprocess
+
+    node_launch = _node_launch_module()
+    run_kwargs = dict(kwargs)
+    node = run_kwargs.pop("node", None)
+    env_var = run_kwargs.pop("env_var", node_launch.DEFAULT_ENV_VAR)
+    run_kwargs.pop("probe", None)
+    executable = node_launch.resolve_node(node=node, env_var=env_var)
+    command = node_launch.node_command(
+        target, *args, node=executable, probe=False, env_var=env_var
+    )
+    try:
+        return node_launch.run(
+            target,
+            *args,
+            timeout=timeout,
+            node=executable,
+            probe=False,
+            **run_kwargs,
+        )
+    except node_launch.LaunchError as exc:
+        if exc.code == "ELAUNCHSTDINCLOSED":
+            status = exc.status if exc.status is not None else -1
+            if status != 0:
+                stderr = _decode_node_process_bytes(exc.stderr)
+                raise RuntimeError(f"Node TOML reader failed: {stderr[:200]}") from exc
+        if exc.code == "ELAUNCHFAILURE" and "timed out" in str(exc):
+            raise subprocess.TimeoutExpired(
+                cmd=command,
+                timeout=timeout,
+                output=exc.stdout,
+                stderr=exc.stderr,
+            ) from exc
+        raise
+
+
+def toml_reader() -> str | None:
+    """Which TOML reader ``toml_to_markdown`` uses: ``"tomllib"``, ``"node"`` or None.
+
+    Python 3.11+ uses ``tomllib``. Older interpreters fall back to Node 24+ with
+    the npm ``smol-toml`` package (resolved via ``NODE_PATH`` or the current
+    directory), probed once on first use; None means neither is available.
+    """
+    if tomllib is not None:
+        return "tomllib"
+    if not _TOML_READER:
+        node_launch = _node_launch_module()
+        ok = False
+        try:
+            probe = _toml_node_run("-e", "require('smol-toml')", timeout=30, check=False)
+            ok = probe.returncode == 0
+        except node_launch.NodeNotFoundError:
+            ok = False
+        _TOML_READER.append("node" if ok else None)
+    return _TOML_READER[0]
+
+
+def _toml_node_value(value: Any) -> Any:
+    """Decode the tagged Node transport without interpreting user table keys."""
+    kind, raw = value
+    if kind == "int":
+        return int(raw)
+    if kind == "float":
+        return float(raw)
+    if kind == "table":
+        return {key: _toml_node_value(child) for key, child in raw}
+    if kind == "array":
+        return [_toml_node_value(child) for child in raw]
+    if kind == "scalar":
+        return raw
+    raise ValueError("Unknown Node TOML value type")
+
+
+def _toml_loads(content: str) -> Any:
+    reader = toml_reader()
+    if reader == "tomllib":
+        try:
+            return tomllib.loads(content)
+        except tomllib.TOMLDecodeError as exc:
+            raise ValueError(f"Invalid TOML: {exc}") from exc
+    if reader is None:
+        raise RuntimeError(
+            "toml_to_markdown requires Python 3.11+ (tomllib) or Node 24+ with smol-toml"
+            " (npm i --no-save smol-toml)"
+        )
+    done = _toml_node_run("-e", _TOML_NODE_SCRIPT, input=content, timeout=30, check=False)
+    stderr = done.stderr.decode("utf-8", errors="replace")
+    stdout = done.stdout.decode("utf-8", errors="replace")
+    if done.returncode == 4:
+        raise ValueError(f"Invalid TOML: {stderr.removeprefix('invalid:')[:300]}")
+    if done.returncode == 5:
+        raise ValueError("TOML contains values outside the reversible structured subset")
+    if done.returncode:
+        raise RuntimeError(f"Node TOML reader failed: {stderr[:200]}")
+    return _toml_node_value(json.loads(stdout))
+
+
 def toml_to_markdown(content: str, title: str = "TOML") -> str:
-    """Convert TOML to canonical structured Markdown on Python 3.11+.
+    """Convert TOML to canonical structured Markdown.
 
     The reversible subset is the JSON-compatible TOML value space. TOML
     datetime/date/time values and non-finite floats are rejected rather than
-    silently stringified.
+    silently stringified. Reads with ``tomllib`` (3.11+) or, on older Python,
+    Node 24+ + ``smol-toml`` (see :func:`toml_reader`).
     """
-    if tomllib is None:
-        raise RuntimeError("toml_to_markdown requires Python 3.11+ (tomllib)")
-    try:
-        value = tomllib.loads(content)
-    except tomllib.TOMLDecodeError as exc:
-        raise ValueError(f"Invalid TOML: {exc}") from exc
+    value = _toml_loads(content)
     try:
         _structured_validate(value)
     except (TypeError, ValueError) as exc:
@@ -3890,7 +4253,11 @@ class _HTMLToMarkdownParser(HTMLParser):
             self._emit("`")
             self._in_code = False
         elif tag == "pre":
-            self._emit("\n```\n\n")
+            # A source terminal LF already separates the closing fence. Adding
+            # another makes it a literal extra blank line when rendered again.
+            target = self._table_cell if self._table_cell is not None else self.parts
+            separator = "" if target and target[-1].endswith("\n") else "\n"
+            self._emit(separator + "```\n\n")
             self._in_pre = False
         elif tag == "a" and self._link_open:
             if self._link_title:
@@ -3913,7 +4280,7 @@ class _HTMLToMarkdownParser(HTMLParser):
                 if isinstance(start, int):
                     body = "".join(self.parts[start:])
                     del self.parts[start:]
-                    body = re.sub(r"\n{3,}", "\n\n", body).strip()
+                    body = _collapse_blank_runs(body, 1).strip()
                     summary = str(current.get("summary") or "Details")
                     if body:
                         self._emit(f"\n\n:::details {summary}\n{body}\n:::\n\n")
@@ -3969,7 +4336,9 @@ class _HTMLToMarkdownParser(HTMLParser):
 
     def output(self) -> str:
         text = "".join(self.parts)
-        text = re.sub(r"\n{3,}", "\n\n", text)
+        # Structural spacing may collapse; literal blank lines inside a code
+        # fence must survive HTML -> Markdown -> HTML unchanged.
+        text = _collapse_blank_runs(text, 1)
         normalized = text.strip()
         return normalized + "\n" if normalized else ""
 
@@ -4242,34 +4611,47 @@ def _consume_details(
     summary: str,
     render_inline,
 ) -> tuple[str, int]:
-    """Collect a ``:::details`` block into ``<details><summary>``.
+    """Render paragraphs and fenced code; only an unfenced ::: closes details.
 
-    Body lines become paragraphs (blank lines split them). Inner ATX /
-    lists / nested ``:::details`` stay paragraph text — the first ``:::``
-    closer ends the block.
+    Inner headings/lists/nested details retain the existing paragraph contract.
+    Code rendering and fence recognition reuse the main renderer and scanner.
     """
     i = start + 1
-    body_lines: list[str] = []
-    while i < len(lines) and not _COLON_CONTAINER_CLOSE_RE.match(lines[i]):
-        body_lines.append(lines[i])
-        i += 1
-    if i < len(lines) and _COLON_CONTAINER_CLOSE_RE.match(lines[i]):
-        i += 1
-
-    paragraphs: list[list[str]] = [[]]
-    for raw in body_lines:
-        if not raw.strip():
-            if paragraphs[-1]:
-                paragraphs.append([])
-            continue
-        paragraphs[-1].append(raw)
-
     parts = ["<details>", f"<summary>{render_inline(summary)}</summary>"]
-    for para in paragraphs:
-        if not para:
+    paragraph: list[str] = []
+
+    def flush_paragraph() -> None:
+        if paragraph:
+            text = " ".join(line.strip() for line in paragraph)
+            parts.append(f"<p>{render_inline(text)}</p>")
+            paragraph.clear()
+
+    while i < len(lines):
+        line = lines[i]
+        if _COLON_CONTAINER_CLOSE_RE.match(line):
+            i += 1
+            break
+        active, opened, _ = _advance_fence(None, line)
+        if opened:
+            flush_paragraph()
+            code_lines = [line]
+            i += 1
+            while i < len(lines):
+                code_lines.append(lines[i])
+                active, _, closed = _advance_fence(active, lines[i])
+                i += 1
+                if closed:
+                    break
+            # Only a fenced segment is delegated, never the prose/container.
+            parts.append(markdown_to_html("\n".join(code_lines)).rstrip("\n"))
             continue
-        text = " ".join(s.strip() for s in para)
-        parts.append(f"<p>{render_inline(text)}</p>")
+        if not line.strip():
+            flush_paragraph()
+        else:
+            paragraph.append(line)
+        i += 1
+
+    flush_paragraph()
     parts.append("</details>")
     return "\n".join(parts), i
 
@@ -4548,8 +4930,9 @@ def markdown_to_html(content: str) -> str:
     - ``:::note`` / ``:::note info|warn|alert`` … ``:::`` is ``qiita``.
     - ``:::message`` / ``:::message alert`` … ``:::`` is ``zenn``.
     - ``:::details Summary`` … ``:::`` becomes ``<details><summary>``.
-      Nested inlines in the summary and body are parsed; nested blocks
-      stay paragraph text. Raw HTML ``<details>`` stays escaped.
+      Nested inlines and fenced code are parsed. Other nested blocks stay
+      paragraph text. Only an unfenced ``:::`` closes the container. Raw
+      HTML ``<details>`` stays escaped.
     - Ordinary ``>`` lines that are not an alert opener become
       ``<blockquote>`` (multi-line; blank ``>`` lines split paragraphs).
       Nested block constructs inside the quote are not parsed.
@@ -5083,11 +5466,15 @@ def directory_to_markdown(
 
     Read-only: entries are listed by name (sorted), symlinks are listed but
     never followed, and hidden (dot) entries are skipped unless
-    ``include_hidden``. ``max_depth=1`` lists only the top level. An entry
+    ``include_hidden``. ``max_depth=1`` lists only the top level;
+    ``max_depth=0`` and negative values are rejected, while ``None`` means
+    unlimited depth. An entry
     whose name the tree format cannot represent portably (see
     :func:`markdown_to_directory_tree`) raises ``ValueError`` instead of
     producing Markdown that would read back as a different tree.
     """
+    if max_depth is not None and max_depth < 1:
+        raise ValueError("max_depth must be >= 1 or None")
     base = Path(path)
     if not base.is_dir():
         raise ValueError(f"not a directory: {base}")
@@ -5116,7 +5503,8 @@ def tree_text_to_markdown(text: str) -> str:
     ``\\`--``) connectors with 4-column levels. A leading root line without
     a connector (e.g. ``.`` or ``project/``) is skipped. Summary lines such
     as ``3 directories, 5 files`` and blank lines are ignored. Symlink
-    lines (``name -> target``) keep only the link name.
+    lines (``name -> target``) keep only the link name. Literal `` -> `` in
+    an entry name is ambiguous and is interpreted as a symlink delimiter.
     """
     entries: list[tuple[int, str, bool]] = []
     for raw in text.splitlines():
@@ -5478,7 +5866,8 @@ def markdown_to_email(
     containing CR/LF are rejected by :mod:`email.policy` (no header
     injection). ``date`` may be a :class:`datetime.datetime`; omitted means
     no ``Date`` header, keeping output deterministic.
-    ``email_to_markdown()`` recovers the Markdown body unchanged.
+    ``email_to_markdown()`` trims leading and trailing blank lines from the
+    recovered body, so those surrounding blank lines are not byte-verbatim.
     """
     msg = email_message.EmailMessage(policy=email_policy.default)
     msg["Subject"] = subject
@@ -5493,7 +5882,7 @@ def markdown_to_email(
 
 
 def _man_escape(text: str) -> str:
-    return text.replace("\\", "\\e").replace("-", "\\-")
+    return text.replace("\x00", "\uFFFD").replace("\\", "\\e").replace("-", "\\-")
 
 
 def _man_inline(tokens: list[tuple[Any, ...]], font: str = "R") -> str:
@@ -5538,7 +5927,8 @@ def markdown_to_man(
     ``# H`` -> ``.SH`` (upper-cased), deeper headings -> ``.SS``, lines ->
     ``.PP`` paragraphs, fenced code -> ``.EX``/``.EE``, lists -> ``.IP``,
     quotes -> ``.RS``/``.RE``, bold/code -> ``\\fB``, italic -> ``\\fI``.
-    Backslashes and hyphens are escaped and any line that would start with
+    NUL in the Markdown body is replaced with U+FFFD. Backslashes and
+    hyphens are escaped and any line that would start with
     ``.`` or ``'`` is guarded with ``\\&``, so Markdown text can never
     inject a troff request.
     ``name``/``section``/``date``/``source``/``manual`` go on the ``.TH``
@@ -5846,7 +6236,7 @@ def slack_mrkdwn_to_markdown(content: str) -> str:
 # --- LLM chat messages ------------------------------------------------------
 
 CHAT_ROLES = ("system", "developer", "user", "assistant", "tool")
-_CHAT_HEADING_RE = re.compile(r"^## (" + "|".join(CHAT_ROLES) + r")[ \t]*$", re.IGNORECASE)
+_CHAT_HEADING_RE = re.compile(r"^## (" + "|".join(CHAT_ROLES) + r")[ \t]*\r?$", re.IGNORECASE)
 
 
 def chat_messages_to_markdown(messages: Any) -> str:
@@ -5887,11 +6277,13 @@ def markdown_to_chat_messages(content: str) -> list[dict[str, str]]:
 
     Role headings are exact ``## <role>`` lines (case-insensitive) outside
     fenced code; any other heading (``## Summary``) is ordinary content.
-    Text before the first role heading raises ``ValueError``. Each
-    message's content has surrounding blank lines stripped.
+    Text before the first role heading raises ``ValueError``. Lines are
+    split only on LF, so CR and other Unicode line separators inside message
+    content remain unchanged. Each
+    message's content has surrounding LF characters stripped after parsing.
     """
     sections: list[tuple[str, list[str]]] = []
-    for item in _scan_lines(content.splitlines()):
+    for item in _scan_lines(content.split("\n")):
         match = None if item.in_fenced_code else _CHAT_HEADING_RE.match(item.text)
         if match:
             sections.append((match.group(1).lower(), []))
@@ -6374,9 +6766,10 @@ _REASONING_CLOSE_RE = {
 _REASONING_DETAILS_OPEN_RE = re.compile(
     r'<details\b(?=[^>]*\btype=["\']reasoning["\'])[^>]*>', re.IGNORECASE
 )
-_REASONING_DETAILS_CLOSE_RE = re.compile(r"</details\s*>", re.IGNORECASE)
+_DETAILS_TAG_RE = re.compile(r"</?details\b[^>]*>", re.IGNORECASE)
 _REASONING_SUMMARY_RE = re.compile(
-    r"[ \t]*<summary\b[^>]*>.*?</summary>[ \t]*\n?", re.IGNORECASE | re.DOTALL
+    r"\A[ \t\n]*<summary\b[^>]*>.*?</summary>[ \t]*\n?",
+    re.IGNORECASE | re.DOTALL,
 )
 _LLM_UUID_RE = re.compile(
     r"\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b"
@@ -6449,7 +6842,6 @@ def _truncate_code_blocks(text: str, max_code_lines: int) -> str:
         match = _FENCE_RE.match(lines[index])
         fence_char = match.group(1)[0] if match else "`"
         info = match.group(2).strip() if match else ""
-        lang = info.split()[0] if info else ""
         body: list[str] = []
         index += 1
         while index < total and not scanned[index].is_fence_close:
@@ -6457,10 +6849,16 @@ def _truncate_code_blocks(text: str, max_code_lines: int) -> str:
             index += 1
         if index < total:
             index += 1  # consume the closing fence line itself
-        if len(body) > max_code_lines:
+        marker = re.fullmatch(r"… (\d+) more lines", body[-1]) if body else None
+        already_compacted = (
+            marker is not None
+            and int(marker.group(1)) > 0
+            and len(body) == max_code_lines + 1
+        )
+        if len(body) > max_code_lines and not already_compacted:
             extra = len(body) - max_code_lines
             body = body[:max_code_lines] + [f"… {extra} more lines"]
-        rendered = code_block("\n".join(body), lang, fence_char=fence_char).split("\n")
+        rendered = code_block("\n".join(body), info, fence_char=fence_char).split("\n")
         if rendered and rendered[-1] == "":
             rendered.pop()
         out.extend(rendered)
@@ -6487,6 +6885,20 @@ def _mask_spans(text: str, spans: list[tuple[int, int]]) -> str:
         for index in range(start, end):
             chars[index] = " "
     return "".join(chars)
+
+
+def _matching_details_close(mask: str, start: int) -> re.Match[str] | None:
+    """Find the closing tag balanced with the details block opened at start."""
+    depth = 1
+    for match in _DETAILS_TAG_RE.finditer(mask, start):
+        tag = match.group(0)
+        if tag.startswith("</"):
+            depth -= 1
+        elif not tag.rstrip().endswith("/>"):
+            depth += 1
+        if depth == 0:
+            return match
+    return None
 
 
 def _split_reasoning_raw(text: str) -> tuple[str, list[str], list[str]]:
@@ -6522,7 +6934,7 @@ def _split_reasoning_raw(text: str) -> tuple[str, list[str], list[str]]:
 
         if opening is details_match:
             fmt = "details"
-            close_match = _REASONING_DETAILS_CLOSE_RE.search(mask, opening.end())
+            close_match = _matching_details_close(mask, opening.end())
         else:
             fmt = opening.group(1).lower()
             close_match = _REASONING_CLOSE_RE[fmt].search(mask, opening.end())
