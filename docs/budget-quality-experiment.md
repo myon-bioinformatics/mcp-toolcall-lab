@@ -75,7 +75,7 @@ network namespace:
 PYTHONPATH=src python -m mcp_toolcall_lab.budget_compression \
   --cases fixtures/budget_compression/cases.json \
   --base-url http://127.0.0.1:8080 \
-  --char-budget 600 2048 --token-budget 256 512 \
+  --char-budget 850 1200 --token-budget 220 512 \
   --model-id MODEL --model-revision IMMUTABLE_REV --runtime-revision COMMIT \
   --output test-results/budget-quality-live.json
 ```
@@ -151,3 +151,54 @@ text is removed, but these observations do not establish general improvement:
 there is one tiny authored corpus, one small model and no repeated-trial estimate.
 The identical selected prompts at the two 600-character conditions differed by
 one success despite fixed seed; exact deterministic replay is not assumed.
+
+## Typed-catalogue v2 measurement (2026-10-30)
+
+The [typed receipt](experiments/budget-quality/v2-typed.json) and
+[provenance](experiments/budget-quality/v2-typed-provenance.json) use the same
+pinned model/runtime and CPU configuration as v1, with the independent typed
+catalogue at commit `62bd6cef3e03133528e3cf23dfaafd2458d575c7`.
+Corpus SHA-256: `3a34dd449a11099365dded08c9bfb2da4c7c1cc2a913ee2275546999fbb7c22e`.
+
+| Character cap | Token cap | Success / all planned | Selected tiers | Preferred quality* |
+| --- | --- | --- | --- | --- |
+| 850 | 220 | 20 / 20 | 4 verbatim, 16 brief | 20 / 20 = 1.00 |
+| 850 | 512 | 20 / 20 | 6 verbatim, 14 brief | 20 / 20 = 1.00 |
+| 1200 | 220 | 20 / 20 | 14 verbatim, 6 brief | 20 / 20 = 1.00 |
+| 1200 | 512 | 20 / 20 | 20 verbatim | 20 / 20 = 1.00 |
+
+*The quality denominator is the number of responses with a non-null quality
+score. All 80 typed standard trials succeeded, with no abstentions, wrong actions,
+infeasible trials or model errors. The 1200/512 condition supplies a fully verbatim
+baseline. A 220-token cap changes the selected tier even when the character cap
+is generous, establishing that the token constraint is independently binding.
+These four conditions remove background at most; they do not yet require losing
+a preferred argument. The small authored corpus and one model do not establish
+performance on unrestricted real MCP traffic or translation accuracy.
+
+The [pressure receipt](experiments/budget-quality/v2-pressure.json) and
+[provenance](experiments/budget-quality/v2-pressure-provenance.json) add a separate
+800-character/512-token condition on the same typed corpus:
+
+| Character cap | Token cap | Success / all planned | Infeasible | Selected tiers | Preferred quality* |
+| --- | --- | --- | --- | --- | --- |
+| 800 | 512 | 12 / 20 | 8 | 6 brief, 6 skeleton | 6 / 12 = 0.50 |
+
+All six skeleton responses preserved the required tool and typed argument values
+while omitting the preferred argument (each quality score 0/1). The six brief
+responses retained their preferred argument (each 1/1). Eight tasks could not fit
+the full typed catalogue plus a protected candidate; they remain `infeasible`
+in the 20-trial denominator. There were no wrong actions or model errors.
+
+The two typed receipts therefore cover **100 planned trials: 92 successes and
+8 infeasible, with zero wrong actions, abstentions or model errors**. The pooled
+92/100 figure describes these chosen five budget conditions, not a deployment
+success-rate estimate. This first control demonstrates the intended tradeoff:
+optional detail can be dropped while required task semantics remain correct for
+feasible cases, and lower budgets can still make a task impossible.
+
+To repeat the pressure condition, use the same command and provenance flags with
+`--char-budget 800 --token-budget 512`. Keep its output separate from the four
+standard conditions. No claim of a generally learned compressor follows from
+hand-authored candidates, and dropping optional tone is not evidence about actual
+translation fidelity.
