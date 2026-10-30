@@ -15,7 +15,7 @@ production proxy, a learned language, or an implementation of weight compression
 `fixtures/budget_compression/cases.json` contains 20 fictional cases (10 English,
 10 Japanese), across five tools: price lookup, reminder, retry policy, branch
 archive and translation request. **No external action is executed.** Each case
-advertises all five tool descriptions. The expected tool and argument values are
+advertises all five tool descriptions, argument types and optional markers. The expected tool and argument values are
 read only by the scorer, never by `prompt_for` or candidate selection.
 
 The translation cases test preservation of the *translation request*, not the
@@ -82,8 +82,8 @@ PYTHONPATH=src python -m mcp_toolcall_lab.budget_compression \
 
 That is 20 × 2 × 2 = 80 planned trials (some may be infeasible before inference).
 Use `/tokenize` measurements to choose budgets that include a verbatim baseline
-and pressure points. The fixture prompts are roughly 580–800 characters, depending
-on language and tier; 600 is intentionally infeasible for some tasks. Token
+and pressure points. The typed catalogue consumes part of every budget; choose thresholds from the
+actual receipt, rather than assuming the source text alone is the prompt. Token
 thresholds must be chosen from the actual target tokenizer.
 
 Fixed generation settings are temperature 0, seed 42, and max output 128 tokens.
@@ -113,3 +113,41 @@ Tests cover independent oracle/catalogue handling, hard budgets, protected
 negation/bounds, declared optional loss, type-sensitive tool arguments,
 abstention/errors, and full-denominator accounting. Real model operation is
 separate from these offline controls.
+
+## Exploratory v1 measurement (2026-10-30)
+
+The [original receipt](experiments/budget-quality/v1-exploratory.json) and
+[provenance](experiments/budget-quality/v1-exploratory-provenance.json) preserve
+80 trials using Qwen2.5-1.5B-Instruct Q4_K_M on native llama.cpp, CPU only,
+two threads, context 4096, temperature 0 and seed 42. Model and runtime revisions,
+weight SHA-256 and server invocation are in the provenance. The exact pre-typed
+fixture and code are commit `76e66ef5d92f0f4f33b07898a9e8f41360f01c63`;
+its corpus SHA-256 is in the receipt.
+
+**This is an exploratory run with an underspecified argument catalogue.** It
+advertised argument names but omitted types and explicit required/optional rules.
+The scorer correctly rejected string-valued booleans, but this input-contract gap
+makes the result unsuitable as a fair MCP schema comparison. The current fixture
+adds types and required/optional rules before a separate follow-up measurement.
+The versions must not be pooled as one experiment.
+
+| Character cap | Token cap | Success / all planned | Wrong action | Abstained | Infeasible | Selected tiers | Preferred quality* |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 600 | 192 | 8 / 20 | 2 | 0 | 10 | 4 brief, 6 skeleton | 4 / 10 = 0.40 |
+| 600 | 512 | 9 / 20 | 1 | 0 | 10 | 4 brief, 6 skeleton | 4 / 10 = 0.40 |
+| 2048 | 192 | 8 / 20 | 4 | 8 | 0 | 20 verbatim | 12 / 12 = 1.00 |
+| 2048 | 512 | 8 / 20 | 4 | 8 | 0 | 20 verbatim | 12 / 12 = 1.00 |
+
+*Preferred quality is the mean among responses with a non-null quality score:
+not all planned trials, and not limited to required-task successes. Abstentions
+and infeasible trials have no quality score. Each case has one preferred argument.
+Across all 80 planned trials, 33 succeeded, 11 returned a wrong action, 16
+abstained and 20 were infeasible; no model errors occurred. All baseline
+abstentions were Japanese-language cases. The verbatim prompt was 165–192 tokens,
+so the 192-token threshold did not force compression in the high-character group.
+
+The compressed feasible cases can be easier for the model because explanatory
+text is removed, but these observations do not establish general improvement:
+there is one tiny authored corpus, one small model and no repeated-trial estimate.
+The identical selected prompts at the two 600-character conditions differed by
+one success despite fixed seed; exact deterministic replay is not assumed.

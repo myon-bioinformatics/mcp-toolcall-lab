@@ -23,6 +23,15 @@ def test_twenty_fictional_bilingual_cases_keep_all_hard_anchors():
         assert c['candidates'][-1]['losses']
 
 
+def test_catalogue_declares_types_and_optional_arguments_independently():
+    catalogue = CASES[0]['advertised_tools']
+    assert all(case['advertised_tools'] == catalogue for case in CASES)
+    text = bc.prompt_for(CASES[0], CASES[0]['source'])
+    assert 'job:string,max_retries:integer,on_failure_only:boolean,note?:string' in text
+    assert 'delete_allowed:boolean,review_required:boolean' in text
+    assert 'all arguments required except ?' in text
+
+
 def test_selection_does_not_read_expected_tool_or_arguments():
     case = copy.deepcopy(CASES[0]); original = bc.prompt_for(case, case['source'])
     case['tool'] = 'not-advertised'; case['required_arguments'] = {'secret_oracle': 'HIDDEN'}

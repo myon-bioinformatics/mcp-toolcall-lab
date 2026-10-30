@@ -33,7 +33,7 @@ def prompt_for(case: dict[str, Any], text: str) -> str:
     return ("Choose one advertised tool and extract arguments from the task. "
             "Return JSON only: {\"tool\":name,\"arguments\":{...}}. "
             "Missing task: return {\"tool\":null,\"arguments\":{}}. Do not invent values.\n"
-            "Tools:\n" + "\n".join(catalog) + "\nTask:\n" + text)
+            "Tools (all arguments required except ?; use the declared JSON types):\n" + "\n".join(catalog) + "\nTask:\n" + text)
 
 
 def candidates(case: dict[str, Any], counter: Callable[[str], int] | None = None) -> list[dict[str, Any]]:
