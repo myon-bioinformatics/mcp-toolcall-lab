@@ -1,0 +1,894 @@
+[
+  {
+    "id": "budget-01",
+    "language": "en",
+    "advertised_tools": [
+      "price_lookup(item:string,currency:string,detail?:string): look up an item price.",
+      "set_reminder(date:string,time:string,topic:string,tone?:string): schedule a reminder.",
+      "configure_retry(job:string,max_retries:integer,on_failure_only:boolean,note?:string): configure retries.",
+      "archive_branch(branch:string,delete_allowed:boolean,review_required:boolean,note?:string): archive a branch.",
+      "translate(source_text:string,target_language:string,tone?:string): request a translation."
+    ],
+    "source": "This is a fictional staging request. Please use natural, carefully explained wording; the repeated background is only a readability preference. Look up the price: item=widget-01, currency=USD. detail=include_tax.",
+    "required_anchors": [
+      "widget-01",
+      "USD"
+    ],
+    "tool": "price_lookup",
+    "required_arguments": {
+      "item": "widget-01",
+      "currency": "USD"
+    },
+    "preferred_arguments": {
+      "detail": "include_tax"
+    },
+    "candidates": [
+      {
+        "id": "brief",
+        "loss_rank": 2,
+        "text": "Look up the price: item=widget-01, currency=USD. detail=include_tax.",
+        "losses": [
+          "optional explanatory background and politeness modifiers"
+        ]
+      },
+      {
+        "id": "skeleton",
+        "loss_rank": 3,
+        "text": "Look up the price: item=widget-01, currency=USD.",
+        "losses": [
+          "optional explanatory background and politeness modifiers",
+          "optional preferred argument detail=include_tax"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "budget-02",
+    "language": "ja",
+    "advertised_tools": [
+      "price_lookup(item:string,currency:string,detail?:string): look up an item price.",
+      "set_reminder(date:string,time:string,topic:string,tone?:string): schedule a reminder.",
+      "configure_retry(job:string,max_retries:integer,on_failure_only:boolean,note?:string): configure retries.",
+      "archive_branch(branch:string,delete_allowed:boolean,review_required:boolean,note?:string): archive a branch.",
+      "translate(source_text:string,target_language:string,tone?:string): request a translation."
+    ],
+    "source": "架空の検証用メモです。自然で丁寧な説明にし、背景の繰り返しは読みやすさのために残してください。2026-11-02 09:30 に review-02 のリマインダーを設定。 tone=formal.",
+    "required_anchors": [
+      "2026-11-02",
+      "09:30",
+      "review-02"
+    ],
+    "tool": "set_reminder",
+    "required_arguments": {
+      "date": "2026-11-02",
+      "time": "09:30",
+      "topic": "review-02"
+    },
+    "preferred_arguments": {
+      "tone": "formal"
+    },
+    "candidates": [
+      {
+        "id": "brief",
+        "loss_rank": 2,
+        "text": "2026-11-02 09:30 に review-02 のリマインダーを設定。 tone=formal.",
+        "losses": [
+          "optional explanatory background and politeness modifiers"
+        ]
+      },
+      {
+        "id": "skeleton",
+        "loss_rank": 3,
+        "text": "2026-11-02 09:30 に review-02 のリマインダーを設定。",
+        "losses": [
+          "optional explanatory background and politeness modifiers",
+          "optional preferred argument tone=formal"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "budget-03",
+    "language": "en",
+    "advertised_tools": [
+      "price_lookup(item:string,currency:string,detail?:string): look up an item price.",
+      "set_reminder(date:string,time:string,topic:string,tone?:string): schedule a reminder.",
+      "configure_retry(job:string,max_retries:integer,on_failure_only:boolean,note?:string): configure retries.",
+      "archive_branch(branch:string,delete_allowed:boolean,review_required:boolean,note?:string): archive a branch.",
+      "translate(source_text:string,target_language:string,tone?:string): request a translation."
+    ],
+    "source": "This is a fictional staging request. Please use natural, carefully explained wording; the repeated background is only a readability preference. job-03: max_retries=3, on_failure_only=true. Do not run on success. note=quiet.",
+    "required_anchors": [
+      "job-03",
+      "max_retries=3",
+      "on_failure_only=true",
+      "Do not run on success"
+    ],
+    "tool": "configure_retry",
+    "required_arguments": {
+      "job": "job-03",
+      "max_retries": 3,
+      "on_failure_only": true
+    },
+    "preferred_arguments": {
+      "note": "quiet"
+    },
+    "candidates": [
+      {
+        "id": "brief",
+        "loss_rank": 2,
+        "text": "job-03: max_retries=3, on_failure_only=true. Do not run on success. note=quiet.",
+        "losses": [
+          "optional explanatory background and politeness modifiers"
+        ]
+      },
+      {
+        "id": "skeleton",
+        "loss_rank": 3,
+        "text": "job-03: max_retries=3, on_failure_only=true. Do not run on success.",
+        "losses": [
+          "optional explanatory background and politeness modifiers",
+          "optional preferred argument note=quiet"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "budget-04",
+    "language": "ja",
+    "advertised_tools": [
+      "price_lookup(item:string,currency:string,detail?:string): look up an item price.",
+      "set_reminder(date:string,time:string,topic:string,tone?:string): schedule a reminder.",
+      "configure_retry(job:string,max_retries:integer,on_failure_only:boolean,note?:string): configure retries.",
+      "archive_branch(branch:string,delete_allowed:boolean,review_required:boolean,note?:string): archive a branch.",
+      "translate(source_text:string,target_language:string,tone?:string): request a translation."
+    ],
+    "source": "架空の検証用メモです。自然で丁寧な説明にし、背景の繰り返しは読みやすさのために残してください。archive-04 をアーカイブ: delete_allowed=false, review_required=true。レビュー前に削除しない。 note=retain_history.",
+    "required_anchors": [
+      "archive-04",
+      "delete_allowed=false",
+      "review_required=true",
+      "レビュー前に削除しない"
+    ],
+    "tool": "archive_branch",
+    "required_arguments": {
+      "branch": "archive-04",
+      "delete_allowed": false,
+      "review_required": true
+    },
+    "preferred_arguments": {
+      "note": "retain_history"
+    },
+    "candidates": [
+      {
+        "id": "brief",
+        "loss_rank": 2,
+        "text": "archive-04 をアーカイブ: delete_allowed=false, review_required=true。レビュー前に削除しない。 note=retain_history.",
+        "losses": [
+          "optional explanatory background and politeness modifiers"
+        ]
+      },
+      {
+        "id": "skeleton",
+        "loss_rank": 3,
+        "text": "archive-04 をアーカイブ: delete_allowed=false, review_required=true。レビュー前に削除しない。",
+        "losses": [
+          "optional explanatory background and politeness modifiers",
+          "optional preferred argument note=retain_history"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "budget-05",
+    "language": "en",
+    "advertised_tools": [
+      "price_lookup(item:string,currency:string,detail?:string): look up an item price.",
+      "set_reminder(date:string,time:string,topic:string,tone?:string): schedule a reminder.",
+      "configure_retry(job:string,max_retries:integer,on_failure_only:boolean,note?:string): configure retries.",
+      "archive_branch(branch:string,delete_allowed:boolean,review_required:boolean,note?:string): archive a branch.",
+      "translate(source_text:string,target_language:string,tone?:string): request a translation."
+    ],
+    "source": "This is a fictional staging request. Please use natural, carefully explained wording; the repeated background is only a readability preference. Request translation: source_text=\"The fictional parcel arrives tomorrow\", target_language=Japanese. tone=formal.",
+    "required_anchors": [
+      "The fictional parcel arrives tomorrow",
+      "Japanese"
+    ],
+    "tool": "translate",
+    "required_arguments": {
+      "source_text": "The fictional parcel arrives tomorrow",
+      "target_language": "Japanese"
+    },
+    "preferred_arguments": {
+      "tone": "formal"
+    },
+    "candidates": [
+      {
+        "id": "brief",
+        "loss_rank": 2,
+        "text": "Request translation: source_text=\"The fictional parcel arrives tomorrow\", target_language=Japanese. tone=formal.",
+        "losses": [
+          "optional explanatory background and politeness modifiers"
+        ]
+      },
+      {
+        "id": "skeleton",
+        "loss_rank": 3,
+        "text": "Request translation: source_text=\"The fictional parcel arrives tomorrow\", target_language=Japanese.",
+        "losses": [
+          "optional explanatory background and politeness modifiers",
+          "optional preferred argument tone=formal"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "budget-06",
+    "language": "ja",
+    "advertised_tools": [
+      "price_lookup(item:string,currency:string,detail?:string): look up an item price.",
+      "set_reminder(date:string,time:string,topic:string,tone?:string): schedule a reminder.",
+      "configure_retry(job:string,max_retries:integer,on_failure_only:boolean,note?:string): configure retries.",
+      "archive_branch(branch:string,delete_allowed:boolean,review_required:boolean,note?:string): archive a branch.",
+      "translate(source_text:string,target_language:string,tone?:string): request a translation."
+    ],
+    "source": "架空の検証用メモです。自然で丁寧な説明にし、背景の繰り返しは読みやすさのために残してください。価格照会: item=widget-06, currency=JPY。 detail=include_tax.",
+    "required_anchors": [
+      "widget-06",
+      "JPY"
+    ],
+    "tool": "price_lookup",
+    "required_arguments": {
+      "item": "widget-06",
+      "currency": "JPY"
+    },
+    "preferred_arguments": {
+      "detail": "include_tax"
+    },
+    "candidates": [
+      {
+        "id": "brief",
+        "loss_rank": 2,
+        "text": "価格照会: item=widget-06, currency=JPY。 detail=include_tax.",
+        "losses": [
+          "optional explanatory background and politeness modifiers"
+        ]
+      },
+      {
+        "id": "skeleton",
+        "loss_rank": 3,
+        "text": "価格照会: item=widget-06, currency=JPY。",
+        "losses": [
+          "optional explanatory background and politeness modifiers",
+          "optional preferred argument detail=include_tax"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "budget-07",
+    "language": "en",
+    "advertised_tools": [
+      "price_lookup(item:string,currency:string,detail?:string): look up an item price.",
+      "set_reminder(date:string,time:string,topic:string,tone?:string): schedule a reminder.",
+      "configure_retry(job:string,max_retries:integer,on_failure_only:boolean,note?:string): configure retries.",
+      "archive_branch(branch:string,delete_allowed:boolean,review_required:boolean,note?:string): archive a branch.",
+      "translate(source_text:string,target_language:string,tone?:string): request a translation."
+    ],
+    "source": "This is a fictional staging request. Please use natural, carefully explained wording; the repeated background is only a readability preference. Set a reminder for review-07 at 09:30 on 2026-11-07. tone=formal.",
+    "required_anchors": [
+      "2026-11-07",
+      "09:30",
+      "review-07"
+    ],
+    "tool": "set_reminder",
+    "required_arguments": {
+      "date": "2026-11-07",
+      "time": "09:30",
+      "topic": "review-07"
+    },
+    "preferred_arguments": {
+      "tone": "formal"
+    },
+    "candidates": [
+      {
+        "id": "brief",
+        "loss_rank": 2,
+        "text": "Set a reminder for review-07 at 09:30 on 2026-11-07. tone=formal.",
+        "losses": [
+          "optional explanatory background and politeness modifiers"
+        ]
+      },
+      {
+        "id": "skeleton",
+        "loss_rank": 3,
+        "text": "Set a reminder for review-07 at 09:30 on 2026-11-07.",
+        "losses": [
+          "optional explanatory background and politeness modifiers",
+          "optional preferred argument tone=formal"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "budget-08",
+    "language": "ja",
+    "advertised_tools": [
+      "price_lookup(item:string,currency:string,detail?:string): look up an item price.",
+      "set_reminder(date:string,time:string,topic:string,tone?:string): schedule a reminder.",
+      "configure_retry(job:string,max_retries:integer,on_failure_only:boolean,note?:string): configure retries.",
+      "archive_branch(branch:string,delete_allowed:boolean,review_required:boolean,note?:string): archive a branch.",
+      "translate(source_text:string,target_language:string,tone?:string): request a translation."
+    ],
+    "source": "架空の検証用メモです。自然で丁寧な説明にし、背景の繰り返しは読みやすさのために残してください。job-08: max_retries=2, on_failure_only=true。成功時には実行しない。 note=quiet.",
+    "required_anchors": [
+      "job-08",
+      "max_retries=2",
+      "on_failure_only=true",
+      "成功時には実行しない"
+    ],
+    "tool": "configure_retry",
+    "required_arguments": {
+      "job": "job-08",
+      "max_retries": 2,
+      "on_failure_only": true
+    },
+    "preferred_arguments": {
+      "note": "quiet"
+    },
+    "candidates": [
+      {
+        "id": "brief",
+        "loss_rank": 2,
+        "text": "job-08: max_retries=2, on_failure_only=true。成功時には実行しない。 note=quiet.",
+        "losses": [
+          "optional explanatory background and politeness modifiers"
+        ]
+      },
+      {
+        "id": "skeleton",
+        "loss_rank": 3,
+        "text": "job-08: max_retries=2, on_failure_only=true。成功時には実行しない。",
+        "losses": [
+          "optional explanatory background and politeness modifiers",
+          "optional preferred argument note=quiet"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "budget-09",
+    "language": "en",
+    "advertised_tools": [
+      "price_lookup(item:string,currency:string,detail?:string): look up an item price.",
+      "set_reminder(date:string,time:string,topic:string,tone?:string): schedule a reminder.",
+      "configure_retry(job:string,max_retries:integer,on_failure_only:boolean,note?:string): configure retries.",
+      "archive_branch(branch:string,delete_allowed:boolean,review_required:boolean,note?:string): archive a branch.",
+      "translate(source_text:string,target_language:string,tone?:string): request a translation."
+    ],
+    "source": "This is a fictional staging request. Please use natural, carefully explained wording; the repeated background is only a readability preference. Archive archive-09: delete_allowed=false, review_required=true. Do not delete before review. note=retain_history.",
+    "required_anchors": [
+      "archive-09",
+      "delete_allowed=false",
+      "review_required=true",
+      "Do not delete before review"
+    ],
+    "tool": "archive_branch",
+    "required_arguments": {
+      "branch": "archive-09",
+      "delete_allowed": false,
+      "review_required": true
+    },
+    "preferred_arguments": {
+      "note": "retain_history"
+    },
+    "candidates": [
+      {
+        "id": "brief",
+        "loss_rank": 2,
+        "text": "Archive archive-09: delete_allowed=false, review_required=true. Do not delete before review. note=retain_history.",
+        "losses": [
+          "optional explanatory background and politeness modifiers"
+        ]
+      },
+      {
+        "id": "skeleton",
+        "loss_rank": 3,
+        "text": "Archive archive-09: delete_allowed=false, review_required=true. Do not delete before review.",
+        "losses": [
+          "optional explanatory background and politeness modifiers",
+          "optional preferred argument note=retain_history"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "budget-10",
+    "language": "ja",
+    "advertised_tools": [
+      "price_lookup(item:string,currency:string,detail?:string): look up an item price.",
+      "set_reminder(date:string,time:string,topic:string,tone?:string): schedule a reminder.",
+      "configure_retry(job:string,max_retries:integer,on_failure_only:boolean,note?:string): configure retries.",
+      "archive_branch(branch:string,delete_allowed:boolean,review_required:boolean,note?:string): archive a branch.",
+      "translate(source_text:string,target_language:string,tone?:string): request a translation."
+    ],
+    "source": "架空の検証用メモです。自然で丁寧な説明にし、背景の繰り返しは読みやすさのために残してください。翻訳を依頼: source_text=\"架空の荷物は明日届きます\", target_language=English。 tone=formal.",
+    "required_anchors": [
+      "架空の荷物は明日届きます",
+      "English"
+    ],
+    "tool": "translate",
+    "required_arguments": {
+      "source_text": "架空の荷物は明日届きます",
+      "target_language": "English"
+    },
+    "preferred_arguments": {
+      "tone": "formal"
+    },
+    "candidates": [
+      {
+        "id": "brief",
+        "loss_rank": 2,
+        "text": "翻訳を依頼: source_text=\"架空の荷物は明日届きます\", target_language=English。 tone=formal.",
+        "losses": [
+          "optional explanatory background and politeness modifiers"
+        ]
+      },
+      {
+        "id": "skeleton",
+        "loss_rank": 3,
+        "text": "翻訳を依頼: source_text=\"架空の荷物は明日届きます\", target_language=English。",
+        "losses": [
+          "optional explanatory background and politeness modifiers",
+          "optional preferred argument tone=formal"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "budget-11",
+    "language": "en",
+    "advertised_tools": [
+      "price_lookup(item:string,currency:string,detail?:string): look up an item price.",
+      "set_reminder(date:string,time:string,topic:string,tone?:string): schedule a reminder.",
+      "configure_retry(job:string,max_retries:integer,on_failure_only:boolean,note?:string): configure retries.",
+      "archive_branch(branch:string,delete_allowed:boolean,review_required:boolean,note?:string): archive a branch.",
+      "translate(source_text:string,target_language:string,tone?:string): request a translation."
+    ],
+    "source": "This is a fictional staging request. Please use natural, carefully explained wording; the repeated background is only a readability preference. Look up the price: item=widget-11, currency=USD. detail=include_tax.",
+    "required_anchors": [
+      "widget-11",
+      "USD"
+    ],
+    "tool": "price_lookup",
+    "required_arguments": {
+      "item": "widget-11",
+      "currency": "USD"
+    },
+    "preferred_arguments": {
+      "detail": "include_tax"
+    },
+    "candidates": [
+      {
+        "id": "brief",
+        "loss_rank": 2,
+        "text": "Look up the price: item=widget-11, currency=USD. detail=include_tax.",
+        "losses": [
+          "optional explanatory background and politeness modifiers"
+        ]
+      },
+      {
+        "id": "skeleton",
+        "loss_rank": 3,
+        "text": "Look up the price: item=widget-11, currency=USD.",
+        "losses": [
+          "optional explanatory background and politeness modifiers",
+          "optional preferred argument detail=include_tax"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "budget-12",
+    "language": "ja",
+    "advertised_tools": [
+      "price_lookup(item:string,currency:string,detail?:string): look up an item price.",
+      "set_reminder(date:string,time:string,topic:string,tone?:string): schedule a reminder.",
+      "configure_retry(job:string,max_retries:integer,on_failure_only:boolean,note?:string): configure retries.",
+      "archive_branch(branch:string,delete_allowed:boolean,review_required:boolean,note?:string): archive a branch.",
+      "translate(source_text:string,target_language:string,tone?:string): request a translation."
+    ],
+    "source": "架空の検証用メモです。自然で丁寧な説明にし、背景の繰り返しは読みやすさのために残してください。2026-11-12 09:30 に review-12 のリマインダーを設定。 tone=formal.",
+    "required_anchors": [
+      "2026-11-12",
+      "09:30",
+      "review-12"
+    ],
+    "tool": "set_reminder",
+    "required_arguments": {
+      "date": "2026-11-12",
+      "time": "09:30",
+      "topic": "review-12"
+    },
+    "preferred_arguments": {
+      "tone": "formal"
+    },
+    "candidates": [
+      {
+        "id": "brief",
+        "loss_rank": 2,
+        "text": "2026-11-12 09:30 に review-12 のリマインダーを設定。 tone=formal.",
+        "losses": [
+          "optional explanatory background and politeness modifiers"
+        ]
+      },
+      {
+        "id": "skeleton",
+        "loss_rank": 3,
+        "text": "2026-11-12 09:30 に review-12 のリマインダーを設定。",
+        "losses": [
+          "optional explanatory background and politeness modifiers",
+          "optional preferred argument tone=formal"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "budget-13",
+    "language": "en",
+    "advertised_tools": [
+      "price_lookup(item:string,currency:string,detail?:string): look up an item price.",
+      "set_reminder(date:string,time:string,topic:string,tone?:string): schedule a reminder.",
+      "configure_retry(job:string,max_retries:integer,on_failure_only:boolean,note?:string): configure retries.",
+      "archive_branch(branch:string,delete_allowed:boolean,review_required:boolean,note?:string): archive a branch.",
+      "translate(source_text:string,target_language:string,tone?:string): request a translation."
+    ],
+    "source": "This is a fictional staging request. Please use natural, carefully explained wording; the repeated background is only a readability preference. job-13: max_retries=1, on_failure_only=true. Do not run on success. note=quiet.",
+    "required_anchors": [
+      "job-13",
+      "max_retries=1",
+      "on_failure_only=true",
+      "Do not run on success"
+    ],
+    "tool": "configure_retry",
+    "required_arguments": {
+      "job": "job-13",
+      "max_retries": 1,
+      "on_failure_only": true
+    },
+    "preferred_arguments": {
+      "note": "quiet"
+    },
+    "candidates": [
+      {
+        "id": "brief",
+        "loss_rank": 2,
+        "text": "job-13: max_retries=1, on_failure_only=true. Do not run on success. note=quiet.",
+        "losses": [
+          "optional explanatory background and politeness modifiers"
+        ]
+      },
+      {
+        "id": "skeleton",
+        "loss_rank": 3,
+        "text": "job-13: max_retries=1, on_failure_only=true. Do not run on success.",
+        "losses": [
+          "optional explanatory background and politeness modifiers",
+          "optional preferred argument note=quiet"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "budget-14",
+    "language": "ja",
+    "advertised_tools": [
+      "price_lookup(item:string,currency:string,detail?:string): look up an item price.",
+      "set_reminder(date:string,time:string,topic:string,tone?:string): schedule a reminder.",
+      "configure_retry(job:string,max_retries:integer,on_failure_only:boolean,note?:string): configure retries.",
+      "archive_branch(branch:string,delete_allowed:boolean,review_required:boolean,note?:string): archive a branch.",
+      "translate(source_text:string,target_language:string,tone?:string): request a translation."
+    ],
+    "source": "架空の検証用メモです。自然で丁寧な説明にし、背景の繰り返しは読みやすさのために残してください。archive-14 をアーカイブ: delete_allowed=false, review_required=true。レビュー前に削除しない。 note=retain_history.",
+    "required_anchors": [
+      "archive-14",
+      "delete_allowed=false",
+      "review_required=true",
+      "レビュー前に削除しない"
+    ],
+    "tool": "archive_branch",
+    "required_arguments": {
+      "branch": "archive-14",
+      "delete_allowed": false,
+      "review_required": true
+    },
+    "preferred_arguments": {
+      "note": "retain_history"
+    },
+    "candidates": [
+      {
+        "id": "brief",
+        "loss_rank": 2,
+        "text": "archive-14 をアーカイブ: delete_allowed=false, review_required=true。レビュー前に削除しない。 note=retain_history.",
+        "losses": [
+          "optional explanatory background and politeness modifiers"
+        ]
+      },
+      {
+        "id": "skeleton",
+        "loss_rank": 3,
+        "text": "archive-14 をアーカイブ: delete_allowed=false, review_required=true。レビュー前に削除しない。",
+        "losses": [
+          "optional explanatory background and politeness modifiers",
+          "optional preferred argument note=retain_history"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "budget-15",
+    "language": "en",
+    "advertised_tools": [
+      "price_lookup(item:string,currency:string,detail?:string): look up an item price.",
+      "set_reminder(date:string,time:string,topic:string,tone?:string): schedule a reminder.",
+      "configure_retry(job:string,max_retries:integer,on_failure_only:boolean,note?:string): configure retries.",
+      "archive_branch(branch:string,delete_allowed:boolean,review_required:boolean,note?:string): archive a branch.",
+      "translate(source_text:string,target_language:string,tone?:string): request a translation."
+    ],
+    "source": "This is a fictional staging request. Please use natural, carefully explained wording; the repeated background is only a readability preference. Request translation: source_text=\"The fictional parcel arrives tomorrow\", target_language=Japanese. tone=formal.",
+    "required_anchors": [
+      "The fictional parcel arrives tomorrow",
+      "Japanese"
+    ],
+    "tool": "translate",
+    "required_arguments": {
+      "source_text": "The fictional parcel arrives tomorrow",
+      "target_language": "Japanese"
+    },
+    "preferred_arguments": {
+      "tone": "formal"
+    },
+    "candidates": [
+      {
+        "id": "brief",
+        "loss_rank": 2,
+        "text": "Request translation: source_text=\"The fictional parcel arrives tomorrow\", target_language=Japanese. tone=formal.",
+        "losses": [
+          "optional explanatory background and politeness modifiers"
+        ]
+      },
+      {
+        "id": "skeleton",
+        "loss_rank": 3,
+        "text": "Request translation: source_text=\"The fictional parcel arrives tomorrow\", target_language=Japanese.",
+        "losses": [
+          "optional explanatory background and politeness modifiers",
+          "optional preferred argument tone=formal"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "budget-16",
+    "language": "ja",
+    "advertised_tools": [
+      "price_lookup(item:string,currency:string,detail?:string): look up an item price.",
+      "set_reminder(date:string,time:string,topic:string,tone?:string): schedule a reminder.",
+      "configure_retry(job:string,max_retries:integer,on_failure_only:boolean,note?:string): configure retries.",
+      "archive_branch(branch:string,delete_allowed:boolean,review_required:boolean,note?:string): archive a branch.",
+      "translate(source_text:string,target_language:string,tone?:string): request a translation."
+    ],
+    "source": "架空の検証用メモです。自然で丁寧な説明にし、背景の繰り返しは読みやすさのために残してください。価格照会: item=widget-16, currency=JPY。 detail=include_tax.",
+    "required_anchors": [
+      "widget-16",
+      "JPY"
+    ],
+    "tool": "price_lookup",
+    "required_arguments": {
+      "item": "widget-16",
+      "currency": "JPY"
+    },
+    "preferred_arguments": {
+      "detail": "include_tax"
+    },
+    "candidates": [
+      {
+        "id": "brief",
+        "loss_rank": 2,
+        "text": "価格照会: item=widget-16, currency=JPY。 detail=include_tax.",
+        "losses": [
+          "optional explanatory background and politeness modifiers"
+        ]
+      },
+      {
+        "id": "skeleton",
+        "loss_rank": 3,
+        "text": "価格照会: item=widget-16, currency=JPY。",
+        "losses": [
+          "optional explanatory background and politeness modifiers",
+          "optional preferred argument detail=include_tax"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "budget-17",
+    "language": "en",
+    "advertised_tools": [
+      "price_lookup(item:string,currency:string,detail?:string): look up an item price.",
+      "set_reminder(date:string,time:string,topic:string,tone?:string): schedule a reminder.",
+      "configure_retry(job:string,max_retries:integer,on_failure_only:boolean,note?:string): configure retries.",
+      "archive_branch(branch:string,delete_allowed:boolean,review_required:boolean,note?:string): archive a branch.",
+      "translate(source_text:string,target_language:string,tone?:string): request a translation."
+    ],
+    "source": "This is a fictional staging request. Please use natural, carefully explained wording; the repeated background is only a readability preference. Set a reminder for review-17 at 09:30 on 2026-11-17. tone=formal.",
+    "required_anchors": [
+      "2026-11-17",
+      "09:30",
+      "review-17"
+    ],
+    "tool": "set_reminder",
+    "required_arguments": {
+      "date": "2026-11-17",
+      "time": "09:30",
+      "topic": "review-17"
+    },
+    "preferred_arguments": {
+      "tone": "formal"
+    },
+    "candidates": [
+      {
+        "id": "brief",
+        "loss_rank": 2,
+        "text": "Set a reminder for review-17 at 09:30 on 2026-11-17. tone=formal.",
+        "losses": [
+          "optional explanatory background and politeness modifiers"
+        ]
+      },
+      {
+        "id": "skeleton",
+        "loss_rank": 3,
+        "text": "Set a reminder for review-17 at 09:30 on 2026-11-17.",
+        "losses": [
+          "optional explanatory background and politeness modifiers",
+          "optional preferred argument tone=formal"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "budget-18",
+    "language": "ja",
+    "advertised_tools": [
+      "price_lookup(item:string,currency:string,detail?:string): look up an item price.",
+      "set_reminder(date:string,time:string,topic:string,tone?:string): schedule a reminder.",
+      "configure_retry(job:string,max_retries:integer,on_failure_only:boolean,note?:string): configure retries.",
+      "archive_branch(branch:string,delete_allowed:boolean,review_required:boolean,note?:string): archive a branch.",
+      "translate(source_text:string,target_language:string,tone?:string): request a translation."
+    ],
+    "source": "架空の検証用メモです。自然で丁寧な説明にし、背景の繰り返しは読みやすさのために残してください。job-18: max_retries=3, on_failure_only=true。成功時には実行しない。 note=quiet.",
+    "required_anchors": [
+      "job-18",
+      "max_retries=3",
+      "on_failure_only=true",
+      "成功時には実行しない"
+    ],
+    "tool": "configure_retry",
+    "required_arguments": {
+      "job": "job-18",
+      "max_retries": 3,
+      "on_failure_only": true
+    },
+    "preferred_arguments": {
+      "note": "quiet"
+    },
+    "candidates": [
+      {
+        "id": "brief",
+        "loss_rank": 2,
+        "text": "job-18: max_retries=3, on_failure_only=true。成功時には実行しない。 note=quiet.",
+        "losses": [
+          "optional explanatory background and politeness modifiers"
+        ]
+      },
+      {
+        "id": "skeleton",
+        "loss_rank": 3,
+        "text": "job-18: max_retries=3, on_failure_only=true。成功時には実行しない。",
+        "losses": [
+          "optional explanatory background and politeness modifiers",
+          "optional preferred argument note=quiet"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "budget-19",
+    "language": "en",
+    "advertised_tools": [
+      "price_lookup(item:string,currency:string,detail?:string): look up an item price.",
+      "set_reminder(date:string,time:string,topic:string,tone?:string): schedule a reminder.",
+      "configure_retry(job:string,max_retries:integer,on_failure_only:boolean,note?:string): configure retries.",
+      "archive_branch(branch:string,delete_allowed:boolean,review_required:boolean,note?:string): archive a branch.",
+      "translate(source_text:string,target_language:string,tone?:string): request a translation."
+    ],
+    "source": "This is a fictional staging request. Please use natural, carefully explained wording; the repeated background is only a readability preference. Archive archive-19: delete_allowed=false, review_required=true. Do not delete before review. note=retain_history.",
+    "required_anchors": [
+      "archive-19",
+      "delete_allowed=false",
+      "review_required=true",
+      "Do not delete before review"
+    ],
+    "tool": "archive_branch",
+    "required_arguments": {
+      "branch": "archive-19",
+      "delete_allowed": false,
+      "review_required": true
+    },
+    "preferred_arguments": {
+      "note": "retain_history"
+    },
+    "candidates": [
+      {
+        "id": "brief",
+        "loss_rank": 2,
+        "text": "Archive archive-19: delete_allowed=false, review_required=true. Do not delete before review. note=retain_history.",
+        "losses": [
+          "optional explanatory background and politeness modifiers"
+        ]
+      },
+      {
+        "id": "skeleton",
+        "loss_rank": 3,
+        "text": "Archive archive-19: delete_allowed=false, review_required=true. Do not delete before review.",
+        "losses": [
+          "optional explanatory background and politeness modifiers",
+          "optional preferred argument note=retain_history"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "budget-20",
+    "language": "ja",
+    "advertised_tools": [
+      "price_lookup(item:string,currency:string,detail?:string): look up an item price.",
+      "set_reminder(date:string,time:string,topic:string,tone?:string): schedule a reminder.",
+      "configure_retry(job:string,max_retries:integer,on_failure_only:boolean,note?:string): configure retries.",
+      "archive_branch(branch:string,delete_allowed:boolean,review_required:boolean,note?:string): archive a branch.",
+      "translate(source_text:string,target_language:string,tone?:string): request a translation."
+    ],
+    "source": "架空の検証用メモです。自然で丁寧な説明にし、背景の繰り返しは読みやすさのために残してください。翻訳を依頼: source_text=\"架空の荷物は明日届きます\", target_language=English。 tone=formal.",
+    "required_anchors": [
+      "架空の荷物は明日届きます",
+      "English"
+    ],
+    "tool": "translate",
+    "required_arguments": {
+      "source_text": "架空の荷物は明日届きます",
+      "target_language": "English"
+    },
+    "preferred_arguments": {
+      "tone": "formal"
+    },
+    "candidates": [
+      {
+        "id": "brief",
+        "loss_rank": 2,
+        "text": "翻訳を依頼: source_text=\"架空の荷物は明日届きます\", target_language=English。 tone=formal.",
+        "losses": [
+          "optional explanatory background and politeness modifiers"
+        ]
+      },
+      {
+        "id": "skeleton",
+        "loss_rank": 3,
+        "text": "翻訳を依頼: source_text=\"架空の荷物は明日届きます\", target_language=English。",
+        "losses": [
+          "optional explanatory background and politeness modifiers",
+          "optional preferred argument tone=formal"
+        ]
+      }
+    ]
+  }
+]
