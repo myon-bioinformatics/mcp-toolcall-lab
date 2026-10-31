@@ -56,6 +56,7 @@ jobs:
         with:
           version: '0.13.5'
           python-version: '3.12.15'
+          enable-cache: false
       - name: Verify the Docker dependency export matches uv.lock
         run: |
           uv export --locked --no-dev --no-emit-project --no-header --no-annotate --format requirements-txt -o /tmp/runtime-requirements.txt >/dev/null
@@ -111,6 +112,7 @@ jobs:
         with:
           version: '0.13.5'
           python-version: '3.15.1'
+          enable-cache: false
       - name: Install the locked real browser
         run: uv run --locked --extra test --extra browser-test playwright install --with-deps --only-shell chromium
       - name: Exercise browser fetch and repeated stub flows

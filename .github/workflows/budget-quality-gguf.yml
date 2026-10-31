@@ -65,9 +65,12 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
-          python-version: '3.12.15'
+          version: "0.13.5"
+          python-version: "3.12.15"
+          activate-environment: true
+          enable-cache: false
       - name: Prepare evidence directory
         run: mkdir -p test-results/budget-quality models
       - name: Restore selected model cache
