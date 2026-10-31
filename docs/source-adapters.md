@@ -110,7 +110,7 @@ Standalone example (from the repository root):
 PYTHONPATH=src python -S -c 'from mcp_toolcall_lab.adapters.engine_adapter import load_adapter_cache, execute_via_adapter; print(execute_via_adapter(load_adapter_cache("adapter.json"), {"query": "known"}))'
 ```
 
-Focused validation: `PYTHONPATH=src python -m pytest tests/test_engine_adapter*.py`.
+Focused validation: `PYTHONPATH=src uv run pytest tests/test_engine_adapter*.py`.
 No new dependencies, workflows, cache format or transport are introduced.
 
 ### Cache checksum contract and compatibility

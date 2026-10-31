@@ -314,7 +314,7 @@ offline article fixtures are synthetic.
 
 ```bash
 pip install -e '.[test]'
-pytest -q
+uv run pytest -q
 # Reproduce the pinned CI dependency set with uv:
 uv run --locked --extra test pytest -q --junitxml=reports/pytest.xml
 ```
@@ -330,7 +330,7 @@ See [Python/JUnit evidence](docs/python_junit_ci.md) and
 ```bash
 pip install -e '.[test,browser-test]'
 playwright install chromium
-pytest -q tests/test_browser_fetch_protocol.py
+uv run pytest -q tests/test_browser_fetch_protocol.py
 ```
 
 That browser test proves same-origin HTTP/MCP access, not a chat UI. Both Docker
@@ -345,14 +345,14 @@ docker compose -f docker/librechat-smoke/docker-compose.yml up --build -d
 LIBRECHAT_BASE_URL=http://127.0.0.1:3080 \
   MCP_TOOLCALL_LOG=$PWD/test-results/mcp-toolcalls.jsonl \
   OPENAI_MOCK_LOG=$PWD/test-results/openai-mock.jsonl \
-  pytest tests/real_chat_ui/test_librechat_docker.py -v
+  uv run pytest tests/real_chat_ui/test_librechat_docker.py -v
 
 # Open WebUI
 docker compose -f docker/openwebui-smoke/docker-compose.yml up --build -d
 OPEN_WEBUI_BASE_URL=http://127.0.0.1:3000 \
   MCP_TOOLCALL_LOG=$PWD/test-results/mcp-toolcalls.jsonl \
   OPENAI_MOCK_LOG=$PWD/test-results/openai-mock.jsonl \
-  pytest tests/real_chat_ui/test_mcp_toolcall_lab_openwebui_docker.py -v
+  uv run pytest tests/real_chat_ui/test_mcp_toolcall_lab_openwebui_docker.py -v
 ```
 
 These tests are skipped when their UI URL is unset. Docker services use service

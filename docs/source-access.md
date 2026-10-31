@@ -92,7 +92,7 @@ urllib experiment; Python runtime delivery to Pages is outside this PR.
 ## Verification and next slice
 
 ```sh
-PYTHONPATH=src python -m pytest tests/test_source_access.py experiments/html_snapshot/test_extract.py --junitxml=source-access.xml
+PYTHONPATH=src uv run pytest tests/test_source_access.py experiments/html_snapshot/test_extract.py --junitxml=source-access.xml
 ```
 
 Tests inject transport and block sockets: one GET followed by repeated extractions,

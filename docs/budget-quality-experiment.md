@@ -106,7 +106,7 @@ With default token budgets and no server, all trials are explicitly
 ## Validation
 
 ```bash
-PYTHONPATH=src python -m pytest -x -q tests/test_budget_compression.py tests/test_char_compress.py
+PYTHONPATH=src uv run pytest -x -q tests/test_budget_compression.py tests/test_char_compress.py
 ```
 
 Tests cover independent oracle/catalogue handling, hard budgets, protected
