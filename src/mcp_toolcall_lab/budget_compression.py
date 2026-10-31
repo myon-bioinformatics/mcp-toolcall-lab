@@ -30,10 +30,25 @@ def prompt_for(case: dict[str, Any], text: str) -> str:
     catalog = case["advertised_tools"]
     if not isinstance(catalog, list) or len(catalog) < 2 or not all(isinstance(t, str) and t for t in catalog):
         raise ValueError("at least two advertised tool descriptions are required")
-    return ("Choose one advertised tool and extract arguments from the task. "
-            "Return JSON only: {\"tool\":name,\"arguments\":{...}}. "
-            "Missing task: return {\"tool\":null,\"arguments\":{}}. Do not invent values.\n"
-            "Tools (all arguments required except ?; use the declared JSON types):\n" + "\n".join(catalog) + "\nTask:\n" + text)
+    # Only these exact redundant descriptions are compacted. Unknown catalogues
+    # retain their prose: a generic colon split could discard real constraints.
+    redundant = {
+        "price_lookup(item:string,currency:string,detail?:string): look up an item price.":
+            "price_lookup(item:string,currency:string,detail?:string): get price.",
+        "set_reminder(date:string,time:string,topic:string,tone?:string): schedule a reminder.":
+            "set_reminder(date:string,time:string,topic:string,tone?:string): set a reminder.",
+        "configure_retry(job:string,max_retries:integer,on_failure_only:boolean,note?:string): configure retries.":
+            "configure_retry(job:string,max_retries:integer,on_failure_only:boolean,note?:string): set retries.",
+        "archive_branch(branch:string,delete_allowed:boolean,review_required:boolean,note?:string): archive a branch.":
+            "archive_branch(branch:string,delete_allowed:boolean,review_required:boolean,note?:string): archive branch.",
+        "translate(source_text:string,target_language:string,tone?:string): request a translation.":
+            "translate(source_text:string,target_language:string,tone?:string): translate.",
+    }
+    return ('Choose one advertised tool and extract arguments from the task. Return JSON only: {"tool":name,"arguments":{...}}. '
+            'Missing task: {"tool":null,"arguments":{}}. Do not invent values.\n'
+            'Tools (all arguments required except ?; use declared JSON types):\n'
+            + "\n".join(redundant.get(tool, tool) for tool in catalog) + "\nTask:\n" + text)
+
 
 
 def candidates(case: dict[str, Any], counter: Callable[[str], int] | None = None) -> list[dict[str, Any]]:

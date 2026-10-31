@@ -121,3 +121,33 @@ def test_tokenizer_failure_and_invalid_count_are_not_model_errors():
         row = bc.evaluate(CASES[0], max_chars=10000, max_tokens=1000, token_counter=counter,
                           answer=lambda _: pytest.fail('must not call model without a count'))
         assert row['status'] == 'measurement_error' and row['task_success'] is None
+
+
+def test_compaction_keeps_all_signatures_and_unknown_constraints():
+    case = copy.deepcopy(CASES[0])
+    case['advertised_tools'][0] += ' Never send payment; require approval.'
+    prompt = bc.prompt_for(case, case['source'])
+    assert case['advertised_tools'][0] in prompt
+    for tool in case['advertised_tools'][1:]:
+        assert tool.split(': ', 1)[0] in prompt
+    assert prompt.endswith(case['source'])
+
+
+def test_all_twenty_fit_chars_without_extra_task_loss():
+    for case in CASES:
+        row = bc.select(case, max_chars=800, max_tokens=None)
+        assert row['status'] == 'selected'
+        assert row['selected']['chars'] <= 800
+        assert not row['selected']['missing_anchors']
+        assert row['selected']['loss_rank'] <= 2  # preferred arguments need not be dropped
+
+
+def test_each_budget_boundary_is_inclusive_and_checked_independently():
+    case = CASES[0]
+    size = len(bc.prompt_for(case, case['candidates'][-1]['text']))
+    assert bc.select(case, max_chars=size, max_tokens=512,
+                     token_counter=lambda _: 512)['status'] == 'selected'
+    assert bc.select(case, max_chars=size - 1, max_tokens=512,
+                     token_counter=lambda _: 512)['status'] == 'infeasible'
+    assert bc.select(case, max_chars=size, max_tokens=512,
+                     token_counter=lambda _: 513)['status'] == 'infeasible'
