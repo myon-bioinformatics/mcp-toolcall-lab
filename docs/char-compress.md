@@ -43,6 +43,6 @@ No LLM ran in this change; these are reasoned expectations.
 
 ## Verification
 
-- `uv run --with tiktoken --extra test python -m pytest -q tests/test_char_compress.py`
+- `uv run --with tiktoken --extra test pytest -q tests/test_char_compress.py`
 - Mutation test against the real source (restores the file afterwards):
   `uv run --with tiktoken --extra test python scripts/mutate_char_compress.py`

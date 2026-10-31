@@ -131,7 +131,7 @@ docker compose -f docker/librechat-smoke/docker-compose.yml up --build -d
 LIBRECHAT_BASE_URL=http://127.0.0.1:3080 \
   MCP_TOOLCALL_LOG=$PWD/test-results/mcp-toolcalls.jsonl \
   OPENAI_MOCK_LOG=$PWD/test-results/openai-mock.jsonl \
-  pytest tests/real_chat_ui/test_librechat_docker.py -v
+  uv run pytest tests/real_chat_ui/test_librechat_docker.py -v
 ```
 
 GitHub Actions: `.github/workflows/librechat-docker-smoke.yml` (`workflow_dispatch`

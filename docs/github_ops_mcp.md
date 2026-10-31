@@ -119,7 +119,7 @@ so a later unrelated push to `main` can't silently change what this repo vendors
 ## Tests
 
 ```bash
-pytest -q tests/test_github_ops_server.py tests/test_mcp_toolcall_lab_vendor_lock.py
+uv run pytest -q tests/test_github_ops_server.py tests/test_mcp_toolcall_lab_vendor_lock.py
 ```
 
 No network: every REST-backed tool test stubs `gh_ops.Client`'s transport

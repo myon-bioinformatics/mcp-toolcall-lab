@@ -84,5 +84,5 @@ Upstream behavior reference:
 Focused reproduction after `pip install -e '.[test]'`:
 
 ```sh
-python -m pytest -q tests/test_sdk_transport_boundaries.py tests/test_streamable_http_protocol.py tests/test_trace.py
+uv run pytest -q tests/test_sdk_transport_boundaries.py tests/test_streamable_http_protocol.py tests/test_trace.py
 ```
