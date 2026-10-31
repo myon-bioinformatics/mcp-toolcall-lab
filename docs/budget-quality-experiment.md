@@ -276,3 +276,30 @@ rejected before selection, enabling a per-case comparison without inferring toke
 counts from characters. The improvement is established for this authored corpus
 and this model run only; it does not establish general compression quality or
 translation fidelity. The exploratory failed variant is kept separate.
+
+## One-click fixed-model CI
+
+Open [budget-quality-gguf in Actions](https://github.com/myon-bioinformatics/mcp-toolcall-lab/actions/workflows/budget-quality-gguf.yml),
+choose **Run workflow**, select `main` (or the branch to measure), then **Run workflow**.
+No local Docker or API key is needed. The same workflow also runs for PRs changing
+this experiment's implementation, fixtures or workflow; ordinary unrelated PRs do
+not download the model.
+
+The job downloads the immutable Qwen2.5-1.5B-Instruct Q4_K_M revision, verifies
+SHA-256 and size even on cache hits, starts a digest-pinned llama.cpp Docker image
+on CPU (2 threads, context 4096), then compares all 20 cases against baseline
+`1184ba449e146cb8f101aaa743449eb71a1afeb9` at 800 characters **and** 512 tokens.
+The server uses temperature 0, seed 42, and at most 128 output tokens. The
+historical native runtime and this Docker runtime differ, so both sides are rerun
+inside the same container; this does not promise identical historical outputs.
+
+The run's **Summary** shows successes, outcome statuses, chosen tiers and optional
+argument quality. Under **Artifacts**, download `budget-quality-qwen-…` for the
+paired JSON (all candidates, actual token counts and model answers), source/model/
+runtime provenance, Docker diagnostics and logs. Artifacts are retained for 30
+days. The weights themselves are cached rather than uploaded as test evidence.
+Any current-version task failure or infrastructure/measurement error fails the
+job while preserving available evidence; the baseline's known infeasible cases
+are counted separately. A model download/startup failure is never counted as
+poor model quality. First runs include downloading about 1.12 GB of model weights
+and pulling the runtime image; the job has a 30-minute timeout.
