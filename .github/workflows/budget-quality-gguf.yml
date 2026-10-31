@@ -1,0 +1,110 @@
+name: budget-quality-gguf
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/budget-quality-gguf.yml'
+      - 'scripts/compare_budget_overhead.py'
+      - 'scripts/summarize_budget_quality.py'
+      - 'scripts/fetch_tiny_cpu_gguf.py'
+      - 'src/mcp_toolcall_lab/budget_compression.py'
+      - 'fixtures/budget_compression/**'
+      - 'tests/test_budget_quality_ci.py'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: budget-quality-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHONPATH: src
+  MODEL_URL: https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/91cad51170dc346986eccefdc2dd33a9da36ead9/qwen2.5-1.5b-instruct-q4_k_m.gguf
+  MODEL_SHA256: 6a1a2eb6d15622bf3c96857206351ba97e1af16c30d7a74ee38970e434e9407e
+  LLAMA_IMAGE: ghcr.io/ggml-org/llama.cpp:server-b11669@sha256:8ffe0d28ff5261cc2f78ca1f67db1515bc2529b904a3c25f5b24f4cedfc3411d
+  BASELINE: 1184ba449e146cb8f101aaa743449eb71a1afeb9
+
+jobs:
+  paired-qwen:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # the immutable before-compression source is read via git show
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12.15'
+      - name: Prepare evidence directory
+        run: mkdir -p test-results/budget-quality models
+      - name: Restore pinned model cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: models/qwen.gguf
+          key: qwen25-1p5b-q4km-${{ env.MODEL_SHA256 }}
+      - name: Fetch or verify fixed Qwen weights
+        env:
+          CPU_LLM_GGUF_URL: ${{ env.MODEL_URL }}
+          CPU_LLM_GGUF_SHA256: ${{ env.MODEL_SHA256 }}
+        run: |
+          if [ ! -f models/qwen.gguf ]; then
+            python scripts/fetch_tiny_cpu_gguf.py models/qwen.gguf
+          fi
+          # Rehash cached bytes too; cache hits never bypass the model pin.
+          python - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          model = Path('models/qwen.gguf')
+          digest = hashlib.file_digest(model.open('rb'), 'sha256').hexdigest()
+          if digest != os.environ['MODEL_SHA256'] or model.stat().st_size != 1117320736:
+              raise SystemExit('model size/SHA256 mismatch')
+          Path('models/qwen.gguf.provenance.json').write_text(json.dumps({
+              'repository': 'Qwen/Qwen2.5-1.5B-Instruct-GGUF',
+              'revision': '91cad51170dc346986eccefdc2dd33a9da36ead9',
+              'filename': 'qwen2.5-1.5b-instruct-q4_k_m.gguf',
+              'url': os.environ['MODEL_URL'], 'sha256': digest,
+              'bytes': model.stat().st_size}, indent=2) + '\n')
+          PY
+      - name: Start pinned CPU llama.cpp container
+        run: |
+          docker run --detach --name budget-qwen --cpus=2 --memory=6g \
+            -p 127.0.0.1:8080:8080 -v "$PWD/models:/models:ro" \
+            "$LLAMA_IMAGE" -m /models/qwen.gguf --host 0.0.0.0 --port 8080 \
+            -c 4096 -t 2 -tb 2 -ngl 0 --parallel 1 --jinja --reasoning-format none
+          for _ in {1..90}; do
+            if curl --fail --silent http://127.0.0.1:8080/health >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs budget-qwen
+          exit 1
+      - name: Compare 20 cases before and after (both budgets enforced)
+        run: |
+          python scripts/compare_budget_overhead.py --base-url http://127.0.0.1:8080 \
+            --baseline "$BASELINE" --output test-results/budget-quality/paired.json
+      - name: Validate evidence, record provenance and publish summary
+        run: |
+          python scripts/summarize_budget_quality.py \
+            --report test-results/budget-quality/paired.json --model models/qwen.gguf \
+            --image "$LLAMA_IMAGE" --summary "$GITHUB_STEP_SUMMARY"
+      - name: Collect runtime diagnostics
+        if: always()
+        run: |
+          docker logs budget-qwen > test-results/budget-quality/llama-server.log 2>&1 || true
+          docker inspect budget-qwen > test-results/budget-quality/container.json 2>&1 || true
+          cp models/qwen.gguf.provenance.json test-results/budget-quality/ 2>/dev/null || true
+      - name: Upload measured evidence (including failed runs)
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: budget-quality-qwen-${{ github.run_id }}-${{ github.run_attempt }}
+          path: test-results/budget-quality/
+          retention-days: 30
+          if-no-files-found: error
+      - name: Stop model server
+        if: always()
+        run: docker rm -f budget-qwen 2>/dev/null || true
