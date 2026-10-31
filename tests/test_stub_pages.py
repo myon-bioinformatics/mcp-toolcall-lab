@@ -297,7 +297,7 @@ def test_stub_pages_compose_uses_service_dns() -> None:
     assert "actions/deploy-pages" not in workflow
     publication = (ROOT / ".github" / "workflows" / "portable-pages.yml").read_text(encoding="utf-8")
     assert "actions/deploy-pages" in publication
-    assert publication.count("if: github.ref == 'refs/heads/main'") >= 2
+    assert publication.count("if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'") >= 2
     assert "stub-pages-smoke.py" in workflow or "stub_pages_smoke.py" in workflow
     assert "mcp_toolcall_lab.docker_logs" in workflow
     assert "test-results/docker-logs" in workflow

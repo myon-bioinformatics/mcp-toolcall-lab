@@ -1,23 +1,16 @@
 name: compaction-gguf-benchmark
 
-# Real inference is isolated from the normal test workflow. This path-scoped
-# PR experiment is intentional; future runs can use workflow_dispatch.
+# Real inference and new measurements require an explicit manual dispatch.
+# Ordinary CI retains the fixture/mock tests without starting a model.
 on:
   workflow_dispatch:
-  pull_request:
-    paths:
-      - ".github/workflows/compaction-gguf-benchmark.yml"
-      - "src/mcp_toolcall_lab/compaction_gguf_benchmark.py"
-      - "src/mcp_toolcall_lab/aoi_gguf_benchmark.py"
-      - "tests/test_aoi_gguf_benchmark.py"
-      - "tests/test_compaction_gguf_benchmark.py"
-      - "src/mcp_toolcall_lab/compaction.py"
 
 permissions:
   contents: read
 
 jobs:
   live-gguf:
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-22.04
     timeout-minutes: 25
     steps:

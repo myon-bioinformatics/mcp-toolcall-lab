@@ -1,6 +1,7 @@
 name: component-runtime
 
-# Rebuild every first-party runtime and test its actual TLS clients. No deployment.
+# Automatic CI tests the five non-model runtimes and browser protocol.
+# The portable build also generates summaries and requires manual dispatch. No deployment.
 on:
   pull_request:
     paths:
@@ -43,6 +44,63 @@ jobs:
             dockerfile: docker/stub-pages/Dockerfile.stub
             target: ''
             trust_args: ''
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: '0.13.5'
+          python-version: '3.12.15'
+          enable-cache: false
+      - name: Verify the Docker dependency export matches uv.lock
+        run: |
+          uv export --locked --no-dev --no-emit-project --no-header --no-annotate --format requirements-txt -o /tmp/runtime-requirements.txt >/dev/null
+          diff -u docker/runtime-requirements.txt /tmp/runtime-requirements.txt
+      - name: Rebuild pinned runtime with no layer cache
+        env:
+          DOCKERFILE: ${{ matrix.dockerfile }}
+          TARGET: ${{ matrix.target }}
+          IMAGE: mcp-lab-${{ matrix.name }}
+          SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          args=()
+          if [ -n "$TARGET" ]; then args+=(--target "$TARGET"); fi
+          docker build --pull --no-cache --file "$DOCKERFILE" "${args[@]}" \
+            --build-arg SOURCE_SHA="$SOURCE_SHA" --build-arg BUILD_RUN="$GITHUB_RUN_ID" \
+            --build-arg BUILD_ATTEMPT="$GITHUB_RUN_ATTEMPT" --tag "$IMAGE" .
+          mkdir -p test-results
+          docker image inspect "$IMAGE" > test-results/image-inspect.json
+      - name: Verify actual container trust and installed component versions
+        env:
+          IMAGE: mcp-lab-${{ matrix.name }}
+          TRUST_ARGS: ${{ matrix.trust_args }}
+        run: |
+          args=()
+          if [ -n "$TRUST_ARGS" ]; then args+=("$TRUST_ARGS"); fi
+          docker run --rm \
+            --mount type=bind,source="$PWD/scripts/check_runtime_trust.py",target=/check_runtime_trust.py,readonly \
+            --mount type=bind,source="$PWD/test-results",target=/evidence \
+            "$IMAGE" python /check_runtime_trust.py --live "${args[@]}" --output /evidence/runtime-trust.json
+      - name: Preserve runtime receipts even on failure
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: runtime-${{ matrix.name }}
+          path: test-results/
+          if-no-files-found: error
+
+  # This target generates real summaries; a PR must report it as skipped.
+  portable-live:
+    name: runtime (portable-build, docker/portable-pages/Dockerfile, build)
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
           - name: portable-build
             dockerfile: docker/portable-pages/Dockerfile
             target: build

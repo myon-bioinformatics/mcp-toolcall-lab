@@ -288,9 +288,11 @@ console.log(JSON.stringify([ok,miss,mismatch,offline]));'''.replace('CORE', json
         self.assertLess(docker.index('RUN /app/llama-server --version'), docker.index('RUN python3 -S scripts/fetch_tiny_cpu_gguf.py'))
         self.assertNotIn('CMD', docker)
         workflow = (ROOT / '.github/workflows/portable-pages.yml').read_text()
+        self.assertIn('  workflow_dispatch:', workflow)
+        self.assertNotIn('  pull_request:', workflow)
+        self.assertNotIn('  push:', workflow)
         for name in ('mcp-toolcall-lab-logo.png', 'mcp-toolcall-lab-favicon-artwork.png'):
             self.assertIn('docs/assets/' + name, docker)
-            self.assertEqual(workflow.count('      - "docs/assets/' + name + '"'), 2)
 
     def test_export_rejects_private_output_overlap_or_preexisting_files(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -1,53 +1,8 @@
 name: portable-pages
 
+# Live GGUF generation and Pages publication are explicit manual operations.
+# Ordinary CI never rebuilds or replaces the currently published site.
 on:
-  pull_request:
-    paths:
-      - "pyproject.toml"
-      - "uv.lock"
-      - "src/mcp_toolcall_lab/**"
-      - "vendor/**"
-      - "vendor.lock.json"
-      - "scripts/build_portable_pages.py"
-      - "scripts/fetch_tiny_cpu_gguf.py"
-      - "fixtures/portable_summary/**"
-      - "scripts/check_portable_browser.py"
-      - "scripts/check_incremental_summary_build.py"
-      - "scripts/write_portfolio_redirect.py"
-      - "docker/portable-pages/**"
-      - "docs/portable-execution.md"
-      - "docs/build-time-summaries.md"
-      - "docs/summary-corpus.md"
-      - "docs/assets/mcp-toolcall-lab-logo.png"
-      - "docs/assets/mcp-toolcall-lab-favicon-artwork.png"
-      - "tests/test_portable_execution.py"
-      - "tests/test_portable_source.py"
-      - "tests/test_portable_summary*.py"
-      - "tests/test_incremental_summary_build.py"
-      - ".github/workflows/portable-pages.yml"
-  push:
-    branches: [main]
-    paths:
-      - "src/mcp_toolcall_lab/**"
-      - "vendor/**"
-      - "vendor.lock.json"
-      - "scripts/build_portable_pages.py"
-      - "scripts/fetch_tiny_cpu_gguf.py"
-      - "fixtures/portable_summary/**"
-      - "scripts/check_portable_browser.py"
-      - "scripts/check_incremental_summary_build.py"
-      - "scripts/write_portfolio_redirect.py"
-      - "docker/portable-pages/**"
-      - "docs/portable-execution.md"
-      - "docs/build-time-summaries.md"
-      - "docs/summary-corpus.md"
-      - "docs/assets/mcp-toolcall-lab-logo.png"
-      - "docs/assets/mcp-toolcall-lab-favicon-artwork.png"
-      - "tests/test_portable_execution.py"
-      - "tests/test_portable_source.py"
-      - "tests/test_portable_summary*.py"
-      - "tests/test_incremental_summary_build.py"
-      - ".github/workflows/portable-pages.yml"
   workflow_dispatch:
 
 permissions:
@@ -59,6 +14,7 @@ concurrency:
 
 jobs:
   build:
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -141,13 +97,13 @@ jobs:
           path: _summary_handoff/
           if-no-files-found: error
       - name: Upload Pages artifact
-        if: github.ref == 'refs/heads/main'
+        if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
         uses: actions/upload-pages-artifact@v5
         with:
           path: _portable_site
   deploy:
     needs: build
-    if: github.ref == 'refs/heads/main'
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
     permissions:
       pages: write
       id-token: write
