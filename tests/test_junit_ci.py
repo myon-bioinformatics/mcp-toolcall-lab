@@ -49,7 +49,7 @@ def test_python_junit_workflow_keeps_failed_producer_visible():
     workflow = (Path(__file__).parents[1] / ".github/workflows/test.yml").read_text(encoding="utf-8")
     producer = workflow.split("  test:\n", 1)[1].split("  junit-identity:\n", 1)[0]
     collector = workflow.split("  junit-identity:\n", 1)[1].split("  public-resolver-compat:", 1)[0]
-    assert "astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2" in producer
+    assert "astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3" in producer
     assert "actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0" in producer
     assert "node-version: ${{ matrix.node-version }}" in producer
     assert "run: uv run --locked --extra test pytest -q --junitxml=reports/pytest.xml" in producer
@@ -85,7 +85,7 @@ def test_jsonl_archive_portability_uses_locked_uv():
     assert "os: [ubuntu-latest, windows-latest, macos-latest]" in workflow
     assert "python: ['3.12.15', '3.13.17', '3.14.9']" in workflow
     assert "node-version: '24.22.1'" in workflow
-    assert "astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e" in workflow
+    assert "astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2" in workflow
     assert "python-version: ${{ matrix.python }}" in workflow
     assert "run: uv run --locked --extra test pytest -q tests/test_jsonl_log_archive.py" in workflow
     assert 'version: "0.13.5"' in workflow
