@@ -9,6 +9,44 @@ import tempfile
 from mcp_toolcall_lab import budget_compression as new
 
 
+def evaluate_with_completion(mod, case, *, count, post, base):
+    """Keep generation-cap observations separate from malformed server replies."""
+    completion = {}
+    capped = False
+
+    def answer(text):
+        nonlocal capped
+        response = post(base + '/v1/chat/completions', {
+            'messages': [{'role': 'user', 'content': text}],
+            'temperature': 0, 'seed': 42, 'max_tokens': 128, 'stream': False})
+        completion['response'] = response
+        choices = response.get('choices') if isinstance(response, dict) else None
+        if not isinstance(choices, list) or len(choices) != 1 or not isinstance(choices[0], dict):
+            raise ValueError('expected one completion choice')
+        choice = choices[0]
+        reason = choice.get('finish_reason')
+        completion['finish_reason'] = reason
+        message = choice.get('message')
+        if not isinstance(message, dict) or not isinstance(message.get('content'), str):
+            raise ValueError('expected textual completion content')
+        completion['raw_response'] = message['content']
+        if message.get('tool_calls') or message.get('function_call'):
+            raise ValueError('unexpected tool/function completion')
+        if reason == 'length':
+            capped = True
+            raise ValueError('output token limit reached')
+        if reason != 'stop':
+            raise ValueError(f'unexpected completion finish_reason: {reason!r}')
+        return message['content']
+
+    result = mod.evaluate(case, max_chars=800, max_tokens=512, token_counter=count, answer=answer)
+    if completion:
+        result['completion'] = completion
+    if capped and result['status'] == 'model_error':
+        result['status'] = 'incomplete_output'
+    return result
+
+
 def main():
     p = argparse.ArgumentParser(__doc__)
     p.add_argument('--base-url', required=True)
@@ -25,19 +63,11 @@ def main():
     base = args.base_url.rstrip('/')
     def count(text):
         return len(new._post(base + '/tokenize', {'content': text, 'add_special': False, 'parse_special': False})['tokens'])
-    def answer(text):
-        r = new._post(base + '/v1/chat/completions', {'messages': [{'role': 'user', 'content': text}],
-            'temperature': 0, 'seed': 42, 'max_tokens': 128, 'stream': False})['choices'][0]
-        if r.get('finish_reason') != 'stop':
-            raise ValueError('incomplete response')
-        return r['message']['content']
     rows = []
     for case in cases:
         row = {'case_id': case['id']}
         for label, mod in [('before', old), ('after', new)]:
-            result = mod.evaluate(case, max_chars=800, max_tokens=512, token_counter=count, answer=answer)
-            if result['status'] == 'model_error' and result.get('error') == 'ValueError: incomplete response':
-                result['status'] = 'incomplete_output'  # generation cap, not transport failure
+            result = evaluate_with_completion(mod, case, count=count, post=new._post, base=base)
             result['all_candidates'] = [{**c, 'chars': len(mod.prompt_for(case, c['text'])),
                 'tokens': count(mod.prompt_for(case, c['text']))} for c in mod.candidates(case)]
             row[label] = result

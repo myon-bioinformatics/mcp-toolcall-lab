@@ -281,9 +281,10 @@ translation fidelity. The exploratory failed variant is kept separate.
 
 Open [budget-quality-gguf in Actions](https://github.com/myon-bioinformatics/mcp-toolcall-lab/actions/workflows/budget-quality-gguf.yml),
 choose **Run workflow**, select `main` (or the branch to measure), then **Run workflow**.
-No local Docker or API key is needed. The same workflow also runs for PRs changing
-this experiment's implementation, fixtures or workflow; ordinary unrelated PRs do
-not download the model.
+No local Docker or API key is needed. Real inference runs only through an explicit
+Run workflow (`workflow_dispatch`) request; neither PR updates nor main merges
+start this model workflow. Ordinary regression CI and existing mock smoke checks
+remain enabled. Offline tests do not count as a fresh model measurement.
 
 By default the job downloads the immutable Qwen2.5-1.5B-Instruct Q4_K_M revision, verifies
 SHA-256 and size even on cache hits, starts a digest-pinned llama.cpp Docker image
@@ -334,7 +335,11 @@ outputs. Set `strict_quality` to require 20/20 for a candidate too. The existing
 Qwen1.5B quality gate remains strict regardless of that checkbox. Model download,
 startup, transport and tokenizer failures still fail every mode. Incomplete output
 at the fixed 128-token generation cap is recorded separately as
-`incomplete_output`, without increasing the cap or crediting a partial answer.
+`incomplete_output` only for an explicit `finish_reason: length` with textual
+content, without increasing the cap or crediting a partial answer. Raw completion
+responses, finish reasons and partial text are retained. Missing/unknown finish
+reasons, filtered/tool-call responses and malformed replies remain `model_error`
+and fail even candidate observation mode.
 Tokenizer counts differ by model: fitting 800 characters never exempts an input
 from the independent 512-token check.
 

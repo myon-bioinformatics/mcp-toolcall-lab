@@ -39,21 +39,22 @@ def test_corrupt_or_over_budget_evidence_is_rejected(damage):
         ci.summarize(report, CASES)
 
 
-@pytest.mark.parametrize('status', ['incomplete_output', 'wrong_action', 'abstained', 'model_error', 'measurement_error'])
+@pytest.mark.parametrize('status', ['incomplete_output', 'wrong_action', 'abstained', 'model_error', 'measurement_error', 'tokenizer_unavailable', 'not_run'])
 @pytest.mark.parametrize('strict', [False, True])
-def test_candidate_quality_is_observed_but_infrastructure_always_fails(tmp_path, monkeypatch, status, strict):
+@pytest.mark.parametrize('label', ['before', 'after'])
+def test_candidate_quality_is_observed_but_infrastructure_always_fails(tmp_path, monkeypatch, status, strict, label):
     report = copy.deepcopy(REPORT)
-    report['cases'][0]['after'].update(status=status, task_success=False)
+    report['cases'][0][label].update(status=status, task_success=False)
     receipt = tmp_path / 'paired.json'; receipt.write_text(json.dumps(report))
     model = tmp_path / 'model.gguf'
     model.with_suffix('.gguf.provenance.json').write_text(json.dumps({
         'model_id': 'candidate', 'quality_gate': strict, 'reasoning': 'off', 'template': None}))
     monkeypatch.setattr('sys.argv', ['summary', '--report', str(receipt), '--model', str(model),
                                    '--image', 'offline-test', '--summary', str(tmp_path / 'summary.md')])
-    if strict or status in {'model_error', 'measurement_error'}:
+    if (strict and label == 'after') or status in {'model_error', 'measurement_error', 'tokenizer_unavailable', 'not_run'}:
         with pytest.raises(SystemExit): ci.main()
     else:
         ci.main()
     provenance = json.loads((tmp_path / 'provenance.json').read_text())
-    assert provenance['summary']['after']['successes'] == 19
+    assert provenance['summary'][label]['successes'] == (19 if label == 'after' else 11)
     assert provenance['quality_gate'] is strict

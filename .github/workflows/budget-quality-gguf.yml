@@ -20,17 +20,6 @@ on:
         description: Require 20/20 success also for candidate models
         type: boolean
         default: false
-  pull_request:
-    paths:
-      - '.github/workflows/budget-quality-gguf.yml'
-      - 'scripts/compare_budget_overhead.py'
-      - 'scripts/summarize_budget_quality.py'
-      - 'scripts/budget_models.py'
-      - 'scripts/fetch_tiny_cpu_gguf.py'
-      - 'src/mcp_toolcall_lab/budget_compression.py'
-      - 'fixtures/budget_compression/**'
-      - 'tests/test_budget_quality_ci.py'
-      - 'tests/test_budget_models.py'
 
 permissions:
   contents: read
@@ -48,6 +37,7 @@ env:
 
 jobs:
   plan:
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     outputs:
       matrix: ${{ steps.models.outputs.matrix }}
@@ -57,11 +47,12 @@ jobs:
           persist-credentials: false
       - id: models
         env:
-          # pull_request runs have no inputs: measure only the default Qwen gate there.
-          MODEL_CHOICE: ${{ github.event_name == 'workflow_dispatch' && inputs.model || 'qwen-1.5b' }}
+          # Real inference is opt-in; ordinary PR CI remains fixture/mock based.
+          MODEL_CHOICE: ${{ inputs.model || 'qwen-1.5b' }}
         run: python scripts/budget_models.py "$MODEL_CHOICE" --github-output "$GITHUB_OUTPUT"
 
   paired-model:
+    if: github.event_name == 'workflow_dispatch'
     needs: plan
     runs-on: ubuntu-24.04
     timeout-minutes: 30
