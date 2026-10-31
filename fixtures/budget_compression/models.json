@@ -1,0 +1,72 @@
+{
+  "qwen-1.5b": {
+    "repository": "Qwen/Qwen2.5-1.5B-Instruct-GGUF",
+    "revision": "91cad51170dc346986eccefdc2dd33a9da36ead9",
+    "filename": "qwen2.5-1.5b-instruct-q4_k_m.gguf",
+    "bytes": 1117320736,
+    "sha256": "6a1a2eb6d15622bf3c96857206351ba97e1af16c30d7a74ee38970e434e9407e",
+    "url": "https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/91cad51170dc346986eccefdc2dd33a9da36ead9/qwen2.5-1.5b-instruct-q4_k_m.gguf",
+    "template": null,
+    "quality_gate": true
+  },
+  "qwen-0.5b": {
+    "repository": "Qwen/Qwen2.5-0.5B-Instruct-GGUF",
+    "revision": "9217f5db79a29953eb74d5343926648285ec7e67",
+    "filename": "qwen2.5-0.5b-instruct-q4_k_m.gguf",
+    "bytes": 491400032,
+    "sha256": "74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db",
+    "url": "https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/9217f5db79a29953eb74d5343926648285ec7e67/qwen2.5-0.5b-instruct-q4_k_m.gguf",
+    "template": null,
+    "quality_gate": false
+  },
+  "minicpm5-2b": {
+    "repository": "openbmb/MiniCPM5-2B-GGUF",
+    "revision": "2079a22f3beaa4e306449978533478fe0522f4b3",
+    "filename": "MiniCPM5-2B-Q4_K_M.gguf",
+    "bytes": 1561318368,
+    "sha256": "ec2d5801640099e97d8d7e8003ad4d81f336e757811f03a26173dddf386602fd",
+    "url": "https://huggingface.co/openbmb/MiniCPM5-2B-GGUF/resolve/2079a22f3beaa4e306449978533478fe0522f4b3/MiniCPM5-2B-Q4_K_M.gguf",
+    "template": "fixtures/budget_compression/templates/minicpm5_nonthinking.jinja",
+    "quality_gate": false
+  },
+  "lfm2.5-350m-qad": {
+    "repository": "LiquidAI/LFM2.5-350M-GGUF",
+    "revision": "657e078c94084481950a2d555a941481f715536b",
+    "filename": "LFM2.5-350M-QAD-Q4_0.gguf",
+    "bytes": 219312832,
+    "sha256": "3d10b6ab8fc91a919534b9558e266255aca0bbc7f6d015963599aa9e74e05b1d",
+    "url": "https://huggingface.co/LiquidAI/LFM2.5-350M-GGUF/resolve/657e078c94084481950a2d555a941481f715536b/LFM2.5-350M-QAD-Q4_0.gguf",
+    "template": null,
+    "quality_gate": false
+  },
+  "lfm2.5-1.2b-qad": {
+    "repository": "LiquidAI/LFM2.5-1.2B-Instruct-GGUF",
+    "revision": "8ed288026e23958ad9dfa92d53ed773a8eee7125",
+    "filename": "LFM2.5-1.2B-Instruct-QAD-Q4_0.gguf",
+    "bytes": 695755488,
+    "sha256": "bb741ebb106d543e9de114b843a3d3d73d51c74b5801e69da2abde821a0cb3e1",
+    "url": "https://huggingface.co/LiquidAI/LFM2.5-1.2B-Instruct-GGUF/resolve/8ed288026e23958ad9dfa92d53ed773a8eee7125/LFM2.5-1.2B-Instruct-QAD-Q4_0.gguf",
+    "template": null,
+    "quality_gate": false
+  },
+  "lfm2.5-2.6b": {
+    "repository": "LiquidAI/LFM2.5-2.6B-GGUF",
+    "revision": "e7caca5d835a3901a8e0d63e94009429bafafdfc",
+    "filename": "LFM2.5-2.6B-Q4_K_M.gguf",
+    "bytes": 1674455040,
+    "sha256": "02a8b7e17487d326e46d68ce0ba24211e1b80a14c4cd0597fa73c1cd697f52ed",
+    "url": "https://huggingface.co/LiquidAI/LFM2.5-2.6B-GGUF/resolve/e7caca5d835a3901a8e0d63e94009429bafafdfc/LFM2.5-2.6B-Q4_K_M.gguf",
+    "template": null,
+    "quality_gate": false
+  },
+  "lfm3-1.7b": {
+    "repository": "LiquidAI/LFM3-1.7B-GGUF",
+    "revision": "bad5729bba61d076fff20d2548e62526665af215",
+    "filename": "LFM3-1.7B-Q4_K_M.gguf",
+    "bytes": 1099627808,
+    "sha256": "3793e1e6e2266919d6e015287221b41100175a98eddaba92e111aed3b05c93c4",
+    "url": "https://huggingface.co/LiquidAI/LFM3-1.7B-GGUF/resolve/bad5729bba61d076fff20d2548e62526665af215/LFM3-1.7B-Q4_K_M.gguf",
+    "template": null,
+    "quality_gate": false
+  }
+}

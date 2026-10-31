@@ -2,15 +2,24 @@ name: budget-quality-gguf
 
 on:
   workflow_dispatch:
-  pull_request:
-    paths:
-      - '.github/workflows/budget-quality-gguf.yml'
-      - 'scripts/compare_budget_overhead.py'
-      - 'scripts/summarize_budget_quality.py'
-      - 'scripts/fetch_tiny_cpu_gguf.py'
-      - 'src/mcp_toolcall_lab/budget_compression.py'
-      - 'fixtures/budget_compression/**'
-      - 'tests/test_budget_quality_ci.py'
+    inputs:
+      model:
+        description: Model to measure (all runs seven separate jobs)
+        type: choice
+        default: qwen-1.5b
+        options:
+          - qwen-1.5b
+          - qwen-0.5b
+          - minicpm5-2b
+          - lfm2.5-350m-qad
+          - lfm2.5-1.2b-qad
+          - lfm2.5-2.6b
+          - lfm3-1.7b
+          - all
+      strict_quality:
+        description: Require 20/20 success also for candidate models
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -21,90 +30,107 @@ concurrency:
 
 env:
   PYTHONPATH: src
-  MODEL_URL: https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/91cad51170dc346986eccefdc2dd33a9da36ead9/qwen2.5-1.5b-instruct-q4_k_m.gguf
-  MODEL_SHA256: 6a1a2eb6d15622bf3c96857206351ba97e1af16c30d7a74ee38970e434e9407e
-  LLAMA_IMAGE: ghcr.io/ggml-org/llama.cpp:server-b11669@sha256:8ffe0d28ff5261cc2f78ca1f67db1515bc2529b904a3c25f5b24f4cedfc3411d
+  # Official OCI index inspected 2026-10-31: b12004, commit 3c809f4438… .
+  LLAMA_IMAGE: ghcr.io/ggml-org/llama.cpp@sha256:b32890309c1a33a534a01b0b461e953dc2c5a6bac20213abcf48e22847a19c85
+  LLAMA_REVISION: 3c809f44383bcebc318b8cddd8c6d11aaa861e9b
   BASELINE: 1184ba449e146cb8f101aaa743449eb71a1afeb9
 
 jobs:
-  paired-qwen:
+  plan:
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    outputs:
+      matrix: ${{ steps.models.outputs.matrix }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          fetch-depth: 0 # the immutable before-compression source is read via git show
+          persist-credentials: false
+      - id: models
+        env:
+          # Real inference is opt-in; ordinary PR CI remains fixture/mock based.
+          MODEL_CHOICE: ${{ inputs.model || 'qwen-1.5b' }}
+        run: python scripts/budget_models.py "$MODEL_CHOICE" --github-output "$GITHUB_OUTPUT"
+
+  paired-model:
+    if: github.event_name == 'workflow_dispatch'
+    needs: plan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
           persist-credentials: false
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.12.15'
       - name: Prepare evidence directory
         run: mkdir -p test-results/budget-quality models
-      - name: Restore pinned model cache
+      - name: Restore selected model cache
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
-          path: models/qwen.gguf
-          key: qwen25-1p5b-q4km-${{ env.MODEL_SHA256 }}
-      - name: Fetch or verify fixed Qwen weights
+          path: models/model.gguf
+          key: budget-model-${{ matrix.model }}-${{ hashFiles('fixtures/budget_compression/models.json') }}
+      - name: Fetch or rehash selected fixed weights
         env:
-          CPU_LLM_GGUF_URL: ${{ env.MODEL_URL }}
-          CPU_LLM_GGUF_SHA256: ${{ env.MODEL_SHA256 }}
-        run: |
-          if [ ! -f models/qwen.gguf ]; then
-            python scripts/fetch_tiny_cpu_gguf.py models/qwen.gguf
-          fi
-          # Rehash cached bytes too; cache hits never bypass the model pin.
-          python - <<'PY'
-          import hashlib, json, os
-          from pathlib import Path
-          model = Path('models/qwen.gguf')
-          digest = hashlib.file_digest(model.open('rb'), 'sha256').hexdigest()
-          if digest != os.environ['MODEL_SHA256'] or model.stat().st_size != 1117320736:
-              raise SystemExit('model size/SHA256 mismatch')
-          Path('models/qwen.gguf.provenance.json').write_text(json.dumps({
-              'repository': 'Qwen/Qwen2.5-1.5B-Instruct-GGUF',
-              'revision': '91cad51170dc346986eccefdc2dd33a9da36ead9',
-              'filename': 'qwen2.5-1.5b-instruct-q4_k_m.gguf',
-              'url': os.environ['MODEL_URL'], 'sha256': digest,
-              'bytes': model.stat().st_size}, indent=2) + '\n')
-          PY
+          MODEL_CHOICE: ${{ matrix.model }}
+        run: python scripts/budget_models.py "$MODEL_CHOICE" --prepare models/model.gguf
       - name: Start pinned CPU llama.cpp container
+        env:
+          MODEL_CHOICE: ${{ matrix.model }}
         run: |
-          docker run --detach --name budget-qwen --cpus=2 --memory=6g \
-            -p 127.0.0.1:8080:8080 -v "$PWD/models:/models:ro" \
-            "$LLAMA_IMAGE" -m /models/qwen.gguf --host 0.0.0.0 --port 8080 \
-            -c 4096 -t 2 -tb 2 -ngl 0 --parallel 1 --jinja --reasoning-format none
+          template=$(python -c 'import json, os; print(json.load(open("fixtures/budget_compression/models.json"))[os.environ["MODEL_CHOICE"]]["template"] or "")')
+          extra=()
+          if [ -n "$template" ]; then
+            extra+=(--chat-template-file "/lab/$template")
+          fi
+          docker run --detach --name budget-model --cpus=2 --memory=6g \
+            -p 127.0.0.1:8080:8080 -v "$PWD/models:/models:ro" -v "$PWD/fixtures:/lab/fixtures:ro" \
+            "$LLAMA_IMAGE" -m /models/model.gguf --host 0.0.0.0 --port 8080 \
+            -c 4096 -t 2 -tb 2 -ngl 0 --parallel 1 --jinja --reasoning-format none \
+            --reasoning off "${extra[@]}"
           for _ in {1..90}; do
             if curl --fail --silent http://127.0.0.1:8080/health >/dev/null; then
               exit 0
             fi
             sleep 2
           done
-          docker logs budget-qwen
+          docker logs budget-model
           exit 1
       - name: Compare 20 cases before and after (both budgets enforced)
         run: |
           python scripts/compare_budget_overhead.py --base-url http://127.0.0.1:8080 \
             --baseline "$BASELINE" --output test-results/budget-quality/paired.json
       - name: Validate evidence, record provenance and publish summary
+        env:
+          STRICT_QUALITY: ${{ inputs.strict_quality && 'true' || 'false' }}
         run: |
+          extra=()
+          if [ "$STRICT_QUALITY" = true ]; then
+            extra+=(--require-success)
+          fi
           python scripts/summarize_budget_quality.py \
-            --report test-results/budget-quality/paired.json --model models/qwen.gguf \
-            --image "$LLAMA_IMAGE" --summary "$GITHUB_STEP_SUMMARY"
+            --report test-results/budget-quality/paired.json --model models/model.gguf \
+            --image "$LLAMA_IMAGE" --runtime-revision "$LLAMA_REVISION" \
+            --summary "$GITHUB_STEP_SUMMARY" "${extra[@]}"
       - name: Collect runtime diagnostics
         if: always()
         run: |
-          docker logs budget-qwen > test-results/budget-quality/llama-server.log 2>&1 || true
-          docker inspect budget-qwen > test-results/budget-quality/container.json 2>&1 || true
-          cp models/qwen.gguf.provenance.json test-results/budget-quality/ 2>/dev/null || true
+          docker logs budget-model > test-results/budget-quality/llama-server.log 2>&1 || true
+          docker inspect budget-model > test-results/budget-quality/container.json 2>&1 || true
+          cp models/model.gguf.provenance.json test-results/budget-quality/ 2>/dev/null || true
       - name: Upload measured evidence (including failed runs)
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: budget-quality-qwen-${{ github.run_id }}-${{ github.run_attempt }}
+          name: budget-quality-${{ matrix.model }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: test-results/budget-quality/
           retention-days: 30
           if-no-files-found: error
       - name: Stop model server
         if: always()
-        run: docker rm -f budget-qwen 2>/dev/null || true
+        run: docker rm -f budget-model 2>/dev/null || true
