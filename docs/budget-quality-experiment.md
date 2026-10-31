@@ -202,3 +202,77 @@ To repeat the pressure condition, use the same command and provenance flags with
 standard conditions. No claim of a generally learned compressor follows from
 hand-authored candidates, and dropping optional tone is not evidence about actual
 translation fidelity.
+
+## Shared overhead follow-up (2026-10-31)
+
+The 800/512 comparison keeps the corpus, mandatory anchors, authored candidate
+texts, loss ordering and independent scorer unchanged. Only exact known catalogue
+strings are compacted. Unknown or extended descriptions (including additional
+negation/approval constraints) are retained byte-for-byte. The five choices,
+argument names, required/optional markers and JSON types remain explicit.
+
+An initial 580-character shared prefix removed all redundant purpose prose and
+shortened the instructions. Its [exploratory paired receipt](experiments/budget-quality/v3-overhead-exploratory.json)
+shows why input feasibility must be distinguished from task quality: all inputs
+fit, but the compact version had 14 successes, 3 abstentions, 2 invalid outputs and
+1 wrong action. That variant is not the final implementation. Its
+[provenance](experiments/budget-quality/v3-overhead-exploratory-provenance.json)
+identifies the exact source hash. These are exploratory observations on one small
+corpus, not proof that one particular wording change caused the failures.
+
+The final version retains concise tool-purpose descriptions and the original
+choice/extraction, missing-task and no-invention instructions. Its shared prefix
+is 687 characters (48 fewer than 735). The catalogue heading removes redundant
+wording while continuing to require the declared JSON types.
+
+| Shared component | Before chars | After chars |
+| --- | ---: | ---: |
+| Choice/output instructions | 187 | 180 |
+| price_lookup definition | 80 | 68 |
+| set_reminder definition | 85 | 80 |
+| configure_retry definition | 104 | 98 |
+| archive_branch definition | 108 | 106 |
+| translate definition | 89 | 77 |
+| Heading, newlines and Task framing | 82 | 78 |
+| Total | 735 | 687 |
+
+Run the paired comparison against an explicitly started server:
+
+```bash
+PYTHONPATH=src python scripts/compare_budget_overhead.py \
+  --base-url http://127.0.0.1:8088 \
+  --baseline 1184ba449e146cb8f101aaa743449eb71a1afeb9 \
+  --output docs/experiments/budget-quality/v3-overhead-paired.json
+```
+
+The receipt records every candidate's text, characters and measured tokenizer
+count, plus the selected candidate, mandatory-anchor checks, output and independent
+score. Both character and token limits apply to complete prompt text, excluding
+the chat template as in v2. A character-only pass is never substituted for a
+512-token check.
+
+The [final paired receipt](experiments/budget-quality/v3-overhead-paired.json) and
+[provenance](experiments/budget-quality/v3-overhead-provenance.json) use the fixed
+Qwen2.5-1.5B-Instruct Q4_K_M model, verified against the v2 weight SHA-256, CPU
+only, 2 threads, context 4096, temperature 0, seed 42 and 128 output tokens.
+The available llama.cpp revision is `5047748f114564fcf271e6a648f60e2d2eae6264`,
+**different from historical v2**; therefore both before and after were rerun on
+this same runtime. This is a paired comparison, not an exact historical replay.
+
+| 800 chars / 512 tokens | Before rerun | Final compact prompt |
+| --- | ---: | ---: |
+| Required-task successes / 20 planned | 12 | 20 |
+| Infeasible | 8 | 0 |
+| Wrong action / abstained / invalid / model error | 0 / 0 / 0 / 0 | 0 / 0 / 0 / 0 |
+| Selected tiers | 6 brief, 6 skeleton | 4 verbatim, 16 brief |
+| Selected prompt chars | 783–800 | 752–800 |
+| Selected prompt tokens | 172–190 | 169–220 |
+| Preferred argument hits / scored responses | 6 / 12 | 20 / 20 |
+
+All eight formerly infeasible cases now fit both limits and succeeded. Every
+selected prompt retains all mandatory anchors; no preferred argument needs to be
+dropped. The receipt also records counts for *all* candidates, including those
+rejected before selection, enabling a per-case comparison without inferring token
+counts from characters. The improvement is established for this authored corpus
+and this model run only; it does not establish general compression quality or
+translation fidelity. The exploratory failed variant is kept separate.

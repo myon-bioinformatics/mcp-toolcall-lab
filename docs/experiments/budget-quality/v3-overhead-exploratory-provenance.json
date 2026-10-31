@@ -1,0 +1,31 @@
+{
+  "model_sha256": "6a1a2eb6d15622bf3c96857206351ba97e1af16c30d7a74ee38970e434e9407e",
+  "model_revision": "91cad51170dc346986eccefdc2dd33a9da36ead9",
+  "model": "Qwen/Qwen2.5-1.5B-Instruct-GGUF Q4_K_M",
+  "runtime_revision": "5047748f114564fcf271e6a648f60e2d2eae6264",
+  "runtime_note": "Different from historical v2 runtime; before and after rerun paired on this runtime.",
+  "server_command": [
+    "/tmp/talkcompress-llama/build/bin/llama-server",
+    "-m",
+    "/tmp/budget-qwen1.5.gguf",
+    "-c",
+    "4096",
+    "-t",
+    "2",
+    "-tb",
+    "2",
+    "-ngl",
+    "0",
+    "--parallel",
+    "1",
+    "--host",
+    "127.0.0.1",
+    "--port",
+    "8088",
+    "--jinja",
+    "--reasoning-format",
+    "none"
+  ],
+  "source_commit": "6f1aa6dd55e44660764dd940f8d78df2e2b6a628",
+  "source_sha256": "93a8b14e715bf7050b85a2c557fb9b1727dfac756cfeaaeb03635b2d6ff4a862"
+}
