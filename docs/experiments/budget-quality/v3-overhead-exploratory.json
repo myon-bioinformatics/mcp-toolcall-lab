@@ -1,0 +1,4171 @@
+{
+  "baseline_commit": "1184ba449e146cb8f101aaa743449eb71a1afeb9",
+  "corpus_sha256": "3a34dd449a11099365dded08c9bfb2da4c7c1cc2a913ee2275546999fbb7c22e",
+  "measurement": "complete_prompt_text_without_chat_template",
+  "seed": 42,
+  "temperature": 0,
+  "max_output_tokens": 128,
+  "overhead": {
+    "before": {
+      "instruction": 187,
+      "catalogue_and_framing": 548,
+      "total": 735,
+      "tool_lines": [
+        {
+          "text": "price_lookup(item:string,currency:string,detail?:string): look up an item price.",
+          "chars": 80
+        },
+        {
+          "text": "set_reminder(date:string,time:string,topic:string,tone?:string): schedule a reminder.",
+          "chars": 85
+        },
+        {
+          "text": "configure_retry(job:string,max_retries:integer,on_failure_only:boolean,note?:string): configure retries.",
+          "chars": 104
+        },
+        {
+          "text": "archive_branch(branch:string,delete_allowed:boolean,review_required:boolean,note?:string): archive a branch.",
+          "chars": 108
+        },
+        {
+          "text": "translate(source_text:string,target_language:string,tone?:string): request a translation.",
+          "chars": 89
+        }
+      ]
+    },
+    "after": {
+      "instruction": 149,
+      "catalogue_and_framing": 431,
+      "total": 580,
+      "tool_lines": [
+        {
+          "text": "price_lookup(item:string,currency:string,detail?:string)",
+          "chars": 56
+        },
+        {
+          "text": "set_reminder(date:string,time:string,topic:string,tone?:string)",
+          "chars": 63
+        },
+        {
+          "text": "configure_retry(job:string,max_retries:integer,on_failure_only:boolean,note?:string)",
+          "chars": 84
+        },
+        {
+          "text": "archive_branch(branch:string,delete_allowed:boolean,review_required:boolean,note?:string)",
+          "chars": 89
+        },
+        {
+          "text": "translate(source_text:string,target_language:string,tone?:string)",
+          "chars": 65
+        }
+      ]
+    }
+  },
+  "cases": [
+    {
+      "case_id": "budget-01",
+      "before": {
+        "case_id": "budget-01",
+        "language": "en",
+        "max_chars": 800,
+        "max_tokens": 512,
+        "status": "success",
+        "selected": {
+          "candidate": "skeleton",
+          "loss_rank": 3,
+          "losses": [
+            "optional explanatory background and politeness modifiers",
+            "optional preferred argument detail=include_tax"
+          ],
+          "chars": 783,
+          "utf8_bytes": 783,
+          "tokens": 172,
+          "missing_anchors": [],
+          "fits": true,
+          "prompt": "Choose one advertised tool and extract arguments from the task. Return JSON only: {\"tool\":name,\"arguments\":{...}}. Missing task: return {\"tool\":null,\"arguments\":{}}. Do not invent values.\nTools (all arguments required except ?; use the declared JSON types):\nprice_lookup(item:string,currency:string,detail?:string): look up an item price.\nset_reminder(date:string,time:string,topic:string,tone?:string): schedule a reminder.\nconfigure_retry(job:string,max_retries:integer,on_failure_only:boolean,note?:string): configure retries.\narchive_branch(branch:string,delete_allowed:boolean,review_required:boolean,note?:string): archive a branch.\ntranslate(source_text:string,target_language:string,tone?:string): request a translation.\nTask:\nLook up the price: item=widget-01, currency=USD."
+        },
+        "attempts": [
+          {
+            "candidate": "verbatim",
+            "loss_rank": 0,
+            "losses": [],
+            "chars": 947,
+            "utf8_bytes": 947,
+            "tokens": 201,
+            "missing_anchors": [],
+            "fits": false
+          },
+          {
+            "candidate": "rules",
+            "loss_rank": 1,
+            "losses": [
+              "wording/abbreviations may change"
+            ],
+            "chars": 947,
+            "utf8_bytes": 947,
+            "tokens": 201,
+            "missing_anchors": [],
+            "fits": false
+          },
+          {
+            "candidate": "brief",
+            "loss_rank": 2,
+            "losses": [
+              "optional explanatory background and politeness modifiers"
+            ],
+            "chars": 803,
+            "utf8_bytes": 803,
+            "tokens": 177,
+            "missing_anchors": [],
+            "fits": false
+          },
+          {
+            "candidate": "skeleton",
+            "loss_rank": 3,
+            "losses": [
+              "optional explanatory background and politeness modifiers",
+              "optional preferred argument detail=include_tax"
+            ],
+            "chars": 783,
+            "utf8_bytes": 783,
+            "tokens": 172,
+            "missing_anchors": [],
+            "fits": true
+          }
+        ],
+        "task_success": true,
+        "quality_hits": 0,
+        "quality_total": 1,
+        "quality_score": 0.0,
+        "unknown_arguments": [],
+        "response": {
+          "tool": "price_lookup",
+          "arguments": {
+            "item": "widget-01",
+            "currency": "USD"
+          }
+        },
+        "all_candidates": [
+          {
+            "id": "verbatim",
+            "loss_rank": 0,
+            "text": "This is a fictional staging request. Please use natural, carefully explained wording; the repeated background is only a readability preference. Look up the price: item=widget-01, currency=USD. detail=include_tax.",
+            "losses": [],
+            "chars": 947,
+            "tokens": 201
+          },
+          {
+            "id": "rules",
+            "loss_rank": 1,
+            "text": "This is a fictional staging request. Please use natural, carefully explained wording; the repeated background is only a readability preference. Look up the price: item=widget-01, currency=USD. detail=include_tax.",
+            "losses": [
+              "wording/abbreviations may change"
+            ],
+            "chars": 947,
+            "tokens": 201
+          },
+          {
+            "id": "brief",
+            "loss_rank": 2,
+            "text": "Look up the price: item=widget-01, currency=USD. detail=include_tax.",
+            "losses": [
+              "optional explanatory background and politeness modifiers"
+            ],
+            "chars": 803,
+            "tokens": 177
+          },
+          {
+            "id": "skeleton",
+            "loss_rank": 3,
+            "text": "Look up the price: item=widget-01, currency=USD.",
+            "losses": [
+              "optional explanatory background and politeness modifiers",
+              "optional preferred argument detail=include_tax"
+            ],
+            "chars": 783,
+            "tokens": 172
+          }
+        ]
+      },
+      "after": {
+        "case_id": "budget-01",
+        "language": "en",
+        "max_chars": 800,
+        "max_tokens": 512,
+        "status": "success",
+        "selected": {
+          "candidate": "verbatim",
+          "loss_rank": 0,
+          "losses": [],
+          "chars": 792,
+          "utf8_bytes": 792,
+          "tokens": 172,
+          "missing_anchors": [],
+          "fits": true,
+          "prompt": "Choose one tool; extract task arguments. JSON only: {\"tool\":name,\"arguments\":{...}}. Missing task: {\"tool\":null,\"arguments\":{}}. Never invent values.\nTools (all arguments required except ?; declared JSON types):\nprice_lookup(item:string,currency:string,detail?:string)\nset_reminder(date:string,time:string,topic:string,tone?:string)\nconfigure_retry(job:string,max_retries:integer,on_failure_only:boolean,note?:string)\narchive_branch(branch:string,delete_allowed:boolean,review_required:boolean,note?:string)\ntranslate(source_text:string,target_language:string,tone?:string)\nTask:\nThis is a fictional staging request. Please use natural, carefully explained wording; the repeated background is only a readability preference. Look up the price: item=widget-01, currency=USD. detail=include_tax."
+        },
+        "attempts": [
+          {
+            "candidate": "verbatim",
+            "loss_rank": 0,
+            "losses": [],
+            "chars": 792,
+            "utf8_bytes": 792,
+            "tokens": 172,
+            "missing_anchors": [],
+            "fits": true
+          }
+        ],
+        "task_success": true,
+        "quality_hits": 1,
+        "quality_total": 1,
+        "quality_score": 1.0,
+        "unknown_arguments": [],
+        "response": {
+          "tool": "price_lookup",
+          "arguments": {
+            "item": "widget-01",
+            "currency": "USD",
+            "detail": "include_tax"
+          }
+        },
+        "all_candidates": [
+          {
+            "id": "verbatim",
+            "loss_rank": 0,
+            "text": "This is a fictional staging request. Please use natural, carefully explained wording; the repeated background is only a readability preference. Look up the price: item=widget-01, currency=USD. detail=include_tax.",
+            "losses": [],
+            "chars": 792,
+            "tokens": 172
+          },
+          {
+            "id": "rules",
+            "loss_rank": 1,
+            "text": "This is a fictional staging request. Please use natural, carefully explained wording; the repeated background is only a readability preference. Look up the price: item=widget-01, currency=USD. detail=include_tax.",
+            "losses": [
+              "wording/abbreviations may change"
+            ],
+            "chars": 792,
+            "tokens": 172
+          },
+          {
+            "id": "brief",
+            "loss_rank": 2,
+            "text": "Look up the price: item=widget-01, currency=USD. detail=include_tax.",
+            "losses": [
+              "optional explanatory background and politeness modifiers"
+            ],
+            "chars": 648,
+            "tokens": 148
+          },
+          {
+            "id": "skeleton",
+            "loss_rank": 3,
+            "text": "Look up the price: item=widget-01, currency=USD.",
+            "losses": [
+              "optional explanatory background and politeness modifiers",
+              "optional preferred argument detail=include_tax"
+            ],
+            "chars": 628,
+            "tokens": 143
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "budget-02",
+      "before": {
+        "case_id": "budget-02",
+        "language": "ja",
+        "max_chars": 800,
+        "max_tokens": 512,
+        "status": "success",
+        "selected": {
+          "candidate": "brief",
+          "loss_rank": 2,
+          "losses": [
+            "optional explanatory background and politeness modifiers"
+          ],
+          "chars": 788,
+          "utf8_bytes": 812,
+          "tokens": 190,
+          "missing_anchors": [],
+          "fits": true,
+          "prompt": "Choose one advertised tool and extract arguments from the task. Return JSON only: {\"tool\":name,\"arguments\":{...}}. Missing task: return {\"tool\":null,\"arguments\":{}}. Do not invent values.\nTools (all arguments required except ?; use the declared JSON types):\nprice_lookup(item:string,currency:string,detail?:string): look up an item price.\nset_reminder(date:string,time:string,topic:string,tone?:string): schedule a reminder.\nconfigure_retry(job:string,max_retries:integer,on_failure_only:boolean,note?:string): configure retries.\narchive_branch(branch:string,delete_allowed:boolean,review_required:boolean,note?:string): archive a branch.\ntranslate(source_text:string,target_language:string,tone?:string): request a translation.\nTask:\n2026-11-02 09:30 に review-02 のリマインダーを設定。 tone=formal."
+        },
+        "attempts": [
+          {
+            "candidate": "verbatim",
+            "loss_rank": 0,
+            "losses": [],
+            "chars": 835,
+            "utf8_bytes": 953,
+            "tokens": 228,
+            "missing_anchors": [],
+            "fits": false
+          },
+          {
+            "candidate": "rules",
+            "loss_rank": 1,
+            "losses": [
+              "wording/abbreviations may change"
+            ],
+            "chars": 835,
+            "utf8_bytes": 953,
+            "tokens": 228,
+            "missing_anchors": [],
+            "fits": false
+          },
+          {
+            "candidate": "brief",
+            "loss_rank": 2,
+            "losses": [
+              "optional explanatory background and politeness modifiers"
+            ],
+            "chars": 788,
+            "utf8_bytes": 812,
+            "tokens": 190,
+            "missing_anchors": [],
+            "fits": true
+          }
+        ],
+        "task_success": true,
+        "quality_hits": 1,
+        "quality_total": 1,
+        "quality_score": 1.0,
+        "unknown_arguments": [],
+        "response": {
+          "tool": "set_reminder",
+          "arguments": {
+            "date": "2026-11-02",
+            "time": "09:30",
+            "topic": "review-02",
+            "tone": "formal"
+          }
+        },
+        "all_candidates": [
+          {
+            "id": "verbatim",
+            "loss_rank": 0,
+            "text": "架空の検証用メモです。自然で丁寧な説明にし、背景の繰り返しは読みやすさのために残してください。2026-11-02 09:30 に review-02 のリマインダーを設定。 tone=formal.",
+            "losses": [],
+            "chars": 835,
+            "tokens": 228
+          },
+          {
+            "id": "rules",
+            "loss_rank": 1,
+            "text": "架空の検証用メモです。自然で丁寧な説明にし、背景の繰り返しは読みやすさのために残してください。2026-11-02 09:30 に review-02 のリマインダーを設定。 tone=formal.",
+            "losses": [
+              "wording/abbreviations may change"
+            ],
+            "chars": 835,
+            "tokens": 228
+          },
+          {
+            "id": "brief",
+            "loss_rank": 2,
+            "text": "2026-11-02 09:30 に review-02 のリマインダーを設定。 tone=formal.",
+            "losses": [
+              "optional explanatory background and politeness modifiers"
+            ],
+            "chars": 788,
+            "tokens": 190
+          },
+          {
+            "id": "skeleton",
+            "loss_rank": 3,
+            "text": "2026-11-02 09:30 に review-02 のリマインダーを設定。",
+            "losses": [
+              "optional explanatory background and politeness modifiers",
+              "optional preferred argument tone=formal"
+            ],
+            "chars": 775,
+            "tokens": 186
+          }
+        ]
+      },
+      "after": {
+        "case_id": "budget-02",
+        "language": "ja",
+        "max_chars": 800,
+        "max_tokens": 512,
+        "status": "success",
+        "selected": {
+          "candidate": "verbatim",
+          "loss_rank": 0,
+          "losses": [],
+          "chars": 680,
+          "utf8_bytes": 798,
+          "tokens": 199,
+          "missing_anchors": [],
+          "fits": true,
+          "prompt": "Choose one tool; extract task arguments. JSON only: {\"tool\":name,\"arguments\":{...}}. Missing task: {\"tool\":null,\"arguments\":{}}. Never invent values.\nTools (all arguments required except ?; declared JSON types):\nprice_lookup(item:string,currency:string,detail?:string)\nset_reminder(date:string,time:string,topic:string,tone?:string)\nconfigure_retry(job:string,max_retries:integer,on_failure_only:boolean,note?:string)\narchive_branch(branch:string,delete_allowed:boolean,review_required:boolean,note?:string)\ntranslate(source_text:string,target_language:string,tone?:string)\nTask:\n架空の検証用メモです。自然で丁寧な説明にし、背景の繰り返しは読みやすさのために残してください。2026-11-02 09:30 に review-02 のリマインダーを設定。 tone=formal."
+        },
+        "attempts": [
+          {
+            "candidate": "verbatim",
+            "loss_rank": 0,
+            "losses": [],
+            "chars": 680,
+            "utf8_bytes": 798,
+            "tokens": 199,
+            "missing_anchors": [],
+            "fits": true
+          }
+        ],
+        "task_success": true,
+        "quality_hits": 1,
+        "quality_total": 1,
+        "quality_score": 1.0,
+        "unknown_arguments": [],
+        "response": {
+          "tool": "set_reminder",
+          "arguments": {
+            "date": "2026-11-02",
+            "time": "09:30",
+            "topic": "review-02",
+            "tone": "formal"
+          }
+        },
+        "all_candidates": [
+          {
+            "id": "verbatim",
+            "loss_rank": 0,
+            "text": "架空の検証用メモです。自然で丁寧な説明にし、背景の繰り返しは読みやすさのために残してください。2026-11-02 09:30 に review-02 のリマインダーを設定。 tone=formal.",
+            "losses": [],
+            "chars": 680,
+            "tokens": 199
+          },
+          {
+            "id": "rules",
+            "loss_rank": 1,
+            "text": "架空の検証用メモです。自然で丁寧な説明にし、背景の繰り返しは読みやすさのために残してください。2026-11-02 09:30 に review-02 のリマインダーを設定。 tone=formal.",
+            "losses": [
+              "wording/abbreviations may change"
+            ],
+            "chars": 680,
+            "tokens": 199
+          },
+          {
+            "id": "brief",
+            "loss_rank": 2,
+            "text": "2026-11-02 09:30 に review-02 のリマインダーを設定。 tone=formal.",
+            "losses": [
+              "optional explanatory background and politeness modifiers"
+            ],
+            "chars": 633,
+            "tokens": 161
+          },
+          {
+            "id": "skeleton",
+            "loss_rank": 3,
+            "text": "2026-11-02 09:30 に review-02 のリマインダーを設定。",
+            "losses": [
+              "optional explanatory background and politeness modifiers",
+              "optional preferred argument tone=formal"
+            ],
+            "chars": 620,
+            "tokens": 157
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "budget-03",
+      "before": {
+        "case_id": "budget-03",
+        "language": "en",
+        "max_chars": 800,
+        "max_tokens": 512,
+        "status": "infeasible",
+        "selected": null,
+        "attempts": [
+          {
+            "candidate": "verbatim",
+            "loss_rank": 0,
+            "losses": [],
+            "chars": 958,
+            "utf8_bytes": 958,
+            "tokens": 206,
+            "missing_anchors": [],
+            "fits": false
+          },
+          {
+            "candidate": "rules",
+            "loss_rank": 1,
+            "losses": [
+              "wording/abbreviations may change"
+            ],
+            "chars": 957,
+            "utf8_bytes": 957,
+            "tokens": 206,
+            "missing_anchors": [
+              "Do not run on success"
+            ],
+            "fits": false
+          },
+          {
+            "candidate": "brief",
+            "loss_rank": 2,
+            "losses": [
+              "optional explanatory background and politeness modifiers"
+            ],
+            "chars": 814,
+            "utf8_bytes": 814,
+            "tokens": 182,
+            "missing_anchors": [],
+            "fits": false
+          },
+          {
+            "candidate": "skeleton",
+            "loss_rank": 3,
+            "losses": [
+              "optional explanatory background and politeness modifiers",
+              "optional preferred argument note=quiet"
+            ],
+            "chars": 802,
+            "utf8_bytes": 802,
+            "tokens": 178,
+            "missing_anchors": [],
+            "fits": false
+          }
+        ],
+        "task_success": null,
+        "all_candidates": [
+          {
+            "id": "verbatim",
+            "loss_rank": 0,
+            "text": "This is a fictional staging request. Please use natural, carefully explained wording; the repeated background is only a readability preference. job-03: max_retries=3, on_failure_only=true. Do not run on success. note=quiet.",
+            "losses": [],
+            "chars": 958,
+            "tokens": 206
+          },
+          {
+            "id": "rules",
+            "loss_rank": 1,
+            "text": "This is a fictional staging request. Please use natural, carefully explained wording; the repeated background is only a readability preference. job-03: max_retries=3, on_failure_only=true. Don't run on success. note=quiet.",
+            "losses": [
+              "wording/abbreviations may change"
+            ],
+            "chars": 957,
+            "tokens": 206
+          },
+          {
+            "id": "brief",
+            "loss_rank": 2,
+            "text": "job-03: max_retries=3, on_failure_only=true. Do not run on success. note=quiet.",
+            "losses": [
+              "optional explanatory background and politeness modifiers"
+            ],
+            "chars": 814,
+            "tokens": 182
+          },
+          {
+            "id": "skeleton",
+            "loss_rank": 3,
+            "text": "job-03: max_retries=3, on_failure_only=true. Do not run on success.",
+            "losses": [
+              "optional explanatory background and politeness modifiers",
+              "optional preferred argument note=quiet"
+            ],
+            "chars": 802,
+            "tokens": 178
+          }
+        ]
+      },
+      "after": {
+        "case_id": "budget-03",
+        "language": "en",
+        "max_chars": 800,
+        "max_tokens": 512,
+        "status": "success",
+        "selected": {
+          "candidate": "brief",
+          "loss_rank": 2,
+          "losses": [
+            "optional explanatory background and politeness modifiers"
+          ],
+          "chars": 659,
+          "utf8_bytes": 659,
+          "tokens": 153,
+          "missing_anchors": [],
+          "fits": true,
+          "prompt": "Choose one tool; extract task arguments. JSON only: {\"tool\":name,\"arguments\":{...}}. Missing task: {\"tool\":null,\"arguments\":{}}. Never invent values.\nTools (all arguments required except ?; declared JSON types):\nprice_lookup(item:string,currency:string,detail?:string)\nset_reminder(date:string,time:string,topic:string,tone?:string)\nconfigure_retry(job:string,max_retries:integer,on_failure_only:boolean,note?:string)\narchive_branch(branch:string,delete_allowed:boolean,review_required:boolean,note?:string)\ntranslate(source_text:string,target_language:string,tone?:string)\nTask:\njob-03: max_retries=3, on_failure_only=true. Do not run on success. note=quiet."
+        },
+        "attempts": [
+          {
+            "candidate": "verbatim",
+            "loss_rank": 0,
+            "losses": [],
+            "chars": 803,
+            "utf8_bytes": 803,
+            "tokens": 177,
+            "missing_anchors": [],
+            "fits": false
+          },
+          {
+            "candidate": "rules",
+            "loss_rank": 1,
+            "losses": [
+              "wording/abbreviations may change"
+            ],
+            "chars": 802,
+            "utf8_bytes": 802,
+            "tokens": 177,
+            "missing_anchors": [
+              "Do not run on success"
+            ],
+            "fits": false
+          },
+          {
+            "candidate": "brief",
+            "loss_rank": 2,
+            "losses": [
+              "optional explanatory background and politeness modifiers"
+            ],
+            "chars": 659,
+            "utf8_bytes": 659,
+            "tokens": 153,
+            "missing_anchors": [],
+            "fits": true
+          }
+        ],
+        "task_success": true,
+        "quality_hits": 1,
+        "quality_total": 1,
+        "quality_score": 1.0,
+        "unknown_arguments": [],
+        "response": {
+          "tool": "configure_retry",
+          "arguments": {
+            "job": "job-03",
+            "max_retries": 3,
+            "on_failure_only": true,
+            "note": "quiet"
+          }
+        },
+        "all_candidates": [
+          {
+            "id": "verbatim",
+            "loss_rank": 0,
+            "text": "This is a fictional staging request. Please use natural, carefully explained wording; the repeated background is only a readability preference. job-03: max_retries=3, on_failure_only=true. Do not run on success. note=quiet.",
+            "losses": [],
+            "chars": 803,
+            "tokens": 177
+          },
+          {
+            "id": "rules",
+            "loss_rank": 1,
+            "text": "This is a fictional staging request. Please use natural, carefully explained wording; the repeated background is only a readability preference. job-03: max_retries=3, on_failure_only=true. Don't run on success. note=quiet.",
+            "losses": [
+              "wording/abbreviations may change"
+            ],
+            "chars": 802,
+            "tokens": 177
+          },
+          {
+            "id": "brief",
+            "loss_rank": 2,
+            "text": "job-03: max_retries=3, on_failure_only=true. Do not run on success. note=quiet.",
+            "losses": [
+              "optional explanatory background and politeness modifiers"
+            ],
+            "chars": 659,
+            "tokens": 153
+          },
+          {
+            "id": "skeleton",
+            "loss_rank": 3,
+            "text": "job-03: max_retries=3, on_failure_only=true. Do not run on success.",
+            "losses": [
+              "optional explanatory background and politeness modifiers",
+              "optional preferred argument note=quiet"
+            ],
+            "chars": 647,
+            "tokens": 149
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "budget-04",
+      "before": {
+        "case_id": "budget-04",
+        "language": "ja",
+        "max_chars": 800,
+        "max_tokens": 512,
+        "status": "infeasible",
+        "selected": null,
+        "attempts": [
+          {
+            "candidate": "verbatim",
+            "loss_rank": 0,
+            "losses": [],
+            "chars": 877,
+            "utf8_bytes": 1009,
+            "tokens": 224,
+            "missing_anchors": [],
+            "fits": false
+          },
+          {
+            "candidate": "rules",
+            "loss_rank": 1,
+            "losses": [
+              "wording/abbreviations may change"
+            ],
+            "chars": 877,
+            "utf8_bytes": 1009,
+            "tokens": 224,
+            "missing_anchors": [],
+            "fits": false
+          },
+          {
+            "candidate": "brief",
+            "loss_rank": 2,
+            "losses": [
+              "optional explanatory background and politeness modifiers"
+            ],
+            "chars": 830,
+            "utf8_bytes": 868,
+            "tokens": 186,
+            "missing_anchors": [],
+            "fits": false
+          },
+          {
+            "candidate": "skeleton",
+            "loss_rank": 3,
+            "losses": [
+              "optional explanatory background and politeness modifiers",
+              "optional preferred argument note=retain_history"
+            ],
+            "chars": 809,
+            "utf8_bytes": 847,
+            "tokens": 181,
+            "missing_anchors": [],
+            "fits": false
+          }
+        ],
+        "task_success": null,
+        "all_candidates": [
+          {
+            "id": "verbatim",
+            "loss_rank": 0,
+            "text": "架空の検証用メモです。自然で丁寧な説明にし、背景の繰り返しは読みやすさのために残してください。archive-04 をアーカイブ: delete_allowed=false, review_required=true。レビュー前に削除しない。 note=retain_history.",
+            "losses": [],
+            "chars": 877,
+            "tokens": 224
+          },
+          {
+            "id": "rules",
+            "loss_rank": 1,
+            "text": "架空の検証用メモです。自然で丁寧な説明にし、背景の繰り返しは読みやすさのために残してください。archive-04 をアーカイブ: delete_allowed=false, review_required=true。レビュー前に削除しない。 note=retain_history.",
+            "losses": [
+              "wording/abbreviations may change"
+            ],
+            "chars": 877,
+            "tokens": 224
+          },
+          {
+            "id": "brief",
+            "loss_rank": 2,
+            "text": "archive-04 をアーカイブ: delete_allowed=false, review_required=true。レビュー前に削除しない。 note=retain_history.",
+            "losses": [
+              "optional explanatory background and politeness modifiers"
+            ],
+            "chars": 830,
+            "tokens": 186
+          },
+          {
+            "id": "skeleton",
+            "loss_rank": 3,
+            "text": "archive-04 をアーカイブ: delete_allowed=false, review_required=true。レビュー前に削除しない。",
+            "losses": [
+              "optional explanatory background and politeness modifiers",
+              "optional preferred argument note=retain_history"
+            ],
+            "chars": 809,
+            "tokens": 181
+          }
+        ]
+      },
+      "after": {
+        "case_id": "budget-04",
+        "language": "ja",
+        "max_chars": 800,
+        "max_tokens": 512,
+        "status": "success",
+        "selected": {
+          "candidate": "verbatim",
+          "loss_rank": 0,
+          "losses": [],
+          "chars": 722,
+          "utf8_bytes": 854,
+          "tokens": 195,
+          "missing_anchors": [],
+          "fits": true,
+          "prompt": "Choose one tool; extract task arguments. JSON only: {\"tool\":name,\"arguments\":{...}}. Missing task: {\"tool\":null,\"arguments\":{}}. Never invent values.\nTools (all arguments required except ?; declared JSON types):\nprice_lookup(item:string,currency:string,detail?:string)\nset_reminder(date:string,time:string,topic:string,tone?:string)\nconfigure_retry(job:string,max_retries:integer,on_failure_only:boolean,note?:string)\narchive_branch(branch:string,delete_allowed:boolean,review_required:boolean,note?:string)\ntranslate(source_text:string,target_language:string,tone?:string)\nTask:\n架空の検証用メモです。自然で丁寧な説明にし、背景の繰り返しは読みやすさのために残してください。archive-04 をアーカイブ: delete_allowed=false, review_required=true。レビュー前に削除しない。 note=retain_history."
+        },
+        "attempts": [
+          {
+            "candidate": "verbatim",
+            "loss_rank": 0,
+            "losses": [],
+            "chars": 722,
+            "utf8_bytes": 854,
+            "tokens": 195,
+            "missing_anchors": [],
+            "fits": true
+          }
+        ],
+        "task_success": true,
+        "quality_hits": 1,
+        "quality_total": 1,
+        "quality_score": 1.0,
+        "unknown_arguments": [],
+        "response": {
+          "tool": "archive_branch",
+          "arguments": {
+            "branch": "archive-04",
+            "delete_allowed": false,
+            "review_required": true,
+            "note": "retain_history"
+          }
+        },
+        "all_candidates": [
+          {
+            "id": "verbatim",
+            "loss_rank": 0,
+            "text": "架空の検証用メモです。自然で丁寧な説明にし、背景の繰り返しは読みやすさのために残してください。archive-04 をアーカイブ: delete_allowed=false, review_required=true。レビュー前に削除しない。 note=retain_history.",
+            "losses": [],
+            "chars": 722,
+            "tokens": 195
+          },
+          {
+            "id": "rules",
+            "loss_rank": 1,
+            "text": "架空の検証用メモです。自然で丁寧な説明にし、背景の繰り返しは読みやすさのために残してください。archive-04 をアーカイブ: delete_allowed=false, review_required=true。レビュー前に削除しない。 note=retain_history.",
+            "losses": [
+              "wording/abbreviations may change"
+            ],
+            "chars": 722,
+            "tokens": 195
+          },
+          {
+            "id": "brief",
+            "loss_rank": 2,
+            "text": "archive-04 をアーカイブ: delete_allowed=false, review_required=true。レビュー前に削除しない。 note=retain_history.",
+            "losses": [
+              "optional explanatory background and politeness modifiers"
+            ],
+            "chars": 675,
+            "tokens": 157
+          },
+          {
+            "id": "skeleton",
+            "loss_rank": 3,
+            "text": "archive-04 をアーカイブ: delete_allowed=false, review_required=true。レビュー前に削除しない。",
+            "losses": [
+              "optional explanatory background and politeness modifiers",
+              "optional preferred argument note=retain_history"
+            ],
+            "chars": 654,
+            "tokens": 152
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "budget-05",
+      "before": {
+        "case_id": "budget-05",
+        "language": "en",
+        "max_chars": 800,
+        "max_tokens": 512,
+        "status": "infeasible",
+        "selected": null,
+        "attempts": [
+          {
+            "candidate": "verbatim",
+            "loss_rank": 0,
+            "losses": [],
+            "chars": 991,
+            "utf8_bytes": 991,
+            "tokens": 201,
+            "missing_anchors": [],
+            "fits": false
+          },
+          {
+            "candidate": "rules",
+            "loss_rank": 1,
+            "losses": [
+              "wording/abbreviations may change"
+            ],
+            "chars": 991,
+            "utf8_bytes": 991,
+            "tokens": 201,
+            "missing_anchors": [],
+            "fits": false
+          },
+          {
+            "candidate": "brief",
+            "loss_rank": 2,
+            "losses": [
+              "optional explanatory background and politeness modifiers"
+            ],
+            "chars": 847,
+            "utf8_bytes": 847,
+            "tokens": 177,
+            "missing_anchors": [],
+            "fits": false
+          },
+          {
+            "candidate": "skeleton",
+            "loss_rank": 3,
+            "losses": [
+              "optional explanatory background and politeness modifiers",
+              "optional preferred argument tone=formal"
+            ],
+            "chars": 834,
+            "utf8_bytes": 834,
+            "tokens": 173,
+            "missing_anchors": [],
+            "fits": false
+          }
+        ],
+        "task_success": null,
+        "all_candidates": [
+          {
+            "id": "verbatim",
+            "loss_rank": 0,
+            "text": "This is a fictional staging request. Please use natural, carefully explained wording; the repeated background is only a readability preference. Request translation: source_text=\"The fictional parcel arrives tomorrow\", target_language=Japanese. tone=formal.",
+            "losses": [],
+            "chars": 991,
+            "tokens": 201
+          },
+          {
+            "id": "rules",
+            "loss_rank": 1,
+            "text": "This is a fictional staging request. Please use natural, carefully explained wording; the repeated background is only a readability preference. Request translation: source_text=\"The fictional parcel arrives tomorrow\", target_language=Japanese. tone=formal.",
+            "losses": [
+              "wording/abbreviations may change"
+            ],
+            "chars": 991,
+            "tokens": 201
+          },
+          {
+            "id": "brief",
+            "loss_rank": 2,
+            "text": "Request translation: source_text=\"The fictional parcel arrives tomorrow\", target_language=Japanese. tone=formal.",
+            "losses": [
+              "optional explanatory background and politeness modifiers"
+            ],
+            "chars": 847,
+            "tokens": 177
+          },
+          {
+            "id": "skeleton",
+            "loss_rank": 3,
+            "text": "Request translation: source_text=\"The fictional parcel arrives tomorrow\", target_language=Japanese.",
+            "losses": [
+              "optional explanatory background and politeness modifiers",
+              "optional preferred argument tone=formal"
+            ],
+            "chars": 834,
+            "tokens": 173
+          }
+        ]
+      },
+      "after": {
+        "case_id": "budget-05",
+        "language": "en",
+        "max_chars": 800,
+        "max_tokens": 512,
+        "status": "success",
+        "selected": {
+          "candidate": "brief",
+          "loss_rank": 2,
+          "losses": [
+            "optional explanatory background and politeness modifiers"
+          ],
+          "chars": 692,
+          "utf8_bytes": 692,
+          "tokens": 148,
+          "missing_anchors": [],
+          "fits": true,
+          "prompt": "Choose one tool; extract task arguments. JSON only: {\"tool\":name,\"arguments\":{...}}. Missing task: {\"tool\":null,\"arguments\":{}}. Never invent values.\nTools (all arguments required except ?; declared JSON types):\nprice_lookup(item:string,currency:string,detail?:string)\nset_reminder(date:string,time:string,topic:string,tone?:string)\nconfigure_retry(job:string,max_retries:integer,on_failure_only:boolean,note?:string)\narchive_branch(branch:string,delete_allowed:boolean,review_required:boolean,note?:string)\ntranslate(source_text:string,target_language:string,tone?:string)\nTask:\nRequest translation: source_text=\"The fictional parcel arrives tomorrow\", target_language=Japanese. tone=formal."
+        },
+        "attempts": [
+          {
+            "candidate": "verbatim",
+            "loss_rank": 0,
+            "losses": [],
+            "chars": 836,
+            "utf8_bytes": 836,
+            "tokens": 172,
+            "missing_anchors": [],
+            "fits": false
+          },
+          {
+            "candidate": "rules",
+            "loss_rank": 1,
+            "losses": [
+              "wording/abbreviations may change"
+            ],
+            "chars": 836,
+            "utf8_bytes": 836,
+            "tokens": 172,
+            "missing_anchors": [],
+            "fits": false
+          },
+          {
+            "candidate": "brief",
+            "loss_rank": 2,
+            "losses": [
+              "optional explanatory background and politeness modifiers"
+            ],
+            "chars": 692,
+            "utf8_bytes": 692,
+            "tokens": 148,
+            "missing_anchors": [],
+            "fits": true
+          }
+        ],
+        "task_success": true,
+        "quality_hits": 1,
+        "quality_total": 1,
+        "quality_score": 1.0,
+        "unknown_arguments": [],
+        "response": {
+          "tool": "translate",
+          "arguments": {
+            "source_text": "The fictional parcel arrives tomorrow",
+            "target_language": "Japanese",
+            "tone": "formal"
+          }
+        },
+        "all_candidates": [
+          {
+            "id": "verbatim",
+            "loss_rank": 0,
+            "text": "This is a fictional staging request. Please use natural, carefully explained wording; the repeated background is only a readability preference. Request translation: source_text=\"The fictional parcel arrives tomorrow\", target_language=Japanese. tone=formal.",
+            "losses": [],
+            "chars": 836,
+            "tokens": 172
+          },
+          {
+            "id": "rules",
+            "loss_rank": 1,
+            "text": "This is a fictional staging request. Please use natural, carefully explained wording; the repeated background is only a readability preference. Request translation: source_text=\"The fictional parcel arrives tomorrow\", target_language=Japanese. tone=formal.",
+            "losses": [
+              "wording/abbreviations may change"
+            ],
+            "chars": 836,
+            "tokens": 172
+          },
+          {
+            "id": "brief",
+            "loss_rank": 2,
+            "text": "Request translation: source_text=\"The fictional parcel arrives tomorrow\", target_language=Japanese. tone=formal.",
+            "losses": [
+              "optional explanatory background and politeness modifiers"
+            ],
+            "chars": 692,
+            "tokens": 148
+          },
+          {
+            "id": "skeleton",
+            "loss_rank": 3,
+            "text": "Request translation: source_text=\"The fictional parcel arrives tomorrow\", target_language=Japanese.",
+            "losses": [
+              "optional explanatory background and politeness modifiers",
+              "optional preferred argument tone=formal"
+            ],
+            "chars": 679,
+            "tokens": 144
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "budget-06",
+      "before": {
+        "case_id": "budget-06",
+        "language": "ja",
+        "max_chars": 800,
+        "max_tokens": 512,
+        "status": "success",
+        "selected": {
+          "candidate": "brief",
+          "loss_rank": 2,
+          "losses": [
+            "optional explanatory background and politeness modifiers"
+          ],
+          "chars": 790,
+          "utf8_bytes": 800,
+          "tokens": 178,
+          "missing_anchors": [],
+          "fits": true,
+          "prompt": "Choose one advertised tool and extract arguments from the task. Return JSON only: {\"tool\":name,\"arguments\":{...}}. Missing task: return {\"tool\":null,\"arguments\":{}}. Do not invent values.\nTools (all arguments required except ?; use the declared JSON types):\nprice_lookup(item:string,currency:string,detail?:string): look up an item price.\nset_reminder(date:string,time:string,topic:string,tone?:string): schedule a reminder.\nconfigure_retry(job:string,max_retries:integer,on_failure_only:boolean,note?:string): configure retries.\narchive_branch(branch:string,delete_allowed:boolean,review_required:boolean,note?:string): archive a branch.\ntranslate(source_text:string,target_language:string,tone?:string): request a translation.\nTask:\n価格照会: item=widget-06, currency=JPY。 detail=include_tax."
+        },
+        "attempts": [
+          {
+            "candidate": "verbatim",
+            "loss_rank": 0,
+            "losses": [],
+            "chars": 837,
+            "utf8_bytes": 941,
+            "tokens": 216,
+            "missing_anchors": [],
+            "fits": false
+          },
+          {
+            "candidate": "rules",
+            "loss_rank": 1,
+            "losses": [
+              "wording/abbreviations may change"
+            ],
+            "chars": 837,
+            "utf8_bytes": 941,
+            "tokens": 216,
+            "missing_anchors": [],
+            "fits": false
+          },
+          {
+            "candidate": "brief",
+            "loss_rank": 2,
+            "losses": [
+              "optional explanatory background and politeness modifiers"
+            ],
+            "chars": 790,
+            "utf8_bytes": 800,
+            "tokens": 178,
+            "missing_anchors": [],
+            "fits": true
+          }
+        ],
+        "task_success": true,
+        "quality_hits": 1,
+        "quality_total": 1,
+        "quality_score": 1.0,
+        "unknown_arguments": [],
+        "response": {
+          "tool": "price_lookup",
+          "arguments": {
+            "item": "widget-06",
+            "currency": "JPY",
+            "detail": "include_tax"
+          }
+        },
+        "all_candidates": [
+          {
+            "id": "verbatim",
+            "loss_rank": 0,
+            "text": "架空の検証用メモです。自然で丁寧な説明にし、背景の繰り返しは読みやすさのために残してください。価格照会: item=widget-06, currency=JPY。 detail=include_tax.",
+            "losses": [],
+            "chars": 837,
+            "tokens": 216
+          },
+          {
+            "id": "rules",
+            "loss_rank": 1,
+            "text": "架空の検証用メモです。自然で丁寧な説明にし、背景の繰り返しは読みやすさのために残してください。価格照会: item=widget-06, currency=JPY。 detail=include_tax.",
+            "losses": [
+              "wording/abbreviations may change"
+            ],
+            "chars": 837,
+            "tokens": 216
+          },
+          {
+            "id": "brief",
+            "loss_rank": 2,
+            "text": "価格照会: item=widget-06, currency=JPY。 detail=include_tax.",
+            "losses": [
+              "optional explanatory background and politeness modifiers"
+            ],
+            "chars": 790,
+            "tokens": 178
+          },
+          {
+            "id": "skeleton",
+            "loss_rank": 3,
+            "text": "価格照会: item=widget-06, currency=JPY。",
+            "losses": [
+              "optional explanatory background and politeness modifiers",
+              "optional preferred argument detail=include_tax"
+            ],
+            "chars": 770,
+            "tokens": 173
+          }
+        ]
+      },
+      "after": {
+        "case_id": "budget-06",
+        "language": "ja",
+        "max_chars": 800,
+        "max_tokens": 512,
+        "status": "success",
+        "selected": {
+          "candidate": "verbatim",
+          "loss_rank": 0,
+          "losses": [],
+          "chars": 682,
+          "utf8_bytes": 786,
+          "tokens": 187,
+          "missing_anchors": [],
+          "fits": true,
+          "prompt": "Choose one tool; extract task arguments. JSON only: {\"tool\":name,\"arguments\":{...}}. Missing task: {\"tool\":null,\"arguments\":{}}. Never invent values.\nTools (all arguments required except ?; declared JSON types):\nprice_lookup(item:string,currency:string,detail?:string)\nset_reminder(date:string,time:string,topic:string,tone?:string)\nconfigure_retry(job:string,max_retries:integer,on_failure_only:boolean,note?:string)\narchive_branch(branch:string,delete_allowed:boolean,review_required:boolean,note?:string)\ntranslate(source_text:string,target_language:string,tone?:string)\nTask:\n架空の検証用メモです。自然で丁寧な説明にし、背景の繰り返しは読みやすさのために残してください。価格照会: item=widget-06, currency=JPY。 detail=include_tax."
+        },
+        "attempts": [
+          {
+            "candidate": "verbatim",
+            "loss_rank": 0,
+            "losses": [],
+            "chars": 682,
+            "utf8_bytes": 786,
+            "tokens": 187,
+            "missing_anchors": [],
+            "fits": true
+          }
+        ],
+        "task_success": true,
+        "quality_hits": 1,
+        "quality_total": 1,
+        "quality_score": 1.0,
+        "unknown_arguments": [],
+        "response": {
+          "tool": "price_lookup",
+          "arguments": {
+            "item": "widget-06",
+            "currency": "JPY",
+            "detail": "include_tax"
+          }
+        },
+        "all_candidates": [
+          {
+            "id": "verbatim",
+            "loss_rank": 0,
+            "text": "架空の検証用メモです。自然で丁寧な説明にし、背景の繰り返しは読みやすさのために残してください。価格照会: item=widget-06, currency=JPY。 detail=include_tax.",
+            "losses": [],
+            "chars": 682,
+            "tokens": 187
+          },
+          {
+            "id": "rules",
+            "loss_rank": 1,
+            "text": "架空の検証用メモです。自然で丁寧な説明にし、背景の繰り返しは読みやすさのために残してください。価格照会: item=widget-06, currency=JPY。 detail=include_tax.",
+            "losses": [
+              "wording/abbreviations may change"
+            ],
+            "chars": 682,
+            "tokens": 187
+          },
+          {
+            "id": "brief",
+            "loss_rank": 2,
+            "text": "価格照会: item=widget-06, currency=JPY。 detail=include_tax.",
+            "losses": [
+              "optional explanatory background and politeness modifiers"
+            ],
+            "chars": 635,
+            "tokens": 149
+          },
+          {
+            "id": "skeleton",
+            "loss_rank": 3,
+            "text": "価格照会: item=widget-06, currency=JPY。",
+            "losses": [
+              "optional explanatory background and politeness modifiers",
+              "optional preferred argument detail=include_tax"
+            ],
+            "chars": 615,
+            "tokens": 144
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "budget-07",
+      "before": {
+        "case_id": "budget-07",
+        "language": "en",
+        "max_chars": 800,
+        "max_tokens": 512,
+        "status": "success",
+        "selected": {
+          "candidate": "brief",
+          "loss_rank": 2,
+          "losses": [
+            "optional explanatory background and politeness modifiers"
+          ],
+          "chars": 800,
+          "utf8_bytes": 800,
+          "tokens": 188,
+          "missing_anchors": [],
+          "fits": true,
+          "prompt": "Choose one advertised tool and extract arguments from the task. Return JSON only: {\"tool\":name,\"arguments\":{...}}. Missing task: return {\"tool\":null,\"arguments\":{}}. Do not invent values.\nTools (all arguments required except ?; use the declared JSON types):\nprice_lookup(item:string,currency:string,detail?:string): look up an item price.\nset_reminder(date:string,time:string,topic:string,tone?:string): schedule a reminder.\nconfigure_retry(job:string,max_retries:integer,on_failure_only:boolean,note?:string): configure retries.\narchive_branch(branch:string,delete_allowed:boolean,review_required:boolean,note?:string): archive a branch.\ntranslate(source_text:string,target_language:string,tone?:string): request a translation.\nTask:\nSet a reminder for review-07 at 09:30 on 2026-11-07. tone=formal."
+        },
+        "attempts": [
+          {
+            "candidate": "verbatim",
+            "loss_rank": 0,
+            "losses": [],
+            "chars": 944,
+            "utf8_bytes": 944,
+            "tokens": 212,
+            "missing_anchors": [],
+            "fits": false
+          },
+          {
+            "candidate": "rules",
+            "loss_rank": 1,
+            "losses": [
+              "wording/abbreviations may change"
+            ],
+            "chars": 944,
+            "utf8_bytes": 944,
+            "tokens": 212,
+            "missing_anchors": [],
+            "fits": false
+          },
+          {
+            "candidate": "brief",
+            "loss_rank": 2,
+            "losses": [
+              "optional explanatory background and politeness modifiers"
+            ],
+            "chars": 800,
+            "utf8_bytes": 800,
+            "tokens": 188,
+            "missing_anchors": [],
+            "fits": true
+          }
+        ],
+        "task_success": true,
+        "quality_hits": 1,
+        "quality_total": 1,
+        "quality_score": 1.0,
+        "unknown_arguments": [],
+        "response": {
+          "tool": "set_reminder",
+          "arguments": {
+            "date": "2026-11-07",
+            "time": "09:30",
+            "topic": "review-07",
+            "tone": "formal"
+          }
+        },
+        "all_candidates": [
+          {
+            "id": "verbatim",
+            "loss_rank": 0,
+            "text": "This is a fictional staging request. Please use natural, carefully explained wording; the repeated background is only a readability preference. Set a reminder for review-07 at 09:30 on 2026-11-07. tone=formal.",
+            "losses": [],
+            "chars": 944,
+            "tokens": 212
+          },
+          {
+            "id": "rules",
+            "loss_rank": 1,
+            "text": "This is a fictional staging request. Please use natural, carefully explained wording; the repeated background is only a readability preference. Set a reminder for review-07 at 09:30 on 2026-11-07. tone=formal.",
+            "losses": [
+              "wording/abbreviations may change"
+            ],
+            "chars": 944,
+            "tokens": 212
+          },
+          {
+            "id": "brief",
+            "loss_rank": 2,
+            "text": "Set a reminder for review-07 at 09:30 on 2026-11-07. tone=formal.",
+            "losses": [
+              "optional explanatory background and politeness modifiers"
+            ],
+            "chars": 800,
+            "tokens": 188
+          },
+          {
+            "id": "skeleton",
+            "loss_rank": 3,
+            "text": "Set a reminder for review-07 at 09:30 on 2026-11-07.",
+            "losses": [
+              "optional explanatory background and politeness modifiers",
+              "optional preferred argument tone=formal"
+            ],
+            "chars": 787,
+            "tokens": 184
+          }
+        ]
+      },
+      "after": {
+        "case_id": "budget-07",
+        "language": "en",
+        "max_chars": 800,
+        "max_tokens": 512,
+        "status": "success",
+        "selected": {
+          "candidate": "verbatim",
+          "loss_rank": 0,
+          "losses": [],
+          "chars": 789,
+          "utf8_bytes": 789,
+          "tokens": 183,
+          "missing_anchors": [],
+          "fits": true,
+          "prompt": "Choose one tool; extract task arguments. JSON only: {\"tool\":name,\"arguments\":{...}}. Missing task: {\"tool\":null,\"arguments\":{}}. Never invent values.\nTools (all arguments required except ?; declared JSON types):\nprice_lookup(item:string,currency:string,detail?:string)\nset_reminder(date:string,time:string,topic:string,tone?:string)\nconfigure_retry(job:string,max_retries:integer,on_failure_only:boolean,note?:string)\narchive_branch(branch:string,delete_allowed:boolean,review_required:boolean,note?:string)\ntranslate(source_text:string,target_language:string,tone?:string)\nTask:\nThis is a fictional staging request. Please use natural, carefully explained wording; the repeated background is only a readability preference. Set a reminder for review-07 at 09:30 on 2026-11-07. tone=formal."
+        },
+        "attempts": [
+          {
+            "candidate": "verbatim",
+            "loss_rank": 0,
+            "losses": [],
+            "chars": 789,
+            "utf8_bytes": 789,
+            "tokens": 183,
+            "missing_anchors": [],
+            "fits": true
+          }
+        ],
+        "task_success": true,
+        "quality_hits": 1,
+        "quality_total": 1,
+        "quality_score": 1.0,
+        "unknown_arguments": [],
+        "response": {
+          "tool": "set_reminder",
+          "arguments": {
+            "date": "2026-11-07",
+            "time": "09:30",
+            "topic": "review-07",
+            "tone": "formal"
+          }
+        },
+        "all_candidates": [
+          {
+            "id": "verbatim",
+            "loss_rank": 0,
+            "text": "This is a fictional staging request. Please use natural, carefully explained wording; the repeated background is only a readability preference. Set a reminder for review-07 at 09:30 on 2026-11-07. tone=formal.",
+            "losses": [],
+            "chars": 789,
+            "tokens": 183
+          },
+          {
+            "id": "rules",
+            "loss_rank": 1,
+            "text": "This is a fictional staging request. Please use natural, carefully explained wording; the repeated background is only a readability preference. Set a reminder for review-07 at 09:30 on 2026-11-07. tone=formal.",
+            "losses": [
+              "wording/abbreviations may change"
+            ],
+            "chars": 789,
+            "tokens": 183
+          },
+          {
+            "id": "brief",
+            "loss_rank": 2,
+            "text": "Set a reminder for review-07 at 09:30 on 2026-11-07. tone=formal.",
+            "losses": [
+              "optional explanatory background and politeness modifiers"
+            ],
+            "chars": 645,
+            "tokens": 159
+          },
+          {
+            "id": "skeleton",
+            "loss_rank": 3,
+            "text": "Set a reminder for review-07 at 09:30 on 2026-11-07.",
+            "losses": [
+              "optional explanatory background and politeness modifiers",
+              "optional preferred argument tone=formal"
+            ],
+            "chars": 632,
+            "tokens": 155
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "budget-08",
+      "before": {
+        "case_id": "budget-08",
+        "language": "ja",
+        "max_chars": 800,
+        "max_tokens": 512,
+        "status": "success",
+        "selected": {
+          "candidate": "skeleton",
+          "loss_rank": 3,
+          "losses": [
+            "optional explanatory background and politeness modifiers",
+            "optional preferred argument note=quiet"
+          ],
+          "chars": 790,
+          "utf8_bytes": 814,
+          "tokens": 178,
+          "missing_anchors": [],
+          "fits": true,
+          "prompt": "Choose one advertised tool and extract arguments from the task. Return JSON only: {\"tool\":name,\"arguments\":{...}}. Missing task: return {\"tool\":null,\"arguments\":{}}. Do not invent values.\nTools (all arguments required except ?; use the declared JSON types):\nprice_lookup(item:string,currency:string,detail?:string): look up an item price.\nset_reminder(date:string,time:string,topic:string,tone?:string): schedule a reminder.\nconfigure_retry(job:string,max_retries:integer,on_failure_only:boolean,note?:string): configure retries.\narchive_branch(branch:string,delete_allowed:boolean,review_required:boolean,note?:string): archive a branch.\ntranslate(source_text:string,target_language:string,tone?:string): request a translation.\nTask:\njob-08: max_retries=2, on_failure_only=true。成功時には実行しない。"
+        },
+        "attempts": [
+          {
+            "candidate": "verbatim",
+            "loss_rank": 0,
+            "losses": [],
+            "chars": 849,
+            "utf8_bytes": 967,
+            "tokens": 220,
+            "missing_anchors": [],
+            "fits": false
+          },
+          {
+            "candidate": "rules",
+            "loss_rank": 1,
+            "losses": [
+              "wording/abbreviations may change"
+            ],
+            "chars": 849,
+            "utf8_bytes": 967,
+            "tokens": 220,
+            "missing_anchors": [],
+            "fits": false
+          },
+          {
+            "candidate": "brief",
+            "loss_rank": 2,
+            "losses": [
+              "optional explanatory background and politeness modifiers"
+            ],
+            "chars": 802,
+            "utf8_bytes": 826,
+            "tokens": 182,
+            "missing_anchors": [],
+            "fits": false
+          },
+          {
+            "candidate": "skeleton",
+            "loss_rank": 3,
+            "losses": [
+              "optional explanatory background and politeness modifiers",
+              "optional preferred argument note=quiet"
+            ],
+            "chars": 790,
+            "utf8_bytes": 814,
+            "tokens": 178,
+            "missing_anchors": [],
+            "fits": true
+          }
+        ],
+        "task_success": true,
+        "quality_hits": 0,
+        "quality_total": 1,
+        "quality_score": 0.0,
+        "unknown_arguments": [],
+        "response": {
+          "tool": "configure_retry",
+          "arguments": {
+            "job": "job-08",
+            "max_retries": 2,
+            "on_failure_only": true,
+            "note": null
+          }
+        },
+        "all_candidates": [
+          {
+            "id": "verbatim",
+            "loss_rank": 0,
+            "text": "架空の検証用メモです。自然で丁寧な説明にし、背景の繰り返しは読みやすさのために残してください。job-08: max_retries=2, on_failure_only=true。成功時には実行しない。 note=quiet.",
+            "losses": [],
+            "chars": 849,
+            "tokens": 220
+          },
+          {
+            "id": "rules",
+            "loss_rank": 1,
+            "text": "架空の検証用メモです。自然で丁寧な説明にし、背景の繰り返しは読みやすさのために残してください。job-08: max_retries=2, on_failure_only=true。成功時には実行しない。 note=quiet.",
+            "losses": [
+              "wording/abbreviations may change"
+            ],
+            "chars": 849,
+            "tokens": 220
+          },
+          {
+            "id": "brief",
+            "loss_rank": 2,
+            "text": "job-08: max_retries=2, on_failure_only=true。成功時には実行しない。 note=quiet.",
+            "losses": [
+              "optional explanatory background and politeness modifiers"
+            ],
+            "chars": 802,
+            "tokens": 182
+          },
+          {
+            "id": "skeleton",
+            "loss_rank": 3,
+            "text": "job-08: max_retries=2, on_failure_only=true。成功時には実行しない。",
+            "losses": [
+              "optional explanatory background and politeness modifiers",
+              "optional preferred argument note=quiet"
+            ],
+            "chars": 790,
+            "tokens": 178
+          }
+        ]
+      },
+      "after": {
+        "case_id": "budget-08",
+        "language": "ja",
+        "max_chars": 800,
+        "max_tokens": 512,
+        "status": "abstained",
+        "selected": {
+          "candidate": "verbatim",
+          "loss_rank": 0,
+          "losses": [],
+          "chars": 694,
+          "utf8_bytes": 812,
+          "tokens": 191,
+          "missing_anchors": [],
+          "fits": true,
+          "prompt": "Choose one tool; extract task arguments. JSON only: {\"tool\":name,\"arguments\":{...}}. Missing task: {\"tool\":null,\"arguments\":{}}. Never invent values.\nTools (all arguments required except ?; declared JSON types):\nprice_lookup(item:string,currency:string,detail?:string)\nset_reminder(date:string,time:string,topic:string,tone?:string)\nconfigure_retry(job:string,max_retries:integer,on_failure_only:boolean,note?:string)\narchive_branch(branch:string,delete_allowed:boolean,review_required:boolean,note?:string)\ntranslate(source_text:string,target_language:string,tone?:string)\nTask:\n架空の検証用メモです。自然で丁寧な説明にし、背景の繰り返しは読みやすさのために残してください。job-08: max_retries=2, on_failure_only=true。成功時には実行しない。 note=quiet."
+        },
+        "attempts": [
+          {
+            "candidate": "verbatim",
+            "loss_rank": 0,
+            "losses": [],
+            "chars": 694,
+            "utf8_bytes": 812,
+            "tokens": 191,
+            "missing_anchors": [],
+            "fits": true
+          }
+        ],
+        "task_success": false,
+        "quality_score": null,
+        "response": {
+          "tool": null,
+          "arguments": {
+            "tool": "archive_branch",
+            "arguments": {
+              "branch": "job-08",
+              "delete_allowed": true,
+              "review_required": true,
+              "note": "quiet"
+            }
+          }
+        },
+        "all_candidates": [
+          {
+            "id": "verbatim",
+            "loss_rank": 0,
+            "text": "架空の検証用メモです。自然で丁寧な説明にし、背景の繰り返しは読みやすさのために残してください。job-08: max_retries=2, on_failure_only=true。成功時には実行しない。 note=quiet.",
+            "losses": [],
+            "chars": 694,
+            "tokens": 191
+          },
+          {
+            "id": "rules",
+            "loss_rank": 1,
+            "text": "架空の検証用メモです。自然で丁寧な説明にし、背景の繰り返しは読みやすさのために残してください。job-08: max_retries=2, on_failure_only=true。成功時には実行しない。 note=quiet.",
+            "losses": [
+              "wording/abbreviations may change"
+            ],
+            "chars": 694,
+            "tokens": 191
+          },
+          {
+            "id": "brief",
+            "loss_rank": 2,
+            "text": "job-08: max_retries=2, on_failure_only=true。成功時には実行しない。 note=quiet.",
+            "losses": [
+              "optional explanatory background and politeness modifiers"
+            ],
+            "chars": 647,
+            "tokens": 153
+          },
+          {
+            "id": "skeleton",
+            "loss_rank": 3,
+            "text": "job-08: max_retries=2, on_failure_only=true。成功時には実行しない。",
+            "losses": [
+              "optional explanatory background and politeness modifiers",
+              "optional preferred argument note=quiet"
+            ],
+            "chars": 635,
+            "tokens": 149
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "budget-09",
+      "before": {
+        "case_id": "budget-09",
+        "language": "en",
+        "max_chars": 800,
+        "max_tokens": 512,
+        "status": "infeasible",
+        "selected": null,
+        "attempts": [
+          {
+            "candidate": "verbatim",
+            "loss_rank": 0,
+            "losses": [],
+            "chars": 992,
+            "utf8_bytes": 992,
+            "tokens": 205,
+            "missing_anchors": [],
+            "fits": false
+          },
+          {
+            "candidate": "rules",
+            "loss_rank": 1,
+            "losses": [
+              "wording/abbreviations may change"
+            ],
+            "chars": 991,
+            "utf8_bytes": 991,
+            "tokens": 205,
+            "missing_anchors": [
+              "Do not delete before review"
+            ],
+            "fits": false
+          },
+          {
+            "candidate": "brief",
+            "loss_rank": 2,
+            "losses": [
+              "optional explanatory background and politeness modifiers"
+            ],
+            "chars": 848,
+            "utf8_bytes": 848,
+            "tokens": 181,
+            "missing_anchors": [],
+            "fits": false
+          },
+          {
+            "candidate": "skeleton",
+            "loss_rank": 3,
+            "losses": [
+              "optional explanatory background and politeness modifiers",
+              "optional preferred argument note=retain_history"
+            ],
+            "chars": 827,
+            "utf8_bytes": 827,
+            "tokens": 176,
+            "missing_anchors": [],
+            "fits": false
+          }
+        ],
+        "task_success": null,
+        "all_candidates": [
+          {
+            "id": "verbatim",
+            "loss_rank": 0,
+            "text": "This is a fictional staging request. Please use natural, carefully explained wording; the repeated background is only a readability preference. Archive archive-09: delete_allowed=false, review_required=true. Do not delete before review. note=retain_history.",
+            "losses": [],
+            "chars": 992,
+            "tokens": 205
+          },
+          {
+            "id": "rules",
+            "loss_rank": 1,
+            "text": "This is a fictional staging request. Please use natural, carefully explained wording; the repeated background is only a readability preference. Archive archive-09: delete_allowed=false, review_required=true. Don't delete before review. note=retain_history.",
+            "losses": [
+              "wording/abbreviations may change"
+            ],
+            "chars": 991,
+            "tokens": 205
+          },
+          {
+            "id": "brief",
+            "loss_rank": 2,
+            "text": "Archive archive-09: delete_allowed=false, review_required=true. Do not delete before review. note=retain_history.",
+            "losses": [
+              "optional explanatory background and politeness modifiers"
+            ],
+            "chars": 848,
+            "tokens": 181
+          },
+          {
+            "id": "skeleton",
+            "loss_rank": 3,
+            "text": "Archive archive-09: delete_allowed=false, review_required=true. Do not delete before review.",
+            "losses": [
+              "optional explanatory background and politeness modifiers",
+              "optional preferred argument note=retain_history"
+            ],
+            "chars": 827,
+            "tokens": 176
+          }
+        ]
+      },
+      "after": {
+        "case_id": "budget-09",
+        "language": "en",
+        "max_chars": 800,
+        "max_tokens": 512,
+        "status": "success",
+        "selected": {
+          "candidate": "brief",
+          "loss_rank": 2,
+          "losses": [
+            "optional explanatory background and politeness modifiers"
+          ],
+          "chars": 693,
+          "utf8_bytes": 693,
+          "tokens": 152,
+          "missing_anchors": [],
+          "fits": true,
+          "prompt": "Choose one tool; extract task arguments. JSON only: {\"tool\":name,\"arguments\":{...}}. Missing task: {\"tool\":null,\"arguments\":{}}. Never invent values.\nTools (all arguments required except ?; declared JSON types):\nprice_lookup(item:string,currency:string,detail?:string)\nset_reminder(date:string,time:string,topic:string,tone?:string)\nconfigure_retry(job:string,max_retries:integer,on_failure_only:boolean,note?:string)\narchive_branch(branch:string,delete_allowed:boolean,review_required:boolean,note?:string)\ntranslate(source_text:string,target_language:string,tone?:string)\nTask:\nArchive archive-09: delete_allowed=false, review_required=true. Do not delete before review. note=retain_history."
+        },
+        "attempts": [
+          {
+            "candidate": "verbatim",
+            "loss_rank": 0,
+            "losses": [],
+            "chars": 837,
+            "utf8_bytes": 837,
+            "tokens": 176,
+            "missing_anchors": [],
+            "fits": false
+          },
+          {
+            "candidate": "rules",
+            "loss_rank": 1,
+            "losses": [
+              "wording/abbreviations may change"
+            ],
+            "chars": 836,
+            "utf8_bytes": 836,
+            "tokens": 176,
+            "missing_anchors": [
+              "Do not delete before review"
+            ],
+            "fits": false
+          },
+          {
+            "candidate": "brief",
+            "loss_rank": 2,
+            "losses": [
+              "optional explanatory background and politeness modifiers"
+            ],
+            "chars": 693,
+            "utf8_bytes": 693,
+            "tokens": 152,
+            "missing_anchors": [],
+            "fits": true
+          }
+        ],
+        "task_success": true,
+        "quality_hits": 1,
+        "quality_total": 1,
+        "quality_score": 1.0,
+        "unknown_arguments": [],
+        "response": {
+          "tool": "archive_branch",
+          "arguments": {
+            "branch": "archive-09",
+            "delete_allowed": false,
+            "review_required": true,
+            "note": "retain_history"
+          }
+        },
+        "all_candidates": [
+          {
+            "id": "verbatim",
+            "loss_rank": 0,
+            "text": "This is a fictional staging request. Please use natural, carefully explained wording; the repeated background is only a readability preference. Archive archive-09: delete_allowed=false, review_required=true. Do not delete before review. note=retain_history.",
+            "losses": [],
+            "chars": 837,
+            "tokens": 176
+          },
+          {
+            "id": "rules",
+            "loss_rank": 1,
+            "text": "This is a fictional staging request. Please use natural, carefully explained wording; the repeated background is only a readability preference. Archive archive-09: delete_allowed=false, review_required=true. Don't delete before review. note=retain_history.",
+            "losses": [
+              "wording/abbreviations may change"
+            ],
+            "chars": 836,
+            "tokens": 176
+          },
+          {
+            "id": "brief",
+            "loss_rank": 2,
+            "text": "Archive archive-09: delete_allowed=false, review_required=true. Do not delete before review. note=retain_history.",
+            "losses": [
+              "optional explanatory background and politeness modifiers"
+            ],
+            "chars": 693,
+            "tokens": 152
+          },
+          {
+            "id": "skeleton",
+            "loss_rank": 3,
+            "text": "Archive archive-09: delete_allowed=false, review_required=true. Do not delete before review.",
+            "losses": [
+              "optional explanatory background and politeness modifiers",
+              "optional preferred argument note=retain_history"
+            ],
+            "chars": 672,
+            "tokens": 147
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "budget-10",
+      "before": {
+        "case_id": "budget-10",
+        "language": "ja",
+        "max_chars": 800,
+        "max_tokens": 512,
+        "status": "success",
+        "selected": {
+          "candidate": "skeleton",
+          "loss_rank": 3,
+          "losses": [
+            "optional explanatory background and politeness modifiers",
+            "optional preferred argument tone=formal"
+          ],
+          "chars": 794,
+          "utf8_bytes": 830,
+          "tokens": 182,
+          "missing_anchors": [],
+          "fits": true,
+          "prompt": "Choose one advertised tool and extract arguments from the task. Return JSON only: {\"tool\":name,\"arguments\":{...}}. Missing task: return {\"tool\":null,\"arguments\":{}}. Do not invent values.\nTools (all arguments required except ?; use the declared JSON types):\nprice_lookup(item:string,currency:string,detail?:string): look up an item price.\nset_reminder(date:string,time:string,topic:string,tone?:string): schedule a reminder.\nconfigure_retry(job:string,max_retries:integer,on_failure_only:boolean,note?:string): configure retries.\narchive_branch(branch:string,delete_allowed:boolean,review_required:boolean,note?:string): archive a branch.\ntranslate(source_text:string,target_language:string,tone?:string): request a translation.\nTask:\n翻訳を依頼: source_text=\"架空の荷物は明日届きます\", target_language=English。"
+        },
+        "attempts": [
+          {
+            "candidate": "verbatim",
+            "loss_rank": 0,
+            "losses": [],
+            "chars": 854,
+            "utf8_bytes": 984,
+            "tokens": 224,
+            "missing_anchors": [],
+            "fits": false
+          },
+          {
+            "candidate": "rules",
+            "loss_rank": 1,
+            "losses": [
+              "wording/abbreviations may change"
+            ],
+            "chars": 854,
+            "utf8_bytes": 984,
+            "tokens": 224,
+            "missing_anchors": [],
+            "fits": false
+          },
+          {
+            "candidate": "brief",
+            "loss_rank": 2,
+            "losses": [
+              "optional explanatory background and politeness modifiers"
+            ],
+            "chars": 807,
+            "utf8_bytes": 843,
+            "tokens": 186,
+            "missing_anchors": [],
+            "fits": false
+          },
+          {
+            "candidate": "skeleton",
+            "loss_rank": 3,
+            "losses": [
+              "optional explanatory background and politeness modifiers",
+              "optional preferred argument tone=formal"
+            ],
+            "chars": 794,
+            "utf8_bytes": 830,
+            "tokens": 182,
+            "missing_anchors": [],
+            "fits": true
+          }
+        ],
+        "task_success": true,
+        "quality_hits": 0,
+        "quality_total": 1,
+        "quality_score": 0.0,
+        "unknown_arguments": [],
+        "response": {
+          "tool": "translate",
+          "arguments": {
+            "source_text": "架空の荷物は明日届きます",
+            "target_language": "English",
+            "tone": null
+          }
+        },
+        "all_candidates": [
+          {
+            "id": "verbatim",
+            "loss_rank": 0,
+            "text": "架空の検証用メモです。自然で丁寧な説明にし、背景の繰り返しは読みやすさのために残してください。翻訳を依頼: source_text=\"架空の荷物は明日届きます\", target_language=English。 tone=formal.",
+            "losses": [],
+            "chars": 854,
+            "tokens": 224
+          },
+          {
+            "id": "rules",
+            "loss_rank": 1,
+            "text": "架空の検証用メモです。自然で丁寧な説明にし、背景の繰り返しは読みやすさのために残してください。翻訳を依頼: source_text=\"架空の荷物は明日届きます\", target_language=English。 tone=formal.",
+            "losses": [
+              "wording/abbreviations may change"
+            ],
+            "chars": 854,
+            "tokens": 224
+          },
+          {
+            "id": "brief",
+            "loss_rank": 2,
+            "text": "翻訳を依頼: source_text=\"架空の荷物は明日届きます\", target_language=English。 tone=formal.",
+            "losses": [
+              "optional explanatory background and politeness modifiers"
+            ],
+            "chars": 807,
+            "tokens": 186
+          },
+          {
+            "id": "skeleton",
+            "loss_rank": 3,
+            "text": "翻訳を依頼: source_text=\"架空の荷物は明日届きます\", target_language=English。",
+            "losses": [
+              "optional explanatory background and politeness modifiers",
+              "optional preferred argument tone=formal"
+            ],
+            "chars": 794,
+            "tokens": 182
+          }
+        ]
+      },
+      "after": {
+        "case_id": "budget-10",
+        "language": "ja",
+        "max_chars": 800,
+        "max_tokens": 512,
+        "status": "invalid_output",
+        "selected": {
+          "candidate": "verbatim",
+          "loss_rank": 0,
+          "losses": [],
+          "chars": 699,
+          "utf8_bytes": 829,
+          "tokens": 195,
+          "missing_anchors": [],
+          "fits": true,
+          "prompt": "Choose one tool; extract task arguments. JSON only: {\"tool\":name,\"arguments\":{...}}. Missing task: {\"tool\":null,\"arguments\":{}}. Never invent values.\nTools (all arguments required except ?; declared JSON types):\nprice_lookup(item:string,currency:string,detail?:string)\nset_reminder(date:string,time:string,topic:string,tone?:string)\nconfigure_retry(job:string,max_retries:integer,on_failure_only:boolean,note?:string)\narchive_branch(branch:string,delete_allowed:boolean,review_required:boolean,note?:string)\ntranslate(source_text:string,target_language:string,tone?:string)\nTask:\n架空の検証用メモです。自然で丁寧な説明にし、背景の繰り返しは読みやすさのために残してください。翻訳を依頼: source_text=\"架空の荷物は明日届きます\", target_language=English。 tone=formal."
+        },
+        "attempts": [
+          {
+            "candidate": "verbatim",
+            "loss_rank": 0,
+            "losses": [],
+            "chars": 699,
+            "utf8_bytes": 829,
+            "tokens": 195,
+            "missing_anchors": [],
+            "fits": true
+          }
+        ],
+        "task_success": false,
+        "quality_score": null,
+        "raw_response": "{\"tool\":translate,\"arguments\":{\"source_text\":\"架空の荷物は明日届きます\",\"target_language\":\"English\",\"tone\":\"formal\"}}",
+        "all_candidates": [
+          {
+            "id": "verbatim",
+            "loss_rank": 0,
+            "text": "架空の検証用メモです。自然で丁寧な説明にし、背景の繰り返しは読みやすさのために残してください。翻訳を依頼: source_text=\"架空の荷物は明日届きます\", target_language=English。 tone=formal.",
+            "losses": [],
+            "chars": 699,
+            "tokens": 195
+          },
+          {
+            "id": "rules",
+            "loss_rank": 1,
+            "text": "架空の検証用メモです。自然で丁寧な説明にし、背景の繰り返しは読みやすさのために残してください。翻訳を依頼: source_text=\"架空の荷物は明日届きます\", target_language=English。 tone=formal.",
+            "losses": [
+              "wording/abbreviations may change"
+            ],
+            "chars": 699,
+            "tokens": 195
+          },
+          {
+            "id": "brief",
+            "loss_rank": 2,
+            "text": "翻訳を依頼: source_text=\"架空の荷物は明日届きます\", target_language=English。 tone=formal.",
+            "losses": [
+              "optional explanatory background and politeness modifiers"
+            ],
+            "chars": 652,
+            "tokens": 157
+          },
+          {
+            "id": "skeleton",
+            "loss_rank": 3,
+            "text": "翻訳を依頼: source_text=\"架空の荷物は明日届きます\", target_language=English。",
+            "losses": [
+              "optional explanatory background and politeness modifiers",
+              "optional preferred argument tone=formal"
+            ],
+            "chars": 639,
+            "tokens": 153
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "budget-11",
+      "before": {
+        "case_id": "budget-11",
+        "language": "en",
+        "max_chars": 800,
+        "max_tokens": 512,
+        "status": "success",
+        "selected": {
+          "candidate": "skeleton",
+          "loss_rank": 3,
+          "losses": [
+            "optional explanatory background and politeness modifiers",
+            "optional preferred argument detail=include_tax"
+          ],
+          "chars": 783,
+          "utf8_bytes": 783,
+          "tokens": 172,
+          "missing_anchors": [],
+          "fits": true,
+          "prompt": "Choose one advertised tool and extract arguments from the task. Return JSON only: {\"tool\":name,\"arguments\":{...}}. Missing task: return {\"tool\":null,\"arguments\":{}}. Do not invent values.\nTools (all arguments required except ?; use the declared JSON types):\nprice_lookup(item:string,currency:string,detail?:string): look up an item price.\nset_reminder(date:string,time:string,topic:string,tone?:string): schedule a reminder.\nconfigure_retry(job:string,max_retries:integer,on_failure_only:boolean,note?:string): configure retries.\narchive_branch(branch:string,delete_allowed:boolean,review_required:boolean,note?:string): archive a branch.\ntranslate(source_text:string,target_language:string,tone?:string): request a translation.\nTask:\nLook up the price: item=widget-11, currency=USD."
+        },
+        "attempts": [
+          {
+            "candidate": "verbatim",
+            "loss_rank": 0,
+            "losses": [],
+            "chars": 947,
+            "utf8_bytes": 947,
+            "tokens": 201,
+            "missing_anchors": [],
+            "fits": false
+          },
+          {
+            "candidate": "rules",
+            "loss_rank": 1,
+            "losses": [
+              "wording/abbreviations may change"
+            ],
+            "chars": 947,
+            "utf8_bytes": 947,
+            "tokens": 201,
+            "missing_anchors": [],
+            "fits": false
+          },
+          {
+            "candidate": "brief",
+            "loss_rank": 2,
+            "losses": [
+              "optional explanatory background and politeness modifiers"
+            ],
+            "chars": 803,
+            "utf8_bytes": 803,
+            "tokens": 177,
+            "missing_anchors": [],
+            "fits": false
+          },
+          {
+            "candidate": "skeleton",
+            "loss_rank": 3,
+            "losses": [
+              "optional explanatory background and politeness modifiers",
+              "optional preferred argument detail=include_tax"
+            ],
+            "chars": 783,
+            "utf8_bytes": 783,
+            "tokens": 172,
+            "missing_anchors": [],
+            "fits": true
+          }
+        ],
+        "task_success": true,
+        "quality_hits": 0,
+        "quality_total": 1,
+        "quality_score": 0.0,
+        "unknown_arguments": [],
+        "response": {
+          "tool": "price_lookup",
+          "arguments": {
+            "item": "widget-11",
+            "currency": "USD"
+          }
+        },
+        "all_candidates": [
+          {
+            "id": "verbatim",
+            "loss_rank": 0,
+            "text": "This is a fictional staging request. Please use natural, carefully explained wording; the repeated background is only a readability preference. Look up the price: item=widget-11, currency=USD. detail=include_tax.",
+            "losses": [],
+            "chars": 947,
+            "tokens": 201
+          },
+          {
+            "id": "rules",
+            "loss_rank": 1,
+            "text": "This is a fictional staging request. Please use natural, carefully explained wording; the repeated background is only a readability preference. Look up the price: item=widget-11, currency=USD. detail=include_tax.",
+            "losses": [
+              "wording/abbreviations may change"
+            ],
+            "chars": 947,
+            "tokens": 201
+          },
+          {
+            "id": "brief",
+            "loss_rank": 2,
+            "text": "Look up the price: item=widget-11, currency=USD. detail=include_tax.",
+            "losses": [
+              "optional explanatory background and politeness modifiers"
+            ],
+            "chars": 803,
+            "tokens": 177
+          },
+          {
+            "id": "skeleton",
+            "loss_rank": 3,
+            "text": "Look up the price: item=widget-11, currency=USD.",
+            "losses": [
+              "optional explanatory background and politeness modifiers",
+              "optional preferred argument detail=include_tax"
+            ],
+            "chars": 783,
+            "tokens": 172
+          }
+        ]
+      },
+      "after": {
+        "case_id": "budget-11",
+        "language": "en",
+        "max_chars": 800,
+        "max_tokens": 512,
+        "status": "success",
+        "selected": {
+          "candidate": "verbatim",
+          "loss_rank": 0,
+          "losses": [],
+          "chars": 792,
+          "utf8_bytes": 792,
+          "tokens": 172,
+          "missing_anchors": [],
+          "fits": true,
+          "prompt": "Choose one tool; extract task arguments. JSON only: {\"tool\":name,\"arguments\":{...}}. Missing task: {\"tool\":null,\"arguments\":{}}. Never invent values.\nTools (all arguments required except ?; declared JSON types):\nprice_lookup(item:string,currency:string,detail?:string)\nset_reminder(date:string,time:string,topic:string,tone?:string)\nconfigure_retry(job:string,max_retries:integer,on_failure_only:boolean,note?:string)\narchive_branch(branch:string,delete_allowed:boolean,review_required:boolean,note?:string)\ntranslate(source_text:string,target_language:string,tone?:string)\nTask:\nThis is a fictional staging request. Please use natural, carefully explained wording; the repeated background is only a readability preference. Look up the price: item=widget-11, currency=USD. detail=include_tax."
+        },
+        "attempts": [
+          {
+            "candidate": "verbatim",
+            "loss_rank": 0,
+            "losses": [],
+            "chars": 792,
+            "utf8_bytes": 792,
+            "tokens": 172,
+            "missing_anchors": [],
+            "fits": true
+          }
+        ],
+        "task_success": true,
+        "quality_hits": 1,
+        "quality_total": 1,
+        "quality_score": 1.0,
+        "unknown_arguments": [],
+        "response": {
+          "tool": "price_lookup",
+          "arguments": {
+            "item": "widget-11",
+            "currency": "USD",
+            "detail": "include_tax"
+          }
+        },
+        "all_candidates": [
+          {
+            "id": "verbatim",
+            "loss_rank": 0,
+            "text": "This is a fictional staging request. Please use natural, carefully explained wording; the repeated background is only a readability preference. Look up the price: item=widget-11, currency=USD. detail=include_tax.",
+            "losses": [],
+            "chars": 792,
+            "tokens": 172
+          },
+          {
+            "id": "rules",
+            "loss_rank": 1,
+            "text": "This is a fictional staging request. Please use natural, carefully explained wording; the repeated background is only a readability preference. Look up the price: item=widget-11, currency=USD. detail=include_tax.",
+            "losses": [
+              "wording/abbreviations may change"
+            ],
+            "chars": 792,
+            "tokens": 172
+          },
+          {
+            "id": "brief",
+            "loss_rank": 2,
+            "text": "Look up the price: item=widget-11, currency=USD. detail=include_tax.",
+            "losses": [
+              "optional explanatory background and politeness modifiers"
+            ],
+            "chars": 648,
+            "tokens": 148
+          },
+          {
+            "id": "skeleton",
+            "loss_rank": 3,
+            "text": "Look up the price: item=widget-11, currency=USD.",
+            "losses": [
+              "optional explanatory background and politeness modifiers",
+              "optional preferred argument detail=include_tax"
+            ],
+            "chars": 628,
+            "tokens": 143
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "budget-12",
+      "before": {
+        "case_id": "budget-12",
+        "language": "ja",
+        "max_chars": 800,
+        "max_tokens": 512,
+        "status": "success",
+        "selected": {
+          "candidate": "brief",
+          "loss_rank": 2,
+          "losses": [
+            "optional explanatory background and politeness modifiers"
+          ],
+          "chars": 788,
+          "utf8_bytes": 812,
+          "tokens": 190,
+          "missing_anchors": [],
+          "fits": true,
+          "prompt": "Choose one advertised tool and extract arguments from the task. Return JSON only: {\"tool\":name,\"arguments\":{...}}. Missing task: return {\"tool\":null,\"arguments\":{}}. Do not invent values.\nTools (all arguments required except ?; use the declared JSON types):\nprice_lookup(item:string,currency:string,detail?:string): look up an item price.\nset_reminder(date:string,time:string,topic:string,tone?:string): schedule a reminder.\nconfigure_retry(job:string,max_retries:integer,on_failure_only:boolean,note?:string): configure retries.\narchive_branch(branch:string,delete_allowed:boolean,review_required:boolean,note?:string): archive a branch.\ntranslate(source_text:string,target_language:string,tone?:string): request a translation.\nTask:\n2026-11-12 09:30 に review-12 のリマインダーを設定。 tone=formal."
+        },
+        "attempts": [
+          {
+            "candidate": "verbatim",
+            "loss_rank": 0,
+            "losses": [],
+            "chars": 835,
+            "utf8_bytes": 953,
+            "tokens": 228,
+            "missing_anchors": [],
+            "fits": false
+          },
+          {
+            "candidate": "rules",
+            "loss_rank": 1,
+            "losses": [
+              "wording/abbreviations may change"
+            ],
+            "chars": 835,
+            "utf8_bytes": 953,
+            "tokens": 228,
+            "missing_anchors": [],
+            "fits": false
+          },
+          {
+            "candidate": "brief",
+            "loss_rank": 2,
+            "losses": [
+              "optional explanatory background and politeness modifiers"
+            ],
+            "chars": 788,
+            "utf8_bytes": 812,
+            "tokens": 190,
+            "missing_anchors": [],
+            "fits": true
+          }
+        ],
+        "task_success": true,
+        "quality_hits": 1,
+        "quality_total": 1,
+        "quality_score": 1.0,
+        "unknown_arguments": [],
+        "response": {
+          "tool": "set_reminder",
+          "arguments": {
+            "date": "2026-11-12",
+            "time": "09:30",
+            "topic": "review-12",
+            "tone": "formal"
+          }
+        },
+        "all_candidates": [
+          {
+            "id": "verbatim",
+            "loss_rank": 0,
+            "text": "架空の検証用メモです。自然で丁寧な説明にし、背景の繰り返しは読みやすさのために残してください。2026-11-12 09:30 に review-12 のリマインダーを設定。 tone=formal.",
+            "losses": [],
+            "chars": 835,
+            "tokens": 228
+          },
+          {
+            "id": "rules",
+            "loss_rank": 1,
+            "text": "架空の検証用メモです。自然で丁寧な説明にし、背景の繰り返しは読みやすさのために残してください。2026-11-12 09:30 に review-12 のリマインダーを設定。 tone=formal.",
+            "losses": [
+              "wording/abbreviations may change"
+            ],
+            "chars": 835,
+            "tokens": 228
+          },
+          {
+            "id": "brief",
+            "loss_rank": 2,
+            "text": "2026-11-12 09:30 に review-12 のリマインダーを設定。 tone=formal.",
+            "losses": [
+              "optional explanatory background and politeness modifiers"
+            ],
+            "chars": 788,
+            "tokens": 190
+          },
+          {
+            "id": "skeleton",
+            "loss_rank": 3,
+            "text": "2026-11-12 09:30 に review-12 のリマインダーを設定。",
+            "losses": [
+              "optional explanatory background and politeness modifiers",
+              "optional preferred argument tone=formal"
+            ],
+            "chars": 775,
+            "tokens": 186
+          }
+        ]
+      },
+      "after": {
+        "case_id": "budget-12",
+        "language": "ja",
+        "max_chars": 800,
+        "max_tokens": 512,
+        "status": "wrong_action",
+        "selected": {
+          "candidate": "verbatim",
+          "loss_rank": 0,
+          "losses": [],
+          "chars": 680,
+          "utf8_bytes": 798,
+          "tokens": 199,
+          "missing_anchors": [],
+          "fits": true,
+          "prompt": "Choose one tool; extract task arguments. JSON only: {\"tool\":name,\"arguments\":{...}}. Missing task: {\"tool\":null,\"arguments\":{}}. Never invent values.\nTools (all arguments required except ?; declared JSON types):\nprice_lookup(item:string,currency:string,detail?:string)\nset_reminder(date:string,time:string,topic:string,tone?:string)\nconfigure_retry(job:string,max_retries:integer,on_failure_only:boolean,note?:string)\narchive_branch(branch:string,delete_allowed:boolean,review_required:boolean,note?:string)\ntranslate(source_text:string,target_language:string,tone?:string)\nTask:\n架空の検証用メモです。自然で丁寧な説明にし、背景の繰り返しは読みやすさのために残してください。2026-11-12 09:30 に review-12 のリマインダーを設定。 tone=formal."
+        },
+        "attempts": [
+          {
+            "candidate": "verbatim",
+            "loss_rank": 0,
+            "losses": [],
+            "chars": 680,
+            "utf8_bytes": 798,
+            "tokens": 199,
+            "missing_anchors": [],
+            "fits": true
+          }
+        ],
+        "task_success": false,
+        "quality_hits": 1,
+        "quality_total": 1,
+        "quality_score": 1.0,
+        "unknown_arguments": [
+          "note"
+        ],
+        "response": {
+          "tool": "set_reminder",
+          "arguments": {
+            "date": "2026-11-12",
+            "time": "09:30",
+            "topic": "架空の検証用メモ",
+            "tone": "formal",
+            "note": "背景の繰り返しは読みやすさのために残しました。"
+          }
+        },
+        "all_candidates": [
+          {
+            "id": "verbatim",
+            "loss_rank": 0,
+            "text": "架空の検証用メモです。自然で丁寧な説明にし、背景の繰り返しは読みやすさのために残してください。2026-11-12 09:30 に review-12 のリマインダーを設定。 tone=formal.",
+            "losses": [],
+            "chars": 680,
+            "tokens": 199
+          },
+          {
+            "id": "rules",
+            "loss_rank": 1,
+            "text": "架空の検証用メモです。自然で丁寧な説明にし、背景の繰り返しは読みやすさのために残してください。2026-11-12 09:30 に review-12 のリマインダーを設定。 tone=formal.",
+            "losses": [
+              "wording/abbreviations may change"
+            ],
+            "chars": 680,
+            "tokens": 199
+          },
+          {
+            "id": "brief",
+            "loss_rank": 2,
+            "text": "2026-11-12 09:30 に review-12 のリマインダーを設定。 tone=formal.",
+            "losses": [
+              "optional explanatory background and politeness modifiers"
+            ],
+            "chars": 633,
+            "tokens": 161
+          },
+          {
+            "id": "skeleton",
+            "loss_rank": 3,
+            "text": "2026-11-12 09:30 に review-12 のリマインダーを設定。",
+            "losses": [
+              "optional explanatory background and politeness modifiers",
+              "optional preferred argument tone=formal"
+            ],
+            "chars": 620,
+            "tokens": 157
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "budget-13",
+      "before": {
+        "case_id": "budget-13",
+        "language": "en",
+        "max_chars": 800,
+        "max_tokens": 512,
+        "status": "infeasible",
+        "selected": null,
+        "attempts": [
+          {
+            "candidate": "verbatim",
+            "loss_rank": 0,
+            "losses": [],
+            "chars": 958,
+            "utf8_bytes": 958,
+            "tokens": 206,
+            "missing_anchors": [],
+            "fits": false
+          },
+          {
+            "candidate": "rules",
+            "loss_rank": 1,
+            "losses": [
+              "wording/abbreviations may change"
+            ],
+            "chars": 957,
+            "utf8_bytes": 957,
+            "tokens": 206,
+            "missing_anchors": [
+              "Do not run on success"
+            ],
+            "fits": false
+          },
+          {
+            "candidate": "brief",
+            "loss_rank": 2,
+            "losses": [
+              "optional explanatory background and politeness modifiers"
+            ],
+            "chars": 814,
+            "utf8_bytes": 814,
+            "tokens": 182,
+            "missing_anchors": [],
+            "fits": false
+          },
+          {
+            "candidate": "skeleton",
+            "loss_rank": 3,
+            "losses": [
+              "optional explanatory background and politeness modifiers",
+              "optional preferred argument note=quiet"
+            ],
+            "chars": 802,
+            "utf8_bytes": 802,
+            "tokens": 178,
+            "missing_anchors": [],
+            "fits": false
+          }
+        ],
+        "task_success": null,
+        "all_candidates": [
+          {
+            "id": "verbatim",
+            "loss_rank": 0,
+            "text": "This is a fictional staging request. Please use natural, carefully explained wording; the repeated background is only a readability preference. job-13: max_retries=1, on_failure_only=true. Do not run on success. note=quiet.",
+            "losses": [],
+            "chars": 958,
+            "tokens": 206
+          },
+          {
+            "id": "rules",
+            "loss_rank": 1,
+            "text": "This is a fictional staging request. Please use natural, carefully explained wording; the repeated background is only a readability preference. job-13: max_retries=1, on_failure_only=true. Don't run on success. note=quiet.",
+            "losses": [
+              "wording/abbreviations may change"
+            ],
+            "chars": 957,
+            "tokens": 206
+          },
+          {
+            "id": "brief",
+            "loss_rank": 2,
+            "text": "job-13: max_retries=1, on_failure_only=true. Do not run on success. note=quiet.",
+            "losses": [
+              "optional explanatory background and politeness modifiers"
+            ],
+            "chars": 814,
+            "tokens": 182
+          },
+          {
+            "id": "skeleton",
+            "loss_rank": 3,
+            "text": "job-13: max_retries=1, on_failure_only=true. Do not run on success.",
+            "losses": [
+              "optional explanatory background and politeness modifiers",
+              "optional preferred argument note=quiet"
+            ],
+            "chars": 802,
+            "tokens": 178
+          }
+        ]
+      },
+      "after": {
+        "case_id": "budget-13",
+        "language": "en",
+        "max_chars": 800,
+        "max_tokens": 512,
+        "status": "success",
+        "selected": {
+          "candidate": "brief",
+          "loss_rank": 2,
+          "losses": [
+            "optional explanatory background and politeness modifiers"
+          ],
+          "chars": 659,
+          "utf8_bytes": 659,
+          "tokens": 153,
+          "missing_anchors": [],
+          "fits": true,
+          "prompt": "Choose one tool; extract task arguments. JSON only: {\"tool\":name,\"arguments\":{...}}. Missing task: {\"tool\":null,\"arguments\":{}}. Never invent values.\nTools (all arguments required except ?; declared JSON types):\nprice_lookup(item:string,currency:string,detail?:string)\nset_reminder(date:string,time:string,topic:string,tone?:string)\nconfigure_retry(job:string,max_retries:integer,on_failure_only:boolean,note?:string)\narchive_branch(branch:string,delete_allowed:boolean,review_required:boolean,note?:string)\ntranslate(source_text:string,target_language:string,tone?:string)\nTask:\njob-13: max_retries=1, on_failure_only=true. Do not run on success. note=quiet."
+        },
+        "attempts": [
+          {
+            "candidate": "verbatim",
+            "loss_rank": 0,
+            "losses": [],
+            "chars": 803,
+            "utf8_bytes": 803,
+            "tokens": 177,
+            "missing_anchors": [],
+            "fits": false
+          },
+          {
+            "candidate": "rules",
+            "loss_rank": 1,
+            "losses": [
+              "wording/abbreviations may change"
+            ],
+            "chars": 802,
+            "utf8_bytes": 802,
+            "tokens": 177,
+            "missing_anchors": [
+              "Do not run on success"
+            ],
+            "fits": false
+          },
+          {
+            "candidate": "brief",
+            "loss_rank": 2,
+            "losses": [
+              "optional explanatory background and politeness modifiers"
+            ],
+            "chars": 659,
+            "utf8_bytes": 659,
+            "tokens": 153,
+            "missing_anchors": [],
+            "fits": true
+          }
+        ],
+        "task_success": true,
+        "quality_hits": 1,
+        "quality_total": 1,
+        "quality_score": 1.0,
+        "unknown_arguments": [],
+        "response": {
+          "tool": "configure_retry",
+          "arguments": {
+            "job": "job-13",
+            "max_retries": 1,
+            "on_failure_only": true,
+            "note": "quiet"
+          }
+        },
+        "all_candidates": [
+          {
+            "id": "verbatim",
+            "loss_rank": 0,
+            "text": "This is a fictional staging request. Please use natural, carefully explained wording; the repeated background is only a readability preference. job-13: max_retries=1, on_failure_only=true. Do not run on success. note=quiet.",
+            "losses": [],
+            "chars": 803,
+            "tokens": 177
+          },
+          {
+            "id": "rules",
+            "loss_rank": 1,
+            "text": "This is a fictional staging request. Please use natural, carefully explained wording; the repeated background is only a readability preference. job-13: max_retries=1, on_failure_only=true. Don't run on success. note=quiet.",
+            "losses": [
+              "wording/abbreviations may change"
+            ],
+            "chars": 802,
+            "tokens": 177
+          },
+          {
+            "id": "brief",
+            "loss_rank": 2,
+            "text": "job-13: max_retries=1, on_failure_only=true. Do not run on success. note=quiet.",
+            "losses": [
+              "optional explanatory background and politeness modifiers"
+            ],
+            "chars": 659,
+            "tokens": 153
+          },
+          {
+            "id": "skeleton",
+            "loss_rank": 3,
+            "text": "job-13: max_retries=1, on_failure_only=true. Do not run on success.",
+            "losses": [
+              "optional explanatory background and politeness modifiers",
+              "optional preferred argument note=quiet"
+            ],
+            "chars": 647,
+            "tokens": 149
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "budget-14",
+      "before": {
+        "case_id": "budget-14",
+        "language": "ja",
+        "max_chars": 800,
+        "max_tokens": 512,
+        "status": "infeasible",
+        "selected": null,
+        "attempts": [
+          {
+            "candidate": "verbatim",
+            "loss_rank": 0,
+            "losses": [],
+            "chars": 877,
+            "utf8_bytes": 1009,
+            "tokens": 224,
+            "missing_anchors": [],
+            "fits": false
+          },
+          {
+            "candidate": "rules",
+            "loss_rank": 1,
+            "losses": [
+              "wording/abbreviations may change"
+            ],
+            "chars": 877,
+            "utf8_bytes": 1009,
+            "tokens": 224,
+            "missing_anchors": [],
+            "fits": false
+          },
+          {
+            "candidate": "brief",
+            "loss_rank": 2,
+            "losses": [
+              "optional explanatory background and politeness modifiers"
+            ],
+            "chars": 830,
+            "utf8_bytes": 868,
+            "tokens": 186,
+            "missing_anchors": [],
+            "fits": false
+          },
+          {
+            "candidate": "skeleton",
+            "loss_rank": 3,
+            "losses": [
+              "optional explanatory background and politeness modifiers",
+              "optional preferred argument note=retain_history"
+            ],
+            "chars": 809,
+            "utf8_bytes": 847,
+            "tokens": 181,
+            "missing_anchors": [],
+            "fits": false
+          }
+        ],
+        "task_success": null,
+        "all_candidates": [
+          {
+            "id": "verbatim",
+            "loss_rank": 0,
+            "text": "架空の検証用メモです。自然で丁寧な説明にし、背景の繰り返しは読みやすさのために残してください。archive-14 をアーカイブ: delete_allowed=false, review_required=true。レビュー前に削除しない。 note=retain_history.",
+            "losses": [],
+            "chars": 877,
+            "tokens": 224
+          },
+          {
+            "id": "rules",
+            "loss_rank": 1,
+            "text": "架空の検証用メモです。自然で丁寧な説明にし、背景の繰り返しは読みやすさのために残してください。archive-14 をアーカイブ: delete_allowed=false, review_required=true。レビュー前に削除しない。 note=retain_history.",
+            "losses": [
+              "wording/abbreviations may change"
+            ],
+            "chars": 877,
+            "tokens": 224
+          },
+          {
+            "id": "brief",
+            "loss_rank": 2,
+            "text": "archive-14 をアーカイブ: delete_allowed=false, review_required=true。レビュー前に削除しない。 note=retain_history.",
+            "losses": [
+              "optional explanatory background and politeness modifiers"
+            ],
+            "chars": 830,
+            "tokens": 186
+          },
+          {
+            "id": "skeleton",
+            "loss_rank": 3,
+            "text": "archive-14 をアーカイブ: delete_allowed=false, review_required=true。レビュー前に削除しない。",
+            "losses": [
+              "optional explanatory background and politeness modifiers",
+              "optional preferred argument note=retain_history"
+            ],
+            "chars": 809,
+            "tokens": 181
+          }
+        ]
+      },
+      "after": {
+        "case_id": "budget-14",
+        "language": "ja",
+        "max_chars": 800,
+        "max_tokens": 512,
+        "status": "abstained",
+        "selected": {
+          "candidate": "verbatim",
+          "loss_rank": 0,
+          "losses": [],
+          "chars": 722,
+          "utf8_bytes": 854,
+          "tokens": 195,
+          "missing_anchors": [],
+          "fits": true,
+          "prompt": "Choose one tool; extract task arguments. JSON only: {\"tool\":name,\"arguments\":{...}}. Missing task: {\"tool\":null,\"arguments\":{}}. Never invent values.\nTools (all arguments required except ?; declared JSON types):\nprice_lookup(item:string,currency:string,detail?:string)\nset_reminder(date:string,time:string,topic:string,tone?:string)\nconfigure_retry(job:string,max_retries:integer,on_failure_only:boolean,note?:string)\narchive_branch(branch:string,delete_allowed:boolean,review_required:boolean,note?:string)\ntranslate(source_text:string,target_language:string,tone?:string)\nTask:\n架空の検証用メモです。自然で丁寧な説明にし、背景の繰り返しは読みやすさのために残してください。archive-14 をアーカイブ: delete_allowed=false, review_required=true。レビュー前に削除しない。 note=retain_history."
+        },
+        "attempts": [
+          {
+            "candidate": "verbatim",
+            "loss_rank": 0,
+            "losses": [],
+            "chars": 722,
+            "utf8_bytes": 854,
+            "tokens": 195,
+            "missing_anchors": [],
+            "fits": true
+          }
+        ],
+        "task_success": false,
+        "quality_score": null,
+        "response": {
+          "tool": null,
+          "arguments": {
+            "tool": "archive_branch",
+            "branch": "archive-14",
+            "delete_allowed": false,
+            "review_required": true,
+            "note": "retain_history"
+          }
+        },
+        "all_candidates": [
+          {
+            "id": "verbatim",
+            "loss_rank": 0,
+            "text": "架空の検証用メモです。自然で丁寧な説明にし、背景の繰り返しは読みやすさのために残してください。archive-14 をアーカイブ: delete_allowed=false, review_required=true。レビュー前に削除しない。 note=retain_history.",
+            "losses": [],
+            "chars": 722,
+            "tokens": 195
+          },
+          {
+            "id": "rules",
+            "loss_rank": 1,
+            "text": "架空の検証用メモです。自然で丁寧な説明にし、背景の繰り返しは読みやすさのために残してください。archive-14 をアーカイブ: delete_allowed=false, review_required=true。レビュー前に削除しない。 note=retain_history.",
+            "losses": [
+              "wording/abbreviations may change"
+            ],
+            "chars": 722,
+            "tokens": 195
+          },
+          {
+            "id": "brief",
+            "loss_rank": 2,
+            "text": "archive-14 をアーカイブ: delete_allowed=false, review_required=true。レビュー前に削除しない。 note=retain_history.",
+            "losses": [
+              "optional explanatory background and politeness modifiers"
+            ],
+            "chars": 675,
+            "tokens": 157
+          },
+          {
+            "id": "skeleton",
+            "loss_rank": 3,
+            "text": "archive-14 をアーカイブ: delete_allowed=false, review_required=true。レビュー前に削除しない。",
+            "losses": [
+              "optional explanatory background and politeness modifiers",
+              "optional preferred argument note=retain_history"
+            ],
+            "chars": 654,
+            "tokens": 152
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "budget-15",
+      "before": {
+        "case_id": "budget-15",
+        "language": "en",
+        "max_chars": 800,
+        "max_tokens": 512,
+        "status": "infeasible",
+        "selected": null,
+        "attempts": [
+          {
+            "candidate": "verbatim",
+            "loss_rank": 0,
+            "losses": [],
+            "chars": 991,
+            "utf8_bytes": 991,
+            "tokens": 201,
+            "missing_anchors": [],
+            "fits": false
+          },
+          {
+            "candidate": "rules",
+            "loss_rank": 1,
+            "losses": [
+              "wording/abbreviations may change"
+            ],
+            "chars": 991,
+            "utf8_bytes": 991,
+            "tokens": 201,
+            "missing_anchors": [],
+            "fits": false
+          },
+          {
+            "candidate": "brief",
+            "loss_rank": 2,
+            "losses": [
+              "optional explanatory background and politeness modifiers"
+            ],
+            "chars": 847,
+            "utf8_bytes": 847,
+            "tokens": 177,
+            "missing_anchors": [],
+            "fits": false
+          },
+          {
+            "candidate": "skeleton",
+            "loss_rank": 3,
+            "losses": [
+              "optional explanatory background and politeness modifiers",
+              "optional preferred argument tone=formal"
+            ],
+            "chars": 834,
+            "utf8_bytes": 834,
+            "tokens": 173,
+            "missing_anchors": [],
+            "fits": false
+          }
+        ],
+        "task_success": null,
+        "all_candidates": [
+          {
+            "id": "verbatim",
+            "loss_rank": 0,
+            "text": "This is a fictional staging request. Please use natural, carefully explained wording; the repeated background is only a readability preference. Request translation: source_text=\"The fictional parcel arrives tomorrow\", target_language=Japanese. tone=formal.",
+            "losses": [],
+            "chars": 991,
+            "tokens": 201
+          },
+          {
+            "id": "rules",
+            "loss_rank": 1,
+            "text": "This is a fictional staging request. Please use natural, carefully explained wording; the repeated background is only a readability preference. Request translation: source_text=\"The fictional parcel arrives tomorrow\", target_language=Japanese. tone=formal.",
+            "losses": [
+              "wording/abbreviations may change"
+            ],
+            "chars": 991,
+            "tokens": 201
+          },
+          {
+            "id": "brief",
+            "loss_rank": 2,
+            "text": "Request translation: source_text=\"The fictional parcel arrives tomorrow\", target_language=Japanese. tone=formal.",
+            "losses": [
+              "optional explanatory background and politeness modifiers"
+            ],
+            "chars": 847,
+            "tokens": 177
+          },
+          {
+            "id": "skeleton",
+            "loss_rank": 3,
+            "text": "Request translation: source_text=\"The fictional parcel arrives tomorrow\", target_language=Japanese.",
+            "losses": [
+              "optional explanatory background and politeness modifiers",
+              "optional preferred argument tone=formal"
+            ],
+            "chars": 834,
+            "tokens": 173
+          }
+        ]
+      },
+      "after": {
+        "case_id": "budget-15",
+        "language": "en",
+        "max_chars": 800,
+        "max_tokens": 512,
+        "status": "success",
+        "selected": {
+          "candidate": "brief",
+          "loss_rank": 2,
+          "losses": [
+            "optional explanatory background and politeness modifiers"
+          ],
+          "chars": 692,
+          "utf8_bytes": 692,
+          "tokens": 148,
+          "missing_anchors": [],
+          "fits": true,
+          "prompt": "Choose one tool; extract task arguments. JSON only: {\"tool\":name,\"arguments\":{...}}. Missing task: {\"tool\":null,\"arguments\":{}}. Never invent values.\nTools (all arguments required except ?; declared JSON types):\nprice_lookup(item:string,currency:string,detail?:string)\nset_reminder(date:string,time:string,topic:string,tone?:string)\nconfigure_retry(job:string,max_retries:integer,on_failure_only:boolean,note?:string)\narchive_branch(branch:string,delete_allowed:boolean,review_required:boolean,note?:string)\ntranslate(source_text:string,target_language:string,tone?:string)\nTask:\nRequest translation: source_text=\"The fictional parcel arrives tomorrow\", target_language=Japanese. tone=formal."
+        },
+        "attempts": [
+          {
+            "candidate": "verbatim",
+            "loss_rank": 0,
+            "losses": [],
+            "chars": 836,
+            "utf8_bytes": 836,
+            "tokens": 172,
+            "missing_anchors": [],
+            "fits": false
+          },
+          {
+            "candidate": "rules",
+            "loss_rank": 1,
+            "losses": [
+              "wording/abbreviations may change"
+            ],
+            "chars": 836,
+            "utf8_bytes": 836,
+            "tokens": 172,
+            "missing_anchors": [],
+            "fits": false
+          },
+          {
+            "candidate": "brief",
+            "loss_rank": 2,
+            "losses": [
+              "optional explanatory background and politeness modifiers"
+            ],
+            "chars": 692,
+            "utf8_bytes": 692,
+            "tokens": 148,
+            "missing_anchors": [],
+            "fits": true
+          }
+        ],
+        "task_success": true,
+        "quality_hits": 1,
+        "quality_total": 1,
+        "quality_score": 1.0,
+        "unknown_arguments": [],
+        "response": {
+          "tool": "translate",
+          "arguments": {
+            "source_text": "The fictional parcel arrives tomorrow",
+            "target_language": "Japanese",
+            "tone": "formal"
+          }
+        },
+        "all_candidates": [
+          {
+            "id": "verbatim",
+            "loss_rank": 0,
+            "text": "This is a fictional staging request. Please use natural, carefully explained wording; the repeated background is only a readability preference. Request translation: source_text=\"The fictional parcel arrives tomorrow\", target_language=Japanese. tone=formal.",
+            "losses": [],
+            "chars": 836,
+            "tokens": 172
+          },
+          {
+            "id": "rules",
+            "loss_rank": 1,
+            "text": "This is a fictional staging request. Please use natural, carefully explained wording; the repeated background is only a readability preference. Request translation: source_text=\"The fictional parcel arrives tomorrow\", target_language=Japanese. tone=formal.",
+            "losses": [
+              "wording/abbreviations may change"
+            ],
+            "chars": 836,
+            "tokens": 172
+          },
+          {
+            "id": "brief",
+            "loss_rank": 2,
+            "text": "Request translation: source_text=\"The fictional parcel arrives tomorrow\", target_language=Japanese. tone=formal.",
+            "losses": [
+              "optional explanatory background and politeness modifiers"
+            ],
+            "chars": 692,
+            "tokens": 148
+          },
+          {
+            "id": "skeleton",
+            "loss_rank": 3,
+            "text": "Request translation: source_text=\"The fictional parcel arrives tomorrow\", target_language=Japanese.",
+            "losses": [
+              "optional explanatory background and politeness modifiers",
+              "optional preferred argument tone=formal"
+            ],
+            "chars": 679,
+            "tokens": 144
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "budget-16",
+      "before": {
+        "case_id": "budget-16",
+        "language": "ja",
+        "max_chars": 800,
+        "max_tokens": 512,
+        "status": "success",
+        "selected": {
+          "candidate": "brief",
+          "loss_rank": 2,
+          "losses": [
+            "optional explanatory background and politeness modifiers"
+          ],
+          "chars": 790,
+          "utf8_bytes": 800,
+          "tokens": 178,
+          "missing_anchors": [],
+          "fits": true,
+          "prompt": "Choose one advertised tool and extract arguments from the task. Return JSON only: {\"tool\":name,\"arguments\":{...}}. Missing task: return {\"tool\":null,\"arguments\":{}}. Do not invent values.\nTools (all arguments required except ?; use the declared JSON types):\nprice_lookup(item:string,currency:string,detail?:string): look up an item price.\nset_reminder(date:string,time:string,topic:string,tone?:string): schedule a reminder.\nconfigure_retry(job:string,max_retries:integer,on_failure_only:boolean,note?:string): configure retries.\narchive_branch(branch:string,delete_allowed:boolean,review_required:boolean,note?:string): archive a branch.\ntranslate(source_text:string,target_language:string,tone?:string): request a translation.\nTask:\n価格照会: item=widget-16, currency=JPY。 detail=include_tax."
+        },
+        "attempts": [
+          {
+            "candidate": "verbatim",
+            "loss_rank": 0,
+            "losses": [],
+            "chars": 837,
+            "utf8_bytes": 941,
+            "tokens": 216,
+            "missing_anchors": [],
+            "fits": false
+          },
+          {
+            "candidate": "rules",
+            "loss_rank": 1,
+            "losses": [
+              "wording/abbreviations may change"
+            ],
+            "chars": 837,
+            "utf8_bytes": 941,
+            "tokens": 216,
+            "missing_anchors": [],
+            "fits": false
+          },
+          {
+            "candidate": "brief",
+            "loss_rank": 2,
+            "losses": [
+              "optional explanatory background and politeness modifiers"
+            ],
+            "chars": 790,
+            "utf8_bytes": 800,
+            "tokens": 178,
+            "missing_anchors": [],
+            "fits": true
+          }
+        ],
+        "task_success": true,
+        "quality_hits": 1,
+        "quality_total": 1,
+        "quality_score": 1.0,
+        "unknown_arguments": [],
+        "response": {
+          "tool": "price_lookup",
+          "arguments": {
+            "item": "widget-16",
+            "currency": "JPY",
+            "detail": "include_tax"
+          }
+        },
+        "all_candidates": [
+          {
+            "id": "verbatim",
+            "loss_rank": 0,
+            "text": "架空の検証用メモです。自然で丁寧な説明にし、背景の繰り返しは読みやすさのために残してください。価格照会: item=widget-16, currency=JPY。 detail=include_tax.",
+            "losses": [],
+            "chars": 837,
+            "tokens": 216
+          },
+          {
+            "id": "rules",
+            "loss_rank": 1,
+            "text": "架空の検証用メモです。自然で丁寧な説明にし、背景の繰り返しは読みやすさのために残してください。価格照会: item=widget-16, currency=JPY。 detail=include_tax.",
+            "losses": [
+              "wording/abbreviations may change"
+            ],
+            "chars": 837,
+            "tokens": 216
+          },
+          {
+            "id": "brief",
+            "loss_rank": 2,
+            "text": "価格照会: item=widget-16, currency=JPY。 detail=include_tax.",
+            "losses": [
+              "optional explanatory background and politeness modifiers"
+            ],
+            "chars": 790,
+            "tokens": 178
+          },
+          {
+            "id": "skeleton",
+            "loss_rank": 3,
+            "text": "価格照会: item=widget-16, currency=JPY。",
+            "losses": [
+              "optional explanatory background and politeness modifiers",
+              "optional preferred argument detail=include_tax"
+            ],
+            "chars": 770,
+            "tokens": 173
+          }
+        ]
+      },
+      "after": {
+        "case_id": "budget-16",
+        "language": "ja",
+        "max_chars": 800,
+        "max_tokens": 512,
+        "status": "success",
+        "selected": {
+          "candidate": "verbatim",
+          "loss_rank": 0,
+          "losses": [],
+          "chars": 682,
+          "utf8_bytes": 786,
+          "tokens": 187,
+          "missing_anchors": [],
+          "fits": true,
+          "prompt": "Choose one tool; extract task arguments. JSON only: {\"tool\":name,\"arguments\":{...}}. Missing task: {\"tool\":null,\"arguments\":{}}. Never invent values.\nTools (all arguments required except ?; declared JSON types):\nprice_lookup(item:string,currency:string,detail?:string)\nset_reminder(date:string,time:string,topic:string,tone?:string)\nconfigure_retry(job:string,max_retries:integer,on_failure_only:boolean,note?:string)\narchive_branch(branch:string,delete_allowed:boolean,review_required:boolean,note?:string)\ntranslate(source_text:string,target_language:string,tone?:string)\nTask:\n架空の検証用メモです。自然で丁寧な説明にし、背景の繰り返しは読みやすさのために残してください。価格照会: item=widget-16, currency=JPY。 detail=include_tax."
+        },
+        "attempts": [
+          {
+            "candidate": "verbatim",
+            "loss_rank": 0,
+            "losses": [],
+            "chars": 682,
+            "utf8_bytes": 786,
+            "tokens": 187,
+            "missing_anchors": [],
+            "fits": true
+          }
+        ],
+        "task_success": true,
+        "quality_hits": 1,
+        "quality_total": 1,
+        "quality_score": 1.0,
+        "unknown_arguments": [],
+        "response": {
+          "tool": "price_lookup",
+          "arguments": {
+            "item": "widget-16",
+            "currency": "JPY",
+            "detail": "include_tax"
+          }
+        },
+        "all_candidates": [
+          {
+            "id": "verbatim",
+            "loss_rank": 0,
+            "text": "架空の検証用メモです。自然で丁寧な説明にし、背景の繰り返しは読みやすさのために残してください。価格照会: item=widget-16, currency=JPY。 detail=include_tax.",
+            "losses": [],
+            "chars": 682,
+            "tokens": 187
+          },
+          {
+            "id": "rules",
+            "loss_rank": 1,
+            "text": "架空の検証用メモです。自然で丁寧な説明にし、背景の繰り返しは読みやすさのために残してください。価格照会: item=widget-16, currency=JPY。 detail=include_tax.",
+            "losses": [
+              "wording/abbreviations may change"
+            ],
+            "chars": 682,
+            "tokens": 187
+          },
+          {
+            "id": "brief",
+            "loss_rank": 2,
+            "text": "価格照会: item=widget-16, currency=JPY。 detail=include_tax.",
+            "losses": [
+              "optional explanatory background and politeness modifiers"
+            ],
+            "chars": 635,
+            "tokens": 149
+          },
+          {
+            "id": "skeleton",
+            "loss_rank": 3,
+            "text": "価格照会: item=widget-16, currency=JPY。",
+            "losses": [
+              "optional explanatory background and politeness modifiers",
+              "optional preferred argument detail=include_tax"
+            ],
+            "chars": 615,
+            "tokens": 144
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "budget-17",
+      "before": {
+        "case_id": "budget-17",
+        "language": "en",
+        "max_chars": 800,
+        "max_tokens": 512,
+        "status": "success",
+        "selected": {
+          "candidate": "brief",
+          "loss_rank": 2,
+          "losses": [
+            "optional explanatory background and politeness modifiers"
+          ],
+          "chars": 800,
+          "utf8_bytes": 800,
+          "tokens": 188,
+          "missing_anchors": [],
+          "fits": true,
+          "prompt": "Choose one advertised tool and extract arguments from the task. Return JSON only: {\"tool\":name,\"arguments\":{...}}. Missing task: return {\"tool\":null,\"arguments\":{}}. Do not invent values.\nTools (all arguments required except ?; use the declared JSON types):\nprice_lookup(item:string,currency:string,detail?:string): look up an item price.\nset_reminder(date:string,time:string,topic:string,tone?:string): schedule a reminder.\nconfigure_retry(job:string,max_retries:integer,on_failure_only:boolean,note?:string): configure retries.\narchive_branch(branch:string,delete_allowed:boolean,review_required:boolean,note?:string): archive a branch.\ntranslate(source_text:string,target_language:string,tone?:string): request a translation.\nTask:\nSet a reminder for review-17 at 09:30 on 2026-11-17. tone=formal."
+        },
+        "attempts": [
+          {
+            "candidate": "verbatim",
+            "loss_rank": 0,
+            "losses": [],
+            "chars": 944,
+            "utf8_bytes": 944,
+            "tokens": 212,
+            "missing_anchors": [],
+            "fits": false
+          },
+          {
+            "candidate": "rules",
+            "loss_rank": 1,
+            "losses": [
+              "wording/abbreviations may change"
+            ],
+            "chars": 944,
+            "utf8_bytes": 944,
+            "tokens": 212,
+            "missing_anchors": [],
+            "fits": false
+          },
+          {
+            "candidate": "brief",
+            "loss_rank": 2,
+            "losses": [
+              "optional explanatory background and politeness modifiers"
+            ],
+            "chars": 800,
+            "utf8_bytes": 800,
+            "tokens": 188,
+            "missing_anchors": [],
+            "fits": true
+          }
+        ],
+        "task_success": true,
+        "quality_hits": 1,
+        "quality_total": 1,
+        "quality_score": 1.0,
+        "unknown_arguments": [],
+        "response": {
+          "tool": "set_reminder",
+          "arguments": {
+            "date": "2026-11-17",
+            "time": "09:30",
+            "topic": "review-17",
+            "tone": "formal"
+          }
+        },
+        "all_candidates": [
+          {
+            "id": "verbatim",
+            "loss_rank": 0,
+            "text": "This is a fictional staging request. Please use natural, carefully explained wording; the repeated background is only a readability preference. Set a reminder for review-17 at 09:30 on 2026-11-17. tone=formal.",
+            "losses": [],
+            "chars": 944,
+            "tokens": 212
+          },
+          {
+            "id": "rules",
+            "loss_rank": 1,
+            "text": "This is a fictional staging request. Please use natural, carefully explained wording; the repeated background is only a readability preference. Set a reminder for review-17 at 09:30 on 2026-11-17. tone=formal.",
+            "losses": [
+              "wording/abbreviations may change"
+            ],
+            "chars": 944,
+            "tokens": 212
+          },
+          {
+            "id": "brief",
+            "loss_rank": 2,
+            "text": "Set a reminder for review-17 at 09:30 on 2026-11-17. tone=formal.",
+            "losses": [
+              "optional explanatory background and politeness modifiers"
+            ],
+            "chars": 800,
+            "tokens": 188
+          },
+          {
+            "id": "skeleton",
+            "loss_rank": 3,
+            "text": "Set a reminder for review-17 at 09:30 on 2026-11-17.",
+            "losses": [
+              "optional explanatory background and politeness modifiers",
+              "optional preferred argument tone=formal"
+            ],
+            "chars": 787,
+            "tokens": 184
+          }
+        ]
+      },
+      "after": {
+        "case_id": "budget-17",
+        "language": "en",
+        "max_chars": 800,
+        "max_tokens": 512,
+        "status": "success",
+        "selected": {
+          "candidate": "verbatim",
+          "loss_rank": 0,
+          "losses": [],
+          "chars": 789,
+          "utf8_bytes": 789,
+          "tokens": 183,
+          "missing_anchors": [],
+          "fits": true,
+          "prompt": "Choose one tool; extract task arguments. JSON only: {\"tool\":name,\"arguments\":{...}}. Missing task: {\"tool\":null,\"arguments\":{}}. Never invent values.\nTools (all arguments required except ?; declared JSON types):\nprice_lookup(item:string,currency:string,detail?:string)\nset_reminder(date:string,time:string,topic:string,tone?:string)\nconfigure_retry(job:string,max_retries:integer,on_failure_only:boolean,note?:string)\narchive_branch(branch:string,delete_allowed:boolean,review_required:boolean,note?:string)\ntranslate(source_text:string,target_language:string,tone?:string)\nTask:\nThis is a fictional staging request. Please use natural, carefully explained wording; the repeated background is only a readability preference. Set a reminder for review-17 at 09:30 on 2026-11-17. tone=formal."
+        },
+        "attempts": [
+          {
+            "candidate": "verbatim",
+            "loss_rank": 0,
+            "losses": [],
+            "chars": 789,
+            "utf8_bytes": 789,
+            "tokens": 183,
+            "missing_anchors": [],
+            "fits": true
+          }
+        ],
+        "task_success": true,
+        "quality_hits": 1,
+        "quality_total": 1,
+        "quality_score": 1.0,
+        "unknown_arguments": [],
+        "response": {
+          "tool": "set_reminder",
+          "arguments": {
+            "date": "2026-11-17",
+            "time": "09:30",
+            "topic": "review-17",
+            "tone": "formal"
+          }
+        },
+        "all_candidates": [
+          {
+            "id": "verbatim",
+            "loss_rank": 0,
+            "text": "This is a fictional staging request. Please use natural, carefully explained wording; the repeated background is only a readability preference. Set a reminder for review-17 at 09:30 on 2026-11-17. tone=formal.",
+            "losses": [],
+            "chars": 789,
+            "tokens": 183
+          },
+          {
+            "id": "rules",
+            "loss_rank": 1,
+            "text": "This is a fictional staging request. Please use natural, carefully explained wording; the repeated background is only a readability preference. Set a reminder for review-17 at 09:30 on 2026-11-17. tone=formal.",
+            "losses": [
+              "wording/abbreviations may change"
+            ],
+            "chars": 789,
+            "tokens": 183
+          },
+          {
+            "id": "brief",
+            "loss_rank": 2,
+            "text": "Set a reminder for review-17 at 09:30 on 2026-11-17. tone=formal.",
+            "losses": [
+              "optional explanatory background and politeness modifiers"
+            ],
+            "chars": 645,
+            "tokens": 159
+          },
+          {
+            "id": "skeleton",
+            "loss_rank": 3,
+            "text": "Set a reminder for review-17 at 09:30 on 2026-11-17.",
+            "losses": [
+              "optional explanatory background and politeness modifiers",
+              "optional preferred argument tone=formal"
+            ],
+            "chars": 632,
+            "tokens": 155
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "budget-18",
+      "before": {
+        "case_id": "budget-18",
+        "language": "ja",
+        "max_chars": 800,
+        "max_tokens": 512,
+        "status": "success",
+        "selected": {
+          "candidate": "skeleton",
+          "loss_rank": 3,
+          "losses": [
+            "optional explanatory background and politeness modifiers",
+            "optional preferred argument note=quiet"
+          ],
+          "chars": 790,
+          "utf8_bytes": 814,
+          "tokens": 178,
+          "missing_anchors": [],
+          "fits": true,
+          "prompt": "Choose one advertised tool and extract arguments from the task. Return JSON only: {\"tool\":name,\"arguments\":{...}}. Missing task: return {\"tool\":null,\"arguments\":{}}. Do not invent values.\nTools (all arguments required except ?; use the declared JSON types):\nprice_lookup(item:string,currency:string,detail?:string): look up an item price.\nset_reminder(date:string,time:string,topic:string,tone?:string): schedule a reminder.\nconfigure_retry(job:string,max_retries:integer,on_failure_only:boolean,note?:string): configure retries.\narchive_branch(branch:string,delete_allowed:boolean,review_required:boolean,note?:string): archive a branch.\ntranslate(source_text:string,target_language:string,tone?:string): request a translation.\nTask:\njob-18: max_retries=3, on_failure_only=true。成功時には実行しない。"
+        },
+        "attempts": [
+          {
+            "candidate": "verbatim",
+            "loss_rank": 0,
+            "losses": [],
+            "chars": 849,
+            "utf8_bytes": 967,
+            "tokens": 220,
+            "missing_anchors": [],
+            "fits": false
+          },
+          {
+            "candidate": "rules",
+            "loss_rank": 1,
+            "losses": [
+              "wording/abbreviations may change"
+            ],
+            "chars": 849,
+            "utf8_bytes": 967,
+            "tokens": 220,
+            "missing_anchors": [],
+            "fits": false
+          },
+          {
+            "candidate": "brief",
+            "loss_rank": 2,
+            "losses": [
+              "optional explanatory background and politeness modifiers"
+            ],
+            "chars": 802,
+            "utf8_bytes": 826,
+            "tokens": 182,
+            "missing_anchors": [],
+            "fits": false
+          },
+          {
+            "candidate": "skeleton",
+            "loss_rank": 3,
+            "losses": [
+              "optional explanatory background and politeness modifiers",
+              "optional preferred argument note=quiet"
+            ],
+            "chars": 790,
+            "utf8_bytes": 814,
+            "tokens": 178,
+            "missing_anchors": [],
+            "fits": true
+          }
+        ],
+        "task_success": true,
+        "quality_hits": 0,
+        "quality_total": 1,
+        "quality_score": 0.0,
+        "unknown_arguments": [],
+        "response": {
+          "tool": "configure_retry",
+          "arguments": {
+            "job": "job-18",
+            "max_retries": 3,
+            "on_failure_only": true,
+            "note": null
+          }
+        },
+        "all_candidates": [
+          {
+            "id": "verbatim",
+            "loss_rank": 0,
+            "text": "架空の検証用メモです。自然で丁寧な説明にし、背景の繰り返しは読みやすさのために残してください。job-18: max_retries=3, on_failure_only=true。成功時には実行しない。 note=quiet.",
+            "losses": [],
+            "chars": 849,
+            "tokens": 220
+          },
+          {
+            "id": "rules",
+            "loss_rank": 1,
+            "text": "架空の検証用メモです。自然で丁寧な説明にし、背景の繰り返しは読みやすさのために残してください。job-18: max_retries=3, on_failure_only=true。成功時には実行しない。 note=quiet.",
+            "losses": [
+              "wording/abbreviations may change"
+            ],
+            "chars": 849,
+            "tokens": 220
+          },
+          {
+            "id": "brief",
+            "loss_rank": 2,
+            "text": "job-18: max_retries=3, on_failure_only=true。成功時には実行しない。 note=quiet.",
+            "losses": [
+              "optional explanatory background and politeness modifiers"
+            ],
+            "chars": 802,
+            "tokens": 182
+          },
+          {
+            "id": "skeleton",
+            "loss_rank": 3,
+            "text": "job-18: max_retries=3, on_failure_only=true。成功時には実行しない。",
+            "losses": [
+              "optional explanatory background and politeness modifiers",
+              "optional preferred argument note=quiet"
+            ],
+            "chars": 790,
+            "tokens": 178
+          }
+        ]
+      },
+      "after": {
+        "case_id": "budget-18",
+        "language": "ja",
+        "max_chars": 800,
+        "max_tokens": 512,
+        "status": "abstained",
+        "selected": {
+          "candidate": "verbatim",
+          "loss_rank": 0,
+          "losses": [],
+          "chars": 694,
+          "utf8_bytes": 812,
+          "tokens": 191,
+          "missing_anchors": [],
+          "fits": true,
+          "prompt": "Choose one tool; extract task arguments. JSON only: {\"tool\":name,\"arguments\":{...}}. Missing task: {\"tool\":null,\"arguments\":{}}. Never invent values.\nTools (all arguments required except ?; declared JSON types):\nprice_lookup(item:string,currency:string,detail?:string)\nset_reminder(date:string,time:string,topic:string,tone?:string)\nconfigure_retry(job:string,max_retries:integer,on_failure_only:boolean,note?:string)\narchive_branch(branch:string,delete_allowed:boolean,review_required:boolean,note?:string)\ntranslate(source_text:string,target_language:string,tone?:string)\nTask:\n架空の検証用メモです。自然で丁寧な説明にし、背景の繰り返しは読みやすさのために残してください。job-18: max_retries=3, on_failure_only=true。成功時には実行しない。 note=quiet."
+        },
+        "attempts": [
+          {
+            "candidate": "verbatim",
+            "loss_rank": 0,
+            "losses": [],
+            "chars": 694,
+            "utf8_bytes": 812,
+            "tokens": 191,
+            "missing_anchors": [],
+            "fits": true
+          }
+        ],
+        "task_success": false,
+        "quality_score": null,
+        "response": {
+          "tool": null,
+          "arguments": {
+            "tool": "archive_branch",
+            "arguments": {
+              "branch": "job-18",
+              "delete_allowed": true,
+              "review_required": false,
+              "note": "quiet"
+            }
+          }
+        },
+        "all_candidates": [
+          {
+            "id": "verbatim",
+            "loss_rank": 0,
+            "text": "架空の検証用メモです。自然で丁寧な説明にし、背景の繰り返しは読みやすさのために残してください。job-18: max_retries=3, on_failure_only=true。成功時には実行しない。 note=quiet.",
+            "losses": [],
+            "chars": 694,
+            "tokens": 191
+          },
+          {
+            "id": "rules",
+            "loss_rank": 1,
+            "text": "架空の検証用メモです。自然で丁寧な説明にし、背景の繰り返しは読みやすさのために残してください。job-18: max_retries=3, on_failure_only=true。成功時には実行しない。 note=quiet.",
+            "losses": [
+              "wording/abbreviations may change"
+            ],
+            "chars": 694,
+            "tokens": 191
+          },
+          {
+            "id": "brief",
+            "loss_rank": 2,
+            "text": "job-18: max_retries=3, on_failure_only=true。成功時には実行しない。 note=quiet.",
+            "losses": [
+              "optional explanatory background and politeness modifiers"
+            ],
+            "chars": 647,
+            "tokens": 153
+          },
+          {
+            "id": "skeleton",
+            "loss_rank": 3,
+            "text": "job-18: max_retries=3, on_failure_only=true。成功時には実行しない。",
+            "losses": [
+              "optional explanatory background and politeness modifiers",
+              "optional preferred argument note=quiet"
+            ],
+            "chars": 635,
+            "tokens": 149
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "budget-19",
+      "before": {
+        "case_id": "budget-19",
+        "language": "en",
+        "max_chars": 800,
+        "max_tokens": 512,
+        "status": "infeasible",
+        "selected": null,
+        "attempts": [
+          {
+            "candidate": "verbatim",
+            "loss_rank": 0,
+            "losses": [],
+            "chars": 992,
+            "utf8_bytes": 992,
+            "tokens": 205,
+            "missing_anchors": [],
+            "fits": false
+          },
+          {
+            "candidate": "rules",
+            "loss_rank": 1,
+            "losses": [
+              "wording/abbreviations may change"
+            ],
+            "chars": 991,
+            "utf8_bytes": 991,
+            "tokens": 205,
+            "missing_anchors": [
+              "Do not delete before review"
+            ],
+            "fits": false
+          },
+          {
+            "candidate": "brief",
+            "loss_rank": 2,
+            "losses": [
+              "optional explanatory background and politeness modifiers"
+            ],
+            "chars": 848,
+            "utf8_bytes": 848,
+            "tokens": 181,
+            "missing_anchors": [],
+            "fits": false
+          },
+          {
+            "candidate": "skeleton",
+            "loss_rank": 3,
+            "losses": [
+              "optional explanatory background and politeness modifiers",
+              "optional preferred argument note=retain_history"
+            ],
+            "chars": 827,
+            "utf8_bytes": 827,
+            "tokens": 176,
+            "missing_anchors": [],
+            "fits": false
+          }
+        ],
+        "task_success": null,
+        "all_candidates": [
+          {
+            "id": "verbatim",
+            "loss_rank": 0,
+            "text": "This is a fictional staging request. Please use natural, carefully explained wording; the repeated background is only a readability preference. Archive archive-19: delete_allowed=false, review_required=true. Do not delete before review. note=retain_history.",
+            "losses": [],
+            "chars": 992,
+            "tokens": 205
+          },
+          {
+            "id": "rules",
+            "loss_rank": 1,
+            "text": "This is a fictional staging request. Please use natural, carefully explained wording; the repeated background is only a readability preference. Archive archive-19: delete_allowed=false, review_required=true. Don't delete before review. note=retain_history.",
+            "losses": [
+              "wording/abbreviations may change"
+            ],
+            "chars": 991,
+            "tokens": 205
+          },
+          {
+            "id": "brief",
+            "loss_rank": 2,
+            "text": "Archive archive-19: delete_allowed=false, review_required=true. Do not delete before review. note=retain_history.",
+            "losses": [
+              "optional explanatory background and politeness modifiers"
+            ],
+            "chars": 848,
+            "tokens": 181
+          },
+          {
+            "id": "skeleton",
+            "loss_rank": 3,
+            "text": "Archive archive-19: delete_allowed=false, review_required=true. Do not delete before review.",
+            "losses": [
+              "optional explanatory background and politeness modifiers",
+              "optional preferred argument note=retain_history"
+            ],
+            "chars": 827,
+            "tokens": 176
+          }
+        ]
+      },
+      "after": {
+        "case_id": "budget-19",
+        "language": "en",
+        "max_chars": 800,
+        "max_tokens": 512,
+        "status": "success",
+        "selected": {
+          "candidate": "brief",
+          "loss_rank": 2,
+          "losses": [
+            "optional explanatory background and politeness modifiers"
+          ],
+          "chars": 693,
+          "utf8_bytes": 693,
+          "tokens": 152,
+          "missing_anchors": [],
+          "fits": true,
+          "prompt": "Choose one tool; extract task arguments. JSON only: {\"tool\":name,\"arguments\":{...}}. Missing task: {\"tool\":null,\"arguments\":{}}. Never invent values.\nTools (all arguments required except ?; declared JSON types):\nprice_lookup(item:string,currency:string,detail?:string)\nset_reminder(date:string,time:string,topic:string,tone?:string)\nconfigure_retry(job:string,max_retries:integer,on_failure_only:boolean,note?:string)\narchive_branch(branch:string,delete_allowed:boolean,review_required:boolean,note?:string)\ntranslate(source_text:string,target_language:string,tone?:string)\nTask:\nArchive archive-19: delete_allowed=false, review_required=true. Do not delete before review. note=retain_history."
+        },
+        "attempts": [
+          {
+            "candidate": "verbatim",
+            "loss_rank": 0,
+            "losses": [],
+            "chars": 837,
+            "utf8_bytes": 837,
+            "tokens": 176,
+            "missing_anchors": [],
+            "fits": false
+          },
+          {
+            "candidate": "rules",
+            "loss_rank": 1,
+            "losses": [
+              "wording/abbreviations may change"
+            ],
+            "chars": 836,
+            "utf8_bytes": 836,
+            "tokens": 176,
+            "missing_anchors": [
+              "Do not delete before review"
+            ],
+            "fits": false
+          },
+          {
+            "candidate": "brief",
+            "loss_rank": 2,
+            "losses": [
+              "optional explanatory background and politeness modifiers"
+            ],
+            "chars": 693,
+            "utf8_bytes": 693,
+            "tokens": 152,
+            "missing_anchors": [],
+            "fits": true
+          }
+        ],
+        "task_success": true,
+        "quality_hits": 1,
+        "quality_total": 1,
+        "quality_score": 1.0,
+        "unknown_arguments": [],
+        "response": {
+          "tool": "archive_branch",
+          "arguments": {
+            "branch": "archive-19",
+            "delete_allowed": false,
+            "review_required": true,
+            "note": "retain_history"
+          }
+        },
+        "all_candidates": [
+          {
+            "id": "verbatim",
+            "loss_rank": 0,
+            "text": "This is a fictional staging request. Please use natural, carefully explained wording; the repeated background is only a readability preference. Archive archive-19: delete_allowed=false, review_required=true. Do not delete before review. note=retain_history.",
+            "losses": [],
+            "chars": 837,
+            "tokens": 176
+          },
+          {
+            "id": "rules",
+            "loss_rank": 1,
+            "text": "This is a fictional staging request. Please use natural, carefully explained wording; the repeated background is only a readability preference. Archive archive-19: delete_allowed=false, review_required=true. Don't delete before review. note=retain_history.",
+            "losses": [
+              "wording/abbreviations may change"
+            ],
+            "chars": 836,
+            "tokens": 176
+          },
+          {
+            "id": "brief",
+            "loss_rank": 2,
+            "text": "Archive archive-19: delete_allowed=false, review_required=true. Do not delete before review. note=retain_history.",
+            "losses": [
+              "optional explanatory background and politeness modifiers"
+            ],
+            "chars": 693,
+            "tokens": 152
+          },
+          {
+            "id": "skeleton",
+            "loss_rank": 3,
+            "text": "Archive archive-19: delete_allowed=false, review_required=true. Do not delete before review.",
+            "losses": [
+              "optional explanatory background and politeness modifiers",
+              "optional preferred argument note=retain_history"
+            ],
+            "chars": 672,
+            "tokens": 147
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "budget-20",
+      "before": {
+        "case_id": "budget-20",
+        "language": "ja",
+        "max_chars": 800,
+        "max_tokens": 512,
+        "status": "success",
+        "selected": {
+          "candidate": "skeleton",
+          "loss_rank": 3,
+          "losses": [
+            "optional explanatory background and politeness modifiers",
+            "optional preferred argument tone=formal"
+          ],
+          "chars": 794,
+          "utf8_bytes": 830,
+          "tokens": 182,
+          "missing_anchors": [],
+          "fits": true,
+          "prompt": "Choose one advertised tool and extract arguments from the task. Return JSON only: {\"tool\":name,\"arguments\":{...}}. Missing task: return {\"tool\":null,\"arguments\":{}}. Do not invent values.\nTools (all arguments required except ?; use the declared JSON types):\nprice_lookup(item:string,currency:string,detail?:string): look up an item price.\nset_reminder(date:string,time:string,topic:string,tone?:string): schedule a reminder.\nconfigure_retry(job:string,max_retries:integer,on_failure_only:boolean,note?:string): configure retries.\narchive_branch(branch:string,delete_allowed:boolean,review_required:boolean,note?:string): archive a branch.\ntranslate(source_text:string,target_language:string,tone?:string): request a translation.\nTask:\n翻訳を依頼: source_text=\"架空の荷物は明日届きます\", target_language=English。"
+        },
+        "attempts": [
+          {
+            "candidate": "verbatim",
+            "loss_rank": 0,
+            "losses": [],
+            "chars": 854,
+            "utf8_bytes": 984,
+            "tokens": 224,
+            "missing_anchors": [],
+            "fits": false
+          },
+          {
+            "candidate": "rules",
+            "loss_rank": 1,
+            "losses": [
+              "wording/abbreviations may change"
+            ],
+            "chars": 854,
+            "utf8_bytes": 984,
+            "tokens": 224,
+            "missing_anchors": [],
+            "fits": false
+          },
+          {
+            "candidate": "brief",
+            "loss_rank": 2,
+            "losses": [
+              "optional explanatory background and politeness modifiers"
+            ],
+            "chars": 807,
+            "utf8_bytes": 843,
+            "tokens": 186,
+            "missing_anchors": [],
+            "fits": false
+          },
+          {
+            "candidate": "skeleton",
+            "loss_rank": 3,
+            "losses": [
+              "optional explanatory background and politeness modifiers",
+              "optional preferred argument tone=formal"
+            ],
+            "chars": 794,
+            "utf8_bytes": 830,
+            "tokens": 182,
+            "missing_anchors": [],
+            "fits": true
+          }
+        ],
+        "task_success": true,
+        "quality_hits": 0,
+        "quality_total": 1,
+        "quality_score": 0.0,
+        "unknown_arguments": [],
+        "response": {
+          "tool": "translate",
+          "arguments": {
+            "source_text": "架空の荷物は明日届きます",
+            "target_language": "English",
+            "tone": null
+          }
+        },
+        "all_candidates": [
+          {
+            "id": "verbatim",
+            "loss_rank": 0,
+            "text": "架空の検証用メモです。自然で丁寧な説明にし、背景の繰り返しは読みやすさのために残してください。翻訳を依頼: source_text=\"架空の荷物は明日届きます\", target_language=English。 tone=formal.",
+            "losses": [],
+            "chars": 854,
+            "tokens": 224
+          },
+          {
+            "id": "rules",
+            "loss_rank": 1,
+            "text": "架空の検証用メモです。自然で丁寧な説明にし、背景の繰り返しは読みやすさのために残してください。翻訳を依頼: source_text=\"架空の荷物は明日届きます\", target_language=English。 tone=formal.",
+            "losses": [
+              "wording/abbreviations may change"
+            ],
+            "chars": 854,
+            "tokens": 224
+          },
+          {
+            "id": "brief",
+            "loss_rank": 2,
+            "text": "翻訳を依頼: source_text=\"架空の荷物は明日届きます\", target_language=English。 tone=formal.",
+            "losses": [
+              "optional explanatory background and politeness modifiers"
+            ],
+            "chars": 807,
+            "tokens": 186
+          },
+          {
+            "id": "skeleton",
+            "loss_rank": 3,
+            "text": "翻訳を依頼: source_text=\"架空の荷物は明日届きます\", target_language=English。",
+            "losses": [
+              "optional explanatory background and politeness modifiers",
+              "optional preferred argument tone=formal"
+            ],
+            "chars": 794,
+            "tokens": 182
+          }
+        ]
+      },
+      "after": {
+        "case_id": "budget-20",
+        "language": "ja",
+        "max_chars": 800,
+        "max_tokens": 512,
+        "status": "invalid_output",
+        "selected": {
+          "candidate": "verbatim",
+          "loss_rank": 0,
+          "losses": [],
+          "chars": 699,
+          "utf8_bytes": 829,
+          "tokens": 195,
+          "missing_anchors": [],
+          "fits": true,
+          "prompt": "Choose one tool; extract task arguments. JSON only: {\"tool\":name,\"arguments\":{...}}. Missing task: {\"tool\":null,\"arguments\":{}}. Never invent values.\nTools (all arguments required except ?; declared JSON types):\nprice_lookup(item:string,currency:string,detail?:string)\nset_reminder(date:string,time:string,topic:string,tone?:string)\nconfigure_retry(job:string,max_retries:integer,on_failure_only:boolean,note?:string)\narchive_branch(branch:string,delete_allowed:boolean,review_required:boolean,note?:string)\ntranslate(source_text:string,target_language:string,tone?:string)\nTask:\n架空の検証用メモです。自然で丁寧な説明にし、背景の繰り返しは読みやすさのために残してください。翻訳を依頼: source_text=\"架空の荷物は明日届きます\", target_language=English。 tone=formal."
+        },
+        "attempts": [
+          {
+            "candidate": "verbatim",
+            "loss_rank": 0,
+            "losses": [],
+            "chars": 699,
+            "utf8_bytes": 829,
+            "tokens": 195,
+            "missing_anchors": [],
+            "fits": true
+          }
+        ],
+        "task_success": false,
+        "quality_score": null,
+        "raw_response": "{\"tool\":translate,\"arguments\":{\"source_text\":\"架空の荷物は明日届きます\",\"target_language\":\"English\",\"tone\":\"formal\"}}",
+        "all_candidates": [
+          {
+            "id": "verbatim",
+            "loss_rank": 0,
+            "text": "架空の検証用メモです。自然で丁寧な説明にし、背景の繰り返しは読みやすさのために残してください。翻訳を依頼: source_text=\"架空の荷物は明日届きます\", target_language=English。 tone=formal.",
+            "losses": [],
+            "chars": 699,
+            "tokens": 195
+          },
+          {
+            "id": "rules",
+            "loss_rank": 1,
+            "text": "架空の検証用メモです。自然で丁寧な説明にし、背景の繰り返しは読みやすさのために残してください。翻訳を依頼: source_text=\"架空の荷物は明日届きます\", target_language=English。 tone=formal.",
+            "losses": [
+              "wording/abbreviations may change"
+            ],
+            "chars": 699,
+            "tokens": 195
+          },
+          {
+            "id": "brief",
+            "loss_rank": 2,
+            "text": "翻訳を依頼: source_text=\"架空の荷物は明日届きます\", target_language=English。 tone=formal.",
+            "losses": [
+              "optional explanatory background and politeness modifiers"
+            ],
+            "chars": 652,
+            "tokens": 157
+          },
+          {
+            "id": "skeleton",
+            "loss_rank": 3,
+            "text": "翻訳を依頼: source_text=\"架空の荷物は明日届きます\", target_language=English。",
+            "losses": [
+              "optional explanatory background and politeness modifiers",
+              "optional preferred argument tone=formal"
+            ],
+            "chars": 639,
+            "tokens": 153
+          }
+        ]
+      }
+    }
+  ]
+}
