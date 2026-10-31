@@ -57,7 +57,8 @@ jobs:
           persist-credentials: false
       - id: models
         env:
-          MODEL_CHOICE: ${{ inputs.model || 'all' }}
+          # pull_request runs have no inputs: measure only the default Qwen gate there.
+          MODEL_CHOICE: ${{ github.event_name == 'workflow_dispatch' && inputs.model || 'qwen-1.5b' }}
         run: python scripts/budget_models.py "$MODEL_CHOICE" --github-output "$GITHUB_OUTPUT"
 
   paired-model:
