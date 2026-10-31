@@ -3,7 +3,7 @@
 This is a dated, reproducible snapshot, not a floating `latest` policy. Upgrade
 pins and run the corresponding checks together. The Python package remains
 compatible with Python **3.12+**, and the portable runtime with Node **24+**.
-CI retains Python 3.12.15 / Node 24.22.1 and 26.12.1, and adds Python 3.15.1 /
+CI retains Python 3.12.15 / Node 24.22.1 and 26.12.1, and adds Python 3.15 (the latest patch release) /
 Node 26.12.1. The standalone public-resolver Python 3.9/3.10 check is unchanged.
 
 ## Project-owned components
@@ -16,7 +16,7 @@ Node 26.12.1. The standalone public-resolver Python 3.9/3.10 check is unchanged.
 - Every Python image bootstraps **pip 26.2.2** from the Python security team's
   exact wheel URL and SHA-256. No custom roots, TLS bypasses or host trust
   settings are added.
-- Workflows pin **uv 0.13.5**, **Deno 2.9.8**, **Playwright 1.64.1**, and current
+- Workflows use the **latest uv** and pin **Deno 2.9.8**, **Playwright 1.64.1**, and current
   stable GitHub Action release commits for ordinary build/test workflows.
   The permissioned Claude automation is an explicit exception: its baseline
   workflow is unchanged because publishing its action update was not authorized
