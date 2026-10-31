@@ -41,7 +41,7 @@ jobs:
         with:
           version: "0.13.5"
           python-version: ${{ matrix.python }}
-          cache-python: true
+          enable-cache: false
       # setup-uv selects/restores the exact managed Python via UV_PYTHON.
       # Do not reinstall it: Windows cached minor-version links may not be
       # safely recreated by a second `uv python install` invocation.

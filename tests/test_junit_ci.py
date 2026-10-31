@@ -72,8 +72,8 @@ def test_python_junit_workflow_keeps_failed_producer_visible():
 def test_public_resolver_compat_keeps_legacy_python_coverage():
     workflow = (Path(__file__).parents[1] / ".github/workflows/test.yml").read_text(encoding="utf-8")
     resolver = yaml.safe_load(workflow)["jobs"]["public-resolver-compat"]
-    # setup-python publishes Python 3.9 for Ubuntu 24.04, not ubuntu-latest/26.04.
-    assert resolver["runs-on"] == "ubuntu-24.04"
+    # uv provides Python 3.9 on the current runner image.
+    assert resolver["runs-on"] == "ubuntu-latest"
     assert resolver["strategy"]["matrix"]["python-version"] == ["3.9", "3.10"]
 
 
@@ -94,7 +94,7 @@ def test_jsonl_archive_portability_uses_locked_uv():
     setup_uv = [step for step in steps if step.get("uses", "").startswith("astral-sh/setup-uv@")]
     assert len(setup_uv) == 1
     assert setup_uv[0]["with"]["python-version"] == "${{ matrix.python }}"
-    assert setup_uv[0]["with"]["cache-python"] is True
+    assert "cache-python" not in setup_uv[0]["with"]
     # setup-uv owns installation; a second install breaks cached Windows links.
     assert all("uv python install" not in step.get("run", "") for step in steps)
     verify_python = [step for step in steps if step.get("name") == "Verify exact Python version"]
