@@ -285,7 +285,7 @@ No local Docker or API key is needed. The same workflow also runs for PRs changi
 this experiment's implementation, fixtures or workflow; ordinary unrelated PRs do
 not download the model.
 
-The job downloads the immutable Qwen2.5-1.5B-Instruct Q4_K_M revision, verifies
+By default the job downloads the immutable Qwen2.5-1.5B-Instruct Q4_K_M revision, verifies
 SHA-256 and size even on cache hits, starts a digest-pinned llama.cpp Docker image
 on CPU (2 threads, context 4096), then compares all 20 cases against baseline
 `1184ba449e146cb8f101aaa743449eb71a1afeb9` at 800 characters **and** 512 tokens.
@@ -298,8 +298,55 @@ argument quality. Under **Artifacts**, download `budget-quality-qwen-…` for th
 paired JSON (all candidates, actual token counts and model answers), source/model/
 runtime provenance, Docker diagnostics and logs. Artifacts are retained for 30
 days. The weights themselves are cached rather than uploaded as test evidence.
-Any current-version task failure or infrastructure/measurement error fails the
-job while preserving available evidence; the baseline's known infeasible cases
+The default Qwen profile fails on current-version task failures or infrastructure/measurement errors
+while preserving available evidence (candidate observation mode is described below); the baseline's known infeasible cases
 are counted separately. A model download/startup failure is never counted as
 poor model quality. First runs include downloading about 1.12 GB of model weights
 and pulling the runtime image; the job has a 30-minute timeout.
+
+### Model selector
+
+The Run workflow form now has a `model` selector:
+
+| Choice | Weight format | Approx. weight bytes | Mode |
+| --- | --- | ---: | --- |
+| `qwen-1.5b` (default) | Q4_K_M | 1.12 GB | Require 20/20 task success |
+| `qwen-0.5b` | Q4_K_M | 491 MB | Observe candidate quality |
+| `minicpm5-2b` | Q4_K_M | 1.56 GB | Observe; text-only non-thinking compatibility template |
+| `lfm2.5-350m-qad` | QAD Q4_0 | 219 MB | Observe candidate quality |
+| `lfm2.5-1.2b-qad` | Instruct QAD Q4_0 | 696 MB | Observe candidate quality |
+| `lfm2.5-2.6b` | Q4_K_M | 1.67 GB | Observe candidate quality |
+| `lfm3-1.7b` | Q4_K_M | 1.10 GB | Observe candidate quality |
+| `all` | Seven separate jobs | — | Maximum three jobs at once |
+
+[models.json](../fixtures/budget_compression/models.json) records official publisher
+repositories, immutable revisions, SHA-256 and byte sizes. Download and cache-hit
+verification are identical. The shared image is now official llama.cpp **b12004**,
+commit `3c809f44383bcebc318b8cddd8c6d11aaa861e9b`, pinned by OCI digest to support
+LFM3/MiniCPM5. This replaces b11669 in this workflow; earlier measurements remain
+historical. Both comparison sides always use the same selected model and runtime.
+SmolLM2 remains available through the separate compaction benchmark workflow.
+
+Candidate models are measurements, not assumed drop-in replacements: a successful
+job in observation mode means the measurement ran, **not** that all tasks passed.
+The summary exposes wrong actions, abstentions, infeasible inputs and incomplete
+outputs. Set `strict_quality` to require 20/20 for a candidate too. The existing
+Qwen1.5B quality gate remains strict regardless of that checkbox. Model download,
+startup, transport and tokenizer failures still fail every mode. Incomplete output
+at the fixed 128-token generation cap is recorded separately as
+`incomplete_output`, without increasing the cap or crediting a partial answer.
+Tokenizer counts differ by model: fitting 800 characters never exempts an input
+from the independent 512-token check.
+
+MiniCPM5 uses the text-only non-thinking compatibility template previously tested
+in [TalkCompress](https://github.com/myon-bioinformatics/TalkCompress/blob/6861128e48c91ae99e075daa1579173de74a1385/Zipilogue/templates/minicpm5_json_nonthinking.jinja),
+not its default template; the exact local template SHA is recorded in provenance.
+All profiles explicitly disable reasoning, retain temperature 0 / seed42 / output
+cap128, and retain the same scorer without response repair or output-grammar hints.
+Model-specific defaults and recommendations may differ from these experimental controls.
+
+Strands Decider2B and Liquid d1-3B / d1-omni-600M remain **separate decision-model
+candidates**, not selectable chat models here. Their typed classification interfaces
+need a different adapter and evaluation contract; stock llama.cpp chat inference
+is not a verified route for them. They are not silently replaced by unrelated
+models or counted as tested by this workflow.

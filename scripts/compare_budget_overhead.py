@@ -36,6 +36,8 @@ def main():
         row = {'case_id': case['id']}
         for label, mod in [('before', old), ('after', new)]:
             result = mod.evaluate(case, max_chars=800, max_tokens=512, token_counter=count, answer=answer)
+            if result['status'] == 'model_error' and result.get('error') == 'ValueError: incomplete response':
+                result['status'] = 'incomplete_output'  # generation cap, not transport failure
             result['all_candidates'] = [{**c, 'chars': len(mod.prompt_for(case, c['text'])),
                 'tokens': count(mod.prompt_for(case, c['text']))} for c in mod.candidates(case)]
             row[label] = result

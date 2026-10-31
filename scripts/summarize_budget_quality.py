@@ -40,26 +40,35 @@ def main():
     p.add_argument('--report', type=Path, required=True)
     p.add_argument('--model', type=Path, required=True)
     p.add_argument('--image', required=True)
+    p.add_argument('--require-success', action='store_true', help='require 20/20 even for candidate models')
+    p.add_argument('--runtime-revision', default='unknown')
     p.add_argument('--summary', type=Path, required=True)
     args = p.parse_args()
     report = json.loads(args.report.read_text())
     cases = Path('fixtures/budget_compression/cases.json').read_bytes()
     result = summarize(report, cases)
+    model = json.loads(args.model.with_suffix('.gguf.provenance.json').read_text())
+    strict = model.get('quality_gate', True) or args.require_success
     provenance = {
         'source_commit': subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip(),
         'source_sha256': hashlib.sha256(Path('src/mcp_toolcall_lab/budget_compression.py').read_bytes()).hexdigest(),
         'baseline_commit': report['baseline_commit'],
-        'model': json.loads(args.model.with_suffix('.gguf.provenance.json').read_text()),
+        'model': model,
+        'quality_gate': strict,
+        'runtime_revision': args.runtime_revision,
         'runtime_image': args.image,
         'server': {'context': 4096, 'threads': 2, 'batch_threads': 2, 'gpu_layers': 0,
-                   'parallel': 1, 'cpus': 2, 'memory': '6g', 'jinja': True, 'reasoning_format': 'none'},
+                   'parallel': 1, 'cpus': 2, 'memory': '6g', 'jinja': True, 'reasoning_format': 'none',
+                   'reasoning': model.get('reasoning', 'default'),
+                   'template': model.get('template')},
         'generation': {'seed': 42, 'temperature': 0, 'max_output_tokens': 128},
         'measurement': report['measurement'],
         'summary': result,
         'note': 'Docker runtime differs from historical native v2/v3; both sides rerun on this same pinned image.'
     }
     args.report.with_name('provenance.json').write_text(json.dumps(provenance, indent=2) + '\n')
-    lines = ['## Qwen2.5-1.5B Q4_K_M: 800 characters / 512 tokens', '',
+    lines = [f"## {model.get('model_id', 'Qwen2.5-1.5B Q4_K_M')}: 800 characters / 512 tokens",
+             f"Quality mode: {'require 20/20' if strict else 'observe candidate quality; infrastructure still fails'}", '',
              '| Version | Success / planned | Statuses | Selected tiers | Preferred hits / scored |',
              '| --- | --- | --- | --- | --- |']
     for label, row in result.items():
@@ -69,11 +78,11 @@ def main():
               'Both versions use the same digest-pinned Docker runtime; see provenance.json.', '']
     with args.summary.open('a') as f:
         f.write('\n'.join(lines))
-    if any(row['before']['status'] in {'model_error', 'measurement_error', 'tokenizer_unavailable', 'not_run'}
-           for row in report['cases']):
-        raise SystemExit('baseline infrastructure/measurement failure; see evidence')
-    if any(row['after']['status'] != 'success' or row['after'].get('task_success') is not True
-           for row in report['cases']):
+    infrastructure = {'model_error', 'measurement_error', 'tokenizer_unavailable', 'not_run'}
+    if any(row[label]['status'] in infrastructure for row in report['cases'] for label in ('before', 'after')):
+        raise SystemExit('infrastructure/measurement failure; see evidence')
+    if strict and any(row['after']['status'] != 'success' or row['after'].get('task_success') is not True
+                      for row in report['cases']):
         raise SystemExit('not all 20 current-version tasks succeeded; see evidence')
 
 
