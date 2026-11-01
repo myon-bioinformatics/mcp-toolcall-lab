@@ -115,6 +115,13 @@ to the existing Python adapter. Unknown inputs never receive invented results.
 [Contract, CLI reuse, evidence limits and Docker build](docs/portable-execution.md).
 The existing portfolio redirect and Wiki/Pixiv report publication are preserved.
 
+## Optional SDK-only caller environment
+
+[Prepare the pinned SDK-only caller](docs/nano-environment.md) using the shared
+parent exporter and unchanged `chat_sim` functions. A real, separately hosted
+FastMCP server is still required; this is not whole-service dependency removal
+or a replacement for the full test environment.
+
 ## Quick start
 
 ### Requirements
