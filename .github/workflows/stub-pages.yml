@@ -208,19 +208,12 @@ jobs:
 
       - name: Seal static-chromium-webkit capture receipt
         if: always()
-        env:
-          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-          CAPTURE_STAGE: ${{ steps.capture_static.outcome == 'success' && 'complete' || 'failed' }}
-        run: python3 -S .browser-test-kit/scripts/write_capture_evidence.py test-results --receipt evidence.json --project static-chromium-webkit --stage "$CAPTURE_STAGE" --sha "$EXPECTED_SHA" --run-id "$GITHUB_RUN_ID" --run-attempt "$GITHUB_RUN_ATTEMPT" --captures pixiv-pages-desktop.png,repository-diagnostics-desktop.png,pixiv-pages-mobile.png
+        run: python3 -S .browser-test-kit/scripts/write_capture_evidence.py test-results --receipt evidence.json --project static-chromium-webkit --stage "${{ steps.capture_static.outcome == 'success' && 'complete' || 'failed' }}" --sha "${{ github.event.pull_request.head.sha || github.sha }}" --run-id "$GITHUB_RUN_ID" --run-attempt "$GITHUB_RUN_ATTEMPT" --captures pixiv-pages-desktop.png,repository-diagnostics-desktop.png,pixiv-pages-mobile.png
       - name: Require static-chromium-webkit captures, hashes and run identity
         if: always()
-        env:
-          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-        run: python3 -S .browser-test-kit/scripts/check_capture_evidence.py test-results --pattern evidence.json --expect static-chromium-webkit --sha "$EXPECTED_SHA" --run-id "$GITHUB_RUN_ID" --run-attempt "$GITHUB_RUN_ATTEMPT" --captures pixiv-pages-desktop.png,repository-diagnostics-desktop.png,pixiv-pages-mobile.png
+        run: python3 -S .browser-test-kit/scripts/check_capture_evidence.py test-results --pattern evidence.json --expect static-chromium-webkit --sha "${{ github.event.pull_request.head.sha || github.sha }}" --run-id "$GITHUB_RUN_ID" --run-attempt "$GITHUB_RUN_ATTEMPT" --captures pixiv-pages-desktop.png,repository-diagnostics-desktop.png,pixiv-pages-mobile.png
       - name: Prove static-chromium-webkit rejection on real bundle copies
-        env:
-          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-        run: python3 -S .browser-test-kit/scripts/probe_capture_rejections.py test-results --pattern evidence.json --expect static-chromium-webkit --sha "$EXPECTED_SHA" --run-id "$GITHUB_RUN_ID" --run-attempt "$GITHUB_RUN_ATTEMPT" --captures pixiv-pages-desktop.png,repository-diagnostics-desktop.png,pixiv-pages-mobile.png
+        run: python3 -S .browser-test-kit/scripts/probe_capture_rejections.py test-results --pattern evidence.json --expect static-chromium-webkit --sha "${{ github.event.pull_request.head.sha || github.sha }}" --run-id "$GITHUB_RUN_ID" --run-attempt "$GITHUB_RUN_ATTEMPT" --captures pixiv-pages-desktop.png,repository-diagnostics-desktop.png,pixiv-pages-mobile.png
 
       - name: Live Pixiv fetch (stub-front -> dic.pixiv.net)
         id: pixiv_live
@@ -322,20 +315,13 @@ jobs:
 
       - name: Seal live-chromium-webkit capture receipt
         if: always()
-        env:
-          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-          CAPTURE_STAGE: ${{ steps.pixiv_live.outputs.live == 'skipped' && 'skipped' || steps.capture_live.outcome == 'success' && 'complete' || 'failed' }}
-        run: python3 -S .browser-test-kit/scripts/write_capture_evidence.py test-results --receipt live-evidence.json --project live-chromium-webkit --stage "$CAPTURE_STAGE" --sha "$EXPECTED_SHA" --run-id "$GITHUB_RUN_ID" --run-attempt "$GITHUB_RUN_ATTEMPT" --captures pixiv-live-desktop.png,pixiv-live-mobile.png
+        run: python3 -S .browser-test-kit/scripts/write_capture_evidence.py test-results --receipt live-evidence.json --project live-chromium-webkit --stage "${{ steps.pixiv_live.outputs.live == 'skipped' && 'skipped' || steps.capture_live.outcome == 'success' && 'complete' || 'failed' }}" --sha "${{ github.event.pull_request.head.sha || github.sha }}" --run-id "$GITHUB_RUN_ID" --run-attempt "$GITHUB_RUN_ATTEMPT" --captures pixiv-live-desktop.png,pixiv-live-mobile.png
       - name: Require live-chromium-webkit captures, hashes and run identity
         if: steps.pixiv_live.outputs.live == 'ok'
-        env:
-          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-        run: python3 -S .browser-test-kit/scripts/check_capture_evidence.py test-results --pattern live-evidence.json --expect live-chromium-webkit --sha "$EXPECTED_SHA" --run-id "$GITHUB_RUN_ID" --run-attempt "$GITHUB_RUN_ATTEMPT" --captures pixiv-live-desktop.png,pixiv-live-mobile.png
+        run: python3 -S .browser-test-kit/scripts/check_capture_evidence.py test-results --pattern live-evidence.json --expect live-chromium-webkit --sha "${{ github.event.pull_request.head.sha || github.sha }}" --run-id "$GITHUB_RUN_ID" --run-attempt "$GITHUB_RUN_ATTEMPT" --captures pixiv-live-desktop.png,pixiv-live-mobile.png
       - name: Prove live-chromium-webkit rejection on real bundle copies
         if: steps.pixiv_live.outputs.live == 'ok'
-        env:
-          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-        run: python3 -S .browser-test-kit/scripts/probe_capture_rejections.py test-results --pattern live-evidence.json --expect live-chromium-webkit --sha "$EXPECTED_SHA" --run-id "$GITHUB_RUN_ID" --run-attempt "$GITHUB_RUN_ATTEMPT" --captures pixiv-live-desktop.png,pixiv-live-mobile.png
+        run: python3 -S .browser-test-kit/scripts/probe_capture_rejections.py test-results --pattern live-evidence.json --expect live-chromium-webkit --sha "${{ github.event.pull_request.head.sha || github.sha }}" --run-id "$GITHUB_RUN_ID" --run-attempt "$GITHUB_RUN_ATTEMPT" --captures pixiv-live-desktop.png,pixiv-live-mobile.png
 
       - name: Upload observations
         if: always()

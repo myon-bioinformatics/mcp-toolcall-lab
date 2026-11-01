@@ -60,14 +60,12 @@ jobs:
           diff -u docker/runtime-requirements.txt /tmp/runtime-requirements.txt
       - name: Rebuild pinned runtime with no layer cache
         env:
-          DOCKERFILE: ${{ matrix.dockerfile }}
-          TARGET: ${{ matrix.target }}
           IMAGE: mcp-lab-${{ matrix.name }}
           SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           args=()
-          if [ -n "$TARGET" ]; then args+=(--target "$TARGET"); fi
-          docker build --pull --no-cache --file "$DOCKERFILE" "${args[@]}" \
+          if [ -n "${{ matrix.target }}" ]; then args+=(--target "${{ matrix.target }}"); fi
+          docker build --pull --no-cache --file "${{ matrix.dockerfile }}" "${args[@]}" \
             --build-arg SOURCE_SHA="$SOURCE_SHA" --build-arg BUILD_RUN="$GITHUB_RUN_ID" \
             --build-arg BUILD_ATTEMPT="$GITHUB_RUN_ATTEMPT" --tag "$IMAGE" .
           mkdir -p test-results
@@ -75,10 +73,9 @@ jobs:
       - name: Verify actual container trust and installed component versions
         env:
           IMAGE: mcp-lab-${{ matrix.name }}
-          TRUST_ARGS: ${{ matrix.trust_args }}
         run: |
           args=()
-          if [ -n "$TRUST_ARGS" ]; then args+=("$TRUST_ARGS"); fi
+          if [ -n "${{ matrix.trust_args }}" ]; then args+=("${{ matrix.trust_args }}"); fi
           docker run --rm \
             --mount type=bind,source="$PWD/scripts/check_runtime_trust.py",target=/check_runtime_trust.py,readonly \
             --mount type=bind,source="$PWD/test-results",target=/evidence \
@@ -121,14 +118,12 @@ jobs:
           diff -u docker/runtime-requirements.txt /tmp/runtime-requirements.txt
       - name: Rebuild pinned runtime with no layer cache
         env:
-          DOCKERFILE: ${{ matrix.dockerfile }}
-          TARGET: ${{ matrix.target }}
           IMAGE: mcp-lab-${{ matrix.name }}
           SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           args=()
-          if [ -n "$TARGET" ]; then args+=(--target "$TARGET"); fi
-          docker build --pull --no-cache --file "$DOCKERFILE" "${args[@]}" \
+          if [ -n "${{ matrix.target }}" ]; then args+=(--target "${{ matrix.target }}"); fi
+          docker build --pull --no-cache --file "${{ matrix.dockerfile }}" "${args[@]}" \
             --build-arg SOURCE_SHA="$SOURCE_SHA" --build-arg BUILD_RUN="$GITHUB_RUN_ID" \
             --build-arg BUILD_ATTEMPT="$GITHUB_RUN_ATTEMPT" --tag "$IMAGE" .
           mkdir -p test-results
@@ -136,10 +131,9 @@ jobs:
       - name: Verify actual container trust and installed component versions
         env:
           IMAGE: mcp-lab-${{ matrix.name }}
-          TRUST_ARGS: ${{ matrix.trust_args }}
         run: |
           args=()
-          if [ -n "$TRUST_ARGS" ]; then args+=("$TRUST_ARGS"); fi
+          if [ -n "${{ matrix.trust_args }}" ]; then args+=("${{ matrix.trust_args }}"); fi
           docker run --rm \
             --mount type=bind,source="$PWD/scripts/check_runtime_trust.py",target=/check_runtime_trust.py,readonly \
             --mount type=bind,source="$PWD/test-results",target=/evidence \
