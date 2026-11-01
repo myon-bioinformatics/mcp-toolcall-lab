@@ -30,10 +30,6 @@ concurrency:
 
 env:
   PYTHONPATH: src
-  # Official OCI index inspected 2026-10-31: b12004, commit 3c809f4438… .
-  LLAMA_IMAGE: ghcr.io/ggml-org/llama.cpp@sha256:b32890309c1a33a534a01b0b461e953dc2c5a6bac20213abcf48e22847a19c85
-  LLAMA_REVISION: 3c809f44383bcebc318b8cddd8c6d11aaa861e9b
-  BASELINE: 1184ba449e146cb8f101aaa743449eb71a1afeb9
 
 jobs:
   plan:
@@ -71,6 +67,16 @@ jobs:
           python-version: "3.12.15"
           activate-environment: true
           enable-cache: false
+      - name: Read pinned runtime and baseline from vendor.lock.json
+        id: pins
+        run: |
+          python - <<'PY' >> "$GITHUB_OUTPUT"
+          import json
+          pins = json.load(open("vendor.lock.json", encoding="utf-8"))["pins"]
+          print(f"llama_image={pins['llama_image']}")
+          print(f"llama_revision={pins['llama_revision']}")
+          print(f"baseline_revision={pins['baseline_revision']}")
+          PY
       - name: Prepare evidence directory
         run: mkdir -p test-results/budget-quality models
       - name: Restore selected model cache
@@ -93,7 +99,7 @@ jobs:
           fi
           docker run --detach --name budget-model --cpus=2 --memory=6g \
             -p 127.0.0.1:8080:8080 -v "$PWD/models:/models:ro" -v "$PWD/fixtures:/lab/fixtures:ro" \
-            "$LLAMA_IMAGE" -m /models/model.gguf --host 0.0.0.0 --port 8080 \
+            "${{ steps.pins.outputs.llama_image }}" -m /models/model.gguf --host 0.0.0.0 --port 8080 \
             -c 4096 -t 2 -tb 2 -ngl 0 --parallel 1 --jinja --reasoning-format none \
             --reasoning off "${extra[@]}"
           for _ in {1..90}; do
@@ -107,7 +113,7 @@ jobs:
       - name: Compare 20 cases before and after (both budgets enforced)
         run: |
           python scripts/compare_budget_overhead.py --base-url http://127.0.0.1:8080 \
-            --baseline "$BASELINE" --output test-results/budget-quality/paired.json
+            --baseline "${{ steps.pins.outputs.baseline_revision }}" --output test-results/budget-quality/paired.json
       - name: Validate evidence, record provenance and publish summary
         env:
           STRICT_QUALITY: ${{ inputs.strict_quality && 'true' || 'false' }}
@@ -118,7 +124,7 @@ jobs:
           fi
           python scripts/summarize_budget_quality.py \
             --report test-results/budget-quality/paired.json --model models/model.gguf \
-            --image "$LLAMA_IMAGE" --runtime-revision "$LLAMA_REVISION" \
+            --image "${{ steps.pins.outputs.llama_image }}" --runtime-revision "${{ steps.pins.outputs.llama_revision }}" \
             --summary "$GITHUB_STEP_SUMMARY" "${extra[@]}"
       - name: Collect runtime diagnostics
         if: always()
