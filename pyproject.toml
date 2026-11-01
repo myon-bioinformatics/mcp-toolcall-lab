@@ -41,6 +41,17 @@ test = [
 # pytest.importorskip when playwright isn't installed. Needs `playwright install chromium` too.
 browser-test = ["playwright>=1.64.1"]
 
+# The archive's stdlib-only lane retains the full test environment's pytest
+# runner and all three auto-loaded plugins without installing the server.
+# This non-default group does not change the existing project/test extras.
+[dependency-groups]
+ci-stdlib = [
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+    "anyio>=4.15.1",
+    "platformdirs>=4.13.5",
+]
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/mcp_toolcall_lab"]
 
