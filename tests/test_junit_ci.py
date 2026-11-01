@@ -87,7 +87,7 @@ def test_jsonl_archive_portability_uses_locked_uv():
     assert "node-version: '24.22.1'" in workflow
     assert "astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2" in workflow
     assert "python-version: ${{ matrix.python }}" in workflow
-    assert "run: uv run --locked --extra test pytest -q tests/test_jsonl_log_archive.py" in workflow
+    assert "run: uv run --locked --only-group ci-stdlib --exact pytest -q tests/test_jsonl_log_archive.py" in workflow
     assert 'version: "latest"' in workflow
     assert "actions/setup-python@" not in workflow
     steps = yaml.safe_load(workflow)["jobs"]["archive"]["steps"]
