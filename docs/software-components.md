@@ -4,7 +4,7 @@ This document retains the component inventory from the **2026-10-24 refresh**.
 The CI version-selection and manual-model policies adopted on **2026-10-31**
 are described separately below; they do not rewrite historical test or model
 results. The Python package remains compatible with Python **3.12+**, and the
-portable runtime with Node **24+**.
+portable runtime with Node **26+**.
 
 ## Current CI selection policy (2026-10-31)
 
