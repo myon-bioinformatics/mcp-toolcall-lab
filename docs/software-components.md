@@ -13,7 +13,7 @@ portable runtime with Node **26+**.
   **Python 3.15** through `UV_PYTHON`, paired with Node **26.12.1**. The actual
   patch follows uv's interpreter selection, including available interpreters and
   its download catalog; this is not a guarantee of the newest upstream patch.
-- Exact compatibility lanes remain **Python 3.12.15 / Node 24.22.1 and 26.12.1**;
+- Exact compatibility lanes remain **Python 3.12.15 / Node 26 and 26.12.1**;
   JSONL archive checks retain **3.12.15 / 3.13.17 / 3.14.9** on all three OSes.
   The standalone public-resolver Python **3.9/3.10** checks are unchanged.
 - This floating CI selection is distinct from the immutable image and dependency
