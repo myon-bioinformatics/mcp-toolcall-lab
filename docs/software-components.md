@@ -3,7 +3,7 @@
 This is a dated, reproducible snapshot, not a floating `latest` policy. Upgrade
 pins and run the corresponding checks together. The Python package remains
 compatible with Python **3.12+**, and the portable runtime with Node **26+**.
-CI retains Python 3.12.15 / Node 24.22.1 and 26.12.1, and adds Python 3.15.1 /
+CI retains Python 3.12.15 / Node 26 and 26.12.1, and adds Python 3.15.1 /
 Node 26.12.1. The standalone public-resolver Python 3.9/3.10 check is unchanged.
 
 ## Project-owned components
