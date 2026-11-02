@@ -63,7 +63,7 @@ def test_python_junit_workflow_keeps_failed_producer_visible():
     assert "if: always() && needs.changes.outputs.product_changed == 'true'" in collector
     assert "reusable-junit-identity.yml@9e3da7ae1846e9604ebc24bb5178f7de094a4e77" in collector
     assert "commit-sha: ${{ github.event.pull_request.head.sha || github.sha }}" in collector
-    assert 'expected-reports: \'["junit-python-3.12.15-node-24.22.1/pytest.xml", "junit-python-3.12.15-node-26.12.1/pytest.xml", "junit-python-3.15-node-26.12.1/pytest.xml"]\'' in collector
+    assert 'expected-reports: \'["junit-python-3.12.15-node-26.12.1/pytest.xml", "junit-python-3.15-node-26.12.1/pytest.xml"]\'' in collector
     assert "artifact-pattern: junit-python-*-node-*" in collector
     assert "actions: read" in collector
     assert "pages:" not in collector
@@ -84,7 +84,7 @@ def test_jsonl_archive_portability_uses_locked_uv():
     )
     assert "os: [ubuntu-latest, windows-latest, macos-latest]" in workflow
     assert "python: ['3.12.15', '3.13.17', '3.14.9']" in workflow
-    assert "node-version: '24.22.1'" in workflow
+    assert "node-version: '26.12.1'" in workflow
     assert "astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2" in workflow
     assert "python-version: ${{ matrix.python }}" in workflow
     assert "run: uv run --locked --only-group ci-stdlib --exact pytest -q tests/test_jsonl_log_archive.py" in workflow
