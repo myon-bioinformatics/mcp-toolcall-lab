@@ -75,8 +75,8 @@
     },
     {
       "repository": "myon-bioinformatics/myon-bioinformatics",
-      "ref": "1f6f1e345f640827703e2872151a73b4cbdfd382",
-      "commit": "1f6f1e345f640827703e2872151a73b4cbdfd382",
+      "ref": "384f5dd532076062f7833038764e9a62322c387c",
+      "commit": "384f5dd532076062f7833038764e9a62322c387c",
       "source": "node_launch.py",
       "destination": "vendor/node_launch.py",
       "blob_sha": "08b4027bb5e3e9248eb3be88de2c2484f2e184bb",
