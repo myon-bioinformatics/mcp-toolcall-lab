@@ -1205,6 +1205,14 @@ test = [
     { name = "uvicorn" },
 ]
 
+[package.dev-dependencies]
+ci-stdlib = [
+    { name = "anyio" },
+    { name = "platformdirs" },
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "fastapi", marker = "extra == 'galleria'", specifier = ">=0.162.0" },
@@ -1221,6 +1229,14 @@ requires-dist = [
     { name = "uvicorn", marker = "extra == 'test'", specifier = ">=0.54.0" },
 ]
 provides-extras = ["galleria", "test", "browser-test"]
+
+[package.metadata.requires-dev]
+ci-stdlib = [
+    { name = "anyio", specifier = ">=4.15.1" },
+    { name = "platformdirs", specifier = ">=4.13.5" },
+    { name = "pytest", specifier = ">=9.1.1" },
+    { name = "pytest-asyncio", specifier = ">=1.4.0" },
+]
 
 [[package]]
 name = "mcp-types"

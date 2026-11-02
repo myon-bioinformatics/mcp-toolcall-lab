@@ -3,6 +3,9 @@ name: JSONL archive portability
 on:
   pull_request:
     paths:
+      - pyproject.toml
+      - uv.lock
+      - tests/test_ci_stdlib_profile.py
       - src/mcp_toolcall_lab/jsonl_log_archive.py
       - tests/test_jsonl_log_archive.py
       - tests/fixtures/jsonl_log_archive_sample.jsonl
@@ -10,6 +13,9 @@ on:
   push:
     branches: [main]
     paths:
+      - pyproject.toml
+      - uv.lock
+      - tests/test_ci_stdlib_profile.py
       - src/mcp_toolcall_lab/jsonl_log_archive.py
       - tests/test_jsonl_log_archive.py
       - tests/fixtures/jsonl_log_archive_sample.jsonl
@@ -36,7 +42,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: '24.22.1'
+          node-version: '26.12.1'
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version: "latest"
@@ -50,5 +56,5 @@ jobs:
       - run: node --version
       - name: Standalone standard-library CLI import
         run: uv run --no-project python -S src/mcp_toolcall_lab/jsonl_log_archive.py --help
-      - name: Exact results and decompression bounds (locked uv test group)
-        run: uv run --locked --extra test pytest -q tests/test_jsonl_log_archive.py
+      - name: Exact results and decompression bounds (locked stdlib test group)
+        run: uv run --locked --only-group ci-stdlib --exact pytest -q tests/test_jsonl_log_archive.py

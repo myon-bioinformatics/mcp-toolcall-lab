@@ -356,7 +356,7 @@ def _legacy_execute_over_cap(request: dict, node: Path) -> dict:
 def test_receipt_over_cap_matches_legacy_execute_message(tmp_path, monkeypatch):
     script = _write_fake_node(
         tmp_path,
-        version="v24.0.0",
+        version="v26.0.0",
         on_eval="pass",
         stdout_bytes=b"x" * _OVER_CAP_BYTES,
     )
@@ -375,7 +375,7 @@ def test_receipt_over_cap_matches_legacy_execute_message(tmp_path, monkeypatch):
 def test_normal_run_matches_legacy(tmp_path):
     script = _write_fake_node(
         tmp_path,
-        version="v24.0.0",
+        version="v26.0.0",
         on_eval="import sys; sys.stdout.write('ok\\n')",
     )
     payload = b'{"schema":"lab-execution/1","operation":"trace_summary","input":{"jsonl":""}}'
@@ -416,7 +416,7 @@ def test_node_not_on_path_raises_runtime_error(monkeypatch):
     payload = b"x"
     with pytest.raises(FileNotFoundError):
         _legacy_portable_node_run(payload, check=False)
-    with pytest.raises(RuntimeError, match=r"Node 24\+.*not found on PATH"):
+    with pytest.raises(RuntimeError, match=r"Node 26\+.*not found on PATH"):
         pe._portable_node_run(payload, check=False)
 
 
@@ -429,7 +429,7 @@ def test_node_v20_rejected_while_legacy_would_run(tmp_path):
     payload = b"x"
     legacy = _legacy_portable_node_run(payload, node=script, check=False)
     assert legacy.stdout == b"legacy\n"
-    with pytest.raises(RuntimeError, match=r"Node 24\+.*found Node 20"):
+    with pytest.raises(RuntimeError, match=r"Node 26\+.*found Node 20"):
         pe._portable_node_run(payload, node=script, check=False)
 
 
@@ -442,14 +442,14 @@ def test_node_v20_on_path_names_found_version(tmp_path, monkeypatch):
         lambda name, **kw: str(script) if name == "node" else None,
     )
     pe._node_launch_module().clear_probe_cache()
-    with pytest.raises(RuntimeError, match=r"Node 24\+.*found Node 20"):
+    with pytest.raises(RuntimeError, match=r"Node 26\+.*found Node 20"):
         pe._portable_node_run(b"x", check=False)
 
 
 def test_nonzero_exit_matches_legacy(tmp_path):
     script = _write_fake_node(
         tmp_path,
-        version="v24.0.0",
+        version="v26.0.0",
         on_eval="import sys; sys.stderr.write('diag\\n'); sys.exit(3)",
     )
     payload = b"x"
@@ -466,7 +466,7 @@ def test_nonzero_exit_matches_legacy(tmp_path):
 def test_nonzero_exit_with_check_raises_called_process_error(tmp_path):
     script = _write_fake_node(
         tmp_path,
-        version="v24.0.0",
+        version="v26.0.0",
         on_eval="import sys; sys.stderr.write('diag\\n'); sys.exit(3)",
     )
     payload = b"x"
@@ -481,7 +481,7 @@ def test_nonzero_exit_with_check_raises_called_process_error(tmp_path):
 
 
 def test_timeout_cmd_includes_resolved_node(tmp_path, monkeypatch):
-    script = _write_fake_node(tmp_path, version="v24.0.0", on_eval="import time; time.sleep(60)")
+    script = _write_fake_node(tmp_path, version="v26.0.0", on_eval="import time; time.sleep(60)")
     node_launch = pe._node_launch_module()
 
     def hang(*args, **kwargs):
@@ -500,7 +500,7 @@ def test_timeout_cmd_includes_resolved_node(tmp_path, monkeypatch):
 
 
 def test_timeout_matches_legacy(monkeypatch, tmp_path):
-    script = _write_fake_node(tmp_path, version="v24.0.0", on_eval="pass")
+    script = _write_fake_node(tmp_path, version="v26.0.0", on_eval="pass")
     cmd = [str(script), str(CORE), "--native-only"]
     timeout = 11.0
     node_launch = pe._node_launch_module()
@@ -525,7 +525,7 @@ def test_timeout_matches_legacy(monkeypatch, tmp_path):
 
 
 def test_stdin_closed_nonzero_matches_legacy(tmp_path):
-    script = _write_fake_node(tmp_path, version="v24.0.0", close_stdin_unread=True)
+    script = _write_fake_node(tmp_path, version="v26.0.0", close_stdin_unread=True)
     payload = _STDIN_CLOSED_PAYLOAD
 
     def old():
@@ -543,7 +543,7 @@ def test_stdin_closed_nonzero_matches_legacy(tmp_path):
 def test_stdin_closed_zero_exit_returns_stdout(tmp_path):
     script = _write_fake_node(
         tmp_path,
-        version="v24.0.0",
+        version="v26.0.0",
         close_stdin_unread=True,
         stdin_close_exit_code=0,
         stdin_close_stdout=b"done\n",
@@ -562,7 +562,7 @@ def test_stdin_closed_zero_exit_returns_stdout(tmp_path):
 def test_stdin_closed_zero_exit_with_large_input(tmp_path):
     script = _write_fake_node(
         tmp_path,
-        version="v24.0.0",
+        version="v26.0.0",
         close_stdin_unread=True,
         stdin_close_exit_code=0,
         stdin_close_stdout=b'{"ok":true}',
@@ -574,7 +574,7 @@ def test_node_env_var_honoured_when_unset_path(tmp_path, monkeypatch):
     monkeypatch.setenv("NODE", str(tmp_path / "nonexistent-x"))
     script = _write_fake_node(
         tmp_path,
-        version="v24.0.0",
+        version="v26.0.0",
         on_eval="import sys; sys.stdout.write('via-node\\n')",
     )
     monkeypatch.setattr(
@@ -590,7 +590,7 @@ def test_node_env_var_honoured_when_unset_path(tmp_path, monkeypatch):
 def test_node_env_var_used_when_set_to_fake(tmp_path, monkeypatch):
     script = _write_fake_node(
         tmp_path,
-        version="v24.0.0",
+        version="v26.0.0",
         on_eval="import sys; sys.stdout.write('via\\n')",
     )
     monkeypatch.setenv("NODE", str(script))
@@ -608,7 +608,7 @@ def _node_reader_ready() -> bool:
     return True
 
 
-@pytest.mark.skipif(not _node_reader_ready(), reason="Node 24+ required")
+@pytest.mark.skipif(not _node_reader_ready(), reason="Node 26+ required")
 def test_real_node_trace_summary_roundtrip():
     payload = (
         b'{"schema":"lab-execution/1","operation":"trace_summary","input":{"jsonl":'
@@ -620,7 +620,7 @@ def test_real_node_trace_summary_roundtrip():
 
 
 def test_mutation_timeout_mapping_required(tmp_path, monkeypatch):
-    script = _write_fake_node(tmp_path, version="v24.0.0", on_eval="pass")
+    script = _write_fake_node(tmp_path, version="v26.0.0", on_eval="pass")
     node_launch = pe._node_launch_module()
 
     def launch_timeout(*args, **kwargs):
@@ -650,7 +650,7 @@ def test_mutation_timeout_mapping_required(tmp_path, monkeypatch):
 def test_mutation_stdin_zero_mapping_required(tmp_path, monkeypatch):
     script = _write_fake_node(
         tmp_path,
-        version="v24.0.0",
+        version="v26.0.0",
         close_stdin_unread=True,
         stdin_close_exit_code=0,
         stdin_close_stdout=b"z",
@@ -755,7 +755,7 @@ def test_mutation_subprocess_broken_over_cap_mapping_fails_execute_test():
 
 @pytest.mark.parametrize("failure_code", [None, "ELAUNCHFAILURE", "ERESPONSETOOLARGE"])
 def test_summary_directory_uses_bounded_launcher_and_preserves_timeout_command(tmp_path, monkeypatch, failure_code):
-    script = _write_fake_node(tmp_path, version="v24.0.0", on_eval="pass")
+    script = _write_fake_node(tmp_path, version="v26.0.0", on_eval="pass")
     node_launch = pe._node_launch_module()
     summary_dir = tmp_path / "reviewed summaries"
     arguments = (CORE, "--native-only", "--summary-dir", str(summary_dir))
