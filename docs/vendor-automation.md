@@ -25,3 +25,9 @@ python -S .vendor-sync-tools/vendor_sync.py check --manifest vendor.lock.json
 ```
 
 Run the existing Python suite with its test-only dependencies after verification.
+
+LLM experiment runtime and baseline pins live separately in
+[`experiments/llm-runtime.lock.json`](../experiments/llm-runtime.lock.json)
+(schema `llm-runtime-lock/1`). The budget-quality GGUF workflow reads the immutable
+llama.cpp image digest, implementation revision, and baseline revision from that file.
+These experiment pins are not vendor-sync manifest entries.

@@ -67,12 +67,12 @@ jobs:
           python-version: "3.12.15"
           activate-environment: true
           enable-cache: false
-      - name: Read pinned runtime and baseline from vendor.lock.json
+      - name: Read pinned runtime and baseline from experiments/llm-runtime.lock.json
         id: pins
         run: |
           python - <<'PY' >> "$GITHUB_OUTPUT"
           import json
-          pins = json.load(open("vendor.lock.json", encoding="utf-8"))["pins"]
+          pins = json.load(open("experiments/llm-runtime.lock.json", encoding="utf-8"))["pins"]
           print(f"llama_image={pins['llama_image']}")
           print(f"llama_revision={pins['llama_revision']}")
           print(f"baseline_revision={pins['baseline_revision']}")

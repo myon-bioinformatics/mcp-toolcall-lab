@@ -82,12 +82,5 @@
       "blob_sha": "08b4027bb5e3e9248eb3be88de2c2484f2e184bb",
       "sha256": "a88d8fdb726239e4640da864348d5b70d2266f796b0d16f5afde5377e19714ec"
     }
-  ],
-  "pins": {
-    "inspected_on": "2026-10-31",
-    "llama_build": "b12004",
-    "llama_image": "ghcr.io/ggml-org/llama.cpp@sha256:b32890309c1a33a534a01b0b461e953dc2c5a6bac20213abcf48e22847a19c85",
-    "llama_revision": "3c809f44383bcebc318b8cddd8c6d11aaa861e9b",
-    "baseline_revision": "1184ba449e146cb8f101aaa743449eb71a1afeb9"
-  }
+  ]
 }
