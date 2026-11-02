@@ -64,7 +64,7 @@ def _raise_portable_node_not_found(exc: BaseException, node: str | os.PathLike[s
             raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), path) from exc
     version = re.search(r"must be 24 or newer \(found (\d+)\)", message)
     if version is not None:
-        raise RuntimeError(f"Node 24+ required; found Node {version.group(1)}") from exc
+        raise RuntimeError(f"Node 26+ required; found Node {version.group(1)}") from exc
     if node is None and "node executable not found" in message:
         discovered = shutil.which("node")
         if discovered:
@@ -75,9 +75,9 @@ def _raise_portable_node_not_found(exc: BaseException, node: str | os.PathLike[s
                 version = re.search(r"must be 24 or newer \(found (\d+)\)", str(probe_exc))
                 if version is not None:
                     raise RuntimeError(
-                        f"Node 24+ required; found Node {version.group(1)}"
+                        f"Node 26+ required; found Node {version.group(1)}"
                     ) from exc
-    raise RuntimeError("Node 24+ required; node executable not found on PATH") from exc
+    raise RuntimeError("Node 26+ required; node executable not found on PATH") from exc
 
 
 def _map_node_launch_error(

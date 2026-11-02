@@ -84,7 +84,7 @@ def test_jsonl_archive_portability_uses_locked_uv():
     )
     assert "os: [ubuntu-latest, windows-latest, macos-latest]" in workflow
     assert "python: ['3.12.15', '3.13.17', '3.14.9']" in workflow
-    assert "node-version: '24.22.1'" in workflow
+    assert "node-version: '26'" in workflow
     assert "astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2" in workflow
     assert "python-version: ${{ matrix.python }}" in workflow
     assert "run: uv run --locked --extra test pytest -q tests/test_jsonl_log_archive.py" in workflow

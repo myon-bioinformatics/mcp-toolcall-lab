@@ -148,7 +148,7 @@ def test_matrix_setup_precedes_bare_python_and_keeps_exact_pins_and_reports():
         if step.get("run", "").lstrip().startswith("python "):
             assert setup_index < index
     assert job["strategy"]["matrix"]["include"] == [
-        {"python-version": "3.12.15", "node-version": "24.22.1"},
+        {"python-version": "3.12.15", "node-version": "26"},
         {"python-version": "3.12.15", "node-version": "26.12.1"},
         {"python-version": "3.15", "node-version": "26.12.1"},
     ]
