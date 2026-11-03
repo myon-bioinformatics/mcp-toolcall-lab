@@ -1,4 +1,4 @@
-"""Keep the archive's small test group separate without dropping its plugins."""
+"""Keep stdlib-only CI lanes small without dropping their existing plugins."""
 
 from importlib.metadata import entry_points
 from pathlib import Path
@@ -37,3 +37,16 @@ def test_archive_workflow_selects_only_group_without_shadowing_source() -> None:
     # Both PR and main-push path filters must exercise future group/lock changes.
     for path in ("pyproject.toml", "uv.lock", "tests/test_ci_stdlib_profile.py"):
         assert workflow.count(f"      - {path}\n") == 2
+
+
+def test_chat_contract_workflow_keeps_python_and_deno_checks() -> None:
+    workflow = (ROOT / ".github/workflows/chat-stub-contract.yml").read_text(encoding="utf-8")
+    assert "uv run --locked --only-group ci-stdlib --exact python -m pytest -q tests/test_chat_contract.py" in workflow
+    assert "PYTHONPATH: src" in workflow
+    assert "PYTEST_DISABLE_PLUGIN_AUTOLOAD" not in workflow
+    assert "deno check deploy/chat-stub/main.ts deploy/chat-stub/test_main.ts" in workflow
+    assert "deno test --allow-read deploy/chat-stub/test_main.ts" in workflow
+    for path in ("pyproject.toml", "uv.lock", "tests/test_ci_stdlib_profile.py",
+                 "tests/test_chat_contract.py", "fixtures/prompt_experiments/**",
+                 "deploy/chat-stub/**", ".github/workflows/chat-stub-contract.yml"):
+        assert workflow.count(f'      - "{path}"\n') == 1
