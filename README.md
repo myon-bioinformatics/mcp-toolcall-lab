@@ -448,3 +448,9 @@ The next Adaptive Inference increments are tracked in
 These are planned phases, not guarantees about today's API. Keep tests and
 receipts for cached replay, approximate results, and actual model execution
 separate, and preserve an explicit fallback when a route is unsupported.
+
+## Focused test discovery
+
+See [standard-library discovery commands](docs/unittest-discovery.md) for
+validated `python -S -m unittest discover` recipes, filename/name filtering,
+and the boundary with the full pytest suite.
