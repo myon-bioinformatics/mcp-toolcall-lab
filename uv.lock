@@ -1212,6 +1212,9 @@ ci-stdlib = [
     { name = "pytest" },
     { name = "pytest-asyncio" },
 ]
+ci-wiki-screenshot = [
+    { name = "playwright" },
+]
 
 [package.metadata]
 requires-dist = [
@@ -1237,6 +1240,7 @@ ci-stdlib = [
     { name = "pytest", specifier = ">=9.1.1" },
     { name = "pytest-asyncio", specifier = ">=1.4.0" },
 ]
+ci-wiki-screenshot = [{ name = "playwright", specifier = ">=1.64.1" }]
 
 [[package]]
 name = "mcp-types"
