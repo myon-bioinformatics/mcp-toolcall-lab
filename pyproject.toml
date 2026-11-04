@@ -45,6 +45,8 @@ browser-test = ["playwright>=1.64.1"]
 # runner and all three auto-loaded plugins without installing the server.
 # This non-default group does not change the existing project/test extras.
 [dependency-groups]
+# Screenshot CLI + stdlib stub only; server and test extras remain unchanged.
+ci-wiki-screenshot = ["playwright>=1.64.1"]
 ci-stdlib = [
     "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",

@@ -20,6 +20,9 @@ on:
       - "scripts/wikipedia_article_screenshot.py"
       - "fixtures/wikipedia/**"
       - "docs/wikipedia_tool.md"
+      - "pyproject.toml"
+      - "uv.lock"
+      - "tests/test_ci_wiki_screenshot_profile.py"
       - ".github/workflows/wikipedia-article-screenshot.yml"
 
 jobs:
@@ -33,18 +36,18 @@ jobs:
           version: "latest"
           python-version: "3.12.15"
           enable-cache: false
-      - name: Install stub + Playwright CLI
-        run: uv run --locked --extra test --extra browser-test playwright install --with-deps --only-shell chromium
+      - name: Install locked Playwright CLI (stub is standard-library source)
+        run: uv run --locked --only-group ci-wiki-screenshot --exact playwright install --with-deps --only-shell chromium
       - name: Screenshot title-entered and heading-selected (fixture)
         if: ${{ github.event_name != 'workflow_dispatch' || inputs.live_wikipedia != true }}
         env:
           MCP_TOOLCALL_LAB_WIKIPEDIA_FIXTURE: ${{ github.workspace }}/fixtures/wikipedia/exampleville_extract.json
-        run: uv run --locked --extra test --extra browser-test python scripts/wikipedia_article_screenshot.py --out test-results/wiki-screenshots
+        run: uv run --locked --only-group ci-wiki-screenshot --exact python scripts/wikipedia_article_screenshot.py --out test-results/wiki-screenshots
       - name: Screenshot title-entered and heading-selected (live Wikipedia)
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.live_wikipedia == true }}
         env:
           MCP_TOOLCALL_LAB_LIVE_WIKIPEDIA: "1"
-        run: uv run --locked --extra test --extra browser-test python scripts/wikipedia_article_screenshot.py --live --out test-results/wiki-screenshots
+        run: uv run --locked --only-group ci-wiki-screenshot --exact python scripts/wikipedia_article_screenshot.py --live --out test-results/wiki-screenshots
       - name: Upload screenshots
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
