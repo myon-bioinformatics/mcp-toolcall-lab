@@ -277,37 +277,11 @@ counts from characters. The improvement is established for this authored corpus
 and this model run only; it does not establish general compression quality or
 translation fidelity. The exploratory failed variant is kept separate.
 
-## One-click fixed-model CI
+## Measured models
 
-Open [budget-quality-gguf in Actions](https://github.com/myon-bioinformatics/mcp-toolcall-lab/actions/workflows/budget-quality-gguf.yml),
-choose **Run workflow**, select `main` (or the branch to measure), then **Run workflow**.
-No local Docker or API key is needed. Real inference runs only through an explicit
-Run workflow (`workflow_dispatch`) request; neither PR updates nor main merges
-start this model workflow. Ordinary regression CI and existing mock smoke checks
-remain enabled. Offline tests do not count as a fresh model measurement.
+The fixed-model GitHub Actions workflow that produced these runs has been removed; the results above stay as historical evidence, and offline tests do not count as a fresh model measurement.
 
-By default the job downloads the immutable Qwen2.5-1.5B-Instruct Q4_K_M revision, verifies
-SHA-256 and size even on cache hits, starts a digest-pinned llama.cpp Docker image
-on CPU (2 threads, context 4096), then compares all 20 cases against baseline
-`1184ba449e146cb8f101aaa743449eb71a1afeb9` at 800 characters **and** 512 tokens.
-The server uses temperature 0, seed 42, and at most 128 output tokens. The
-historical native runtime and this Docker runtime differ, so both sides are rerun
-inside the same container; this does not promise identical historical outputs.
-
-The run's **Summary** shows successes, outcome statuses, chosen tiers and optional
-argument quality. Under **Artifacts**, download `budget-quality-qwen-…` for the
-paired JSON (all candidates, actual token counts and model answers), source/model/
-runtime provenance, Docker diagnostics and logs. Artifacts are retained for 30
-days. The weights themselves are cached rather than uploaded as test evidence.
-The default Qwen profile fails on current-version task failures or infrastructure/measurement errors
-while preserving available evidence (candidate observation mode is described below); the baseline's known infeasible cases
-are counted separately. A model download/startup failure is never counted as
-poor model quality. First runs include downloading about 1.12 GB of model weights
-and pulling the runtime image; the job has a 30-minute timeout.
-
-### Model selector
-
-The Run workflow form now has a `model` selector:
+Selector values used by the removed workflow:
 
 | Choice | Weight format | Approx. weight bytes | Mode |
 | --- | --- | ---: | --- |
@@ -324,9 +298,8 @@ The Run workflow form now has a `model` selector:
 repositories, immutable revisions, SHA-256 and byte sizes. Download and cache-hit
 verification are identical. The shared image is now official llama.cpp **b12004**,
 commit `3c809f44383bcebc318b8cddd8c6d11aaa861e9b`, pinned by OCI digest to support
-LFM3/MiniCPM5. This replaces b11669 in this workflow; earlier measurements remain
-historical. Both comparison sides always use the same selected model and runtime.
-SmolLM2 remains available through the separate compaction benchmark workflow.
+LFM3/MiniCPM5. Earlier measurements used b11669 and remain historical. Both comparison sides always use the same selected model and runtime.
+SmolLM2 is covered by the separate compaction benchmark.
 
 Candidate models are measurements, not assumed drop-in replacements: a successful
 job in observation mode means the measurement ran, **not** that all tasks passed.
