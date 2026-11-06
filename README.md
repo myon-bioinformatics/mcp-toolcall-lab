@@ -306,7 +306,7 @@ python -m mcp_toolcall_lab.stub_front pages --out _site --last-run test-results/
 ```
 
 Pages also publishes repository diagnostics and build/run identity. The UI shell
-is pinned from web-ui; tool execution, fixtures, traces, and protocol behavior
+is pinned from PySaiyanWeBoo; tool execution, fixtures, traces, and protocol behavior
 remain owned here. See [Pages/stub boundaries](docs/stub_pages.md),
 [local stub roadmap](docs/stub_front_roadmap.md), and the separate
 [Wikipedia-only Deno MCP deployment](docs/wikipedia_mcp_deploy.md).
