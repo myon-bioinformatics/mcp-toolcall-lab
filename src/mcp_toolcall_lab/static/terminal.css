@@ -73,7 +73,8 @@ h3 {
   color: var(--term-accent);
 }
 
-.term-muted {
+.term-muted,
+.ui-muted {
   color: var(--term-fg-muted);
 }
 
@@ -149,7 +150,8 @@ h3 {
   margin-top: 0;
 }
 
-.term-output {
+.term-output,
+.ui-output {
   background: var(--term-bg-inset);
   border: 1px solid var(--term-border);
   color: var(--term-fg);
@@ -168,7 +170,8 @@ label {
 input,
 select,
 textarea,
-.term-input {
+.term-input,
+.ui-input {
   background: var(--term-bg-inset);
   border: 1px solid var(--term-border);
   color: var(--term-fg);
@@ -187,7 +190,8 @@ select {
 }
 
 button,
-.term-button {
+.term-button,
+.ui-button {
   background: var(--term-bg-alt);
   border: 1px solid var(--term-border);
   color: var(--term-fg);
@@ -197,13 +201,15 @@ button,
 }
 
 button::before,
-.term-button::before {
+.term-button::before,
+.ui-button::before {
   content: "> ";
   color: var(--term-accent);
 }
 
 button:hover,
-.term-button:hover {
+.term-button:hover,
+.ui-button:hover {
   border-color: var(--term-accent);
 }
 

@@ -44,3 +44,16 @@ Static/live sets have separate receipts. Failed/skipped receipts cannot cover su
 actual bundle copies must reject image/hash/run/stage corruptions.
 The current capture lane measures desktop Chromium and mobile WebKit emulation;
 Firefox is not measured. Observations continue to upload under `if: always()`.
+
+# Vendored `web_ui.py`
+
+Pinned snapshot of [`myon-bioinformatics/web-ui`](https://github.com/myon-bioinformatics/web-ui)
+(`PySaiyanWeBoo`) `web_ui.py` and its LICENSE (stdlib-only). The Pages `#pokemon`
+panel is web-ui's shared **source panel**: `stub_front.load_web_ui()` loads this file
+by path, `source_panel_html(spec)` writes the panel, and `source.js` / `source.css` come
+from the same module. This repo keeps only the JSON spec,
+[`fixtures/pokeapi/pokeapi.spec.json`](../fixtures/pokeapi/pokeapi.spec.json) — see
+[`docs/stub_pages.md`](../docs/stub_pages.md).
+
+Pins and hashes: `vendor.lock.json` entries `vendor/web_ui.py` and `vendor/web-ui-LICENSE`
+(registered in the parent's `vendor-consumers.json`).

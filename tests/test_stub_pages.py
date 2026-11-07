@@ -28,7 +28,6 @@ from mcp_toolcall_lab.stub_front import (
     MCP_PATTERNS,
     PAGES_FORBIDDEN_NAMES,
     PAGES_HASH_JS_NAME,
-    PAGES_POKEMON_JS_SOURCE,
     PAGES_HASH_JS_SOURCE,
     PAGES_PIXIV_JS_NAME,
     PAGES_PIXIV_JS_SOURCE,
@@ -38,6 +37,7 @@ from mcp_toolcall_lab.stub_front import (
     PAGES_WIKI_JS_SOURCE,
     PAGES_WIKI_SERVE,
     PIXIV_LOCAL_SERVE,
+    SOURCE_JS_NAME,
     STUB_DEMO_DATA_NAME,
     STUB_DEMO_JS_NAME,
     STUB_DEMO_JS_SOURCE,
@@ -46,7 +46,9 @@ from mcp_toolcall_lab.stub_front import (
     _status_is_dirty,
     collect_revision,
     load_corpus,
+    load_web_ui,
     pages_summary,
+    pokemon_spec,
     parse_sections,
     render_rows,
     render_pixiv_page,
@@ -938,112 +940,38 @@ def test_stub_demo_js_is_valid_javascript() -> None:
     assert result.returncode == 0, result.stderr
 
 
-# --- Pokémon tab (#pokemon): after Wiki and Pixiv, direct fetch or pasted JSON ---------------------
+# --- Pokémon tab (#pokemon): web-ui's shared source panel + one JSON spec ---------------------------
 
 POKEMON_FIXTURE = Path(__file__).parents[1] / "fixtures" / "pokeapi" / "ditto.json"
 
 
-def test_write_pages_has_pokemon_tab_after_wiki_and_pixiv_and_ships_its_script(tmp_path: Path) -> None:
+def test_write_pages_has_pokemon_tab_after_wiki_and_pixiv_and_ships_the_shared_source_panel(tmp_path: Path) -> None:
     out = tmp_path / "site"
     html = write_pages(out, revision=_FAKE_REVISION).read_text(encoding="utf-8")
     nav = [html.index(f'data-pages-nav="{name}"') for name in ("home", "wiki", "pixiv", "pokemon")]
     assert nav == sorted(nav)
     assert 'href="#pokemon"' in html and 'data-testid="pages-nav-pokemon"' in html
     assert 'id="pokemon" data-pages-view="pokemon" data-testid="pages-pokemon" hidden' in html
-    for testid in ("name", "fetch", "open", "source-form", "source-text", "extract-submit", "status", "error", "extract"):
-        assert f'data-testid="pages-pokemon-{testid}"' in html
-    assert f'src="{PAGES_POKEMON_JS_SOURCE.name.replace("_", "-")}' in html
-    assert (out / "pages-pokemon.js").read_bytes() == PAGES_POKEMON_JS_SOURCE.read_bytes()
+    web_ui = load_web_ui()
+    assert web_ui.source_panel_html(pokemon_spec()) in html                      # the panel is the shared one, built from the lab's spec
+    assert f'src="{SOURCE_JS_NAME}?v=' in html
+    assert (out / SOURCE_JS_NAME).read_text(encoding="utf-8") == web_ui.js_source("source.js")
+    assert web_ui.css_source("source.css") in html
+    assert not (out / "pages-pokemon.js").exists()                                  # no lab-owned panel script any more
 
 
-_PAGES_POKEMON_CONTRACT = r"""
-const fs = require("fs");
-const assert = require("assert");
-const poke = require(process.argv[1]);
-const source = fs.readFileSync(process.argv[2], "utf8");
-const expectedMarkdown = JSON.parse(process.argv[3]);
-
-assert.strictEqual(poke.buildUrl("  Ditto "), poke.API + "ditto");
-assert.strictEqual(poke.buildUrl("132"), poke.API + "132");
-assert.strictEqual(poke.buildUrl("../x"), "");
-assert.strictEqual(poke.buildUrl(""), "");
-
-const parsed = poke.parse(source);
-assert.ok(parsed.ok);
-assert.strictEqual(parsed.record.name, "ditto");
-assert.strictEqual(parsed.record.id, 132);
-assert.strictEqual(parsed.record.height_m, 0.3);
-assert.deepStrictEqual(parsed.record.stats[0], ["hp", 48]);
-// Byte-for-byte the Markdown the Python adapter (vendored markdown.py table) writes.
-assert.strictEqual(poke.toMarkdown(parsed.record), expectedMarkdown);
-
-assert.deepStrictEqual(poke.parse("not json"), { ok: false, error: "source is not JSON" });
-assert.strictEqual(poke.parse('{"id": 1}').error, "not a PokéAPI pokemon response");
-assert.strictEqual(poke.parse('{"id":1,"name":"Bad Name","height":1,"weight":1,"types":[],"abilities":[],"stats":[{"base_stat":1,"stat":{"name":"hp"}}]}').ok, false);
-assert.strictEqual(poke.parse("x".repeat(2 * 1024 * 1024 + 1)).error, "source exceeds 2 MiB");
-
-function response(status, body) {
-  return { status: status, ok: status >= 200 && status < 300, text: function () { return Promise.resolve(body); } };
-}
-function el() {
-  const attrs = new Set();
-  const handlers = {};
-  return {
-    value: "", textContent: "",
-    setAttribute(n) { attrs.add(n); }, removeAttribute(n) { attrs.delete(n); }, hasAttribute(n) { return attrs.has(n); },
-    addEventListener(type, fn) { handlers[type] = fn; }, fire(type, e) { return handlers[type](e || {}); },
-  };
-}
-
-(async function () {
-  const calls = [];
-  const ok = await poke.load("Ditto", function (url) { calls.push(url); return Promise.resolve(response(200, source)); });
-  assert.ok(ok.ok);
-  assert.deepStrictEqual(calls, [poke.API + "ditto"]);
-  assert.strictEqual((await poke.load("nope", function () { return Promise.resolve(response(404, "")); })).error, "no Pokémon named 'nope' on pokeapi.co");
-  assert.strictEqual((await poke.load("ditto", function () { return Promise.resolve(response(503, "")); })).error, "pokeapi.co answered HTTP 503");
-  const blocked = await poke.load("ditto", function () { return Promise.reject(new TypeError("Failed to fetch")); });
-  assert.ok(!blocked.ok && blocked.error.includes("Failed to fetch") && blocked.error.includes("paste it below"));
-  let touched = false;
-  assert.strictEqual((await poke.load("", function () { touched = true; })).error, poke.MISSING_NAME);
-  assert.strictEqual(touched, false);
-
-  // The panel: Fetch, Open JSON, and Extract on a fake DOM.
-  const nodes = {};
-  ["name", "open", "fetch", "source-form", "source-text", "status", "error", "extract"].forEach(function (id) { nodes[id] = el(); });
-  const root = { querySelector(sel) { return nodes[/pages-pokemon-([a-z-]+)/.exec(sel)[1]] || null; } };
-  const opened = [];
-  poke.mount(root, { window: { open(url) { opened.push(url); } }, fetch: function () { return Promise.resolve(response(200, source)); } });
-  nodes.name.value = "ditto";
-  nodes.open.fire("click");
-  assert.deepStrictEqual(opened, [poke.API + "ditto"]);
-  await nodes.fetch.fire("click");
-  assert.strictEqual(nodes.extract.textContent, expectedMarkdown);
-  assert.strictEqual(nodes.extract.hasAttribute("hidden"), false);
-  assert.strictEqual(nodes.error.hasAttribute("hidden"), true);
-  nodes["source-text"].value = "   ";
-  nodes["source-form"].fire("submit", { preventDefault() {} });
-  assert.strictEqual(nodes.error.textContent, poke.MISSING_SOURCE);
-  assert.strictEqual(nodes.extract.hasAttribute("hidden"), true);
-  nodes["source-text"].value = source;
-  nodes["source-form"].fire("submit", { preventDefault() {} });
-  assert.strictEqual(nodes.extract.textContent, expectedMarkdown);
-  assert.ok(nodes.status.textContent.includes("from pasted JSON"));
-})().then(function () { console.log("ok"); }, function (err) { console.error(err); process.exit(1); });
-"""
-
-
-@pytest.mark.skipif(shutil.which("node") is None, reason="node not installed in this environment")
-def test_pages_pokemon_js_matches_the_python_adapter_and_covers_both_paths() -> None:
+def test_pokemon_spec_writes_the_python_adapter_markdown_byte_for_byte() -> None:
     from mcp_toolcall_lab.adapters.pokeapi import parse
 
-    expected = parse(POKEMON_FIXTURE.read_text(encoding="utf-8"))["markdown"]
-    result = subprocess.run(
-        ["node", "-e", _PAGES_POKEMON_CONTRACT, str(PAGES_POKEMON_JS_SOURCE), str(POKEMON_FIXTURE), json.dumps(expected)],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    assert result.returncode == 0, result.stderr + result.stdout
-    assert "ok" in result.stdout
+    source = POKEMON_FIXTURE.read_text(encoding="utf-8")
+    web_ui = load_web_ui()
+    from_spec = web_ui.source_markdown(web_ui.source_extract(pokemon_spec(), source))
+    assert from_spec == parse(source)["markdown"]
+    assert from_spec.startswith("# ditto (#132)\n")
+
+
+def test_pokemon_spec_is_the_panel_s_only_consumer_data() -> None:
+    web_ui = load_web_ui()
+    spec = web_ui.source_spec(pokemon_spec())
+    assert spec["id"] == "pokemon" and spec["url"] == "https://pokeapi.co/api/v2/pokemon/{name}"
 

@@ -331,6 +331,28 @@ def _vendor_style_tag(md: Any = None) -> str:
     return ""
 
 
+def load_web_ui() -> Any:
+    """The vendored ``web_ui.py`` (stdlib, loaded by path like ``markdown.py``)."""
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("lab_vendored_web_ui", WEB_UI_SOURCE)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"cannot load {WEB_UI_SOURCE}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module  # dataclasses resolves annotations through sys.modules
+    try:
+        spec.loader.exec_module(module)
+    except BaseException:
+        sys.modules.pop(spec.name, None)
+        raise
+    return module
+
+
+def pokemon_spec() -> dict[str, Any]:
+    """The whole PokéAPI consumer: one small JSON spec for web-ui's source panel."""
+    return json.loads(POKEMON_SPEC_SOURCE.read_text(encoding="utf-8"))
+
+
 PAGES_FORBIDDEN_NAMES = frozenset(
     {
         "mcp-toolcalls.jsonl",
@@ -353,8 +375,12 @@ PAGES_WIKI_JS_SOURCE = STATIC_DIR / "pages_wiki.js"
 PAGES_WIKI_JS_NAME = "pages-wiki.js"
 PAGES_PIXIV_JS_SOURCE = STATIC_DIR / "pages_pixiv.js"
 PAGES_PIXIV_JS_NAME = "pages-pixiv.js"
-PAGES_POKEMON_JS_SOURCE = STATIC_DIR / "pages_pokemon.js"
-PAGES_POKEMON_JS_NAME = "pages-pokemon.js"
+# The #pokemon panel is web-ui's shared source panel: this repo keeps only the
+# JSON spec, the panel markup, ``source.js`` and its CSS come from the vendored
+# ``vendor/web_ui.py`` (pinned in vendor.lock.json).
+WEB_UI_SOURCE = REPO_ROOT / "vendor" / "web_ui.py"
+POKEMON_SPEC_SOURCE = REPO_ROOT / "fixtures" / "pokeapi" / "pokeapi.spec.json"
+SOURCE_JS_NAME = "source.js"
 
 # The lab's one small CSS surface (terminal-lite). Replaces the five-link
 # web-ui CDN chain on Pages and the local /wiki and /pixiv surfaces; web-ui
@@ -917,33 +943,12 @@ def write_pages(
         "</ul>"
         f'<script src="{PAGES_PIXIV_JS_NAME}{_asset_cache_bust(PAGES_PIXIV_JS_SOURCE)}"></script>'
     )
+    web_ui = load_web_ui()
     pokemon_inner = (
-        "<h2>PokéAPI: Fetch, or Open → View source → Extract</h2>"
-        "<p>Fetch asks <code>pokeapi.co</code> directly from your browser. If that is blocked "
-        "or fails, press <strong>Open JSON</strong>, copy the text the browser shows "
-        "(its view-source or raw tab), paste it below and Extract; that path needs no network. "
-        "Both ways produce the same tables as the MCP/local "
-        "<code>pokeapi/pokemon</code> and <code>pokeapi/source</code> operations. PokéAPI asks "
-        "clients to cache, so this panel makes one request per press and never retries.</p>"
-        '<div id="pages-pokemon-app" data-testid="pages-pokemon-app">'
-        '<p><label for="pages-pokemon-name">Pokémon name or number</label> '
-        '<input id="pages-pokemon-name" name="name" value="" placeholder="ditto" '
-        'data-testid="pages-pokemon-name"></p>'
-        "<p>"
-        '<button type="button" data-testid="pages-pokemon-fetch">Fetch</button> '
-        '<button type="button" data-testid="pages-pokemon-open">Open JSON</button>'
-        "</p>"
-        '<form id="pages-pokemon-source-form" data-testid="pages-pokemon-source-form">'
-        '<p><label for="pages-pokemon-source-text">Pasted JSON</label><br>'
-        '<textarea id="pages-pokemon-source-text" name="source-text" rows="8" '
-        'data-testid="pages-pokemon-source-text"></textarea></p>'
-        '<p><button type="submit" data-testid="pages-pokemon-extract-submit">Extract</button></p>'
-        "</form>"
-        '<p class="term-muted" data-testid="pages-pokemon-status"></p>'
-        '<p role="alert" data-testid="pages-pokemon-error" hidden></p>'
-        '<pre class="term-output" data-testid="pages-pokemon-extract" hidden></pre>'
-        "</div>"
-        f'<script src="{PAGES_POKEMON_JS_NAME}{_asset_cache_bust(PAGES_POKEMON_JS_SOURCE)}"></script>'
+        web_ui.source_panel_html(pokemon_spec())
+        + '<p class="term-muted">Same tables as the MCP/local <code>pokeapi/pokemon</code> '
+        "and <code>pokeapi/source</code> operations.</p>"
+        f'<script src="{SOURCE_JS_NAME}{_asset_cache_bust(WEB_UI_SOURCE)}"></script>'
     )
     # Hide/show uses the HTML hidden attribute. Converted Markdown CSS comes
     # from vendor/markdown.py (default_stylesheet), not a lab-authored copy.
@@ -953,6 +958,7 @@ def write_pages(
         "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
         "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
         f"{_vendor_style_tag(md)}"
+        f"<style>{web_ui.css_source('source.css')}</style>"
         f"{_terminal_css_link(cache_bust=_asset_cache_bust(TERMINAL_CSS_SOURCE))}"
         "<title>mcp-toolcall-lab stub</title>"
         '</head><body><main class="term-page term-shell">'
@@ -990,9 +996,7 @@ def write_pages(
     (out_dir / PAGES_PIXIV_JS_NAME).write_text(
         PAGES_PIXIV_JS_SOURCE.read_text(encoding="utf-8"), encoding="utf-8"
     )
-    (out_dir / PAGES_POKEMON_JS_NAME).write_text(
-        PAGES_POKEMON_JS_SOURCE.read_text(encoding="utf-8"), encoding="utf-8"
-    )
+    (out_dir / SOURCE_JS_NAME).write_text(web_ui.js_source(SOURCE_JS_NAME), encoding="utf-8")
     (out_dir / "summary.json").write_text(summary_text + "\n", encoding="utf-8")
     (out_dir / BUILD_META_NAME).write_text(
         json.dumps(meta, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"

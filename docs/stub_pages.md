@@ -202,12 +202,16 @@ Pages `#pokemon` (after Wiki and Pixiv in the nav) is the same source-or-API
 idea for PokéAPI: **Fetch** asks `https://pokeapi.co/api/v2/pokemon/<name>`
 once from the browser, **Open JSON** opens that URL so you can copy the text
 the browser shows (its view-source / raw tab), and pasting it back runs
-**Extract** with no network at all. `pages-pokemon.js` reads the same fields
-as `adapters/pokeapi.py` and writes the same Markdown tables, which
-`tests/test_stub_pages.py::test_pages_pokemon_js_matches_the_python_adapter_and_covers_both_paths`
-compares byte for byte on `fixtures/pokeapi/ditto.json` (plus the fetch error
-paths and the panel on a fake DOM). PokéAPI's CORS behavior is documented
-only second-hand and the live browser fetch is **not** exercised in CI; when
+**Extract** with no network at all. The panel is web-ui's shared source panel
+(`vendor/web_ui.py` `source_panel_html`, `source.js`, `source.css`); this repo
+keeps only its JSON spec, `fixtures/pokeapi/pokeapi.spec.json`, and no panel
+script or stylesheet of its own. The spec reads the same fields as
+`adapters/pokeapi.py` and writes the same Markdown tables, which
+`tests/test_stub_pages.py::test_pokemon_spec_writes_the_python_adapter_markdown_byte_for_byte`
+compares byte for byte on `fixtures/pokeapi/ditto.json`; the panel's own
+behaviour (fetch error paths, paste path, Chromium) is tested in web-ui
+(`docs/source-panel.md`). PokéAPI's CORS behavior is documented only
+second-hand and the live browser fetch is **not** exercised in CI; when
 it is blocked the panel says so and the paste path still works.
 
 Evidence for the URL shapes above is two separate things, kept distinct
