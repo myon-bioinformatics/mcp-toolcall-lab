@@ -21,8 +21,8 @@ those stay in the mock that owns that wire.
 """
 
 
-import hashlib, importlib.util, json, os, re, sys, uuid
-from dataclasses import dataclass; from pathlib import Path; from types import ModuleType; from typing import Any
+import json, uuid
+from pathlib import Path; from typing import Any
 
 CHAT_ID_HEADER_KEYS = (
     "x-chat-id",
@@ -119,6 +119,9 @@ not one per caller. Fuzzy heading lookup for the stub / Wikipedia tools
 stays here; it is not the library's ``extract_section``.
 """
 
+
+import hashlib, importlib.util, json, os, re, sys
+from dataclasses import dataclass; from pathlib import Path; from types import ModuleType
 
 def _repo_root() -> Path:
     """``src/mcp_toolcall_lab/markdown_lib.py`` -> repo root, two levels up.
@@ -419,8 +422,8 @@ real-network integration test gated behind
 """
 
 
-import asyncio, json, os, re, sys, threading, time, urllib.error, urllib.parse, urllib.request
-from collections import OrderedDict; from dataclasses import dataclass; from datetime import datetime, UTC; from pathlib import Path; from typing import Any, Callable, Iterable, Literal; from urllib.error import HTTPError
+import json, os, re, threading, time, urllib.error, urllib.parse, urllib.request
+from collections import OrderedDict; from dataclasses import dataclass; from pathlib import Path; from typing import Any, Callable, Iterable, Literal
 
 
 WIKIPEDIA_API = "https://{lang}.wikipedia.org/w/api.php"
@@ -897,6 +900,8 @@ remains a separate later phase.
 """
 
 
+import re
+
 
 _LIST_DASH_RE = re.compile(r"^([ \t]*)-(?=\[\[)", re.MULTILINE)
 _NEXT_ARROW_RE = re.compile(r"NEXT▶︎(?=\[\[)")
@@ -992,6 +997,9 @@ Fetches one public article HTML page, converts it with the vendored markdown.py,
 then reuses the lab's common Markdown section model. A small TTL/LRU cache keeps
 heading changes from causing repeat requests. Default CI must use fixtures.
 """
+
+import os, time, urllib.parse, urllib.request
+from collections import OrderedDict; from dataclasses import dataclass; from pathlib import Path; from typing import Any; from urllib.error import HTTPError
 
 
 PIXIV_ARTICLE = "https://dic.pixiv.net/a/{title}"
@@ -1156,6 +1164,8 @@ module's docstring. The list-of-rows contract for
 """
 
 
+from typing import Any
+
 
 AVAILABLE_TOOLS = (
     "find_municipalities",
@@ -1279,6 +1289,9 @@ Id mints, header lookup, and the JSONL writer live in ``mock.common`` so the
 OpenAI demo can use the same helpers without importing this MCP log schema.
 """
 
+
+import os
+from datetime import datetime, UTC; from typing import Any, Callable
 
 
 OUTCOME_SUCCESS = "success"
@@ -1480,6 +1493,9 @@ def mcp_tool_calls(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
 # --- server.py ---
 """FastMCP server exposing a small, deterministic mock API."""
 
+
+import asyncio, os, sys, time
+from datetime import datetime, UTC; from typing import Any
 
 from fastmcp import FastMCP
 from fastmcp.server.middleware import Middleware, MiddlewareContext
