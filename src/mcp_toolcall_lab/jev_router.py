@@ -14,7 +14,7 @@ from mcp_toolcall_lab.jev_typesafe import choice_question, noul_question
 from mcp_toolcall_lab.mock.common import append_jsonl
 
 EVENT_ROUTE_DECISION = "jev/route_decision"
-TOOL_FAMILIES = ("ironmate", "wikipedia", "mock", "none")
+TOOL_FAMILIES = ("ironmate", "wikipedia", "pokeapi", "mock", "none")
 
 
 @dataclass(frozen=True)

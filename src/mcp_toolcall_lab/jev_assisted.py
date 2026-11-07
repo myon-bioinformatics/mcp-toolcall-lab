@@ -91,7 +91,7 @@ def execute_jev_assisted(
 
     if (
         decision.fallback_reason is None
-        and decision.tool_family in {"wikipedia", "mock"}
+        and decision.tool_family in {"wikipedia", "pokeapi", "mock"}
         and direct_calls
         and decision.tool_family in direct_calls
     ):
