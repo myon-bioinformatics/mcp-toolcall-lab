@@ -19,7 +19,7 @@ and is used only as an optional presentation adapter (not article parsing).
 Pinned snapshot of [`myon-bioinformatics/myon-bioinformatics`](https://github.com/myon-bioinformatics/myon-bioinformatics)
 `gh_ops.py` (stdlib-only GitHub REST operations). Loaded by path by
 [`src/mcp_toolcall_lab/github_ops_server.py`](../src/mcp_toolcall_lab/github_ops_server.py)
-— see [`docs/github_ops_mcp.md`](../docs/github_ops_mcp.md).
+— see [`docs/github-ops-mcp.md`](../docs/github-ops-mcp.md).
 
 Pins and hashes: `vendor.lock.json` entry `vendor/gh_ops.py`.
 

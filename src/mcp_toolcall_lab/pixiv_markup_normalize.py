@@ -1,6 +1,6 @@
 """Conservative normalization of observed Pixiv Encyclopedia source markup.
 
-Follow-up to #60/#61 (see ``docs/pixiv_markup_normalization.md``). A real
+Follow-up to #60/#61 (see ``docs/pixiv-markup-normalization.md``). A real
 BLEACH history/source sample was manually observed; only its *structural*
 syntax -- never article prose -- is reproduced anywhere in this repo.
 
@@ -18,7 +18,7 @@ all: ``[[label]]`` / ``[[label>anchor]]`` wiki links, ``[pixivimage:ID]`` /
 ``[pixivimage:ID:size]`` embeds, unspaced ``-[[label]]`` list lines, and
 ``NEXT▶︎[[label]]`` navigation lines. Everything else -- including malformed
 or unrecognized tokens -- passes through unchanged; see the SUPPORTED /
-UNSUPPORTED sections of ``docs/pixiv_markup_normalization.md`` for the full
+UNSUPPORTED sections of ``docs/pixiv-markup-normalization.md`` for the full
 contract.
 
 Wired into the MCP Pixiv dictionary article/section fetch path by #62. It is

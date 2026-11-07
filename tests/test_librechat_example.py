@@ -46,7 +46,7 @@ def test_librechat_smoke_compose_uses_shared_docker_network() -> None:
 
 
 def test_librechat_docs_and_prompt_are_present() -> None:
-    notes = (ROOT / "docs" / "librechat_mcp_notes.md").read_text(encoding="utf-8")
+    notes = (ROOT / "docs" / "librechat-mcp-notes.md").read_text(encoding="utf-8")
     assert "librechat_mcp_mock.py" in notes
     assert "http://mcp-mock:8000/mcp" in notes
     prompt = (ROOT / "system_prompts" / "strict_tool_selection_librechat.md").read_text(

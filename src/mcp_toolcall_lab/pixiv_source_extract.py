@@ -13,7 +13,7 @@ explicit labeled line (``"English: ..."`` / ``"英語表記：..."`` /
 ``"Parent article: ..."`` / ``"親記事：..."``). No positional or markup
 heuristic backs these two fields: this repo has no confirmed observed markup
 for them from a real ``dic.pixiv.net`` revision-source page (see
-``docs/pixiv_source_fixture_contract.md``), so an absent label simply leaves
+``docs/pixiv-source-fixture-contract.md``), so an absent label simply leaves
 the field empty instead of guessing unsupported Pixiv syntax. ``body``
 always carries the full converted Markdown verbatim, so content that this
 module does not recognize as a named field is still preserved rather than

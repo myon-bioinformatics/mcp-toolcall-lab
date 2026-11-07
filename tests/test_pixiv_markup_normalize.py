@@ -1,6 +1,6 @@
 """Fixture-driven regression tests for the #61 Pixiv markup normalization layer.
 
-Covers docs/pixiv_markup_normalization.md's SUPPORTED / UNSUPPORTED contract:
+Covers docs/pixiv-markup-normalization.md's SUPPORTED / UNSUPPORTED contract:
 observed heading markers, Pixiv wiki links, pixivimage tokens (with/without a
 size suffix), the unsupported table-header marker, unspaced list-link lines,
 NEXT navigation links, native emphasis, Unicode/whitespace, duplicates, and

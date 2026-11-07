@@ -152,6 +152,6 @@ def test_matrix_setup_precedes_bare_python_and_keeps_exact_pins_and_reports():
         {"python-version": "3.15", "node-version": "26.12.1"},
     ]
     assert workflows["jsonl-archive.yml"]["jobs"]["archive"]["strategy"]["matrix"]["python"] == ["3.12.15", "3.13.17", "3.14.9"]
-    reports = workflows["ci.yml"]["jobs"]["junit-identity"]["with"]["expected-reports"]
+    reports = workflows["ci.yml"]["jobs"]["failure-identity"]["with"]["expected-reports"]
     for row in job["strategy"]["matrix"]["include"]:
         assert f"junit-python-{row['python-version']}-node-{row['node-version']}/pytest.xml" in reports

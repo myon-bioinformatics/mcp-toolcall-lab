@@ -110,7 +110,7 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-  junit-identity:
+  failure-identity:
     needs: [changes, test]
     if: always() && needs.changes.outputs.product_changed == 'true'
     permissions:
