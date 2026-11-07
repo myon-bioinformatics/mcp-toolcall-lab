@@ -35,7 +35,7 @@ def summarize(report, cases):
     return results
 
 
-def main():
+def main(argv=None):
     p = argparse.ArgumentParser(__doc__)
     p.add_argument('--report', type=Path, required=True)
     p.add_argument('--model', type=Path, required=True)
@@ -43,7 +43,7 @@ def main():
     p.add_argument('--require-success', action='store_true', help='require 20/20 even for candidate models')
     p.add_argument('--runtime-revision', default='unknown')
     p.add_argument('--summary', type=Path, required=True)
-    args = p.parse_args()
+    args = p.parse_args(argv)
     report = json.loads(args.report.read_text())
     cases = Path('fixtures/budget_compression/cases.json').read_bytes()
     result = summarize(report, cases)

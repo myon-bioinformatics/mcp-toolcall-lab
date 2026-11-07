@@ -462,6 +462,10 @@ def build_ui():
     return demo
 
 
-if __name__ == "__main__":
+def main(argv=None):
     ui = build_ui()
     ui.launch(server_name="127.0.0.1", share=False, css=TERMINAL_CSS)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
