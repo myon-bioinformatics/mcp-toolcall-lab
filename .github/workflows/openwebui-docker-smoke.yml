@@ -1,4 +1,4 @@
-name: openwebui-docker-smoke
+name: OpenWebUI Docker smoke
 
 # Real Open WebUI + MCP mock + OpenAI mock on one Docker network, then Playwright.
 # MCP: openwebui_mcp_mock.py. OpenAI: demos/openai_toolcall_mock.py.

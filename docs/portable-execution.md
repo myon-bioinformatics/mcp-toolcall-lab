@@ -108,7 +108,7 @@ to prevent stale receipts from leaking across builds. Generated receipts are
 snapshots, not latest-live values. Runtime source and
 existing vendored dependency licenses and lock are shipped alongside the UI.
 
-`portable-pages.yml` is the sole Pages publisher. It builds on PRs, uploads the
+`pages.yml` is the sole Pages publisher. It builds on PRs, uploads the
 static build for inspection, and deploys only main. The old `stub-pages.yml`
 continues its separate Docker/MCP smoke/report artifact job, but no longer
 publishes a competing root redirect. No Pages settings or credentials change.

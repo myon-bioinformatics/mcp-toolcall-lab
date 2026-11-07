@@ -46,7 +46,7 @@ def test_pytest_junit_preserves_outcome(tmp_path, failing):
 
 
 def test_python_junit_workflow_keeps_failed_producer_visible():
-    workflow = (Path(__file__).parents[1] / ".github/workflows/test.yml").read_text(encoding="utf-8")
+    workflow = (Path(__file__).parents[1] / ".github/workflows/ci.yml").read_text(encoding="utf-8")
     producer = workflow.split("  test:\n", 1)[1].split("  junit-identity:\n", 1)[0]
     collector = workflow.split("  junit-identity:\n", 1)[1].split("  public-resolver-compat:", 1)[0]
     assert "astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3" in producer
@@ -70,7 +70,7 @@ def test_python_junit_workflow_keeps_failed_producer_visible():
 
 
 def test_public_resolver_compat_keeps_legacy_python_coverage():
-    workflow = (Path(__file__).parents[1] / ".github/workflows/test.yml").read_text(encoding="utf-8")
+    workflow = (Path(__file__).parents[1] / ".github/workflows/ci.yml").read_text(encoding="utf-8")
     resolver = yaml.safe_load(workflow)["jobs"]["public-resolver-compat"]
     # uv provides Python 3.9 on the current runner image.
     assert resolver["runs-on"] == "ubuntu-latest"

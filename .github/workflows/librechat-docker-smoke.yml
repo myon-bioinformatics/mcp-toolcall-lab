@@ -1,4 +1,4 @@
-name: librechat-docker-smoke
+name: LibreChat Docker smoke
 
 # Real LibreChat + MCP mock + OpenAI mock on one Docker network, then Playwright.
 # Default `test` workflow stays `pytest -q` only (this module skips without

@@ -52,7 +52,7 @@ def test_openwebui_docs_and_workflow_track_the_owui_named_mock() -> None:
     workflow = (ROOT / ".github" / "workflows" / "openwebui-docker-smoke.yml").read_text(
         encoding="utf-8"
     )
-    default_ci = (ROOT / ".github" / "workflows" / "test.yml").read_text(encoding="utf-8")
+    default_ci = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
     assert "src/mcp_toolcall_lab/chat_ui.py" in workflow
     assert "src/mcp_toolcall_lab/frontends.py" in workflow
     assert "src/mcp_toolcall_lab/mcp_http.py" in workflow

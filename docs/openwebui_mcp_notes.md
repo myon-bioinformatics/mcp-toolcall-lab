@@ -115,7 +115,7 @@ OPEN_WEBUI_BASE_URL=http://127.0.0.1:3000 \
 
 Skipped in default `pytest` (`OPEN_WEBUI_BASE_URL` unset). CI workflow:
 `.github/workflows/openwebui-docker-smoke.yml` (`workflow_dispatch` and
-path-filtered `pull_request`). Default `test.yml` stays `pytest -q`.
+path-filtered `pull_request`). Default `ci.yml` stays `pytest -q`.
 
 ## What this lane does / does not do
 
