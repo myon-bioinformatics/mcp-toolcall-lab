@@ -1,0 +1,161 @@
+{
+  "schema": "btk-evidence-gif/1",
+  "gif": "browser.gif",
+  "bytes": 605687,
+  "sha256": "53f1b0f95a7b775be16945030bcc0910a84509a5de37f70be76d62885c5b568c",
+  "frames": 13,
+  "canvas": "720x512",
+  "browser": "chromium 153.0.8010.12",
+  "recorded": "2026-11-07",
+  "commit": "2e581d2cc9683a94568d881a59f0a8e2d87475bb",
+  "mapped": [
+    "https://cdn.jsdelivr.net/gh/myon-bioinformatics/web-ui@adb23d7ba6ea94672b76457573f6655a081ee054/",
+    "https://cdn.jsdelivr.net/gh/myon-bioinformatics/PySaiyanWeBoo@adb23d7ba6ea94672b76457573f6655a081ee054/"
+  ],
+  "summary": {
+    "pass": 7,
+    "fail": 0
+  },
+  "shots": [
+    {
+      "label": "🏠 stub home",
+      "url": "/index.html",
+      "viewport": "1280x800",
+      "steps": [],
+      "status": "pass",
+      "errors": [],
+      "allowed": [],
+      "external": []
+    },
+    {
+      "label": "📚 wiki",
+      "url": "/index.html#wiki",
+      "viewport": "1280x800",
+      "steps": [],
+      "status": "pass",
+      "errors": [],
+      "allowed": [],
+      "external": []
+    },
+    {
+      "label": "🎨 pixiv",
+      "url": "/index.html#pixiv",
+      "viewport": "1280x800",
+      "steps": [],
+      "status": "pass",
+      "errors": [],
+      "allowed": [],
+      "external": []
+    },
+    {
+      "label": "🩺 repository diagnostics",
+      "url": "/repository-diagnostics.html",
+      "viewport": "1280x800",
+      "steps": [],
+      "status": "pass",
+      "errors": [],
+      "allowed": [],
+      "external": []
+    },
+    {
+      "label": "📱 pixiv",
+      "url": "/index.html#pixiv",
+      "viewport": "392x848",
+      "steps": [],
+      "status": "pass",
+      "errors": [],
+      "allowed": [],
+      "external": []
+    },
+    {
+      "label": "⚙️ portable execution",
+      "url": "/mcp-toolcall-lab/execution/index.html",
+      "viewport": "1280x800",
+      "steps": [
+        "fill #source-text",
+        "click #source-extract",
+        "click #advanced > summary",
+        "click #run"
+      ],
+      "status": "pass",
+      "errors": [],
+      "allowed": [],
+      "external": []
+    },
+    {
+      "label": "📱 portable execution",
+      "url": "/mcp-toolcall-lab/execution/index.html",
+      "viewport": "392x848",
+      "steps": [
+        "click #advanced > summary",
+        "click #run"
+      ],
+      "status": "pass",
+      "errors": [],
+      "allowed": [],
+      "external": []
+    }
+  ],
+  "plan": [
+    {
+      "label": "🏠 stub home",
+      "url": "/index.html",
+      "viewport": "1280x800"
+    },
+    {
+      "label": "📚 wiki",
+      "url": "/index.html#wiki",
+      "viewport": "1280x800"
+    },
+    {
+      "label": "🎨 pixiv",
+      "url": "/index.html#pixiv",
+      "viewport": "1280x800"
+    },
+    {
+      "label": "🩺 repository diagnostics",
+      "url": "/repository-diagnostics.html",
+      "viewport": "1280x800"
+    },
+    {
+      "label": "📱 pixiv",
+      "url": "/index.html#pixiv",
+      "viewport": "392x848"
+    },
+    {
+      "label": "⚙️ portable execution",
+      "url": "/mcp-toolcall-lab/execution/index.html",
+      "viewport": "1280x800",
+      "steps": [
+        {
+          "fill": [
+            "#source-text",
+            "MCP tools/list returned find_stations; the model then called tools/call find_stations with prefecture Tokyo."
+          ]
+        },
+        {
+          "click": "#source-extract"
+        },
+        {
+          "click": "#advanced > summary"
+        },
+        {
+          "click": "#run"
+        }
+      ]
+    },
+    {
+      "label": "📱 portable execution",
+      "url": "/mcp-toolcall-lab/execution/index.html",
+      "viewport": "392x848",
+      "steps": [
+        {
+          "click": "#advanced > summary"
+        },
+        {
+          "click": "#run"
+        }
+      ]
+    }
+  ]
+}
