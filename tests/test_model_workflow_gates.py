@@ -31,13 +31,13 @@ def _events(workflow):
 
 def _assert_no_automatic_models(workflows):
     for filename, job_id in (
-        ("portable-pages.yml", "build"),
+        ("pages.yml", "build"),
         ("compaction-gguf-benchmark.yml", "live-gguf"),
     ):
         workflow = workflows[filename]
         assert set(_events(workflow)) == {"workflow_dispatch"}
         assert workflow["jobs"][job_id]["if"] == MANUAL
-    pages = workflows["portable-pages.yml"]["jobs"]
+    pages = workflows["pages.yml"]["jobs"]
     assert pages["deploy"]["if"] == MAIN_MANUAL
     assert pages["deploy"]["needs"] == "build"
     upload = next(step for step in pages["build"]["steps"]
@@ -69,8 +69,8 @@ def test_all_model_routes_are_manual_and_pages_has_no_automatic_replacement():
             for step in job.get("steps", []):
                 if step.get("uses", "").startswith("actions/deploy-pages@"):
                     publishers.append(filename)
-    assert publishers == ["portable-pages.yml"]
-    assert workflows["portable-pages.yml"]["jobs"]["deploy"]["environment"]["name"] == "github-pages"
+    assert publishers == ["pages.yml"]
+    assert workflows["pages.yml"]["jobs"]["deploy"]["environment"]["name"] == "github-pages"
 
 
 @pytest.mark.parametrize("damage", [
@@ -79,7 +79,7 @@ def test_all_model_routes_are_manual_and_pages_has_no_automatic_replacement():
 ])
 def test_policy_rejects_each_reopened_automatic_model_or_publication_route(damage):
     workflows = deepcopy(_workflows())
-    pages = workflows["portable-pages.yml"]
+    pages = workflows["pages.yml"]
     compaction = workflows["compaction-gguf-benchmark.yml"]
     runtime = workflows["component-runtime.yml"]
     if damage == "pages_push":
@@ -121,7 +121,7 @@ def test_manual_runtime_retains_real_build_trust_and_original_artifact_contract(
 
 def test_manual_pages_and_compaction_keep_actual_validation_not_mock_replacements():
     workflows = _workflows()
-    pages = {step["name"]: step for step in workflows["portable-pages.yml"]["jobs"]["build"]["steps"] if "name" in step}
+    pages = {step["name"]: step for step in workflows["pages.yml"]["jobs"]["build"]["steps"] if "name" in step}
     export = pages["Export static files from Docker build"]["run"]
     assert "--target artifact" in export and "--target summary-handoff" in export
     assert "assert python['model_inference_performed'] is True" in pages["Verify exported runtime without the source checkout"]["run"]
@@ -137,7 +137,7 @@ def test_manual_pages_and_compaction_keep_actual_validation_not_mock_replacement
 
 def test_matrix_setup_precedes_bare_python_and_keeps_exact_pins_and_reports():
     workflows = _workflows()
-    job = workflows["test.yml"]["jobs"]["test"]
+    job = workflows["ci.yml"]["jobs"]["test"]
     setup_index = next(i for i, step in enumerate(job["steps"])
                        if step.get("uses", "").startswith("astral-sh/setup-uv@"))
     setup = job["steps"][setup_index]["with"]
@@ -152,6 +152,6 @@ def test_matrix_setup_precedes_bare_python_and_keeps_exact_pins_and_reports():
         {"python-version": "3.15", "node-version": "26.12.1"},
     ]
     assert workflows["jsonl-archive.yml"]["jobs"]["archive"]["strategy"]["matrix"]["python"] == ["3.12.15", "3.13.17", "3.14.9"]
-    reports = workflows["test.yml"]["jobs"]["junit-identity"]["with"]["expected-reports"]
+    reports = workflows["ci.yml"]["jobs"]["junit-identity"]["with"]["expected-reports"]
     for row in job["strategy"]["matrix"]["include"]:
         assert f"junit-python-{row['python-version']}-node-{row['node-version']}/pytest.xml" in reports

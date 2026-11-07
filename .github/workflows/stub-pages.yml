@@ -2,7 +2,7 @@ name: stub-pages
 
 # Serverless try: Actions boots Docker (stub + MCP + CPU-class model),
 # records anti-patterns as JSONL and exports public reports for portfolio publication.
-# Publication belongs to portable-pages.yml; MCP/Docker smoke stays here.
+# Publication belongs to pages.yml; MCP/Docker smoke stays here.
 # Default `test` workflow stays `pytest -q` (no Docker).
 on:
   workflow_dispatch:

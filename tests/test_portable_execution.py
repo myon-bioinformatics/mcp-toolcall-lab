@@ -280,14 +280,14 @@ console.log(JSON.stringify([ok,miss,mismatch,offline]));'''.replace('CORE', json
     def test_only_one_pages_publisher(self):
         workflows = list((ROOT / '.github/workflows').glob('*.yml'))
         publishers = [p.name for p in workflows if 'uses: actions/deploy-pages@' in p.read_text()]
-        self.assertEqual(publishers, ['portable-pages.yml'])
+        self.assertEqual(publishers, ['pages.yml'])
         docker = (ROOT / 'docker/portable-pages/Dockerfile').read_text()
         self.assertIn('FROM scratch AS artifact', docker)
         self.assertIn('FROM node:26.12.1-trixie-slim@sha256:36793bcbb160a6a16cede1e62b93f84e26b78a972a8a4c0b879c1c12f22761ec AS node', docker)
         self.assertIn('ENV LD_LIBRARY_PATH=/app', docker)
         self.assertLess(docker.index('RUN /app/llama-server --version'), docker.index('RUN python3 -S scripts/fetch_tiny_cpu_gguf.py'))
         self.assertNotIn('CMD', docker)
-        workflow = (ROOT / '.github/workflows/portable-pages.yml').read_text()
+        workflow = (ROOT / '.github/workflows/pages.yml').read_text()
         self.assertIn('  workflow_dispatch:', workflow)
         self.assertNotIn('  pull_request:', workflow)
         self.assertNotIn('  push:', workflow)

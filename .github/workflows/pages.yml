@@ -1,4 +1,4 @@
-name: portable-pages
+name: Pages
 
 # Live GGUF generation and Pages publication are explicit manual operations.
 # Ordinary CI never rebuilds or replaces the currently published site.

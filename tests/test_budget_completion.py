@@ -75,7 +75,7 @@ def test_model_measurement_requires_manual_dispatch_without_disabling_ordinary_c
     assert 'all' in inputs['model']['options']
     assert inputs['strict_quality']['default'] == 'false'
     assert workflow['jobs']['paired-model']['strategy']['max-parallel'] == '3'
-    ordinary = yaml.load((ROOT / '.github/workflows/test.yml').read_text(), Loader=yaml.BaseLoader)
+    ordinary = yaml.load((ROOT / '.github/workflows/ci.yml').read_text(), Loader=yaml.BaseLoader)
     assert {'pull_request', 'push'} <= set(ordinary['on'])
     smoke = yaml.load((ROOT / '.github/workflows/librechat-docker-smoke.yml').read_text(), Loader=yaml.BaseLoader)
     assert 'pull_request' in smoke['on']

@@ -1,6 +1,6 @@
 # Python CI JUnit compatibility
 
-The primary Python job in `.github/workflows/test.yml` still installs
+The primary Python job in `.github/workflows/ci.yml` still installs
 `.[test]` and runs the same pytest suite. It adds
 `--junitxml=reports/pytest.xml` and uploads that exact file as
 `junit-python-3.12-node-26` or `junit-python-3.12-node-latest`, according to
