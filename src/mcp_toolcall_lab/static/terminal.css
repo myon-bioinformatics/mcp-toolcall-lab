@@ -1,9 +1,9 @@
 /*
  * terminal-lite: the lab's one small CSS surface.
  *
- * Replaces the five-link myon-bioinformatics/web-ui CDN chain (tokens.css,
+ * Replaces the five-link myon-bioinformatics/PySaiyanWeBoo CDN chain (tokens.css,
  * base.css, components.css, stub.css, themes/modern.css) on the published
- * Pages report and the local /wiki and /pixiv surfaces. web-ui itself is
+ * Pages report and the local /wiki and /pixiv surfaces. PySaiyanWeBoo itself is
  * unchanged; this file is lab-owned and intentionally small. Converted
  * Markdown content (tables, alerts, footnotes, ...) keeps its own styling
  * from vendor/markdown.py's default_stylesheet() -- that is a separate,

@@ -144,10 +144,10 @@ def test_write_pages_is_static(tmp_path: Path) -> None:
     assert 'class="term-card term-evidence"' in html
     assert 'class="term-card term-history"' in html
     assert '<aside aria-label="Supporting information">' in html
-    # Single CSS contract: one lab-owned stylesheet, no web-ui CDN chain.
+    # Single CSS contract: one lab-owned stylesheet, no PySaiyanWeBoo CDN chain.
     assert (tmp_path / "site" / TERMINAL_CSS_NAME).is_file()
     assert f'<link rel="stylesheet" href="{TERMINAL_CSS_NAME}?v=' in html
-    assert "web-ui" not in html
+    assert "web-ui" not in html and "PySaiyanWeBoo" not in html
     assert f"Styling: single lab-owned <code>{TERMINAL_CSS_NAME}</code>" in html
     assert html.index('class="term-panel term-result"') < html.index('<aside aria-label="Supporting information">')
     pixiv_tools = {tool for tool in AVAILABLE_TOOLS if tool.startswith("fetch_pixiv_dictionary_")}
@@ -180,7 +180,7 @@ def test_write_pages_embeds_vendor_stylesheet_not_lab_css(tmp_path: Path) -> Non
 def test_single_css_contract_across_pages_wiki_and_pixiv(tmp_path: Path) -> None:
     """Pages, local /wiki, and local /pixiv share one lab-owned stylesheet.
 
-    Terminal-lite prototype (#58): no myon-bioinformatics/web-ui CDN chain
+    Terminal-lite prototype (#58): no myon-bioinformatics/PySaiyanWeBoo CDN chain
     anywhere in these three rendered surfaces, and exactly one
     ``terminal.css`` link per page (the inlined vendor markdown stylesheet
     is a separate, content-scoped concern and is not "the CSS chain").
@@ -190,7 +190,7 @@ def test_single_css_contract_across_pages_wiki_and_pixiv(tmp_path: Path) -> None
     wiki_html = render_wiki_page()
     pixiv_html = render_pixiv_page()
     for html in (pages_html, wiki_html, pixiv_html):
-        assert "web-ui" not in html
+        assert "web-ui" not in html and "PySaiyanWeBoo" not in html
         assert "cdn.jsdelivr.net" not in html
         assert "data-ui-theme" not in html
         assert html.count(f'href="{TERMINAL_CSS_NAME}') + html.count(f'href="/{TERMINAL_CSS_NAME}') == 1

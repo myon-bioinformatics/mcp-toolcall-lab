@@ -355,7 +355,7 @@ PAGES_PIXIV_JS_SOURCE = STATIC_DIR / "pages_pixiv.js"
 PAGES_PIXIV_JS_NAME = "pages-pixiv.js"
 
 # The lab's one small CSS surface (terminal-lite). Replaces the five-link
-# web-ui CDN chain on Pages and the local /wiki and /pixiv surfaces; web-ui
+# PySaiyanWeBoo CDN chain on Pages and the local /wiki and /pixiv surfaces; PySaiyanWeBoo
 # itself is unchanged. Served locally at /terminal.css, copied next to the
 # published index.html by write_pages().
 TERMINAL_CSS_SOURCE = STATIC_DIR / "terminal.css"
@@ -363,7 +363,7 @@ TERMINAL_CSS_NAME = "terminal.css"
 
 
 def _terminal_css_link(*, href: str = TERMINAL_CSS_NAME, cache_bust: str = "") -> str:
-    """The lab's single page-shell stylesheet -- no web-ui CDN chain."""
+    """The lab's single page-shell stylesheet -- no PySaiyanWeBoo CDN chain."""
     return f'<link rel="stylesheet" href="{href}{cache_bust}">'
 
 
@@ -916,7 +916,7 @@ def write_pages(
     # Hide/show uses the HTML hidden attribute. Converted Markdown CSS comes
     # from vendor/markdown.py (default_stylesheet), not a lab-authored copy.
     # The page shell itself is styled by the single lab-owned terminal.css --
-    # no web-ui CDN chain.
+    # no PySaiyanWeBoo CDN chain.
     html_page = (
         "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
         "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
