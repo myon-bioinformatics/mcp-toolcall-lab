@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-import json
-import sys
+import json, sys
 from pathlib import Path
 
 from mcp_toolcall_lab.mock.common import close_http11_sse, new_call_id

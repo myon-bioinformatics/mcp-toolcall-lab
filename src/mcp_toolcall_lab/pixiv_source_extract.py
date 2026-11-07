@@ -25,8 +25,7 @@ the next PR.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
-from typing import Any
+from dataclasses import dataclass; from typing import Any
 
 from .markdown_lib import load_markdown, own_body, parse_sections
 

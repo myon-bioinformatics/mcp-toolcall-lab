@@ -44,13 +44,8 @@ parallel logging path.
 
 from __future__ import annotations
 
-import json
-import os
-import time
-from dataclasses import dataclass, field
-from datetime import UTC, datetime
-from pathlib import Path
-from typing import Any, Callable, Protocol
+import json, os, time
+from dataclasses import dataclass, field; from datetime import datetime, UTC; from pathlib import Path; from typing import Any, Callable, Protocol
 
 from mcp_toolcall_lab.jev_shim import KINDS, validate_payload
 from mcp_toolcall_lab.jev_typesafe import TypeSafeClient

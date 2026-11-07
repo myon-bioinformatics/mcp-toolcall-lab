@@ -1,6 +1,5 @@
 """Offline CI policy checks: manual model validation is not a mocked CI pass."""
-from copy import deepcopy
-from pathlib import Path
+from copy import deepcopy; from pathlib import Path
 
 import pytest
 import yaml

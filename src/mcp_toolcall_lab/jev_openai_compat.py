@@ -7,8 +7,7 @@ plain pytest remains deterministic and network-free.
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
-from typing import Any, Callable
+from dataclasses import dataclass; from typing import Any, Callable
 
 from mcp_toolcall_lab.jev_backend import BackendError, _validated
 from mcp_toolcall_lab.jev_shim import KINDS

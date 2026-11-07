@@ -1,11 +1,6 @@
 """Pinned, explicit model selection and verified cache/download for budget CI."""
-import argparse
-import hashlib
-import json
-import os
+import argparse, hashlib, json, os, subprocess, sys
 from pathlib import Path
-import subprocess
-import sys
 
 CATALOG = Path('fixtures/budget_compression/models.json')
 

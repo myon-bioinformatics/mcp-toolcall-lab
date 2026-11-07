@@ -28,10 +28,8 @@ Dump the catalog (no browser)::
 
 from __future__ import annotations
 
-import json
-import sys
-from dataclasses import asdict, dataclass, field
-from typing import Any, Literal
+import json, sys
+from dataclasses import asdict, dataclass, field; from typing import Any, Literal
 
 from mcp_toolcall_lab.catalog import AVAILABLE_TOOLS
 

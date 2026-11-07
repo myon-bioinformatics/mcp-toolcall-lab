@@ -5,18 +5,8 @@ paths; the caller supplies a local adapter path out of band. See portable-execut
 """
 from __future__ import annotations
 
-import argparse
-import errno
-import hashlib
-import importlib.util
-import json
-import os
-from pathlib import Path
-import re
-import shutil
-import subprocess
-import sys
-from typing import Any
+import argparse, errno, hashlib, importlib.util, json, os, re, shutil, subprocess, sys
+from pathlib import Path; from typing import Any
 
 from .adapters.engine_adapter import execute_via_adapter, load_adapter_cache
 from .mock.common import append_jsonl

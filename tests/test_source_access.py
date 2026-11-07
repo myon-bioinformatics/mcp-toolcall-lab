@@ -1,12 +1,6 @@
 """All transport is injected; saved-source reprocessing must never access network."""
-import hashlib
-import io
-import json
-import socket
-from email.message import Message
-from pathlib import Path
-from unittest.mock import Mock
-from urllib.error import HTTPError
+import hashlib, io, json, socket
+from email.message import Message; from pathlib import Path; from unittest.mock import Mock; from urllib.error import HTTPError
 
 import pytest
 

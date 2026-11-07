@@ -6,13 +6,8 @@ It never accepts credentials and never turns an unobserved resource into
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
-import http.client
-import re
-from typing import Any, Callable
-from urllib.error import HTTPError, URLError
-from urllib.parse import quote
-from urllib.request import Request, urlopen
+import http.client, re
+from datetime import datetime, timezone; from typing import Any, Callable; from urllib.error import HTTPError, URLError; from urllib.parse import quote; from urllib.request import Request, urlopen
 
 _OWNER = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$")
 _NAME = re.compile(r"^[A-Za-z0-9_.-]+$")

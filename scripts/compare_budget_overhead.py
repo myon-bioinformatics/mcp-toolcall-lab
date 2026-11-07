@@ -1,11 +1,6 @@
 """Paired 800/512 comparison; explicit running llama-server, no downloads."""
-import argparse
-import hashlib
-import importlib.util
-import json
+import argparse, hashlib, importlib.util, json, subprocess, tempfile
 from pathlib import Path
-import subprocess
-import tempfile
 from mcp_toolcall_lab import budget_compression as new
 
 

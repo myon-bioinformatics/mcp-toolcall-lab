@@ -43,11 +43,8 @@ server behaves as documented here.
 
 from __future__ import annotations
 
-import json
-import os
-from dataclasses import dataclass, field
-from typing import Any, Callable, Protocol
-from urllib.request import Request, urlopen
+import json, os
+from dataclasses import dataclass, field; from typing import Any, Callable, Protocol; from urllib.request import Request, urlopen
 
 from mcp_toolcall_lab.jev_shim import KIND_CHOICE, KIND_NOUL, KIND_SCORE, KINDS
 

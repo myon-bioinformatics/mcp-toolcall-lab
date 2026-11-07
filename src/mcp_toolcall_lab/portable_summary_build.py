@@ -5,22 +5,8 @@ external inference, arbitrary input files, mock completions or fallback text.
 """
 from __future__ import annotations
 
-import argparse
-from contextlib import contextmanager
-from datetime import UTC, datetime
-import hashlib
-import json
-import os
-from pathlib import Path
-import re
-import socket
-import subprocess
-import tempfile
-import time
-from typing import Any, Iterator
-import urllib.error
-import urllib.parse
-import urllib.request
+import argparse, hashlib, json, os, re, socket, subprocess, tempfile, time, urllib.error, urllib.parse, urllib.request
+from contextlib import contextmanager; from datetime import datetime, UTC; from pathlib import Path; from typing import Any, Iterator
 
 from .portable_execution import canonical_request, execute, request_sha256
 from .mock.common import append_jsonl

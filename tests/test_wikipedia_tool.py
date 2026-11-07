@@ -11,11 +11,8 @@ internet to opt into -- never on by default.
 
 from __future__ import annotations
 
-import io
-import json
-import os
-from pathlib import Path
-from urllib.error import URLError
+import io, json, os
+from pathlib import Path; from urllib.error import URLError
 
 import pytest
 

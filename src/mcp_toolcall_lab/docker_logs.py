@@ -12,13 +12,8 @@ none.
 
 from __future__ import annotations
 
-import argparse
-import json
-import re
-import subprocess
-import sys
-from pathlib import Path
-from typing import Any
+import argparse, json, re, subprocess, sys
+from pathlib import Path; from typing import Any
 
 from mcp_toolcall_lab.mock.common import read_jsonl
 

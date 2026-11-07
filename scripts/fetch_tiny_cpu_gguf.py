@@ -18,16 +18,8 @@ the digest to ``<dest>.provenance.json``.
 
 from __future__ import annotations
 
-import hashlib
-import json
-import os
-import sys
-import urllib.error
-import urllib.request
-from datetime import UTC, datetime
-from fnmatch import fnmatch
-from pathlib import Path
-from typing import Any
+import hashlib, json, os, sys, urllib.error, urllib.request
+from datetime import datetime, UTC; from fnmatch import fnmatch; from pathlib import Path; from typing import Any
 
 HF_API = "https://huggingface.co/api/models"
 # Verified to exist via the Hugging Face Hub connector (this sandbox's own

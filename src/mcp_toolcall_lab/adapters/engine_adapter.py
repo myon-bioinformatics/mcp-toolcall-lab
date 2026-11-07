@@ -6,15 +6,8 @@ This module uses only the standard library and never performs model inference.
 """
 from __future__ import annotations
 
-import hashlib
-import json
-import math
-import time
-from copy import deepcopy
-from dataclasses import asdict, dataclass, replace
-from datetime import UTC, datetime
-from pathlib import Path
-from typing import Any, Sequence
+import hashlib, json, math, time
+from copy import deepcopy; from dataclasses import asdict, dataclass, replace; from datetime import datetime, UTC; from pathlib import Path; from typing import Any, Sequence
 
 from .source_adapter import provenance
 

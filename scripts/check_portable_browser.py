@@ -1,14 +1,7 @@
 """Exercise exported portable UI on a local static server (Chromium, no backend)."""
 from __future__ import annotations
-import argparse
-from functools import partial
-from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
-import hashlib
-import json
-from pathlib import Path
-import shutil
-import tempfile
-import threading
+import argparse, hashlib, json, shutil, tempfile, threading
+from functools import partial; from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer; from pathlib import Path
 from playwright.sync_api import sync_playwright
 
 

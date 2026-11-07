@@ -8,9 +8,7 @@ not a reason to pretend the UI click never happened.
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime
-from pathlib import Path
-from typing import Any
+from datetime import datetime, UTC; from pathlib import Path; from typing import Any
 
 from mcp_toolcall_lab.mock.common import read_jsonl
 from mcp_toolcall_lab.record import mcp_tool_calls

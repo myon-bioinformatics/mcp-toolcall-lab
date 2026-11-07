@@ -6,11 +6,8 @@ Older logs without full metrics remain explicitly unmeasurable for total size.
 """
 from __future__ import annotations
 
-import argparse
-import json
-from collections import defaultdict
-from pathlib import Path
-from typing import Any, Iterable
+import argparse, json
+from collections import defaultdict; from pathlib import Path; from typing import Any, Iterable
 
 
 def measure(rows: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:

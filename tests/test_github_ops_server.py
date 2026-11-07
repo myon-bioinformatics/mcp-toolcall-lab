@@ -9,10 +9,8 @@ the same in-memory pattern ``tests/test_schema.py`` uses via
 
 from __future__ import annotations
 
-import urllib.parse
-import sys
-from datetime import datetime
-from types import ModuleType
+import sys, urllib.parse
+from datetime import datetime; from types import ModuleType
 
 import pytest
 from fastmcp import Client as FastMCPClient

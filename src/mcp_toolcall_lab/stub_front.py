@@ -25,22 +25,8 @@ called in-process and still logged.
 
 from __future__ import annotations
 
-import argparse
-import hashlib
-import html
-import json
-import os
-import re
-import subprocess
-import sys
-import time
-from collections.abc import Mapping, Sequence
-from dataclasses import asdict, dataclass, field
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from pathlib import Path
-from typing import Any
-from urllib.error import HTTPError, URLError
-from urllib.parse import parse_qs, urlparse
+import argparse, hashlib, html, json, os, re, subprocess, sys, time
+from collections.abc import Mapping, Sequence; from dataclasses import asdict, dataclass, field; from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer; from pathlib import Path; from typing import Any; from urllib.error import HTTPError, URLError; from urllib.parse import parse_qs, urlparse
 
 from mcp_toolcall_lab.catalog import AVAILABLE_TOOLS, TOOL_DESCRIPTIONS, dispatch_tool
 from mcp_toolcall_lab.frontends import LIBRECHAT, OPENWEBUI, STUB

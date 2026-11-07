@@ -6,11 +6,8 @@ production failure is suppressed or converted to success.
 """
 from __future__ import annotations
 
-import os
+import os, subprocess, sys, xml.etree.ElementTree as ET
 from pathlib import Path
-import subprocess
-import sys
-import xml.etree.ElementTree as ET
 
 import pytest
 

@@ -5,24 +5,8 @@ Content hashes prove consistency, not provenance/authenticity or permission.
 """
 from __future__ import annotations
 
-import argparse
-from contextlib import closing, contextmanager
-from datetime import datetime
-import hashlib
-import io
-import json
-import math
-import os
-from pathlib import Path
-import re
-import stat
-import sqlite3
-import struct
-import tempfile
-from typing import Any, BinaryIO, Iterator
-import uuid
-import zipfile
-import zlib
+import argparse, hashlib, io, json, math, os, re, sqlite3, stat, struct, tempfile, uuid, zipfile, zlib
+from contextlib import closing, contextmanager; from datetime import datetime; from pathlib import Path; from typing import Any, BinaryIO, Iterator
 
 from .portable_execution import canonical_request, execute, request_sha256
 

@@ -1,6 +1,5 @@
 """Compatibility CLI for the original snapshot experiment (no network)."""
-import argparse
-import json
+import argparse, json
 from pathlib import Path
 from mcp_toolcall_lab.adapters.html_snapshot import extract
 

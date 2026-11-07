@@ -6,21 +6,8 @@ The check uses two fixed synthetic cases and the already prepared local model.
 """
 from __future__ import annotations
 
-import argparse
-import hashlib
-import io
-import json
-import os
-from pathlib import Path
-import re
-import shutil
-import stat
-import struct
-import zipfile
-import zlib
-import subprocess
-import sys
-from typing import Any
+import argparse, hashlib, io, json, os, re, shutil, stat, struct, subprocess, sys, zipfile, zlib
+from pathlib import Path; from typing import Any
 
 from mcp_toolcall_lab.portable_execution import canonical_request, execute
 from mcp_toolcall_lab.portable_summary_build import build_summaries, declared_sources, prepare_summary_request

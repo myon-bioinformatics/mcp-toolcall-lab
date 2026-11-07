@@ -2,8 +2,7 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
-from typing import Any, Callable
+from pathlib import Path; from typing import Any, Callable
 
 from mcp_toolcall_lab.ironmate_client import IronmateClient
 from mcp_toolcall_lab.jev_assisted import benchmark_row, benchmark_summary, execute_jev_assisted
