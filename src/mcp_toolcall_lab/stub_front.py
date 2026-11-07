@@ -353,6 +353,8 @@ PAGES_WIKI_JS_SOURCE = STATIC_DIR / "pages_wiki.js"
 PAGES_WIKI_JS_NAME = "pages-wiki.js"
 PAGES_PIXIV_JS_SOURCE = STATIC_DIR / "pages_pixiv.js"
 PAGES_PIXIV_JS_NAME = "pages-pixiv.js"
+PAGES_POKEMON_JS_SOURCE = STATIC_DIR / "pages_pokemon.js"
+PAGES_POKEMON_JS_NAME = "pages-pokemon.js"
 
 # The lab's one small CSS surface (terminal-lite). Replaces the five-link
 # web-ui CDN chain on Pages and the local /wiki and /pixiv surfaces; web-ui
@@ -642,7 +644,7 @@ def _revision_html(revision: Mapping[str, Any]) -> str:
 
 
 def _pages_nav_html() -> str:
-    """Always-visible Home / #wiki / #pixiv controls. Hash only — Pages stays one endpoint."""
+    """Always-visible Home / #wiki / #pixiv / #pokemon controls. Hash only — Pages stays one endpoint."""
     return (
         '<p id="pages-nav">'
         '<a href="#" data-pages-nav="home" data-testid="pages-nav-home">Home</a>'
@@ -651,6 +653,8 @@ def _pages_nav_html() -> str:
         "Wiki</a>"
         " · "
         '<a href="#pixiv" data-pages-nav="pixiv" data-testid="pages-nav-pixiv">Pixiv</a>'
+        " · "
+        '<a href="#pokemon" data-pages-nav="pokemon" data-testid="pages-nav-pokemon">Pokémon</a>'
         "</p>"
     )
 
@@ -913,6 +917,34 @@ def write_pages(
         "</ul>"
         f'<script src="{PAGES_PIXIV_JS_NAME}{_asset_cache_bust(PAGES_PIXIV_JS_SOURCE)}"></script>'
     )
+    pokemon_inner = (
+        "<h2>PokéAPI: Fetch, or Open → View source → Extract</h2>"
+        "<p>Fetch asks <code>pokeapi.co</code> directly from your browser. If that is blocked "
+        "or fails, press <strong>Open JSON</strong>, copy the text the browser shows "
+        "(its view-source or raw tab), paste it below and Extract; that path needs no network. "
+        "Both ways produce the same tables as the MCP/local "
+        "<code>pokeapi/pokemon</code> and <code>pokeapi/source</code> operations. PokéAPI asks "
+        "clients to cache, so this panel makes one request per press and never retries.</p>"
+        '<div id="pages-pokemon-app" data-testid="pages-pokemon-app">'
+        '<p><label for="pages-pokemon-name">Pokémon name or number</label> '
+        '<input id="pages-pokemon-name" name="name" value="" placeholder="ditto" '
+        'data-testid="pages-pokemon-name"></p>'
+        "<p>"
+        '<button type="button" data-testid="pages-pokemon-fetch">Fetch</button> '
+        '<button type="button" data-testid="pages-pokemon-open">Open JSON</button>'
+        "</p>"
+        '<form id="pages-pokemon-source-form" data-testid="pages-pokemon-source-form">'
+        '<p><label for="pages-pokemon-source-text">Pasted JSON</label><br>'
+        '<textarea id="pages-pokemon-source-text" name="source-text" rows="8" '
+        'data-testid="pages-pokemon-source-text"></textarea></p>'
+        '<p><button type="submit" data-testid="pages-pokemon-extract-submit">Extract</button></p>'
+        "</form>"
+        '<p class="term-muted" data-testid="pages-pokemon-status"></p>'
+        '<p role="alert" data-testid="pages-pokemon-error" hidden></p>'
+        '<pre class="term-output" data-testid="pages-pokemon-extract" hidden></pre>'
+        "</div>"
+        f'<script src="{PAGES_POKEMON_JS_NAME}{_asset_cache_bust(PAGES_POKEMON_JS_SOURCE)}"></script>'
+    )
     # Hide/show uses the HTML hidden attribute. Converted Markdown CSS comes
     # from vendor/markdown.py (default_stylesheet), not a lab-authored copy.
     # The page shell itself is styled by the single lab-owned terminal.css --
@@ -932,6 +964,7 @@ def write_pages(
         f"{_pages_panel_html(view='home', inner=_revision_html(meta) + home_inner)}"
         f"{_pages_panel_html(view='wiki', inner=wiki_inner + _pages_wiki_back_html(), hidden=True)}"
         f"{_pages_panel_html(view='pixiv', inner=pixiv_inner + _pages_wiki_back_html(), hidden=True)}"
+        f"{_pages_panel_html(view='pokemon', inner=pokemon_inner + _pages_wiki_back_html(), hidden=True)}"
         '</section><aside aria-label="Supporting information">'
         '<section class="term-card term-evidence"><h2>Tool catalog</h2>'
         '<ul id="tool-catalog">' + "".join(
@@ -956,6 +989,9 @@ def write_pages(
     )
     (out_dir / PAGES_PIXIV_JS_NAME).write_text(
         PAGES_PIXIV_JS_SOURCE.read_text(encoding="utf-8"), encoding="utf-8"
+    )
+    (out_dir / PAGES_POKEMON_JS_NAME).write_text(
+        PAGES_POKEMON_JS_SOURCE.read_text(encoding="utf-8"), encoding="utf-8"
     )
     (out_dir / "summary.json").write_text(summary_text + "\n", encoding="utf-8")
     (out_dir / BUILD_META_NAME).write_text(
