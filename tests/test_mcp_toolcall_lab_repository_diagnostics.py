@@ -251,13 +251,13 @@ def test_payload_reuses_public_resolver_without_probe():
     assert payload["resolver"]["observations"] == []
 
 
-def test_pages_renderer_is_pinned_and_links_json_and_jsonl():
+def test_pages_renderer_is_the_shared_self_contained_page():
     html = diagnostics._renderer_page()
-    assert diagnostics.WEB_UI_SHA in html
-    assert "repository-diagnostics.json" in html
+    assert "<title>myon-bioinformatics/mcp-toolcall-lab repository diagnostics</title>" in html
+    assert "cdn.jsdelivr.net" not in html and '<link rel="stylesheet"' not in html
+    assert "/* css/repository-diagnostics.css */" in html and "global.RepositoryDiagnostics = api" in html
+    assert 'RepositoryDiagnostics.mount(document, "./repository-diagnostics.json");' in html
     assert "repository-diagnostics.jsonl" in html
-    assert "RepositoryDiagnostics.render(payload.metadata)" in html
-    assert "textContent = item.url" in html
 
 
 def test_write_pages_outputs_json_jsonl_and_html(tmp_path, monkeypatch):

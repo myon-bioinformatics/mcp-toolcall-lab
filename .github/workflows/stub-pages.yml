@@ -107,6 +107,11 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "26.12.1"
+      - name: Sync the locked test extra (pins PySaiyanWeBoo for the shared diagnostics page)
+        shell: bash
+        run: |
+          uv sync --locked --extra test --python "$(python -c 'import sys; print(sys.executable)')"
+          python -c "import os; from pathlib import Path; print(Path('.venv').resolve() / ('Scripts' if os.name == 'nt' else 'bin'))" >> "$GITHUB_PATH"
 
       - name: Fetch a real tiny GGUF (opt-in)
         if: github.event.inputs.use_real_gguf == 'true'

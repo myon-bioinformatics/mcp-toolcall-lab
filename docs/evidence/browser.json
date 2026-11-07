@@ -1,17 +1,14 @@
 {
   "schema": "btk-evidence-gif/1",
   "gif": "browser.gif",
-  "bytes": 605687,
-  "sha256": "53f1b0f95a7b775be16945030bcc0910a84509a5de37f70be76d62885c5b568c",
+  "bytes": 605296,
+  "sha256": "d073f9f2944a47bb30b236be4b4781afbddac61824f038fdf48b8547034636c4",
   "frames": 13,
   "canvas": "720x512",
   "browser": "chromium 153.0.8010.12",
-  "recorded": "2026-11-07",
+  "recorded": "2026-11-08",
   "commit": "2e581d2cc9683a94568d881a59f0a8e2d87475bb",
-  "mapped": [
-    "https://cdn.jsdelivr.net/gh/myon-bioinformatics/web-ui@adb23d7ba6ea94672b76457573f6655a081ee054/",
-    "https://cdn.jsdelivr.net/gh/myon-bioinformatics/PySaiyanWeBoo@adb23d7ba6ea94672b76457573f6655a081ee054/"
-  ],
+  "mapped": [],
   "summary": {
     "pass": 7,
     "fail": 0

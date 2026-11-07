@@ -129,7 +129,9 @@ _FAKE_REVISION = {
 def test_write_pages_is_static(tmp_path: Path) -> None:
     last = tmp_path / "last-run.json"
     last.write_text('{"cpu_llm_ok": true, "stub_health": {"status": 200}}\n', encoding="utf-8")
-    index = write_pages(tmp_path / "site", last_run=last)
+    # A fixed revision: otherwise the page carries HEAD's commit subject, and a subject that
+    # merely mentions the shared-UI repository would trip the "no CDN chain" check below.
+    index = write_pages(tmp_path / "site", last_run=last, revision=_FAKE_REVISION)
     html = index.read_text(encoding="utf-8")
     assert "mcp-toolcall-lab stub" in html
     assert "mcp-mock:8000/mcp" in html
