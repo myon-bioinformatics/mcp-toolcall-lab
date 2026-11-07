@@ -143,7 +143,9 @@ def test_matrix_setup_precedes_bare_python_and_keeps_exact_pins_and_reports():
     setup = job["steps"][setup_index]["with"]
     assert setup["version"] == "latest"
     assert setup["activate-environment"] is True
-    assert setup["enable-cache"] is False
+    assert setup["enable-cache"] is True
+    assert setup["save-cache"] == "${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}"  # only main writes
+    assert setup["prune-cache"] is True
     for index, step in enumerate(job["steps"]):
         if step.get("run", "").lstrip().startswith("python "):
             assert setup_index < index

@@ -44,7 +44,10 @@ jobs:
         with:
           version: "latest"
           python-version: "3.12.15"
-          enable-cache: false
+          enable-cache: true
+          # Pull requests restore the cache and never write it; only main saves it.
+          save-cache: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          prune-cache: true
       - name: Sync locked test and galleria dependencies
         run: uv sync --locked --extra test --extra galleria
       - name: Check lockfile matches pyproject (overrides may fail uv pip check)
