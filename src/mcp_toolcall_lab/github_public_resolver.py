@@ -163,3 +163,30 @@ def resolve_public_github(
         "observations": observations,
         "status": "observed" if probe else "not_checked",
     }
+
+
+def diagnostics_payload(
+    record: dict[str, Any],
+    *,
+    path: str = "README.md",
+    probe: bool = True,
+    opener: Callable[..., Any] = urlopen,
+) -> dict[str, Any]:
+    """``{"metadata", "resolver"}`` for a repository diagnostics page, from a repository-metadata v1 record.
+
+    The resolver looks at the record's repository and head branch. A branch that is not a simple Git
+    ref (a detached head, for one) is reported as ``not_checked`` with ``reason: unsupported_ref``
+    instead of raising; an invalid repository name still raises. ascii_artist, markdown and this
+    repository each carried this as ``build_payload``; repository_diagnostics.js reads the result.
+    """
+    repository, ref = record["repository"]["full_name"], record["head"]["branch"]
+    _repo(repository)
+    try:
+        _ref(ref)
+    except ValueError:
+        return {"metadata": record, "resolver": {
+            "repository": repository, "ref": ref, "path": path, "auth": "anonymous",
+            "candidates": [], "observations": [], "status": "not_checked", "reason": "unsupported_ref",
+        }}
+    return {"metadata": record,
+            "resolver": resolve_public_github(repository, ref=ref, path=path, probe=probe, opener=opener)}
