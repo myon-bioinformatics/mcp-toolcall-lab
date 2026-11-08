@@ -37,7 +37,7 @@ test = [
     "uvicorn>=0.54.0",
     # The shared repository-diagnostics page (web_ui.repository_diagnostics_page) and the terminal.css generator (web_ui.core_css); also used by the Pages build.
     # Move the pin with: uv lock --upgrade-package pysaiyanweboo
-    "pysaiyanweboo @ git+https://github.com/myon-bioinformatics/PySaiyanWeBoo@6acb2ca4a23df7aaf5e9b57d17f1a10d04af3d51",
+    "pysaiyanweboo @ git+https://github.com/myon-bioinformatics/PySaiyanWeBoo@82b9e64863ee7aab7518c8382ca7dab3629c1b71",
 ]
 # Optional: real-browser fetch() coverage of the HTTP API (tests/test_browser_fetch_protocol.py).
 # Not part of `test`. CI installs it only for browser lanes. Those tests

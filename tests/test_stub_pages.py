@@ -945,9 +945,11 @@ def test_terminal_css_is_generated_from_pysaiyanweboo() -> None:
     module = importlib.util.module_from_spec(spec)
     assert spec.loader is not None
     spec.loader.exec_module(module)
+    import web_ui
     assert module.TARGET == TERMINAL_CSS_SOURCE
     text = TERMINAL_CSS_SOURCE.read_text(encoding="utf-8")
-    assert text == module.render()
+    assert web_ui.check_bundle(TERMINAL_CSS_SOURCE, **module.bundle_options()) == []
+    assert text.startswith("/* web-ui-bundle/1 commit=")
     assert "/* css/themes/terminal.css */" in text and 'body[data-ui-theme="terminal"]' in text and ".term-workspace{" in text
     assert "cdn.jsdelivr.net" not in text
     galleria = module.GALLERIA.read_text(encoding="utf-8")
