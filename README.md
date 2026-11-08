@@ -332,7 +332,7 @@ offline article fixtures are synthetic.
 
 🚫 Not run here (Docker unavailable): the GGUF / llama-server build of the portable site, `stub_pages_smoke`, and the Open WebUI / LibreChat `real_chat_ui` suite. Firefox / WebKit not installed.
 
-🔁 Re-record (every page is self-contained; the diagnostics page comes from the pinned PySaiyanWeBoo dependency in the `test` extra):
+🔁 Re-record (every page is self-contained; the diagnostics page and the stub pages' `terminal.css` come from the pinned PySaiyanWeBoo dependency in the `test` extra — `scripts/build_terminal_css.py` regenerates the stylesheet):
 
 ```sh
 PYTHONPATH=src python -m mcp_toolcall_lab.stub_front pages --out /tmp/site
