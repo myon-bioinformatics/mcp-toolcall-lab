@@ -1226,7 +1226,7 @@ requires-dist = [
     { name = "mcp", specifier = ">=2.3.0" },
     { name = "playwright", marker = "extra == 'browser-test'", specifier = ">=1.64.1" },
     { name = "pydantic", specifier = ">=2.14.1" },
-    { name = "pysaiyanweboo", marker = "extra == 'test'", git = "https://github.com/myon-bioinformatics/PySaiyanWeBoo?rev=1854362d625279f4278f917cd18bacd151bc69b4" },
+    { name = "pysaiyanweboo", marker = "extra == 'test'", git = "https://github.com/myon-bioinformatics/PySaiyanWeBoo?rev=f624d9364017b7e2da7f797817dfba2a8d9adb14" },
     { name = "pytest", marker = "extra == 'test'", specifier = ">=9.1.1" },
     { name = "pytest-asyncio", marker = "extra == 'test'", specifier = ">=1.4.0" },
     { name = "pyyaml", marker = "extra == 'test'", specifier = ">=6.0.3" },
@@ -1844,7 +1844,7 @@ wheels = [
 [[package]]
 name = "pysaiyanweboo"
 version = "0.1.0"
-source = { git = "https://github.com/myon-bioinformatics/PySaiyanWeBoo?rev=1854362d625279f4278f917cd18bacd151bc69b4#1854362d625279f4278f917cd18bacd151bc69b4" }
+source = { git = "https://github.com/myon-bioinformatics/PySaiyanWeBoo?rev=f624d9364017b7e2da7f797817dfba2a8d9adb14#f624d9364017b7e2da7f797817dfba2a8d9adb14" }
 
 [[package]]
 name = "pytest"
