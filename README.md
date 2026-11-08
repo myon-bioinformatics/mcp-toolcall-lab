@@ -338,7 +338,7 @@ offline article fixtures are synthetic.
 PYTHONPATH=src python -m mcp_toolcall_lab.stub_front pages --out /tmp/site
 PYTHONPATH=src python -m mcp_toolcall_lab.mcp_toolcall_lab_repository_diagnostics /tmp/site
 PYTHONPATH=src python -S scripts/build_portable_pages.py --out /tmp/site/mcp-toolcall-lab --source-sha "$(git rev-parse HEAD)"
-python ../BrowserTestKit/tools/evidence_gif.py docs/evidence/browser.gif --serve /tmp/site --plan docs/evidence/browser.json
+uv run --project ../BrowserTestKit --group pages --group browser python ../BrowserTestKit/tools/evidence_gif.py docs/evidence/browser.gif --serve /tmp/site --plan docs/evidence/browser.json
 ```
 
 ## Tests and optional experiments
