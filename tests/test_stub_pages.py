@@ -950,3 +950,5 @@ def test_terminal_css_is_generated_from_pysaiyanweboo() -> None:
     assert text == module.render()
     assert "/* css/themes/terminal.css */" in text and 'body[data-ui-theme="terminal"]' in text and ".term-workspace{" in text
     assert "cdn.jsdelivr.net" not in text
+    galleria = module.GALLERIA.read_text(encoding="utf-8")
+    assert galleria == module.render_galleria() and "#0a0e10" in galleria and "!important" in galleria

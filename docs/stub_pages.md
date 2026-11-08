@@ -117,7 +117,9 @@ primary report/wiki view beside supporting tool-catalog/provenance cards;
 the `720px` fallback stacks the primary content first on narrow screens.
 `write_pages()` copies `terminal.css` next to `index.html`; the local
 server answers `GET /terminal.css` directly from
-`src/mcp_toolcall_lab/static/terminal.css`.
+`src/mcp_toolcall_lab/static/terminal.css`. The same generator writes
+`static/galleria.css`, the Gradio galleria's override sheet coloured from the
+same terminal palette (`gradio_galleria.TERMINAL_CSS` reads it).
 
 The supporting catalog is generated directly from Python's `AVAILABLE_TOOLS`
 and `TOOL_DESCRIPTIONS`, so Pages exposes the current seven tools, including
