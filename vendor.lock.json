@@ -20,6 +20,15 @@
       "sha256": "4b1688961b616a852d3dba49adae480ef67678c0d1f9c6a70a6923b05c50622d"
     },
     {
+      "repository": "myon-bioinformatics/myon-bioinformatics",
+      "ref": "f789b06b1beb41360e8df163fbf4c19121da3495",
+      "commit": "f789b06b1beb41360e8df163fbf4c19121da3495",
+      "source": "vendor_fleet_plan.py",
+      "destination": "vendor/vendor_fleet_plan.py",
+      "blob_sha": "c95e830b938acc04e94d7dc7a3908399b2818f80",
+      "sha256": "b017b26358f1cbbc548f57be2a22924e57f682d2dce7e8bc86067ded840152c4"
+    },
+    {
       "repository": "myon-bioinformatics/markdown",
       "ref": "2af2b6646af5663aa1761be08ee7e0c048c3f680",
       "commit": "2af2b6646af5663aa1761be08ee7e0c048c3f680",
