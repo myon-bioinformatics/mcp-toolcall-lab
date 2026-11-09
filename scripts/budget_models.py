@@ -39,12 +39,12 @@ def prepare(choice, dest):
     return receipt
 
 
-def main():
+def main(argv=None):
     p = argparse.ArgumentParser(__doc__)
     p.add_argument('choice')
     p.add_argument('--prepare', type=Path)
     p.add_argument('--github-output', type=Path)
-    args = p.parse_args()
+    args = p.parse_args(argv)
     selected = select_models(args.choice)
     if args.prepare:
         if len(selected) != 1:

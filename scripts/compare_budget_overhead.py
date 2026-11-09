@@ -47,12 +47,12 @@ def evaluate_with_completion(mod, case, *, count, post, base):
     return result
 
 
-def main():
+def main(argv=None):
     p = argparse.ArgumentParser(__doc__)
     p.add_argument('--base-url', required=True)
     p.add_argument('--baseline', required=True, help='immutable git commit')
     p.add_argument('--output', type=Path, required=True)
-    args = p.parse_args()
+    args = p.parse_args(argv)
     code = subprocess.check_output(['git', 'show', args.baseline + ':src/mcp_toolcall_lab/budget_compression.py'])
     with tempfile.TemporaryDirectory() as tmp:
         path = Path(tmp) / 'old.py'; path.write_bytes(code)

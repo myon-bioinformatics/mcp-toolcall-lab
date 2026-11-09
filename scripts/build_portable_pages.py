@@ -17,6 +17,7 @@ from mcp_toolcall_lab.portable_execution import CONTRACT, execute, request_sha25
 from mcp_toolcall_lab.record import record_call
 from mcp_toolcall_lab.portable_summary_build import build_summaries
 from write_portfolio_redirect import write_redirect
+import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 STATIC = ROOT / 'src/mcp_toolcall_lab/static'
@@ -108,7 +109,8 @@ def build(out: Path, source_sha: str, *, model_path: Path | None = None, llama_s
     (out / '.nojekyll').touch()
 
 
-if __name__ == '__main__':
+def main(argv=None):
+    argv = sys.argv[1:] if argv is None else list(argv)
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--out', type=Path, required=True)
     parser.add_argument('--source-sha', default=os.environ.get('GITHUB_SHA'))
@@ -118,6 +120,10 @@ if __name__ == '__main__':
     parser.add_argument('--result-cache', type=Path, help='Local append-only result store, reused only by exact recipe key')
     parser.add_argument('--case-offset', type=int, default=0)
     parser.add_argument('--case-limit', type=int, default=16)
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     build(args.out, args.source_sha, model_path=args.model, llama_server=args.llama_server,
           reviewed_corpus=args.reviewed_corpus, result_cache=args.result_cache, case_offset=args.case_offset, case_limit=args.case_limit)
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())

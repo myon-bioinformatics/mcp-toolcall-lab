@@ -10,6 +10,7 @@ import shutil
 import tempfile
 import threading
 from playwright.sync_api import sync_playwright
+import sys
 
 
 def check(site: Path, screenshot: Path, executable: str | None = None, *, require_generated: bool = False) -> None:
@@ -314,11 +315,16 @@ def check(site: Path, screenshot: Path, executable: str | None = None, *, requir
         temporary.cleanup()
 
 
-if __name__ == '__main__':
+def main(argv=None):
+    argv = sys.argv[1:] if argv is None else list(argv)
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--site', type=Path, required=True)
     parser.add_argument('--screenshot', type=Path, required=True)
     parser.add_argument('--chromium-path')
     parser.add_argument('--require-generated', action='store_true')
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     check(args.site, args.screenshot, args.chromium_path, require_generated=args.require_generated)
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())

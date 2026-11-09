@@ -429,7 +429,7 @@ def run_check(*, out: Path, source_sha: str, model: Path, llama_server: Path) ->
     return report
 
 
-def main() -> None:
+def main(argv=None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
     for name in ("round", "check", "capture"):
@@ -448,7 +448,7 @@ def main() -> None:
         if name in {"round", "capture"}:
             command.add_argument("--case-offset", type=int, default=0)
             command.add_argument("--case-limit", type=int, default=16)
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     try:
         if args.command == "check":
             report = run_check(out=args.out, source_sha=args.source_sha, model=args.model, llama_server=args.llama_server)
