@@ -19,6 +19,7 @@ def test_vendor_lock_lists_expected_sources():
     expected = {
         ("myon-bioinformatics/ascii_artist", "ascii_artist.py", "vendor/ascii_artist.py"),
         ("myon-bioinformatics/myon-bioinformatics", "gh_ops.py", "vendor/gh_ops.py"),
+        ("myon-bioinformatics/myon-bioinformatics", "vendor_fleet_plan.py", "vendor/vendor_fleet_plan.py"),
         ("myon-bioinformatics/markdown", "markdown.py", "vendor/markdown.py"),
         ("myon-bioinformatics/ascii_artist", "LICENSE", "vendor/ascii_artist-LICENSE"),
         ("myon-bioinformatics/markdown", "LICENSE", "vendor/markdown-LICENSE"),
