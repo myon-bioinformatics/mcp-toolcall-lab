@@ -2,8 +2,7 @@
 
 ## Measured vs. not measured
 
-The opt-in [compaction-gguf-benchmark workflow](../.github/workflows/compaction-gguf-benchmark.yml)
-downloads the existing **commit-pinned + SHA-256-checked** SmolLM2-135M-Instruct
+The compaction GGUF benchmark downloads the existing **commit-pinned + SHA-256-checked** SmolLM2-135M-Instruct
 Q4_K_M GGUF and starts a digest-pinned **llama.cpp server** locally.
 This is **real GGUF inference**, NOT the `cpu_llm_lite` stand-in or OPENAI_MOCK_LOG
 character-length estimate. SmolLM2 is **not Meta Llama weights**; llama.cpp is

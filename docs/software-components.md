@@ -103,8 +103,7 @@ distrust. A metadata-only receipt is not a security pass.
 The sixth, portable-build image generates real model output. Its complete
 build/trust checks remain in the separate `portable-live` job, guarded by
 `workflow_dispatch`; ordinary PRs report that job as **skipped**, not passed.
-`portable-pages.yml`, `compaction-gguf-benchmark.yml` and `budget-quality-gguf.yml`
-also remain **manual-only**. Their real generation, model measurements and
+`portable-pages.yml` also remains **manual-only**. Its real generation and
 validation commands are retained, not replaced with mock successes. Portable
 browser validation remains part of the manual portable workflow.
 
