@@ -82,6 +82,7 @@ even if a response body contains one.
 | `url_search(query, kind="code")` | `gh_ops.url_search` | Pure string building; no network. |
 | `url_raw(repo, ref, path)` | `gh_ops.url_raw` | Pure string building; no network. |
 | `resolve_public(repo, ref="main", path=None, probe=True)` | lab public resolver | Builds repository/API/Pages and optional raw/contents candidates. With `probe=True`, performs anonymous HTTPS observations only and distinguishes reachable/not-found/auth-required/rate-limited/unverified states. No token argument. |
+| `fleet_query(kind, term="", severity=None, graph=<parent Pages fleet.jsonld>)` | vendored `vendor_fleet_plan.query` | The parent's fleet knowledge graph: `deps` (what one repository depends on, by relation), `who` (name / previous name / repository_id → identity), `facts` (remaining actions `FLEET-n`), `why` (判断の根拠: the relations one node rests on, each with its record, basis, comparison and state), `reverify` (変更の影響先 / 再テスト / 再検証 / 未登録 for a change of one node). Reads one public JSON-LD document over https anonymously; `graph` must be an `https://` URL. Returns `ok: false` with the reason until `vendor/vendor_fleet_plan.py` is enrolled (`VENDOR_FLEET_PLAN_PY` overrides the path for local runs). |
 
 ## Out of scope for v1 (follow-ups)
 
@@ -115,6 +116,17 @@ fails the build if the vendored file drifts from that record. See
 shape as the existing `markdown.py` refresh, pointed at
 `myon-bioinformatics/browser-test-kit` instead. Pin a commit, not `main` itself,
 so a later unrelated push to `main` can't silently change what this repo vendors.
+
+## Fleet graph (`fleet_query`)
+
+The graph, its codebook (classes, relations, PROV parents) and the query logic
+live in the parent repository's `vendor_fleet_plan.py`; its daily Pages build
+publishes `fleet.jsonld` next to the audit `data.json`. This server only vendors
+that one file and exposes `query(kind, term, graph=, severity=)` as a tool, the
+same thin shape as the `gh_ops` wrappers, so the lab is a test boundary for the
+graph and not its home. Enrollment follows the usual lock flow (parent catalog
+entry → `vendor_sync.py enroll` here → row in `vendor.lock.json`); until then the
+tool is listed and answers `ok: false` with the missing-file reason.
 
 ## Tests
 
