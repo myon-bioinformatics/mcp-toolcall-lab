@@ -57,3 +57,7 @@ from the same module. This repo keeps only the JSON spec,
 
 Pins and hashes: `vendor.lock.json` entries `vendor/web_ui.py` and `vendor/web-ui-LICENSE`
 (registered in the parent's `vendor-consumers.json`).
+
+# Vendored `vendor_fleet_plan.py`
+
+Pinned snapshot of the parent repository's stdlib-only fleet evidence planner. The `fleet_query` MCP tool loads this module by path and delegates `deps`, `who`, `facts`, `why`, and `reverify` queries against the parent's published `fleet.jsonld`. The lock pins the reviewed parent commit and records the source blob and SHA-256; the module is never imported from the package path.
