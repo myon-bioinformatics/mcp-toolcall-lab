@@ -331,6 +331,28 @@ def _vendor_style_tag(md: Any = None) -> str:
     return ""
 
 
+def load_web_ui() -> Any:
+    """The vendored ``web_ui.py`` (stdlib, loaded by path like ``markdown.py``)."""
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("lab_vendored_web_ui", WEB_UI_SOURCE)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"cannot load {WEB_UI_SOURCE}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module  # dataclasses resolves annotations through sys.modules
+    try:
+        spec.loader.exec_module(module)
+    except BaseException:
+        sys.modules.pop(spec.name, None)
+        raise
+    return module
+
+
+def pokemon_spec() -> dict[str, Any]:
+    """The whole PokéAPI consumer: one small JSON spec for web-ui's source panel."""
+    return json.loads(POKEMON_SPEC_SOURCE.read_text(encoding="utf-8"))
+
+
 PAGES_FORBIDDEN_NAMES = frozenset(
     {
         "mcp-toolcalls.jsonl",
@@ -353,6 +375,12 @@ PAGES_WIKI_JS_SOURCE = STATIC_DIR / "pages_wiki.js"
 PAGES_WIKI_JS_NAME = "pages-wiki.js"
 PAGES_PIXIV_JS_SOURCE = STATIC_DIR / "pages_pixiv.js"
 PAGES_PIXIV_JS_NAME = "pages-pixiv.js"
+# The #pokemon panel is web-ui's shared source panel: this repo keeps only the
+# JSON spec, the panel markup, ``source.js`` and its CSS come from the vendored
+# ``vendor/web_ui.py`` (pinned in vendor.lock.json).
+WEB_UI_SOURCE = REPO_ROOT / "vendor" / "web_ui.py"
+POKEMON_SPEC_SOURCE = REPO_ROOT / "fixtures" / "pokeapi" / "pokeapi.spec.json"
+SOURCE_JS_NAME = "source.js"
 
 # The lab's one small CSS surface (terminal-lite). Replaces the five-link
 # web-ui CDN chain on Pages and the local /wiki and /pixiv surfaces; web-ui
@@ -642,7 +670,7 @@ def _revision_html(revision: Mapping[str, Any]) -> str:
 
 
 def _pages_nav_html() -> str:
-    """Always-visible Home / #wiki / #pixiv controls. Hash only — Pages stays one endpoint."""
+    """Always-visible Home / #wiki / #pixiv / #pokemon controls. Hash only — Pages stays one endpoint."""
     return (
         '<p id="pages-nav">'
         '<a href="#" data-pages-nav="home" data-testid="pages-nav-home">Home</a>'
@@ -651,6 +679,8 @@ def _pages_nav_html() -> str:
         "Wiki</a>"
         " · "
         '<a href="#pixiv" data-pages-nav="pixiv" data-testid="pages-nav-pixiv">Pixiv</a>'
+        " · "
+        '<a href="#pokemon" data-pages-nav="pokemon" data-testid="pages-nav-pokemon">Pokémon</a>'
         "</p>"
     )
 
@@ -913,6 +943,13 @@ def write_pages(
         "</ul>"
         f'<script src="{PAGES_PIXIV_JS_NAME}{_asset_cache_bust(PAGES_PIXIV_JS_SOURCE)}"></script>'
     )
+    web_ui = load_web_ui()
+    pokemon_inner = (
+        web_ui.source_panel_html(pokemon_spec())
+        + '<p class="term-muted">Same tables as the MCP/local <code>pokeapi/pokemon</code> '
+        "and <code>pokeapi/source</code> operations.</p>"
+        f'<script src="{SOURCE_JS_NAME}{_asset_cache_bust(WEB_UI_SOURCE)}"></script>'
+    )
     # Hide/show uses the HTML hidden attribute. Converted Markdown CSS comes
     # from vendor/markdown.py (default_stylesheet), not a lab-authored copy.
     # The page shell itself is styled by the single lab-owned terminal.css --
@@ -921,6 +958,7 @@ def write_pages(
         "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
         "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
         f"{_vendor_style_tag(md)}"
+        f"<style>{web_ui.css_source('source.css')}</style>"
         f"{_terminal_css_link(cache_bust=_asset_cache_bust(TERMINAL_CSS_SOURCE))}"
         "<title>mcp-toolcall-lab stub</title>"
         '</head><body><main class="term-page term-shell">'
@@ -932,6 +970,7 @@ def write_pages(
         f"{_pages_panel_html(view='home', inner=_revision_html(meta) + home_inner)}"
         f"{_pages_panel_html(view='wiki', inner=wiki_inner + _pages_wiki_back_html(), hidden=True)}"
         f"{_pages_panel_html(view='pixiv', inner=pixiv_inner + _pages_wiki_back_html(), hidden=True)}"
+        f"{_pages_panel_html(view='pokemon', inner=pokemon_inner + _pages_wiki_back_html(), hidden=True)}"
         '</section><aside aria-label="Supporting information">'
         '<section class="term-card term-evidence"><h2>Tool catalog</h2>'
         '<ul id="tool-catalog">' + "".join(
@@ -957,6 +996,7 @@ def write_pages(
     (out_dir / PAGES_PIXIV_JS_NAME).write_text(
         PAGES_PIXIV_JS_SOURCE.read_text(encoding="utf-8"), encoding="utf-8"
     )
+    (out_dir / SOURCE_JS_NAME).write_text(web_ui.js_source(SOURCE_JS_NAME), encoding="utf-8")
     (out_dir / "summary.json").write_text(summary_text + "\n", encoding="utf-8")
     (out_dir / BUILD_META_NAME).write_text(
         json.dumps(meta, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"

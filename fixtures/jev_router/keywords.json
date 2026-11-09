@@ -1,0 +1,7 @@
+{
+  "ironmate": {"ironmate": 3, "リポジトリ": 2, "repository": 2, "メタデータ": 2, "metadata": 2, "repo": 1},
+  "wikipedia": {"wikipedia": 3, "ウィキペディア": 3, "百科事典": 2, "記事": 1, "見出し": 1, "段落": 1, "概要": 1, "抽出": 1, "history section": 1},
+  "pokeapi": {"pokeapi": 3, "pokemon": 3, "pokémon": 3, "pokédex": 3, "ポケモン": 3, "ポケットモンスター": 3, "種族値": 2, "base stat": 2, "図鑑": 1},
+  "mock": {"mock": 3, "モック": 3, "malformed": 2, "tool call": 1, "toolcall": 1},
+  "_lookup": {"look up": 1, "look this up": 1, "look it up": 1, "lookup": 1, "search": 1, "find": 1, "調べ": 1, "検索": 1, "探して": 1, "確認して": 1}
+}
