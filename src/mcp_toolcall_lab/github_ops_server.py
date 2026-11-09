@@ -370,13 +370,18 @@ def create_mcp() -> FastMCP:
             "kind=deps lists what one repository depends on (vendored files, launcher, licenses, workflow pins, "
             "hub records) grouped by relation; kind=who resolves a name, a previous name or a repository_id to the "
             "repository's identity; kind=facts searches the remaining actions (FLEET-n, their key, subject and "
-            "detail). Reads one public JSON-LD document anonymously; no token, no GitHub API."
+            "detail); kind=why gives the basis of one node (Repo:path or Repo:path#entry): the relations it rests on, "
+            "each with its record, basis (observed/derived/hypothesis), comparison and state; kind=reverify gives what a "
+            "change of one node reaches: affected repositories, tests to rerun, records to recheck and files with no "
+            "registered test. Reads one public JSON-LD document anonymously; no token, no GitHub API."
         )
     )
     def fleet_query(
-        kind: Annotated[str, Field(description="deps | who | facts", pattern="^(deps|who|facts)$")],
+        kind: Annotated[str, Field(description="deps | who | facts | why | reverify",
+                                   pattern="^(deps|who|facts|why|reverify)$")],
         term: Annotated[str, Field(description="repository (deps), name / previous name / repository_id (who), "
-                                               "text to search (facts; empty lists everything)", max_length=200)] = "",
+                                               "text to search (facts; empty lists everything), "
+                                               "'Repo:path' or 'Repo:path#entry' (why, reverify)", max_length=300)] = "",
         severity: Annotated[str | None, Field(description="facts only: failure | blocked | unavailable | updated | insufficient",
                                               pattern="^(failure|blocked|unavailable|updated|insufficient)$")] = None,
         graph: Annotated[str, Field(description="https URL of a fleet JSON-LD document", pattern="^https://",

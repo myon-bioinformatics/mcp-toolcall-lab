@@ -639,16 +639,18 @@ def _fake_fleet_plan(tmp_path):
     path = tmp_path / "vendor_fleet_plan.py"
     path.write_text(
         "import json\n"
-        "QUERY_KINDS = ('deps', 'who', 'facts')\n"
+        "QUERY_KINDS = ('deps', 'who', 'facts', 'why', 'reverify')\n"
         "CALLS = []\n"
         "def query(kind, term='', *, graph='', severity=None, document=None):\n"
         "    CALLS.append((kind, term, graph, severity))\n"
         "    if kind not in QUERY_KINDS:\n"
-        "        raise ValueError('kind must be one of deps, who, facts')\n"
+        "        raise ValueError('kind must be one of deps, who, facts, why, reverify')\n"
         "    doc = json.loads(open(__file__.replace('vendor_fleet_plan.py', 'fleet.jsonld')).read())\n"
         "    if kind == 'who':\n"
         "        rows = [{'repository': g['repository'], 'repository_id': g.get('repositoryId')} for g in doc['@graph']\n"
         "                if g.get('@type') == 'Repository' and (g['repository'] == term or term in g.get('previousNames', []))]\n"
+        "    elif kind == 'why':\n"
+        "        rows = [g for g in doc['@graph'] if g.get('@type') == 'Dependency' and g['target'] == term]\n"
         "    elif kind == 'deps':\n"
         "        rows = [g for g in doc['@graph'] if g.get('@type') == 'Dependency' and g['target'].startswith(term + '/')]\n"
         "    else:\n"
@@ -684,7 +686,9 @@ async def test_fleet_query_delegates_to_the_vendored_query_and_never_touches_git
         deps = _data(await client.call_tool("fleet_query", {"kind": "deps", "term": "app", "graph": "https://example.invalid/g.jsonld"}))
         facts = _data(await client.call_tool("fleet_query", {"kind": "facts", "term": "tool.py", "severity": "updated"}))
         none = _data(await client.call_tool("fleet_query", {"kind": "facts", "term": "tool.py", "severity": "failure"}))
+        why = _data(await client.call_tool("fleet_query", {"kind": "why", "term": "app/vendor/tool.py"}))
     assert who["ok"] and who["rows"][0]["repository_id"] == 1
+    assert why["ok"] and why["kind"] == "why" and why["rows"][0]["source"] == "tool/tool.py"
     assert deps["ok"] and deps["rows"][0]["target"] == "app/vendor/tool.py" and deps["graph"] == "https://example.invalid/g.jsonld"
     assert facts["ok"] and facts["rows"][0]["no"] == "FLEET-1"
     assert none["ok"] is False and none["rows"] == []
@@ -695,7 +699,7 @@ async def test_fleet_query_schema_bounds_kind_severity_and_https_graph(wired):
     mcp, _ = wired
     tools = {tool.name: tool for tool in await mcp.list_tools()}
     properties = (getattr(tools["fleet_query"], "parameters", None) or {}).get("properties", {})
-    assert properties["kind"]["pattern"] == "^(deps|who|facts)$"
+    assert properties["kind"]["pattern"] == "^(deps|who|facts|why|reverify)$"
     assert "token" not in properties
     assert properties["graph"]["pattern"] == "^https://"
     async with FastMCPClient(transport=mcp) as client:
