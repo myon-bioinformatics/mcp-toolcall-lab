@@ -646,7 +646,7 @@ def _fake_fleet_plan(tmp_path):
         "    if kind == 'who':\n"
         "        rows = [{'repository': g['repository'], 'repository_id': g.get('repositoryId')} for g in doc['@graph']\n"
         "                if g.get('@type') == 'Repository' and (g['repository'] == term or term in g.get('previousNames', []))]\n"
-        "    elif kind == 'why':\n"
+        "    elif kind in ('why', 'reverify'):\n"
         "        rows = [g for g in doc['@graph'] if g.get('@type') == 'Dependency' and g['target'] == term]\n"
         "    elif kind == 'deps':\n"
         "        rows = [g for g in doc['@graph'] if g.get('@type') == 'Dependency' and g['target'].startswith(term + '/')]\n"
