@@ -13,6 +13,12 @@ v1 is read-only. ``gh_ops`` also has write operations (``pr_merge``,
 are exposed here -- see ``docs/github_ops_mcp.md`` for why, and the follow-up
 list.
 
+``fleet_query`` is the one tool that is not about GitHub REST: it reads the
+parent's published ``fleet.jsonld`` (a public GitHub Pages document) through the
+vendored ``vendor/vendor_fleet_plan.py`` ``query`` function. It is thin in the
+same sense as the ``gh_ops`` wrappers: the graph, its codebook and the query
+logic live in the parent; this server only exposes them.
+
 Auth: the token comes only from the ``GITHUB_TOKEN`` / ``GH_TOKEN``
 environment variables, exactly as ``gh_ops.Client()`` already reads them when
 constructed with no explicit token. No tool below accepts a token argument,
@@ -37,6 +43,8 @@ from .github_public_resolver import resolve_public_github
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 GH_OPS_PATH = REPO_ROOT / "vendor" / "gh_ops.py"
+FLEET_PLAN_PATH = REPO_ROOT / "vendor" / "vendor_fleet_plan.py"
+FLEET_GRAPH_URL = "https://myon-bioinformatics.github.io/myon-bioinformatics/fleet.jsonld"
 
 
 def gh_ops_py_path() -> Path | None:
@@ -79,6 +87,33 @@ def load_gh_ops() -> ModuleType:
 
 
 gh_ops = load_gh_ops()
+
+
+def fleet_plan_py_path() -> Path | None:
+    """The vendored parent ``vendor_fleet_plan.py`` (``VENDOR_FLEET_PLAN_PY`` overrides), or None until it is enrolled."""
+    override = os.environ.get("VENDOR_FLEET_PLAN_PY")
+    for path in ([Path(override)] if override else []) + [FLEET_PLAN_PATH, Path("/app/vendor/vendor_fleet_plan.py")]:
+        if path.is_file():
+            return path
+    return None
+
+
+def load_fleet_plan() -> ModuleType:
+    """Load the vendored fleet planner by path (same shape as ``load_gh_ops``); only its ``query`` is used here."""
+    path = fleet_plan_py_path()
+    if path is None:
+        raise FileNotFoundError("vendor/vendor_fleet_plan.py is missing; enroll it from the parent's vendor catalog")
+    spec = importlib.util.spec_from_file_location("lab_vendored_vendor_fleet_plan", path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"could not load spec for {path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    try:
+        spec.loader.exec_module(module)
+    except Exception:
+        sys.modules.pop(spec.name, None)
+        raise
+    return module
 
 
 def _client() -> Any:
@@ -328,6 +363,34 @@ def create_mcp() -> FastMCP:
     )
     def url_raw(repo: str, ref: str, path: str) -> dict[str, Any]:
         return _safe(gh_ops.url_raw, repo, ref, path)
+
+    @mcp.tool(
+        description=(
+            "Ask the myon-bioinformatics fleet knowledge graph (the parent's published fleet.jsonld): "
+            "kind=deps lists what one repository depends on (vendored files, launcher, licenses, workflow pins, "
+            "hub records) grouped by relation; kind=who resolves a name, a previous name or a repository_id to the "
+            "repository's identity; kind=facts searches the remaining actions (FLEET-n, their key, subject and "
+            "detail). Reads one public JSON-LD document anonymously; no token, no GitHub API."
+        )
+    )
+    def fleet_query(
+        kind: Annotated[str, Field(description="deps | who | facts", pattern="^(deps|who|facts)$")],
+        term: Annotated[str, Field(description="repository (deps), name / previous name / repository_id (who), "
+                                               "text to search (facts; empty lists everything)", max_length=200)] = "",
+        severity: Annotated[str | None, Field(description="facts only: failure | blocked | unavailable | updated | insufficient",
+                                              pattern="^(failure|blocked|unavailable|updated|insufficient)$")] = None,
+        graph: Annotated[str, Field(description="https URL of a fleet JSON-LD document", pattern="^https://",
+                                    max_length=500)] = FLEET_GRAPH_URL,
+    ) -> dict[str, Any]:
+        try:
+            planner = load_fleet_plan()
+        except (FileNotFoundError, ImportError) as error:
+            return {"ok": False, "error": str(error)}
+        try:
+            result = planner.query(kind, term, graph=graph, severity=severity)
+        except (ValueError, OSError) as error:
+            return {"ok": False, "error": gh_ops.scrub(str(error))}
+        return {"ok": bool(result["rows"]), **result}
 
     return mcp
 

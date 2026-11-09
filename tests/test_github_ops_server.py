@@ -9,6 +9,7 @@ the same in-memory pattern ``tests/test_schema.py`` uses via
 
 from __future__ import annotations
 
+import json
 import urllib.parse
 import sys
 from datetime import datetime
@@ -613,3 +614,90 @@ async def test_public_resolver_schema_describes_arguments(wired):
                 None,
             )
         assert description
+
+
+# --- fleet_query: the one non-REST tool; thin over the vendored parent planner's query() ----------
+
+FLEET_DOC = {
+    "@context": {"@vocab": "https://example.invalid/fleet#"},
+    "generatedAt": "2026-11-09T00:00:00+00:00",
+    "parentRevision": "a" * 40,
+    "@graph": [
+        {"@id": "app/", "@type": "Repository", "repository": "app", "repositoryId": 1, "category": "target",
+         "previousNames": ["old-app"], "revision": "b" * 40},
+        {"@id": "tool/", "@type": "Repository", "repository": "tool", "repositoryId": 2, "category": "target"},
+        {"@id": "edge/1", "@type": "Dependency", "relation": "vd", "source": "tool/tool.py", "target": "app/vendor/tool.py",
+         "assertedBy": "app/vendor.lock.json", "pin": "c" * 40},
+        {"@id": "fact/FLEET-1", "@type": "Fact", "no": "FLEET-1", "key": "updated|vendor|tool:tool.py|blob →2", "severity": "updated",
+         "what": "📥 tool:tool.py", "detail": "blob 1→2 → 1× app (vendor/tool.py)", "repository": ["app/"]},
+    ],
+}
+
+
+def _fake_fleet_plan(tmp_path):
+    """A stand-in for vendor/vendor_fleet_plan.py exposing the same query(kind, term, graph=, severity=) contract."""
+    path = tmp_path / "vendor_fleet_plan.py"
+    path.write_text(
+        "import json\n"
+        "QUERY_KINDS = ('deps', 'who', 'facts')\n"
+        "CALLS = []\n"
+        "def query(kind, term='', *, graph='', severity=None, document=None):\n"
+        "    CALLS.append((kind, term, graph, severity))\n"
+        "    if kind not in QUERY_KINDS:\n"
+        "        raise ValueError('kind must be one of deps, who, facts')\n"
+        "    doc = json.loads(open(__file__.replace('vendor_fleet_plan.py', 'fleet.jsonld')).read())\n"
+        "    if kind == 'who':\n"
+        "        rows = [{'repository': g['repository'], 'repository_id': g.get('repositoryId')} for g in doc['@graph']\n"
+        "                if g.get('@type') == 'Repository' and (g['repository'] == term or term in g.get('previousNames', []))]\n"
+        "    elif kind == 'deps':\n"
+        "        rows = [g for g in doc['@graph'] if g.get('@type') == 'Dependency' and g['target'].startswith(term + '/')]\n"
+        "    else:\n"
+        "        rows = [g for g in doc['@graph'] if g.get('@type') == 'Fact' and term in g['detail'] and (severity in (None, g['severity']))]\n"
+        "    return {'schema': 'vendor-fleet-query/1', 'kind': kind, 'term': term, 'graph': graph,\n"
+        "            'generated_at': doc['generatedAt'], 'parent_revision': doc['parentRevision'], 'rows': rows}\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "fleet.jsonld").write_text(json.dumps(FLEET_DOC), encoding="utf-8")
+    return path
+
+
+async def test_fleet_query_is_listed_and_reports_a_missing_vendored_planner(wired, monkeypatch):
+    mcp, _ = wired
+    names = {tool.name for tool in await mcp.list_tools()}
+    assert "fleet_query" in names
+    monkeypatch.delenv("VENDOR_FLEET_PLAN_PY", raising=False)
+    import mcp_toolcall_lab.github_ops_server as gos
+
+    monkeypatch.setattr(gos, "FLEET_PLAN_PATH", gos.REPO_ROOT / "nowhere" / "vendor_fleet_plan.py")
+    async with FastMCPClient(transport=mcp) as client:
+        result = await client.call_tool("fleet_query", {"kind": "who", "term": "app"})
+    data = _data(result)
+    assert data["ok"] is False and "vendor_fleet_plan.py is missing" in data["error"]
+
+
+async def test_fleet_query_delegates_to_the_vendored_query_and_never_touches_github(wired, monkeypatch, tmp_path):
+    mcp, patch_client = wired
+    _client, stub = patch_client({})  # any GitHub call would raise KeyError inside the stub
+    monkeypatch.setenv("VENDOR_FLEET_PLAN_PY", str(_fake_fleet_plan(tmp_path)))
+    async with FastMCPClient(transport=mcp) as client:
+        who = _data(await client.call_tool("fleet_query", {"kind": "who", "term": "old-app"}))
+        deps = _data(await client.call_tool("fleet_query", {"kind": "deps", "term": "app", "graph": "https://example.invalid/g.jsonld"}))
+        facts = _data(await client.call_tool("fleet_query", {"kind": "facts", "term": "tool.py", "severity": "updated"}))
+        none = _data(await client.call_tool("fleet_query", {"kind": "facts", "term": "tool.py", "severity": "failure"}))
+    assert who["ok"] and who["rows"][0]["repository_id"] == 1
+    assert deps["ok"] and deps["rows"][0]["target"] == "app/vendor/tool.py" and deps["graph"] == "https://example.invalid/g.jsonld"
+    assert facts["ok"] and facts["rows"][0]["no"] == "FLEET-1"
+    assert none["ok"] is False and none["rows"] == []
+    assert stub.calls == []
+
+
+async def test_fleet_query_schema_bounds_kind_severity_and_https_graph(wired):
+    mcp, _ = wired
+    tools = {tool.name: tool for tool in await mcp.list_tools()}
+    properties = (getattr(tools["fleet_query"], "parameters", None) or {}).get("properties", {})
+    assert properties["kind"]["pattern"] == "^(deps|who|facts)$"
+    assert "token" not in properties
+    assert properties["graph"]["pattern"] == "^https://"
+    async with FastMCPClient(transport=mcp) as client:
+        bad = await client.call_tool("fleet_query", {"kind": "drop", "term": "x"}, raise_on_error=False)
+    assert bad.is_error
