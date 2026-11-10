@@ -723,3 +723,33 @@ async def test_fleet_query_uses_real_vendored_planner_for_a_valid_empty_graph(wi
     assert result["matched"] is False
     assert result["rows"] == []
     assert result["parent_revision"] == FLEET_DOC["parentRevision"]
+
+
+@pytest.mark.parametrize("failure", ["fetch", "json", "schema"])
+async def test_fleet_query_real_planner_errors_and_recovery(wired, monkeypatch, failure):
+    from io import BytesIO
+    from urllib.error import URLError
+    import urllib.request
+    import mcp_toolcall_lab.github_ops_server as gos
+
+    mcp, _ = wired
+    monkeypatch.delenv("VENDOR_FLEET_PLAN_PY", raising=False)
+    planner = gos.load_fleet_plan()
+    monkeypatch.setattr(gos, "load_fleet_plan", lambda: planner)
+
+    def response(*args, **kwargs):
+        if failure == "fetch":
+            raise URLError("fixture fetch failed")
+        return BytesIO(b"not-json" if failure == "json" else b'{}')
+
+    monkeypatch.setattr(urllib.request, "urlopen", response)
+    async with FastMCPClient(transport=mcp) as client:
+        failed = _data(await client.call_tool("fleet_query", {"kind": "facts", "term": "absent"}))
+        assert failed["ok"] is False
+        assert failed["error"]
+        assert "matched" not in failed
+        monkeypatch.setattr(urllib.request, "urlopen", lambda *a, **kw: BytesIO(json.dumps(FLEET_DOC).encode()))
+        recovered = _data(await client.call_tool("fleet_query", {"kind": "facts", "term": "absent"}))
+        assert recovered["ok"] is True
+        assert recovered["matched"] is False
+        assert recovered["rows"] == []
