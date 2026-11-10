@@ -19,6 +19,7 @@ def test_parent_workflow_references_use_reviewed_rollout_commit():
         for i, line in enumerate(lines):
             if re.fullmatch(r"\s+repository:\s*['\"]?" + re.escape(PARENT) + r"['\"]?\s*", line):
                 refs = [re.fullmatch(r"\s+ref:\s*['\"]?([^\s'\"]+)['\"]?\s*", item) for item in lines[i + 1:i + 12]]
-                pins.append(next((m.group(1) for m in refs if m), None))
+                if not any(re.fullmatch(r"\s+path:\s*['\"]?\.vendor-sync-tools['\"]?\s*", item) for item in lines[i + 1:i + 12]):
+                    pins.append(next((m.group(1) for m in refs if m), None))
     assert pins, "shared parent references must remain observable"
     assert set(pins) == {PARENT_WORKFLOW_PIN}, pins

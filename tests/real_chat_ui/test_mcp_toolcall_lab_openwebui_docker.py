@@ -7,8 +7,7 @@ it reads the OpenAI mock log and the MCP JSONL the mocks already write.
 
 from __future__ import annotations
 
-import os
-import uuid
+import os, uuid
 from pathlib import Path
 
 import pytest

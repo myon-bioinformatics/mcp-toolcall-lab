@@ -8,17 +8,8 @@ No prompt, article, statement or generated response is written to the report.
 """
 from __future__ import annotations
 
-import argparse
-import hashlib
-import json
-import re
-import statistics
-import time
-import tomllib
-import urllib.parse
-from collections import Counter
-from pathlib import Path
-from typing import Any, Callable
+import argparse, hashlib, json, re, statistics, time, tomllib, urllib.parse
+from collections import Counter; from pathlib import Path; from typing import Any, Callable
 
 from mcp_toolcall_lab.compaction import compact
 from mcp_toolcall_lab.compaction_gguf_benchmark import (

@@ -7,16 +7,10 @@ duplicating resolver semantics.
 """
 from __future__ import annotations
 
-import importlib.util
-import json
-import os
-from pathlib import Path
-import subprocess
-import sys
-from types import ModuleType
-from typing import Any, Mapping
+import importlib.util, json, os, subprocess, sys
+from pathlib import Path; from types import ModuleType; from typing import Any, Mapping
 
-from .github_public_resolver import resolve_public_github
+from .github_public_resolver import diagnostics_payload
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 GH_IDENTITY_PATH = REPO_ROOT / "vendor" / "gh_identity.py"
@@ -106,35 +100,11 @@ def build_payload(
     probe: bool = True,
     opener: Any = None,
 ) -> dict[str, Any]:
-    """Combine canonical metadata with anonymous resolver evidence."""
-    kwargs: dict[str, Any] = {
-        "ref": record["head"]["branch"],
-        "path": "README.md",
-        "probe": probe,
-    }
+    """Combine canonical metadata with anonymous resolver evidence (``diagnostics_payload`` plus this page's schema keys)."""
+    kwargs: dict[str, Any] = {"probe": probe}
     if opener is not None:
         kwargs["opener"] = opener
-    try:
-        resolver = resolve_public_github(record["repository"]["full_name"], **kwargs)
-    except ValueError as exc:
-        if "ref must be a simple Git ref" not in str(exc):
-            raise
-        resolver = {
-            "repository": record["repository"]["full_name"],
-            "ref": record["head"]["branch"],
-            "path": "README.md",
-            "auth": "anonymous",
-            "candidates": [],
-            "observations": [],
-            "status": "not_checked",
-            "reason": "unsupported_ref",
-        }
-    return {
-        "schema_version": "1.0",
-        "metadata": record,
-        "resolver": resolver,
-        "generated_at": record["generated_at"],
-    }
+    return {"schema_version": "1.0", **diagnostics_payload(record, **kwargs), "generated_at": record["generated_at"]}
 
 
 def _renderer_page() -> str:
@@ -234,6 +204,11 @@ def write_pages(
     return payload
 
 
-if __name__ == "__main__":
-    target = Path(sys.argv[1]) if len(sys.argv) > 1 else REPO_ROOT / "_site"
+def main(argv=None):
+    argv = sys.argv[1:] if argv is None else list(argv)
+    target = Path(argv[0]) if len(argv) > 0 else REPO_ROOT / "_site"
     write_pages(target)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

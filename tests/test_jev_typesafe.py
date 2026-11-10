@@ -8,8 +8,7 @@ module docstring)."""
 
 from __future__ import annotations
 
-import json
-import threading
+import json, threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import pytest

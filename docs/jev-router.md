@@ -8,7 +8,7 @@ is safe to pre-route or should fall back to the existing LLM path.
 
 `needs_tool` is the boolean interpretation of the `noul` answer
 (`noul >= 0.5`). `tool_family` is one of `ironmate`, `wikipedia`,
-`mock`, or `none`.
+`pokeapi`, `mock`, or `none`.
 
 `none` means **no tool is required**. It is not an "unknown" or "cannot
 decide" sentinel. When the first stage says a tool is needed but the second
@@ -53,3 +53,26 @@ exception swallow.
 only `decision_ms`; consumers/benchmarks may attach fallback-LLM and tool
 latencies later. `latency_summary` reports them separately rather than
 combining them.
+
+## Light local backend: `KeywordBackend`
+
+`jev_backend.KeywordBackend` answers both router questions from weighted
+keyword cues in `fixtures/jev_router/keywords.json` (stdlib only, no model, no
+network; cues are case-insensitive substrings, so Japanese needs no tokenizer).
+`best` is the heaviest family score: `needs_tool` is `noul = 1 - 0.5**best`
+(no cue 0, one weight-1 cue 0.5, three 0.875), and `tool_family` is each
+family's share of the total with 0.1 smoothing. Two families with similar
+scores, or only the generic `_lookup` cues ("look this up", "調べ", ...), end
+below the threshold and fall back to the LLM. `prob_source` is `keyword`: a
+rule score, not a calibrated probability.
+
+Measured on the 12 `fixtures/jev_assisted/benchmark_cases.json` cases it routes
+all 12 correctly with no fallback, but the weights were written while reading
+those cases, so that is a regression guard, not held-out accuracy. A cue-free
+request is a confident `none` by construction; add a cue (or a `_lookup` word)
+when a real request should reach a tool.
+
+The search keyword for the fetch itself is still supplied by the caller's
+`direct_calls` closure (for example `pokeapi/source` with pasted view-source
+JSON, or `pokeapi/pokemon` with `allow_network=True`); extracting it from the
+request text is not part of the judgment.

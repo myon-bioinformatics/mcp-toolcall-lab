@@ -41,11 +41,8 @@ confirms it.
 
 from __future__ import annotations
 
-import json
-import math
-from dataclasses import dataclass
-from typing import Any, Callable, Protocol
-from urllib.request import Request, urlopen
+import json, math
+from dataclasses import dataclass; from typing import Any, Callable, Protocol; from urllib.request import Request, urlopen
 
 KIND_NOUL = "noul"
 KIND_SCORE = "score"

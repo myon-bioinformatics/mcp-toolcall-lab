@@ -7,8 +7,7 @@ share one definition.
 
 from __future__ import annotations
 
-import os
-import uuid
+import os, uuid
 from pathlib import Path
 
 import pytest

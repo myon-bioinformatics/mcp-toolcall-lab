@@ -6,19 +6,8 @@ They are also collected by the project's normal pytest lane.
 
 from __future__ import annotations
 
-from contextlib import redirect_stdout
-import importlib.util
-import io
-import json
-from pathlib import Path
-import socket
-import ssl
-import subprocess
-import tempfile
-from types import SimpleNamespace
-import unittest
-from unittest.mock import Mock, patch
-from urllib.error import URLError
+import importlib.util, io, json, socket, ssl, subprocess, tempfile, unittest
+from contextlib import redirect_stdout; from pathlib import Path; from types import SimpleNamespace; from unittest.mock import Mock, patch; from urllib.error import URLError
 
 
 SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "check_runtime_trust.py"

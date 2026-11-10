@@ -1,9 +1,8 @@
 """Thin Ironmate MCP boundary built on the lab's stdlib MCP session."""
 from __future__ import annotations
 
-from dataclasses import dataclass
 import time
-from typing import Any, Protocol
+from dataclasses import dataclass; from typing import Any, Protocol
 
 from mcp_toolcall_lab.record import EVENT_IRONMATE_CALLER, OUTCOME_ERROR, OUTCOME_SUCCESS, record_call
 

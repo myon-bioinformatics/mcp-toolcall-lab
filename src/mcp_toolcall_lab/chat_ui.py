@@ -18,13 +18,8 @@ starting a new thread.
 
 from __future__ import annotations
 
-import argparse
-import json
-import os
-import sys
-import uuid
-from pathlib import Path
-from typing import Any
+import argparse, json, os, sys, uuid
+from pathlib import Path; from typing import Any
 
 from mcp_toolcall_lab.antipatterns import (
     classify_observation,

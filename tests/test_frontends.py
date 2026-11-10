@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import json
-import subprocess
-import sys
+import json, subprocess, sys
 from pathlib import Path
 
 from mcp_toolcall_lab.catalog import AVAILABLE_TOOLS

@@ -1,7 +1,5 @@
-import importlib.util
+import importlib.util, subprocess, tempfile
 from pathlib import Path
-import subprocess
-import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 

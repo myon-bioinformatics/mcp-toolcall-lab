@@ -13,9 +13,11 @@ import pytest
 from mcp_toolcall_lab.jev_backend import (
     DEFAULT_FIXTURE_DIR,
     PROB_SOURCE_FIXTURE,
+    PROB_SOURCE_KEYWORD,
     PROB_SOURCE_TYPESAFE_MOCK,
     BackendError,
     FixtureBackend,
+    KeywordBackend,
     TypeSafeMockBackend,
     answer_with_trace,
 )
@@ -174,3 +176,84 @@ def test_answer_with_trace_tags_typesafe_mock_prob_source(tmp_path: Path, monkey
     row = json.loads(log.read_text(encoding="utf-8").splitlines()[0])
     assert row["prob_source"] == "typesafe_mock"
     assert row["backend"] == "TypeSafeMockBackend"
+
+
+# --- KeywordBackend (light local judgment) -----------------------------
+
+BENCHMARK = Path(__file__).parents[1] / "fixtures" / "jev_assisted" / "benchmark_cases.json"
+
+
+def _route(text):
+    from mcp_toolcall_lab.jev_router import decide_route
+
+    return decide_route(KeywordBackend.from_path(), text)
+
+
+def test_keyword_backend_never_routes_wrong_on_the_benchmark_cases():
+    # The weights were written while looking at these 12 cases, so this is a
+    # regression guard for the policy, not held-out evidence of accuracy.
+    from dataclasses import asdict
+
+    from mcp_toolcall_lab.jev_router import confusion_matrix, decide_route
+
+    backend = KeywordBackend.from_path()
+    rows = []
+    for case in json.loads(BENCHMARK.read_text(encoding="utf-8")):
+        rows.append({**asdict(decide_route(backend, case["state"])), "expected_tool_family": case["expected_tool_family"]})
+    matrix = confusion_matrix(rows)
+    assert matrix["routed-wrong"] == 0 and matrix["fallback-wrong"] == 0
+    assert {row["prob_source"] for row in rows} == {PROB_SOURCE_KEYWORD}
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["ポケモンのピカチュウの種族値を調べて", "What are Pikachu's base stats in the Pokémon API?", "PokeAPIでditto取って"],
+)
+def test_keyword_backend_routes_pokemon_requests_to_pokeapi(text):
+    decision = _route(text)
+    assert (decision.tool_family, decision.fallback_reason) == ("pokeapi", None)
+
+
+@pytest.mark.parametrize(
+    ("text", "family", "reason"),
+    [
+        ("Wikipediaでポケモンの記事を見て", "wikipedia", "low_confidence"),  # two families pull equally
+        ("Look this up if necessary", None, "low_confidence"),  # vague "find it": hand to the LLM
+        ("この文章を短く書き直して。", "none", None),
+    ],
+)
+def test_keyword_backend_falls_back_when_unsure_and_says_none_when_no_cue(text, family, reason):
+    decision = _route(text)
+    assert decision.fallback_reason == reason
+    if family is not None:
+        assert decision.tool_family == family
+
+
+def test_keyword_backend_answers_are_valid_payloads_and_reject_unknown_questions():
+    backend = KeywordBackend(weights={"pokeapi": {"pokemon": 3}})
+    noul = backend.answer("needs_tool", {}, "pokemon")
+    assert validate_payload("noul", noul) and noul["noul"] == pytest.approx(0.875)
+    choice = backend.answer("tool_family", {"criteria": {"pokeapi": None, "none": None}}, "pokemon")
+    assert validate_payload("choice", choice) and choice["choice"] == "pokeapi"
+    with pytest.raises(BackendError):
+        backend.answer("something_else", {}, "pokemon")
+
+
+def test_keyword_judgment_then_keyword_fetch_end_to_end_offline():
+    # judge -> caller-supplied keyword -> pokeapi/source (pasted view-source JSON) -> Markdown
+    from mcp_toolcall_lab.jev_assisted import execute_jev_assisted
+    from mcp_toolcall_lab.source_access import default_registry
+
+    source = (Path(__file__).parents[1] / "fixtures" / "pokeapi" / "ditto.json").read_text(encoding="utf-8")
+    result = execute_jev_assisted(
+        KeywordBackend.from_path(),
+        "ポケモンのditto、種族値を教えて",
+        ironmate_client=None,
+        ironmate_tool="unused",
+        ironmate_arguments={},
+        fallback=lambda state: "LLM",
+        direct_calls={"pokeapi": lambda: default_registry().invoke("pokeapi", "source", {"source": source})},
+    )
+    assert (result.decision.tool_family, result.tool_called, result.llm_used) == ("pokeapi", True, False)
+    assert result.result["data"]["name"] == "ditto"
+

@@ -6,8 +6,7 @@ The typed digest is retained out-of-band, not serialized to the model.
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
-from typing import Any, Callable, Mapping, Sequence
+from dataclasses import dataclass; from typing import Any, Callable, Mapping, Sequence
 
 
 @dataclass(frozen=True)

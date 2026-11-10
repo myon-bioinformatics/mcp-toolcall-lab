@@ -3,11 +3,8 @@
 The shared pinned collector is exercised by Actions; this regression uses no
 runtime dependencies and never imports a repository-local JUnit collector.
 """
-import os
+import os, subprocess, sys, xml.etree.ElementTree as ET
 from pathlib import Path
-import subprocess
-import sys
-import xml.etree.ElementTree as ET
 
 import pytest
 import yaml

@@ -1,11 +1,5 @@
-import http.client
-import json
-import os
-import subprocess
-from io import BytesIO
-from pathlib import Path
-from types import SimpleNamespace
-from urllib.error import HTTPError, URLError
+import http.client, json, os, subprocess
+from io import BytesIO; from pathlib import Path; from types import SimpleNamespace; from urllib.error import HTTPError, URLError
 
 import pytest
 

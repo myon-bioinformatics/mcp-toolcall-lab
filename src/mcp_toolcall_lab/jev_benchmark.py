@@ -2,14 +2,13 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
-from typing import Any, Callable
+from pathlib import Path; from typing import Any, Callable
 
 from mcp_toolcall_lab.ironmate_client import IronmateClient
 from mcp_toolcall_lab.jev_assisted import benchmark_row, benchmark_summary, execute_jev_assisted
 from mcp_toolcall_lab.jev_backend import FixtureBackend
+from mcp_toolcall_lab.jev_router import TOOL_FAMILIES as _FAMILIES
 
-_FAMILIES = ("ironmate", "wikipedia", "mock", "none")
 
 
 def load_cases(path: str | Path) -> list[dict[str, Any]]:

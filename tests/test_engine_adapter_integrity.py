@@ -1,9 +1,7 @@
 """Whole-cache integrity, JSON normalization, and legacy API contracts."""
 
-from dataclasses import asdict, replace
-import hashlib
-import json
-from pathlib import Path
+import hashlib, json
+from dataclasses import asdict, replace; from pathlib import Path
 
 import pytest
 

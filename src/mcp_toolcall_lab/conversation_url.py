@@ -1,9 +1,7 @@
 """Offline identities for observed chat/agent URLs; never fetch conversation text."""
 from __future__ import annotations
 
-import argparse
-import json
-import re
+import argparse, json, re
 from urllib.parse import unquote, urlsplit
 
 # Observed routes, not a promise that the service exposes a content API.

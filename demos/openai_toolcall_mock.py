@@ -20,14 +20,8 @@ Run: ``HOST=0.0.0.0 PORT=8090 python demos/openai_toolcall_mock.py``
 
 from __future__ import annotations
 
-import json
-import os
-import sys
-import time
-import uuid
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from typing import Any
-from urllib.parse import urlparse
+import json, os, sys, time, uuid
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer; from typing import Any; from urllib.parse import urlparse
 
 try:
     from mcp_toolcall_lab.mock.common import (

@@ -2,8 +2,7 @@
 from __future__ import annotations
 
 import time
-from dataclasses import asdict, dataclass
-from typing import Any, Callable
+from dataclasses import asdict, dataclass; from typing import Any, Callable
 
 from mcp_toolcall_lab.ironmate_client import IronmateClient
 from mcp_toolcall_lab.jev_backend import Backend
@@ -91,7 +90,7 @@ def execute_jev_assisted(
 
     if (
         decision.fallback_reason is None
-        and decision.tool_family in {"wikipedia", "mock"}
+        and decision.tool_family in {"wikipedia", "pokeapi", "mock"}
         and direct_calls
         and decision.tool_family in direct_calls
     ):

@@ -1,8 +1,6 @@
 """The browser check must reject invalid observations under normal Python and -O."""
+import subprocess, sys, unittest
 from pathlib import Path
-import subprocess
-import sys
-import unittest
 
 SCRIPT = Path(__file__).resolve().parents[1] / 'scripts/check_portable_browser.py'
 

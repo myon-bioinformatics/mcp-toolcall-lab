@@ -5,22 +5,8 @@ external inference, arbitrary input files, mock completions or fallback text.
 """
 from __future__ import annotations
 
-import argparse
-from contextlib import contextmanager
-from datetime import UTC, datetime
-import hashlib
-import json
-import os
-from pathlib import Path
-import re
-import socket
-import subprocess
-import tempfile
-import time
-from typing import Any, Iterator
-import urllib.error
-import urllib.parse
-import urllib.request
+import argparse, hashlib, json, os, re, socket, subprocess, tempfile, time, urllib.error, urllib.parse, urllib.request
+from contextlib import contextmanager; from datetime import datetime, UTC; from pathlib import Path; from typing import Any, Iterator
 
 from .portable_execution import canonical_request, execute, request_sha256
 from .mock.common import append_jsonl
@@ -539,7 +525,7 @@ def build_summaries(output_dir: Path, *, source_sha: str, model_path: Path | Non
     return manifest
 
 
-def main() -> None:
+def main(argv=None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--source-sha", required=True)
@@ -549,7 +535,7 @@ def main() -> None:
     parser.add_argument("--result-cache", type=Path)
     parser.add_argument("--case-offset", type=int, default=0)
     parser.add_argument("--case-limit", type=int, default=16)
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     try:
         result = build_summaries(args.out, source_sha=args.source_sha, model_path=args.model, llama_server=args.llama_server,
                                  reviewed_corpus=args.reviewed_corpus, result_cache=args.result_cache,
