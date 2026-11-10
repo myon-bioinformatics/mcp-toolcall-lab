@@ -130,7 +130,9 @@ _FAKE_REVISION = {
 def test_write_pages_is_static(tmp_path: Path) -> None:
     last = tmp_path / "last-run.json"
     last.write_text('{"cpu_llm_ok": true, "stub_health": {"status": 200}}\n', encoding="utf-8")
-    index = write_pages(tmp_path / "site", last_run=last)
+    # A fixed revision: otherwise the page carries HEAD's commit subject, and a subject that
+    # merely mentions the shared-UI repository would trip the "no CDN chain" check below.
+    index = write_pages(tmp_path / "site", last_run=last, revision=_FAKE_REVISION)
     html = index.read_text(encoding="utf-8")
     assert "mcp-toolcall-lab stub" in html
     assert "mcp-mock:8000/mcp" in html
@@ -138,23 +140,23 @@ def test_write_pages_is_static(tmp_path: Path) -> None:
     assert 'id="build-meta"' in html
     assert (tmp_path / "site" / "summary.json").is_file()
     assert (tmp_path / "site" / BUILD_META_NAME).is_file()
-    assert 'class="term-page term-shell"' in html
+    assert 'class="ui-page term-shell"' in html
     assert 'class="term-header"' in html
     assert 'class="term-workspace"' in html
-    assert 'class="term-panel term-result"' in html
-    assert 'class="term-card term-evidence"' in html
-    assert 'class="term-card term-history"' in html
+    assert 'class="ui-panel term-result"' in html
+    assert 'class="ui-card term-evidence"' in html
+    assert 'class="ui-card term-history"' in html
     assert '<aside aria-label="Supporting information">' in html
-    # Single CSS contract: one lab-owned stylesheet, no web-ui CDN chain.
+    # Single CSS contract: one local stylesheet (generated from PySaiyanWeBoo), no CDN chain.
     assert (tmp_path / "site" / TERMINAL_CSS_NAME).is_file()
     assert f'<link rel="stylesheet" href="{TERMINAL_CSS_NAME}?v=' in html
-    assert "web-ui" not in html
-    assert f"Styling: single lab-owned <code>{TERMINAL_CSS_NAME}</code>" in html
-    assert html.index('class="term-panel term-result"') < html.index('<aside aria-label="Supporting information">')
+    assert "cdn.jsdelivr.net" not in html and html.count("<link") == 1
+    assert f'generated into the local <code>{TERMINAL_CSS_NAME}</code>' in html and '<body data-ui-theme="terminal">' in html
+    assert html.index('class="ui-panel term-result"') < html.index('<aside aria-label="Supporting information">')
     pixiv_tools = {tool for tool in AVAILABLE_TOOLS if tool.startswith("fetch_pixiv_dictionary_")}
     other_tools = set(AVAILABLE_TOOLS) - pixiv_tools
     assert len(AVAILABLE_TOOLS) == 7
-    assert f"<span class=\"term-tag\">{len(AVAILABLE_TOOLS)} tools</span>" in html
+    assert f"<span class=\"ui-tag\">{len(AVAILABLE_TOOLS)} tools</span>" in html
     assert pixiv_tools == {
         "fetch_pixiv_dictionary_section",
         "fetch_pixiv_dictionary_article",
@@ -173,27 +175,28 @@ def test_write_pages_embeds_vendor_stylesheet_not_lab_css(tmp_path: Path) -> Non
     vendor_css = md.default_stylesheet()
     assert vendor_css
     assert vendor_css in html
+    assert "@layer markdown,base,components,theme;@layer markdown{" in html
     assert html.index("<style>") < html.index("<title>")
     # Lab must not ship a second markdown-feature stylesheet next to Pages.
     assert not (ROOT / "src" / "mcp_toolcall_lab" / "static" / "markdown.css").exists()
 
 
 def test_single_css_contract_across_pages_wiki_and_pixiv(tmp_path: Path) -> None:
-    """Pages, local /wiki, and local /pixiv share one lab-owned stylesheet.
+    """Pages, local /wiki, and local /pixiv share one local stylesheet.
 
-    Terminal-lite prototype (#58): no myon-bioinformatics/web-ui CDN chain
-    anywhere in these three rendered surfaces, and exactly one
-    ``terminal.css`` link per page (the inlined vendor markdown stylesheet
-    is a separate, content-scoped concern and is not "the CSS chain").
+    No PySaiyanWeBoo CDN chain anywhere in these three rendered surfaces (the
+    look comes from the committed ``terminal.css``, generated from
+    ``web_ui.core_css("terminal")``), every page opts into that theme, and
+    exactly one ``terminal.css`` link per page (the inlined vendor markdown
+    stylesheet is a separate, content-scoped concern and is not "the CSS chain").
     """
     assert TERMINAL_CSS_SOURCE.is_file()
     pages_html = write_pages(tmp_path / "site", revision=_FAKE_REVISION).read_text(encoding="utf-8")
     wiki_html = render_wiki_page()
     pixiv_html = render_pixiv_page()
     for html in (pages_html, wiki_html, pixiv_html):
-        assert "web-ui" not in html
-        assert "cdn.jsdelivr.net" not in html
-        assert "data-ui-theme" not in html
+        assert "cdn.jsdelivr.net" not in html and "<link" in html
+        assert html.count('data-ui-theme="terminal"') == 1
         assert html.count(f'href="{TERMINAL_CSS_NAME}') + html.count(f'href="/{TERMINAL_CSS_NAME}') == 1
 
 
@@ -378,7 +381,7 @@ def test_pixiv_pages_has_open_source_extract_workspace(tmp_path: Path) -> None:
     assert 'data-testid="pages-pixiv-extract-submit"' in html
     assert 'data-testid="pages-pixiv-extract"' in html
     assert 'data-testid="pages-pixiv-error"' in html
-    assert 'class="term-output"' in html
+    assert 'class="ui-output"' in html
     assert "pages-pixiv.js?v=" in html
     assert (tmp_path / "site" / "pages-pixiv.js").is_file()
 
@@ -440,7 +443,7 @@ def test_render_pixiv_page_outputs_catalog_result(monkeypatch) -> None:
     )
     html = render_pixiv_page(title="sample")
     assert 'data-testid="pixiv-result"' in html
-    assert 'class="term-output"' in html
+    assert 'class="ui-output"' in html
     assert "canonical_title" in html
     assert "# sample" in html
     assert f'href="/{TERMINAL_CSS_NAME}"' in html
@@ -449,7 +452,7 @@ def test_render_pixiv_page_outputs_catalog_result(monkeypatch) -> None:
 def test_local_wiki_uses_terminal_stylesheet() -> None:
     html = render_wiki_page()
     assert f'href="/{TERMINAL_CSS_NAME}"' in html
-    assert '<main class="term-page">' in html
+    assert '<main class="ui-page">' in html
 
 
 def test_pixiv_page_response_success_reports_cache_status(monkeypatch) -> None:
@@ -938,6 +941,25 @@ def test_stub_demo_js_is_valid_javascript() -> None:
     assert result.returncode == 0, result.stderr
 
 
+def test_terminal_css_is_generated_from_pysaiyanweboo() -> None:
+    """The committed stylesheet is scripts/build_terminal_css.py's output (web_ui.core_css("terminal") + lab rules)."""
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("build_terminal_css", ROOT / "scripts" / "build_terminal_css.py")
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+    import web_ui
+    assert module.TARGET == TERMINAL_CSS_SOURCE
+    text = TERMINAL_CSS_SOURCE.read_text(encoding="utf-8")
+    assert web_ui.check_bundle(TERMINAL_CSS_SOURCE, **module.bundle_options()) == []
+    assert text.startswith("/* web-ui-bundle/1 commit=")
+    assert "/* css/themes/terminal.css */" in text and 'body[data-ui-theme="terminal"]' in text and ".term-workspace{" in text
+    assert "cdn.jsdelivr.net" not in text
+    galleria = module.GALLERIA.read_text(encoding="utf-8")
+    assert galleria == module.render_galleria() and "#0a0e10" in galleria and "!important" in galleria
+
+
 # --- Pokémon tab (#pokemon): web-ui's shared source panel + one JSON spec ---------------------------
 
 POKEMON_FIXTURE = Path(__file__).parents[1] / "fixtures" / "pokeapi" / "ditto.json"
@@ -972,4 +994,3 @@ def test_pokemon_spec_is_the_panel_s_only_consumer_data() -> None:
     web_ui = load_web_ui()
     spec = web_ui.source_spec(pokemon_spec())
     assert spec["id"] == "pokemon" and spec["url"] == "https://pokeapi.co/api/v2/pokemon/{name}"
-

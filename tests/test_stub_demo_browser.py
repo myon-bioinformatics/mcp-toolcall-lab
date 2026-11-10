@@ -117,3 +117,66 @@ def test_miss_lists_known_headings(demo_page) -> None:
     assert "HEADING_MISS" in text
     assert "Exampleville" in text  # one of the corpus's own known headings
     assert errors == []
+
+
+def _assert_readable_colors(locator) -> None:
+    """Check actual cascaded foreground/background, not just CSS source tokens."""
+    colors = locator.evaluate("""element => {
+      const style = getComputedStyle(element);
+      return {foreground: style.color, background: style.backgroundColor};
+    }""")
+    import re
+
+    def luminance(color):
+        channels = [float(value) for value in re.findall(r"[\d.]+", color)]
+        assert len(channels) in (3, 4), color
+        assert len(channels) == 3 or channels[3] == 1, colors
+        linear = [value / 255 / 12.92 if value / 255 <= 0.04045
+                  else ((value / 255 + 0.055) / 1.055) ** 2.4 for value in channels[:3]]
+        return sum(value * weight for value, weight in zip(linear, (0.2126, 0.7152, 0.0722)))
+
+    values = sorted(luminance(color) for color in colors.values())
+    ratio = (values[1] + 0.05) / (values[0] + 0.05)
+    assert ratio >= 4.5, (colors, ratio)
+
+
+def test_published_pages_and_shared_diagnostics_keep_readable_colors(tmp_path, browser):
+    from mcp_toolcall_lab.stub_front import write_pages
+    from mcp_toolcall_lab import mcp_toolcall_lab_repository_diagnostics as diagnostics
+
+    write_pages(tmp_path)
+    diagnostics.write_pages(tmp_path, probe=False)
+    source = (Path(__file__).resolve().parents[1] / "fixtures/pokeapi/ditto.json").read_text()
+    with running_static_site(tmp_path) as url:
+        page = browser.new_page()
+        errors = []
+        page.on("pageerror", lambda exc: errors.append(str(exc)))
+        try:
+            page.goto(url + "#pixiv", wait_until="load")
+            command = page.locator("#pixiv pre.ui-output").last
+            command.wait_for(state="visible")
+            assert command.is_visible()
+            _assert_readable_colors(command)
+
+            # Preserve main's shared source panel and repeatable hash navigation.
+            page.get_by_test_id("pages-nav-pokemon").click()
+            page.locator("#pokemon-text").fill(source)
+            page.locator("#source-pokemon [data-source-extract]").click()
+            output = page.locator("#source-pokemon [data-source-output]")
+            output.wait_for(state="visible")
+            assert output.is_visible() and "ditto (#132)" in output.inner_text()
+            _assert_readable_colors(output)
+            page.get_by_test_id("pages-nav-pixiv").click()
+            command.wait_for(state="visible")
+            assert command.is_visible()
+            page.get_by_test_id("pages-nav-pokemon").click()
+            output.wait_for(state="visible")
+            assert output.is_visible() and "ditto (#132)" in output.inner_text()
+
+            page.goto(url + diagnostics.PAGE_NAME, wait_until="networkidle")
+            card = page.locator(".repo-diagnostics")
+            card.wait_for(state="visible")
+            _assert_readable_colors(card)
+            assert errors == []
+        finally:
+            page.close()
