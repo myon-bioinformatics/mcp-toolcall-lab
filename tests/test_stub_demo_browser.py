@@ -154,6 +154,7 @@ def test_published_pages_and_shared_diagnostics_keep_readable_colors(tmp_path, b
         try:
             page.goto(url + "#pixiv", wait_until="load")
             command = page.locator("#pixiv pre.ui-output").last
+            command.wait_for(state="visible")
             assert command.is_visible()
             _assert_readable_colors(command)
 
@@ -162,11 +163,14 @@ def test_published_pages_and_shared_diagnostics_keep_readable_colors(tmp_path, b
             page.locator("#pokemon-text").fill(source)
             page.locator("#source-pokemon [data-source-extract]").click()
             output = page.locator("#source-pokemon [data-source-output]")
+            output.wait_for(state="visible")
             assert output.is_visible() and "ditto (#132)" in output.inner_text()
             _assert_readable_colors(output)
             page.get_by_test_id("pages-nav-pixiv").click()
+            command.wait_for(state="visible")
             assert command.is_visible()
             page.get_by_test_id("pages-nav-pokemon").click()
+            output.wait_for(state="visible")
             assert output.is_visible() and "ditto (#132)" in output.inner_text()
 
             page.goto(url + diagnostics.PAGE_NAME, wait_until="networkidle")
