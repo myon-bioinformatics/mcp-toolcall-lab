@@ -11,9 +11,7 @@ client flow with a raw-HTTP one that doesn't import ``mcp`` at all.
 
 from __future__ import annotations
 
-import json
-import shutil
-import subprocess
+import json, shutil, subprocess
 
 import pytest
 

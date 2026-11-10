@@ -9,8 +9,7 @@ front uses this so it does not grow a second copy of initialize / tools/list
 from __future__ import annotations
 
 import json
-from typing import Any
-from urllib.request import Request, urlopen
+from typing import Any; from urllib.request import Request, urlopen
 
 ACCEPT = "application/json, text/event-stream"
 

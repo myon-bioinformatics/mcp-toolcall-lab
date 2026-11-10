@@ -10,10 +10,8 @@ file still matches the live FastMCP catalog.
 
 from __future__ import annotations
 
-import asyncio
-import json
-from pathlib import Path
-from typing import Any
+import asyncio, json
+from pathlib import Path; from typing import Any
 
 from mcp_toolcall_lab.catalog import TOOL_DESCRIPTIONS
 

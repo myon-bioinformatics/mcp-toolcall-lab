@@ -14,14 +14,8 @@ hardcoded "#chat-input" would.
 
 from __future__ import annotations
 
-import functools
-import http.server
-import os
-import socket
-import threading
-from collections.abc import Iterator
-from contextlib import contextmanager
-from pathlib import Path
+import functools, http.server, os, socket, threading
+from collections.abc import Iterator; from contextlib import contextmanager; from pathlib import Path
 
 import pytest
 

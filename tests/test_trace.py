@@ -13,8 +13,7 @@ reconstructed from one log file regardless of which door it came in.
 
 from __future__ import annotations
 
-import json
-import tempfile
+import json, tempfile
 from pathlib import Path
 
 import pytest

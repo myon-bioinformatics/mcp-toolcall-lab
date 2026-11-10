@@ -27,7 +27,7 @@ never a reason the GitHub tools stop working.
 No Ironmate/GitHub tool already existed in this repo:
 [`ironmate_client.py`](../src/mcp_toolcall_lab/ironmate_client.py) is a
 generic, business-logic-free adapter that only logs whatever MCP tool call a
-caller hands it (see [`docs/ironmate_call.md`](ironmate_call.md)) — it is not
+caller hands it (see [`docs/ironmate-call.md`](ironmate-call.md)) — it is not
 a GitHub client and has no `gh_ops`-shaped operations to align with, so this
 is new surface, not a duplicate.
 
@@ -82,6 +82,7 @@ even if a response body contains one.
 | `url_search(query, kind="code")` | `gh_ops.url_search` | Pure string building; no network. |
 | `url_raw(repo, ref, path)` | `gh_ops.url_raw` | Pure string building; no network. |
 | `resolve_public(repo, ref="main", path=None, probe=True)` | lab public resolver | Builds repository/API/Pages and optional raw/contents candidates. With `probe=True`, performs anonymous HTTPS observations only and distinguishes reachable/not-found/auth-required/rate-limited/unverified states. No token argument. |
+| `fleet_query(kind, term="", severity=None, graph=<parent Pages fleet.jsonld>)` | vendored `vendor_fleet_plan.query` | The parent's fleet knowledge graph: `deps` (what one repository depends on, by relation), `who` (name / previous name / repository_id → identity), `facts` (remaining actions `FLEET-n`), `why` (判断の根拠: the relations one node rests on, each with its record, basis, comparison and state), `reverify` (変更の影響先 / 再テスト / 再検証 / 未登録 for a change of one node). Reads one public JSON-LD document over https anonymously; `graph` must be an `https://` URL. The pinned planner is loaded from `vendor/vendor_fleet_plan.py`; `VENDOR_FLEET_PLAN_PY` overrides the path for local runs. |
 
 ## Out of scope for v1 (follow-ups)
 
@@ -116,6 +117,17 @@ shape as the existing `markdown.py` refresh, pointed at
 `myon-bioinformatics/browser-test-kit` instead. Pin a commit, not `main` itself,
 so a later unrelated push to `main` can't silently change what this repo vendors.
 
+## Fleet graph (`fleet_query`)
+
+The graph, its codebook (classes, relations, PROV parents) and the query logic
+live in the parent repository's `vendor_fleet_plan.py`; its daily Pages build
+publishes `fleet.jsonld` next to the audit `data.json`. This server only vendors
+that one file and exposes `query(kind, term, graph=, severity=)` as a tool, the
+same thin shape as the `gh_ops` wrappers, so the lab is a test boundary for the
+graph and not its home. Enrollment follows the usual lock flow (parent catalog
+entry → `vendor_sync.py enroll` here → row in `vendor.lock.json`). The lock records
+the reviewed parent commit, source blob, and SHA-256.
+
 ## Tests
 
 ```bash
@@ -133,3 +145,7 @@ result ever contains a token. The MCP input schemas publish numeric bounds and
 reject values outside them before calling GitHub. A malformed successful
 response is also tested to remain a protocol-level tool error while a later
 valid call still succeeds.
+
+A valid `fleet_query` returns `ok: true` even when `rows` is empty;
+`matched` reports whether any rows matched. Loading or query errors return
+`ok: false` and `error`. Consumers must not treat zero matches as an outage.

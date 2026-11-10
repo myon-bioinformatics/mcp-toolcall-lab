@@ -7,10 +7,8 @@ those stay in the mock that owns that wire.
 
 from __future__ import annotations
 
-import json
-import uuid
-from pathlib import Path
-from typing import Any
+import json, uuid
+from pathlib import Path; from typing import Any
 
 CHAT_ID_HEADER_KEYS = (
     "x-chat-id",

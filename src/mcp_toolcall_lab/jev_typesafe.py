@@ -7,7 +7,7 @@ This module is neither of those: it builds the actual request body and
 parses the actual response body of TypeSafe's own "System One" endpoint,
 as confirmed by reading three real open-source clients and the official
 ``typesafe-sdk`` PyPI package's OpenAPI-generated schema (``docs.typesafe.ai``
-itself is blocked by this sandbox's egress policy). See docs/jev_shim.md
+itself is blocked by this sandbox's egress policy). See docs/jev-shim.md
 for exactly what was read, where, and at which commit/version.
 
 Confirmed contract:
@@ -43,11 +43,8 @@ server behaves as documented here.
 
 from __future__ import annotations
 
-import json
-import os
-from dataclasses import dataclass, field
-from typing import Any, Callable, Protocol
-from urllib.request import Request, urlopen
+import json, os
+from dataclasses import dataclass, field; from typing import Any, Callable, Protocol; from urllib.request import Request, urlopen
 
 from mcp_toolcall_lab.jev_shim import KIND_CHOICE, KIND_NOUL, KIND_SCORE, KINDS
 

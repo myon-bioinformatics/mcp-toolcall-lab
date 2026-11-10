@@ -6,12 +6,8 @@ required anchors and task arguments are scored independently. No truncation.
 """
 from __future__ import annotations
 
-import argparse
-import hashlib
-import json
-from pathlib import Path
-from typing import Any, Callable
-import urllib.request
+import argparse, hashlib, json, urllib.request
+from pathlib import Path; from typing import Any, Callable
 
 from .char_compress import compress
 

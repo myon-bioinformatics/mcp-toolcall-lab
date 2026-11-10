@@ -7,8 +7,7 @@ and the chat/direct callers are left untouched.
 
 from __future__ import annotations
 
-import asyncio
-import socket
+import asyncio, socket
 from contextlib import asynccontextmanager
 
 import httpx

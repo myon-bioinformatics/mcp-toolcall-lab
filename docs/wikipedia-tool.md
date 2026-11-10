@@ -26,7 +26,7 @@ Both modes reuse the extract when changing headings. This is not an OpenAI
 | --- | --- | --- |
 | GitHub Pages `#wiki` (default) | the browser | MediaWiki action API with `origin=*` |
 | GitHub Pages `#wiki` (optional MCP URL) | browser → MCP server | Streamable HTTP `POST /mcp` |
-| Deno Wikipedia MCP (`POST /mcp`) | the MCP server process | `deploy/wikipedia-mcp` Streamable HTTP (keyless, HMAC `Mcp-Session-Id`, `lang` restricted to MediaWiki codes). See `docs/wikipedia_mcp_deploy.md`. |
+| Deno Wikipedia MCP (`POST /mcp`) | the MCP server process | `deploy/wikipedia-mcp` Streamable HTTP (keyless, HMAC `Mcp-Session-Id`, `lang` restricted to MediaWiki codes). See `docs/wikipedia-mcp-deploy.md`. |
 | Local `GET /wiki` + FastMCP `fetch_wikipedia_*` | the stub / Python MCP server process | `wikipedia_tool.py` (unchanged) |
 
 A tool that LibreChat / Open WebUI / the stub should call still belongs

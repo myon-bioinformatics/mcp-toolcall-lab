@@ -1,7 +1,5 @@
-import importlib.util
+import importlib.util, subprocess, tempfile
 from pathlib import Path
-import subprocess
-import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -22,7 +20,7 @@ def test_legacy_redirect_preserves_routes_and_public_export_is_still_retained():
             assert result.stdout.endswith('?view=wiki' + route)
     workflow = (ROOT / '.github/workflows/stub-pages.yml').read_text()
     assert 'actions/deploy-pages' not in workflow
-    portable = (ROOT / '.github/workflows/portable-pages.yml').read_text()
+    portable = (ROOT / '.github/workflows/pages.yml').read_text()
     assert 'path: _portable_site' in portable
     assert 'actions/deploy-pages' in portable
     assert 'stub-pages-observations' in workflow

@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-import json
-import shutil
-import subprocess
+import json, shutil, subprocess
 from pathlib import Path
 
 import pytest
@@ -37,6 +35,7 @@ from mcp_toolcall_lab.stub_front import (
     PAGES_WIKI_JS_SOURCE,
     PAGES_WIKI_SERVE,
     PIXIV_LOCAL_SERVE,
+    SOURCE_JS_NAME,
     STUB_DEMO_DATA_NAME,
     STUB_DEMO_JS_NAME,
     STUB_DEMO_JS_SOURCE,
@@ -45,7 +44,9 @@ from mcp_toolcall_lab.stub_front import (
     _status_is_dirty,
     collect_revision,
     load_corpus,
+    load_web_ui,
     pages_summary,
+    pokemon_spec,
     parse_sections,
     render_rows,
     render_pixiv_page,
@@ -297,7 +298,7 @@ def test_stub_pages_compose_uses_service_dns() -> None:
     assert "vendor/markdown.py" in stub_df
     workflow = (ROOT / ".github" / "workflows" / "stub-pages.yml").read_text(encoding="utf-8")
     assert "actions/deploy-pages" not in workflow
-    publication = (ROOT / ".github" / "workflows" / "portable-pages.yml").read_text(encoding="utf-8")
+    publication = (ROOT / ".github" / "workflows" / "pages.yml").read_text(encoding="utf-8")
     assert "actions/deploy-pages" in publication
     assert publication.count("if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'") >= 2
     assert "stub-pages-smoke.py" in workflow or "stub_pages_smoke.py" in workflow
@@ -677,6 +678,8 @@ const win = {
 assert.strictEqual(pages.syncFromLocation(win), "wiki");
 assert.ok(replaced.includes("#wiki"));
 assert.ok(!replaced.includes("view=wiki"));
+assert.strictEqual(pages.viewFromLocation("#pokemon", ""), "pokemon");
+assert.strictEqual(pages.viewFromLocation("#pokemon?x=1", "?view=pokemon"), "pokemon");
 console.log("ok");
 """
 
@@ -954,3 +957,39 @@ def test_terminal_css_is_generated_from_pysaiyanweboo() -> None:
     assert "cdn.jsdelivr.net" not in text
     galleria = module.GALLERIA.read_text(encoding="utf-8")
     assert galleria == module.render_galleria() and "#0a0e10" in galleria and "!important" in galleria
+
+
+# --- Pokémon tab (#pokemon): web-ui's shared source panel + one JSON spec ---------------------------
+
+POKEMON_FIXTURE = Path(__file__).parents[1] / "fixtures" / "pokeapi" / "ditto.json"
+
+
+def test_write_pages_has_pokemon_tab_after_wiki_and_pixiv_and_ships_the_shared_source_panel(tmp_path: Path) -> None:
+    out = tmp_path / "site"
+    html = write_pages(out, revision=_FAKE_REVISION).read_text(encoding="utf-8")
+    nav = [html.index(f'data-pages-nav="{name}"') for name in ("home", "wiki", "pixiv", "pokemon")]
+    assert nav == sorted(nav)
+    assert 'href="#pokemon"' in html and 'data-testid="pages-nav-pokemon"' in html
+    assert 'id="pokemon" data-pages-view="pokemon" data-testid="pages-pokemon" hidden' in html
+    web_ui = load_web_ui()
+    assert web_ui.source_panel_html(pokemon_spec()) in html                      # the panel is the shared one, built from the lab's spec
+    assert f'src="{SOURCE_JS_NAME}?v=' in html
+    assert (out / SOURCE_JS_NAME).read_text(encoding="utf-8") == web_ui.js_source("source.js")
+    assert web_ui.css_source("source.css") in html
+    assert not (out / "pages-pokemon.js").exists()                                  # no lab-owned panel script any more
+
+
+def test_pokemon_spec_writes_the_python_adapter_markdown_byte_for_byte() -> None:
+    from mcp_toolcall_lab.adapters.pokeapi import parse
+
+    source = POKEMON_FIXTURE.read_text(encoding="utf-8")
+    web_ui = load_web_ui()
+    from_spec = web_ui.source_markdown(web_ui.source_extract(pokemon_spec(), source))
+    assert from_spec == parse(source)["markdown"]
+    assert from_spec.startswith("# ditto (#132)\n")
+
+
+def test_pokemon_spec_is_the_panel_s_only_consumer_data() -> None:
+    web_ui = load_web_ui()
+    spec = web_ui.source_spec(pokemon_spec())
+    assert spec["id"] == "pokemon" and spec["url"] == "https://pokeapi.co/api/v2/pokemon/{name}"

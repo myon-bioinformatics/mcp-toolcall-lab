@@ -21,10 +21,8 @@ those stay in the mock that owns that wire.
 """
 
 
-import json
-import uuid
-from pathlib import Path
-from typing import Any
+import json, uuid
+from pathlib import Path; from typing import Any
 
 CHAT_ID_HEADER_KEYS = (
     "x-chat-id",
@@ -122,15 +120,8 @@ stays here; it is not the library's ``extract_section``.
 """
 
 
-import hashlib
-import importlib.util
-import json
-import os
-import re
-import sys
-from dataclasses import dataclass
-from pathlib import Path
-from types import ModuleType
+import hashlib, importlib.util, json, os, re, sys
+from dataclasses import dataclass; from pathlib import Path; from types import ModuleType
 
 def _repo_root() -> Path:
     """``src/mcp_toolcall_lab/markdown_lib.py`` -> repo root, two levels up.
@@ -431,18 +422,8 @@ real-network integration test gated behind
 """
 
 
-import json
-import os
-import re
-import threading
-import time
-import urllib.error
-import urllib.parse
-import urllib.request
-from collections import OrderedDict
-from dataclasses import dataclass
-from pathlib import Path
-from typing import Any, Callable, Iterable, Literal
+import json, os, re, threading, time, urllib.error, urllib.parse, urllib.request
+from collections import OrderedDict; from dataclasses import dataclass; from pathlib import Path; from typing import Any, Callable, Iterable, Literal
 
 
 WIKIPEDIA_API = "https://{lang}.wikipedia.org/w/api.php"
@@ -892,7 +873,7 @@ def fetch_wikipedia_section(title: str, heading: str = "", *, lang: str = DEFAUL
 # --- pixiv_markup_normalize.py ---
 """Conservative normalization of observed Pixiv Encyclopedia source markup.
 
-Follow-up to #60/#61 (see ``docs/pixiv_markup_normalization.md``). A real
+Follow-up to #60/#61 (see ``docs/pixiv-markup-normalization.md``). A real
 BLEACH history/source sample was manually observed; only its *structural*
 syntax -- never article prose -- is reproduced anywhere in this repo.
 
@@ -910,7 +891,7 @@ all: ``[[label]]`` / ``[[label>anchor]]`` wiki links, ``[pixivimage:ID]`` /
 ``[pixivimage:ID:size]`` embeds, unspaced ``-[[label]]`` list lines, and
 ``NEXT▶︎[[label]]`` navigation lines. Everything else -- including malformed
 or unrecognized tokens -- passes through unchanged; see the SUPPORTED /
-UNSUPPORTED sections of ``docs/pixiv_markup_normalization.md`` for the full
+UNSUPPORTED sections of ``docs/pixiv-markup-normalization.md`` for the full
 contract.
 
 Wired into the MCP Pixiv dictionary article/section fetch path by #62. It is
@@ -1017,15 +998,8 @@ then reuses the lab's common Markdown section model. A small TTL/LRU cache keeps
 heading changes from causing repeat requests. Default CI must use fixtures.
 """
 
-import os
-import time
-import urllib.parse
-import urllib.request
-from collections import OrderedDict
-from dataclasses import dataclass
-from pathlib import Path
-from typing import Any
-from urllib.error import HTTPError
+import os, time, urllib.parse, urllib.request
+from collections import OrderedDict; from dataclasses import dataclass; from pathlib import Path; from typing import Any; from urllib.error import HTTPError
 
 
 PIXIV_ARTICLE = "https://dic.pixiv.net/a/{title}"
@@ -1317,8 +1291,7 @@ OpenAI demo can use the same helpers without importing this MCP log schema.
 
 
 import os
-from datetime import UTC, datetime
-from typing import Any, Callable
+from datetime import datetime, UTC; from typing import Any, Callable
 
 
 OUTCOME_SUCCESS = "success"
@@ -1521,12 +1494,8 @@ def mcp_tool_calls(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
 """FastMCP server exposing a small, deterministic mock API."""
 
 
-import asyncio
-import os
-import sys
-import time
-from datetime import UTC, datetime
-from typing import Any
+import asyncio, os, sys, time
+from datetime import datetime, UTC; from typing import Any
 
 from fastmcp import FastMCP
 from fastmcp.server.middleware import Middleware, MiddlewareContext

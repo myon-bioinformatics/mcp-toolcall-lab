@@ -1,12 +1,6 @@
 """Static-summary verification only. Synthetic test stubs are never exported."""
-import hashlib
-import json
+import hashlib, json, os, subprocess, sys, tempfile, unittest
 from pathlib import Path
-import subprocess
-import os
-import sys
-import tempfile
-import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 CORE = ROOT / 'src/mcp_toolcall_lab/static/portable_execution.mjs'

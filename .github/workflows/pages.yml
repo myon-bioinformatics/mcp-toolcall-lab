@@ -1,4 +1,4 @@
-name: portable-pages
+name: Pages
 
 # Live GGUF generation and Pages publication are explicit manual operations.
 # Ordinary CI never rebuilds or replaces the currently published site.
@@ -30,7 +30,10 @@ jobs:
           version: "latest"
           python-version: "3.12.15"
           activate-environment: true
-          enable-cache: false
+          enable-cache: true
+          # Pull requests restore the cache and never write it; only main saves it.
+          save-cache: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          prune-cache: true
       - name: Test portable execution contract and bidirectional runtime
         env:
           PYTHONPATH: src

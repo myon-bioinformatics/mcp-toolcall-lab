@@ -6,8 +6,7 @@ resource semantics.
 """
 from __future__ import annotations
 
-from typing import Any
-from urllib.parse import quote, urlencode
+from typing import Any; from urllib.parse import quote, urlencode
 
 
 def quote_segment(value: str) -> str:

@@ -45,14 +45,14 @@ def test_openwebui_smoke_compose_uses_shared_docker_network() -> None:
 
 
 def test_openwebui_docs_and_workflow_track_the_owui_named_mock() -> None:
-    notes = (ROOT / "docs" / "openwebui_mcp_notes.md").read_text(encoding="utf-8")
+    notes = (ROOT / "docs" / "openwebui-mcp-notes.md").read_text(encoding="utf-8")
     assert "openwebui_mcp_mock.py" in notes
     assert "http://mcp-mock:8000/mcp" in notes
     assert "workflow_dispatch" in notes
     workflow = (ROOT / ".github" / "workflows" / "openwebui-docker-smoke.yml").read_text(
         encoding="utf-8"
     )
-    default_ci = (ROOT / ".github" / "workflows" / "test.yml").read_text(encoding="utf-8")
+    default_ci = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
     assert "src/mcp_toolcall_lab/chat_ui.py" in workflow
     assert "src/mcp_toolcall_lab/frontends.py" in workflow
     assert "src/mcp_toolcall_lab/mcp_http.py" in workflow

@@ -1,9 +1,7 @@
 """Tests for char_compress (character-budget compression)."""
 from __future__ import annotations
 
-import importlib.util
-import json
-import re
+import importlib.util, json, re
 
 import pytest
 

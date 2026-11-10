@@ -1,8 +1,6 @@
 """Offline HTML snapshot inspection; stdlib only, no network or script execution."""
-from collections import Counter
 import re
-from html.parser import HTMLParser
-from urllib.parse import urljoin, urlsplit
+from collections import Counter; from html.parser import HTMLParser; from urllib.parse import urljoin, urlsplit
 
 MAX_BYTES = 2 * 1024 * 1024
 EXCLUDED = {'script', 'style', 'template', 'noscript'}

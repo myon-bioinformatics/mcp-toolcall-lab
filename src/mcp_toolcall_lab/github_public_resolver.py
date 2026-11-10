@@ -6,13 +6,8 @@ It never accepts credentials and never turns an unobserved resource into
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
-import http.client
-import re
-from typing import Any, Callable
-from urllib.error import HTTPError, URLError
-from urllib.parse import quote
-from urllib.request import Request, urlopen
+import http.client, re
+from datetime import datetime, timezone; from typing import Any, Callable; from urllib.error import HTTPError, URLError; from urllib.parse import quote; from urllib.request import Request, urlopen
 
 _OWNER = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$")
 _NAME = re.compile(r"^[A-Za-z0-9_.-]+$")
@@ -163,3 +158,30 @@ def resolve_public_github(
         "observations": observations,
         "status": "observed" if probe else "not_checked",
     }
+
+
+def diagnostics_payload(
+    record: dict[str, Any],
+    *,
+    path: str = "README.md",
+    probe: bool = True,
+    opener: Callable[..., Any] = urlopen,
+) -> dict[str, Any]:
+    """``{"metadata", "resolver"}`` for a repository diagnostics page, from a repository-metadata v1 record.
+
+    The resolver looks at the record's repository and head branch. A branch that is not a simple Git
+    ref (a detached head, for one) is reported as ``not_checked`` with ``reason: unsupported_ref``
+    instead of raising; an invalid repository name still raises. ascii_artist, markdown and this
+    repository each carried this as ``build_payload``; repository_diagnostics.js reads the result.
+    """
+    repository, ref = record["repository"]["full_name"], record["head"]["branch"]
+    _repo(repository)
+    try:
+        _ref(ref)
+    except ValueError:
+        return {"metadata": record, "resolver": {
+            "repository": repository, "ref": ref, "path": path, "auth": "anonymous",
+            "candidates": [], "observations": [], "status": "not_checked", "reason": "unsupported_ref",
+        }}
+    return {"metadata": record,
+            "resolver": resolve_public_github(repository, ref=ref, path=path, probe=probe, opener=opener)}

@@ -1,9 +1,6 @@
 """Offline selection is shared by both replay CLIs and lists without reading."""
-import json
-import os
+import json, os, subprocess, sys
 from pathlib import Path
-import subprocess
-import sys
 
 import pytest
 

@@ -80,7 +80,7 @@ intentionally deferred to later, independently mergeable PRs:
 `fixtures/jev_backend/sample_answers.json`, `tests/test_jev_backend.py`, and
 `tests/test_jev_openai_compat.py` run under plain `pytest -q` — no network, no `TYPESAFE_API_KEY`, no opt-in
 marker, matching this repo's "default pytest stays network-free"
-convention (see `tests/conftest.py`, `docs/jev_shim.md`).
+convention (see `tests/conftest.py`, `docs/jev-shim.md`).
 
 ## Usage
 

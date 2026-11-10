@@ -50,11 +50,11 @@ split. It is not a product clone and not a CommonMark engine.
   switches do not refetch. Stdlib stub `GET /wiki` is the thin
   server-side form. Pages `#wiki` defaults to direct MediaWiki `origin=*`
   access and optionally reaches the tools through a configured MCP endpoint. See
-  `docs/wikipedia_tool.md`.
+  `docs/wikipedia-tool.md`.
 - Wikipedia-only Deno Streamable HTTP MCP (`deploy/wikipedia-mcp`): keyless
   `POST /mcp` for `fetch_wikipedia_*`, catalog generated from FastMCP,
   CORS + HMAC `Mcp-Session-Id`. Pages `#wiki` can optionally be its browser client; local/CI use needs no hosted deployment.
-  See `docs/wikipedia_mcp_deploy.md`.
+  See `docs/wikipedia-mcp-deploy.md`.
 
 ## Later (unnumbered)
 

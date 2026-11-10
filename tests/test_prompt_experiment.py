@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-import copy
-import json
+import copy, json
 from pathlib import Path
 
 from mcp_toolcall_lab.catalog import AVAILABLE_TOOLS, TOOL_DESCRIPTIONS

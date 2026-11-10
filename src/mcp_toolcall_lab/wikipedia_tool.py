@@ -36,18 +36,8 @@ real-network integration test gated behind
 
 from __future__ import annotations
 
-import json
-import os
-import re
-import threading
-import time
-import urllib.error
-import urllib.parse
-import urllib.request
-from collections import OrderedDict
-from dataclasses import dataclass
-from pathlib import Path
-from typing import Any, Callable, Iterable, Literal
+import json, os, re, threading, time, urllib.error, urllib.parse, urllib.request
+from collections import OrderedDict; from dataclasses import dataclass; from pathlib import Path; from typing import Any, Callable, Iterable, Literal
 
 from .markdown_lib import Section, lookup_heading, parse_sections
 

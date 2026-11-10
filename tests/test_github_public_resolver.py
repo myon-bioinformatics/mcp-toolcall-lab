@@ -1,9 +1,8 @@
-from io import BytesIO
-from urllib.error import HTTPError, URLError
+from io import BytesIO; from urllib.error import HTTPError, URLError
 
 import pytest
 
-from mcp_toolcall_lab.github_public_resolver import candidate_urls, probe_url, resolve_public_github
+from mcp_toolcall_lab.github_public_resolver import candidate_urls, diagnostics_payload, probe_url, resolve_public_github
 
 
 class Response(BytesIO):
@@ -90,3 +89,35 @@ def test_synthetic_http_error_without_fp_keeps_requested_url():
     result = probe_url("https://example.test/missing", opener=opener)
     assert result["status"] == "not_found"
     assert result["resolved_url"] == "https://example.test/missing"
+
+
+def _record(branch="main", full_name="octo/demo"):
+    return {"repository": {"full_name": full_name}, "head": {"branch": branch}}
+
+
+def test_diagnostics_payload_is_metadata_plus_the_resolver():
+    """The shape ascii_artist and markdown write (no extra keys), probed through the given opener."""
+    seen = []
+    def opener(request, timeout):
+        seen.append(request.full_url)
+        return Response(200, request.full_url)
+    record = _record()
+    payload = diagnostics_payload(record, opener=opener)
+    assert set(payload) == {"metadata", "resolver"} and payload["metadata"] is record
+    assert payload["resolver"]["status"] == "observed" and payload["resolver"]["path"] == "README.md"
+    assert seen == [item["url"] for item in candidate_urls("octo/demo", ref="main", path="README.md")]
+    assert diagnostics_payload(record, probe=False)["resolver"] == resolve_public_github("octo/demo", path="README.md", probe=False)
+
+
+@pytest.mark.parametrize("branch", ["feat+x", "renovate/@types-node", "fix/日本語", None, ""])
+def test_diagnostics_payload_reports_an_unsupported_branch_without_the_network(branch):
+    def opener(request, timeout):
+        raise AssertionError("network used for an unsupported ref")
+    resolver = diagnostics_payload(_record(branch), opener=opener)["resolver"]
+    assert resolver == {"repository": "octo/demo", "ref": branch, "path": "README.md", "auth": "anonymous",
+                        "candidates": [], "observations": [], "status": "not_checked", "reason": "unsupported_ref"}
+
+
+def test_diagnostics_payload_still_rejects_a_bad_repository_name():
+    with pytest.raises(ValueError, match="repo"):
+        diagnostics_payload(_record("feat+x", "../demo"), probe=False)

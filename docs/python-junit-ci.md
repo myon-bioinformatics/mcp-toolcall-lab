@@ -1,13 +1,13 @@
 # Python CI JUnit compatibility
 
-The primary Python job in `.github/workflows/test.yml` still installs
+The primary Python job in `.github/workflows/ci.yml` still installs
 `.[test]` and runs the same pytest suite. It adds
 `--junitxml=reports/pytest.xml` and uploads that exact file as
 `junit-python-3.12-node-26` or `junit-python-3.12-node-latest`, according to
 the Node matrix leg, for 14 days with `if: always()`. The pytest step
 has no error suppression: a failure remains a failed producer job and run.
 
-The dependent `junit-identity` job runs even after producer failure
+The dependent `failure-identity` job runs even after producer failure
 when change detection selected non-document work. It calls the parent
 repository's reusable collector at
 `2192ff22acafdd09e80ac722df91ee937aaedd5e`, selecting

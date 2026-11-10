@@ -1,5 +1,4 @@
-from pathlib import Path
-from urllib.error import HTTPError
+from pathlib import Path; from urllib.error import HTTPError
 
 import pytest
 

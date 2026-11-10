@@ -9,21 +9,8 @@ archives remain readable; their normalized index requires full-scan search.
 
 from __future__ import annotations
 
-import argparse
-import errno
-import hashlib
-import json
-import lzma
-import os
-import re
-import struct
-import sys
-import unicodedata
-import zlib
-from collections import defaultdict
-from collections.abc import Iterable, Iterator, Sequence
-from pathlib import Path
-from typing import Any
+import argparse, errno, hashlib, json, lzma, os, re, struct, sys, unicodedata, zlib
+from collections import defaultdict; from collections.abc import Iterable, Iterator, Sequence; from pathlib import Path; from typing import Any
 
 MAGIC = b"JLOGARC1"
 FORMAT_VERSION = 2

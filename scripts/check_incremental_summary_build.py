@@ -6,21 +6,8 @@ The check uses two fixed synthetic cases and the already prepared local model.
 """
 from __future__ import annotations
 
-import argparse
-import hashlib
-import io
-import json
-import os
-from pathlib import Path
-import re
-import shutil
-import stat
-import struct
-import zipfile
-import zlib
-import subprocess
-import sys
-from typing import Any
+import argparse, hashlib, io, json, os, re, shutil, stat, struct, subprocess, sys, zipfile, zlib
+from pathlib import Path; from typing import Any
 
 from mcp_toolcall_lab.portable_execution import canonical_request, execute
 from mcp_toolcall_lab.portable_summary_build import build_summaries, declared_sources, prepare_summary_request
@@ -429,7 +416,7 @@ def run_check(*, out: Path, source_sha: str, model: Path, llama_server: Path) ->
     return report
 
 
-def main() -> None:
+def main(argv=None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
     for name in ("round", "check", "capture"):
@@ -448,7 +435,7 @@ def main() -> None:
         if name in {"round", "capture"}:
             command.add_argument("--case-offset", type=int, default=0)
             command.add_argument("--case-limit", type=int, default=16)
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     try:
         if args.command == "check":
             report = run_check(out=args.out, source_sha=args.source_sha, model=args.model, llama_server=args.llama_server)

@@ -5,7 +5,7 @@
 > running Docker/MCP tests, and preserving raw logs separately. Portfolio imports
 > only the allowlisted public export with explicit snapshot identity. Imported
 > results are not automatically the latest Actions result. The old Pages URL
-> redirects while preserving query and fragment, including `#wiki` and `#pixiv`.
+> redirects while preserving query and fragment, including `#wiki`, `#pixiv` and `#pokemon`.
 > Earlier deployment descriptions below document the pre-transfer layout.
 
 # Serverless stub try (GitHub Actions + Pages)
@@ -202,6 +202,22 @@ for this workflow's replacement, unaffected by it, and continue to fetch
 URL as if this static host could reach it — regression-tested by
 `tests/test_stub_pages.py::test_pixiv_pages_panel_never_regresses_to_localhost_dead_end`,
 `test_pixiv_pages_search_is_retired`, and `tests/test_pages_pixiv.py`.
+
+Pages `#pokemon` (after Wiki and Pixiv in the nav) is the same source-or-API
+idea for PokéAPI: **Fetch** asks `https://pokeapi.co/api/v2/pokemon/<name>`
+once from the browser, **Open JSON** opens that URL so you can copy the text
+the browser shows (its view-source / raw tab), and pasting it back runs
+**Extract** with no network at all. The panel is web-ui's shared source panel
+(`vendor/web_ui.py` `source_panel_html`, `source.js`, `source.css`); this repo
+keeps only its JSON spec, `fixtures/pokeapi/pokeapi.spec.json`, and no panel
+script or stylesheet of its own. The spec reads the same fields as
+`adapters/pokeapi.py` and writes the same Markdown tables, which
+`tests/test_stub_pages.py::test_pokemon_spec_writes_the_python_adapter_markdown_byte_for_byte`
+compares byte for byte on `fixtures/pokeapi/ditto.json`; the panel's own
+behaviour (fetch error paths, paste path, Chromium) is tested in web-ui
+(`docs/source-panel.md`). PokéAPI's CORS behavior is documented only
+second-hand and the live browser fetch is **not** exercised in CI; when
+it is blocked the panel says so and the paste path still works.
 
 Evidence for the URL shapes above is two separate things, kept distinct
 rather than blended into one "iPhone-validated" claim: (1) a **manual** check

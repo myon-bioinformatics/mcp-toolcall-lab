@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-import io
-import json
-import threading
+import io, json, threading
 from urllib.error import URLError
 
 import pytest

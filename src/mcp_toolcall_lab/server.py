@@ -2,12 +2,8 @@
 
 from __future__ import annotations
 
-import asyncio
-import os
-import sys
-import time
-from datetime import UTC, datetime
-from typing import Any
+import asyncio, os, sys, time
+from datetime import datetime, UTC; from typing import Any
 
 from fastmcp import FastMCP
 from fastmcp.server.middleware import Middleware, MiddlewareContext

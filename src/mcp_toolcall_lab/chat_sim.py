@@ -11,7 +11,7 @@ reimplementing one specific product.
 
 The ``call_id``/``chat_id`` this module generates are *not* modeled on any
 one UI's database schema. Verified against Open WebUI's actual SQLAlchemy
-models (see ``docs/openwebui_schema_notes.md``): its ``chat.id`` and
+models (see ``docs/openwebui-schema-notes.md``): its ``chat.id`` and
 ``chat.share_id`` are real, generated-and-stored identifiers comparable in
 spirit to this module's ``chat_id``, but its ``function.id``/``tool.id`` are
 user-chosen slugs for its own Python plugin system — a different kind of "id"
@@ -36,8 +36,7 @@ delivery paths can be compared and traced through the same JSONL log (see
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Any
+from dataclasses import dataclass; from typing import Any
 
 from mcp import ClientSession
 from mcp.client.streamable_http import streamable_http_client

@@ -1,5 +1,5 @@
 # .github/workflows/claude.yml
-name: claude
+name: Claude
 
 on:
   issue_comment:

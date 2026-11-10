@@ -1,6 +1,6 @@
 """Fixture-driven regression tests for the #60 real-source extraction contract.
 
-Covers docs/pixiv_source_fixture_contract.md's acceptance criteria: valid
+Covers docs/pixiv-source-fixture-contract.md's acceptance criteria: valid
 extraction, malformed/unknown input, Japanese text, whitespace/line endings,
 empty fields, unknown fields, duplicate/repeated section-like structures, and
 that markdown.py reuse (not a parallel parser) actually happened.

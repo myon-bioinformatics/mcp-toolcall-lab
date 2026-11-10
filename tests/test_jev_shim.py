@@ -62,7 +62,7 @@ def test_parse_completion_empty_string_is_none() -> None:
 # --- validate_noul_payload ----------------------------------------------
 #
 # Shapes below match TypeSafe's real /v1/systemone wire (see jev_shim.py's
-# module docstring and docs/jev_shim.md), not the original guessed shape.
+# module docstring and docs/jev-shim.md), not the original guessed shape.
 
 
 def test_noul_payload_valid() -> None:
