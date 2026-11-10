@@ -145,3 +145,7 @@ result ever contains a token. The MCP input schemas publish numeric bounds and
 reject values outside them before calling GitHub. A malformed successful
 response is also tested to remain a protocol-level tool error while a later
 valid call still succeeds.
+
+A valid `fleet_query` returns `ok: true` even when `rows` is empty;
+`matched` reports whether any rows matched. Loading or query errors return
+`ok: false` and `error`. Consumers must not treat zero matches as an outage.

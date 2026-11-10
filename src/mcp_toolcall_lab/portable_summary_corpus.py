@@ -814,7 +814,7 @@ def load_verified_cached_artifact(previous_dir: str | Path, summary_request: dic
     return artifact
 
 
-def main() -> None:
+def main(argv=None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--corpus", type=Path, required=True)
     commands = parser.add_subparsers(dest="command", required=True)
@@ -829,7 +829,7 @@ def main() -> None:
     exported.add_argument("path", type=Path)
     commands.add_parser("archive", help="Archive at most 16 local shards; repeat for remaining shards")
     commands.add_parser("check", help="Strict full streaming audit")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     corpus = SummaryCorpus(args.corpus)
     try:
         if args.command == "ingest":

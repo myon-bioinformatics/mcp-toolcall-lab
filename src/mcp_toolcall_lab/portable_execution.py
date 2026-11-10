@@ -188,12 +188,12 @@ def execute(request: Any, *, adapter_path: str | Path | None = None, summary_dir
     return result
 
 
-def main() -> None:
+def main(argv=None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--adapter", type=Path)
     parser.add_argument("--summary-dir", type=Path, help="Verify exact local static summary artifacts; no model or network call")
     parser.add_argument("--native-only", action="store_true")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     raw = sys.stdin.buffer.read(MAX_REQUEST_BYTES + 1)
     try:
         if len(raw) > MAX_REQUEST_BYTES:

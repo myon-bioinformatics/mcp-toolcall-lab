@@ -690,7 +690,7 @@ async def test_fleet_query_delegates_to_the_vendored_query_and_never_touches_git
     assert reverify["ok"] and reverify["kind"] == "reverify" and reverify["rows"][0]["target"] == "app/vendor/tool.py"
     assert deps["ok"] and deps["rows"][0]["target"] == "app/vendor/tool.py" and deps["graph"] == "https://example.invalid/g.jsonld"
     assert facts["ok"] and facts["rows"][0]["no"] == "FLEET-1"
-    assert none["ok"] is False and none["rows"] == []
+    assert none["ok"] is True and none["matched"] is False and none["rows"] == []
     assert stub.calls == []
 
 
@@ -704,3 +704,49 @@ async def test_fleet_query_schema_bounds_kind_severity_and_https_graph(wired):
     async with FastMCPClient(transport=mcp) as client:
         bad = await client.call_tool("fleet_query", {"kind": "drop", "term": "x"}, raise_on_error=False)
     assert bad.is_error
+
+
+async def test_fleet_query_uses_real_vendored_planner_for_a_valid_empty_graph(wired, monkeypatch):
+    """No matches is a successful query, not an MCP transport/planner error."""
+    mcp, _ = wired
+    import mcp_toolcall_lab.github_ops_server as gos
+    monkeypatch.delenv("VENDOR_FLEET_PLAN_PY", raising=False)
+    planner = gos.load_fleet_plan()
+    monkeypatch.setattr(planner, "load_graph", lambda *_a, **_kw: FLEET_DOC)
+    monkeypatch.setattr(gos, "load_fleet_plan", lambda: planner)
+    async with FastMCPClient(transport=mcp) as client:
+        result = _data(await client.call_tool("fleet_query", {"kind": "facts", "term": "not-present"}))
+    assert result["ok"] is True
+    assert result["matched"] is False
+    assert result["rows"] == []
+    assert result["parent_revision"] == FLEET_DOC["parentRevision"]
+
+
+@pytest.mark.parametrize("failure", ["fetch", "json", "schema"])
+async def test_fleet_query_real_planner_errors_and_recovery(wired, monkeypatch, failure):
+    from io import BytesIO
+    from urllib.error import URLError
+    import urllib.request
+    import mcp_toolcall_lab.github_ops_server as gos
+
+    mcp, _ = wired
+    monkeypatch.delenv("VENDOR_FLEET_PLAN_PY", raising=False)
+    planner = gos.load_fleet_plan()
+    monkeypatch.setattr(gos, "load_fleet_plan", lambda: planner)
+
+    def response(*args, **kwargs):
+        if failure == "fetch":
+            raise URLError("fixture fetch failed")
+        return BytesIO(b"not-json" if failure == "json" else b'{}')
+
+    monkeypatch.setattr(urllib.request, "urlopen", response)
+    async with FastMCPClient(transport=mcp) as client:
+        failed = _data(await client.call_tool("fleet_query", {"kind": "facts", "term": "absent"}))
+        assert failed["ok"] is False
+        assert failed["error"]
+        assert "matched" not in failed
+        monkeypatch.setattr(urllib.request, "urlopen", lambda *a, **kw: BytesIO(json.dumps(FLEET_DOC).encode()))
+        recovered = _data(await client.call_tool("fleet_query", {"kind": "facts", "term": "absent"}))
+        assert recovered["ok"] is True
+        assert recovered["matched"] is False
+        assert recovered["rows"] == []

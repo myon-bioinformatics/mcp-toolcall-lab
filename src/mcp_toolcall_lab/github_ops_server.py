@@ -390,7 +390,7 @@ def create_mcp() -> FastMCP:
             result = planner.query(kind, term, graph=graph, severity=severity)
         except (ValueError, OSError) as error:
             return {"ok": False, "error": gh_ops.scrub(str(error))}
-        return {"ok": bool(result["rows"]), **result}
+        return {**result, "ok": True, "matched": bool(result["rows"])}
 
     return mcp
 

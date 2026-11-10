@@ -525,7 +525,7 @@ def build_summaries(output_dir: Path, *, source_sha: str, model_path: Path | Non
     return manifest
 
 
-def main() -> None:
+def main(argv=None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--source-sha", required=True)
@@ -535,7 +535,7 @@ def main() -> None:
     parser.add_argument("--result-cache", type=Path)
     parser.add_argument("--case-offset", type=int, default=0)
     parser.add_argument("--case-limit", type=int, default=16)
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     try:
         result = build_summaries(args.out, source_sha=args.source_sha, model_path=args.model, llama_server=args.llama_server,
                                  reviewed_corpus=args.reviewed_corpus, result_cache=args.result_cache,
