@@ -19,7 +19,7 @@ and is used only as an optional presentation adapter (not article parsing).
 Pinned snapshot of [`myon-bioinformatics/myon-bioinformatics`](https://github.com/myon-bioinformatics/myon-bioinformatics)
 `gh_ops.py` (stdlib-only GitHub REST operations). Loaded by path by
 [`src/mcp_toolcall_lab/github_ops_server.py`](../src/mcp_toolcall_lab/github_ops_server.py)
-— see [`docs/github_ops_mcp.md`](../docs/github_ops_mcp.md).
+— see [`docs/github-ops-mcp.md`](../docs/github-ops-mcp.md).
 
 Pins and hashes: `vendor.lock.json` entry `vendor/gh_ops.py`.
 
@@ -53,7 +53,7 @@ panel is web-ui's shared **source panel**: `stub_front.load_web_ui()` loads this
 by path, `source_panel_html(spec)` writes the panel, and `source.js` / `source.css` come
 from the same module. This repo keeps only the JSON spec,
 [`fixtures/pokeapi/pokeapi.spec.json`](../fixtures/pokeapi/pokeapi.spec.json) — see
-[`docs/stub_pages.md`](../docs/stub_pages.md).
+[`docs/stub-pages.md`](../docs/stub-pages.md).
 
 Pins and hashes: `vendor.lock.json` entries `vendor/web_ui.py` and `vendor/web-ui-LICENSE`
 (registered in the parent's `vendor-consumers.json`).

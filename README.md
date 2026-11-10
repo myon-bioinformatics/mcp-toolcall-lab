@@ -307,9 +307,9 @@ python -m mcp_toolcall_lab.stub_front pages --out _site --last-run test-results/
 
 Pages also publishes repository diagnostics and build/run identity. The UI shell
 is pinned from PySaiyanWeBoo; tool execution, fixtures, traces, and protocol behavior
-remain owned here. See [Pages/stub boundaries](docs/stub_pages.md),
-[local stub roadmap](docs/stub_front_roadmap.md), and the separate
-[Wikipedia-only Deno MCP deployment](docs/wikipedia_mcp_deploy.md).
+remain owned here. See [Pages/stub boundaries](docs/stub-pages.md),
+[local stub roadmap](docs/stub-front-roadmap.md), and the separate
+[Wikipedia-only Deno MCP deployment](docs/wikipedia-mcp-deploy.md).
 
 The public municipality examples use fictional Exampleville / Example Region
 (code `90001`), not a user location. Live Wikipedia starts with an empty title;
@@ -329,7 +329,7 @@ uv run --locked --extra test pytest -q --junitxml=reports/pytest.xml
 The default lane uses fixtures/mocked external access and local protocol servers.
 A passing fixture test is not live-provider or real-model evidence. CI uses
 change detection, so documentation-only changes may skip heavier product jobs.
-See [Python/JUnit evidence](docs/python_junit_ci.md) and
+See [Python/JUnit evidence](docs/python-junit-ci.md) and
 [vendor automation](docs/vendor-automation.md).
 
 ### Actual browser and product integration
@@ -364,8 +364,8 @@ OPEN_WEBUI_BASE_URL=http://127.0.0.1:3000 \
 
 These tests are skipped when their UI URL is unset. Docker services use service
 DNS, not host-loopback addresses. The dedicated workflows retain logs and trace
-artifacts. See [LibreChat notes](docs/librechat_mcp_notes.md) and
-[Open WebUI notes](docs/openwebui_mcp_notes.md). Wikipedia screenshots, static Pages
+artifacts. See [LibreChat notes](docs/librechat-mcp-notes.md) and
+[Open WebUI notes](docs/openwebui-mcp-notes.md). Wikipedia screenshots, static Pages
 screenshots, and opt-in live pixiv captures are separate evidence lanes; skipped
 or failed live captures do not establish success.
 
@@ -388,9 +388,9 @@ Jev paths also distinguish offline replay, injected/mock transports, and explici
 live experiments. The actual TypeSafe `/v1/systemone` wire and the separate
 OpenAI-compatible JSON-schema adapter are not interchangeable. Self-reported
 confidence is not a calibrated probability. See
-[backend contracts](docs/jev_backend.md), [router semantics](docs/jev_router.md),
-[offline benchmark](docs/jev_benchmark.md), and
-[live benchmark requirements](docs/jev_live_benchmark.md).
+[backend contracts](docs/jev-backend.md), [router semantics](docs/jev-router.md),
+[offline benchmark](docs/jev-benchmark.md), and
+[live benchmark requirements](docs/jev-live-benchmark.md).
 
 ### Optional local Galleria
 
@@ -412,25 +412,25 @@ lock consistency and the exercised UI behavior are separate checks.
 
 - **Sources and adapters:** [Source access](docs/source-access.md),
   [source adapter ownership/cache integrity](docs/source-adapters.md),
-  [Wikipedia](docs/wikipedia_tool.md),
-  [pixiv fixture contract](docs/pixiv_source_fixture_contract.md),
-  [pixiv normalization](docs/pixiv_markup_normalization.md).
-- **Routing and judgments:** [Jev wire/calibration](docs/jev_shim.md),
-  [backend contracts](docs/jev_backend.md), [router](docs/jev_router.md),
-  [Ironmate boundary](docs/jev_ironmate_routing.md),
-  [direct Wikipedia/mock routes](docs/jev_family_direct.md).
-- **MCP and UIs:** [LibreChat](docs/librechat_mcp_notes.md),
-  [Open WebUI](docs/openwebui_mcp_notes.md),
-  [Open WebUI schema notes](docs/openwebui_schema_notes.md),
-  [GitHub operations MCP](docs/github_ops_mcp.md),
-  [chat/stub contract](docs/chat_stub_contract.md).
+  [Wikipedia](docs/wikipedia-tool.md),
+  [pixiv fixture contract](docs/pixiv-source-fixture-contract.md),
+  [pixiv normalization](docs/pixiv-markup-normalization.md).
+- **Routing and judgments:** [Jev wire/calibration](docs/jev-shim.md),
+  [backend contracts](docs/jev-backend.md), [router](docs/jev-router.md),
+  [Ironmate boundary](docs/jev-ironmate-routing.md),
+  [direct Wikipedia/mock routes](docs/jev-family-direct.md).
+- **MCP and UIs:** [LibreChat](docs/librechat-mcp-notes.md),
+  [Open WebUI](docs/openwebui-mcp-notes.md),
+  [Open WebUI schema notes](docs/openwebui-schema-notes.md),
+  [GitHub operations MCP](docs/github-ops-mcp.md),
+  [chat/stub contract](docs/chat-stub-contract.md).
 - **Software versions and trust:** [Pinned component snapshot](docs/software-components.md),
   [runtime trust receipts](docs/runtime-trust.md).
 - **Evidence and reproducibility:** [Anti-pattern catalog](docs/antipatterns.md),
   [conversation URL identities](docs/conversation-urls.md),
   [history telemetry](docs/history-growth-telemetry.md),
   [compaction benchmark](docs/compaction-gguf-benchmark.md),
-  [CI/JUnit](docs/python_junit_ci.md), [vendor updates](docs/vendor-automation.md).
+  [CI/JUnit](docs/python-junit-ci.md), [vendor updates](docs/vendor-automation.md).
 
 The next Adaptive Inference increments are tracked in
 [#147](https://github.com/myon-bioinformatics/mcp-toolcall-lab/issues/147):

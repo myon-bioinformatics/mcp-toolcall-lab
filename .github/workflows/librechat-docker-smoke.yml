@@ -1,4 +1,4 @@
-name: librechat-docker-smoke
+name: LibreChat Docker smoke
 
 # Real LibreChat + MCP mock + OpenAI mock on one Docker network, then Playwright.
 # Default `test` workflow stays `pytest -q` only (this module skips without
@@ -48,7 +48,10 @@ jobs:
         with:
           version: "latest"
           python-version: "3.12.15"
-          enable-cache: false
+          enable-cache: true
+          # Pull requests restore the cache and never write it; only main saves it.
+          save-cache: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          prune-cache: true
       - name: Install test + Playwright
         run: uv run --locked --extra test --extra browser-test playwright install --with-deps --only-shell chromium
 

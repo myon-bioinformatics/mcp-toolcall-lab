@@ -1,5 +1,5 @@
 {
-  "_provenance": "Every case below is a minimal synthetic reproduction of a structural token observed in a real Pixiv Encyclopedia BLEACH history/source revision (see docs/pixiv_markup_normalization.md). No article prose from that page is reproduced here -- only the bracket/pipe/marker shapes themselves, rebuilt around placeholder or already-public wiki-linkable terms (character/author names, a generic pixivimage id).",
+  "_provenance": "Every case below is a minimal synthetic reproduction of a structural token observed in a real Pixiv Encyclopedia BLEACH history/source revision (see docs/pixiv-markup-normalization.md). No article prose from that page is reproduced here -- only the bracket/pipe/marker shapes themselves, rebuilt around placeholder or already-public wiki-linkable terms (character/author names, a generic pixivimage id).",
   "cases": [
     {
       "name": "heading_marker_single_star_supported",

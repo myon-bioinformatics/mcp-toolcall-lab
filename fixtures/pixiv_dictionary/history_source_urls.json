@@ -1,5 +1,5 @@
 {
-  "_provenance": "Synthetic URL contract fixture, not sourced from a live dic.pixiv.net page. The one real example (BLEACH/8852559) is a title + revision id only, taken from docs/stub_pages.md's manually-verified URL shape -- no article body/content is reproduced here. Percent-encoded titles are built by the test script via encodeURIComponent(rawTitle), not hand-computed, so this file never hardcodes a percent-encoding byte sequence.",
+  "_provenance": "Synthetic URL contract fixture, not sourced from a live dic.pixiv.net page. The one real example (BLEACH/8852559) is a title + revision id only, taken from docs/stub-pages.md's manually-verified URL shape -- no article body/content is reproduced here. Percent-encoded titles are built by the test script via encodeURIComponent(rawTitle), not hand-computed, so this file never hardcodes a percent-encoding byte sequence.",
   "build_source_url": [
     { "title": "BLEACH", "revisionId": "8852559", "expected": "https://dic.pixiv.net/history/BLEACH/8852559/source" },
     { "title": "A/B", "revisionId": "8852559", "expectedEncodeTitle": true, "reason": "title with a slash is percent-encoded as %2F" },

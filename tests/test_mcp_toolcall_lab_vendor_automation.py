@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
-WORKFLOW = ROOT / ".github/workflows/test.yml"
+WORKFLOW = ROOT / ".github/workflows/ci.yml"
 VENDOR_SYNC_PIN = "26c442bc51b8a2837fe2556782b2937f396932af"
 
 

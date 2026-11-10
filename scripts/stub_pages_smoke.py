@@ -25,7 +25,7 @@ STUB = os.environ.get("STUB_BASE_URL", "http://127.0.0.1:8765").rstrip("/")
 CPU = os.environ.get("CPU_LLM_BASE_URL", "http://127.0.0.1:8080").rstrip("/")
 PROMPT = os.environ.get("STUB_CHAT_MESSAGE", "Find municipalities named Exampleville")
 # "lite-stub" (demos/cpu_llm_lite.py, always available) or "real-gguf"
-# (docker-compose.gguf.yml overlay, opt-in — see docs/stub_pages.md).
+# (docker-compose.gguf.yml overlay, opt-in — see docs/stub-pages.md).
 CPU_LLM_BACKEND = os.environ.get("CPU_LLM_BACKEND", "lite-stub")
 OUT = Path(os.environ.get("STUB_LAST_RUN", str(ROOT / "test-results" / "last-run.json")))
 ANTI = Path(os.environ.get("ANTIPATTERN_LOG", str(ROOT / "test-results" / "antipatterns.jsonl")))

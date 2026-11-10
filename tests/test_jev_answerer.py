@@ -151,7 +151,7 @@ def test_http_answerer_output_validates_against_own_shape() -> None:
 
 
 def test_http_answerer_malformed_model_output_is_still_extracted_but_fails_validation() -> None:
-    """A live model ignoring response_format is exactly the failure jev_shim.md
+    """A live model ignoring response_format is exactly the failure jev-shim.md
     documents as the real, un-preventable-offline failure mode -- this proves
     that failure surfaces as a validation failure, not a crash in either module."""
 

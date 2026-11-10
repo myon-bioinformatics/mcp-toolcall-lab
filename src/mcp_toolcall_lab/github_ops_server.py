@@ -1,6 +1,6 @@
 """FastMCP server exposing vendored ``gh_ops.py`` GitHub REST operations as MCP tools.
 
-``vendor/gh_ops.py`` (see ``vendor.lock.json`` and ``docs/github_ops_mcp.md``) is a stdlib-only client for a handful of GitHub
+``vendor/gh_ops.py`` (see ``vendor.lock.json`` and ``docs/github-ops-mcp.md``) is a stdlib-only client for a handful of GitHub
 REST endpoints, built for the ``browser-test-kit`` repo's own PR/CI workflow
 (myon-bioinformatics/browser-test-kit#10, merged as ``dce1533``). Most tools below are thin wrappers over those functions. The exception is
 ``resolve_public``: it intentionally owns a small anonymous resolver that
@@ -10,7 +10,7 @@ evidence. It never reads or accepts a token.
 v1 is read-only. ``gh_ops`` also has write operations (``pr_merge``,
 ``pr_body_replace``, ``pr_body_set``, ``pr_edit``, ``workflow_dispatch``,
 ``file_put``, ``sync_main``) and a wait loop (``checks_wait``); none of them
-are exposed here -- see ``docs/github_ops_mcp.md`` for why, and the follow-up
+are exposed here -- see ``docs/github-ops-mcp.md`` for why, and the follow-up
 list.
 
 ``fleet_query`` is the one tool that is not about GitHub REST: it reads the
@@ -63,7 +63,7 @@ def load_gh_ops() -> ModuleType:
     """
     path = gh_ops_py_path()
     if path is None:
-        raise FileNotFoundError("vendor/gh_ops.py is missing; see docs/github_ops_mcp.md")
+        raise FileNotFoundError("vendor/gh_ops.py is missing; see docs/github-ops-mcp.md")
     spec = importlib.util.spec_from_file_location("lab_vendored_gh_ops", path)
     if spec is None or spec.loader is None:
         raise ImportError(f"could not load spec for {path}")

@@ -3,7 +3,7 @@
 
 jev_shim.py originally guessed at a third-party "Jev" product's response
 shape from a secondhand description and got the field names wrong; it has
-since been corrected (see docs/jev_shim.md's changelog) to TypeSafe's real,
+since been corrected (see docs/jev-shim.md's changelog) to TypeSafe's real,
 confirmed ``POST /v1/systemone`` contract, and ``jev_typesafe.py`` now
 builds/parses that real wire format.
 

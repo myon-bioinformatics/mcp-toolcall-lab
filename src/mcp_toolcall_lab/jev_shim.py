@@ -1,12 +1,12 @@
 """Offline study: can a generic LLM imitate TypeSafe's real "Jev" wire shape?
 
 Corrected version. The original design here guessed at Jev's response shape
-from a secondhand blog post and got it wrong (see docs/jev_shim.md's
+from a secondhand blog post and got it wrong (see docs/jev-shim.md's
 changelog note). The shapes below now match TypeSafe's actual, confirmed
 "System One" API (``POST /v1/systemone``), reconstructed from three public
 open-source clients plus the official ``typesafe-sdk`` PyPI package's
 OpenAPI-generated schema (``docs.typesafe.ai`` itself is blocked by this
-sandbox's egress policy -- see docs/jev_shim.md for exactly what was read
+sandbox's egress policy -- see docs/jev-shim.md for exactly what was read
 and where). This module still has **no relationship to TypeSafe**, calls no
 external API, and makes no claim about the real model's internal behavior.
 It asks a narrower, answerable question: if you *prompt* an ordinary

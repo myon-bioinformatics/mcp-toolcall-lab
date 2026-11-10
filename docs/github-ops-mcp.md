@@ -27,7 +27,7 @@ never a reason the GitHub tools stop working.
 No Ironmate/GitHub tool already existed in this repo:
 [`ironmate_client.py`](../src/mcp_toolcall_lab/ironmate_client.py) is a
 generic, business-logic-free adapter that only logs whatever MCP tool call a
-caller hands it (see [`docs/ironmate_call.md`](ironmate_call.md)) — it is not
+caller hands it (see [`docs/ironmate-call.md`](ironmate-call.md)) — it is not
 a GitHub client and has no `gh_ops`-shaped operations to align with, so this
 is new surface, not a duplicate.
 

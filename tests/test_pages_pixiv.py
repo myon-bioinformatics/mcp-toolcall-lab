@@ -297,7 +297,7 @@ def test_history_source_url_fixture_is_synthetic_only() -> None:
 
     The one real value used anywhere (``BLEACH`` / ``8852559``) is a title +
     revision id pulled from the manually-verified URL shape in
-    docs/stub_pages.md, not dumped article content.
+    docs/stub-pages.md, not dumped article content.
     """
     fixtures = json.loads(URL_FIXTURE.read_text(encoding="utf-8"))
     assert "_provenance" in fixtures
