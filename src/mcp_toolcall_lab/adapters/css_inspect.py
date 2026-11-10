@@ -3,8 +3,7 @@
 Keep declarations, conditional contexts and unsupported constructs observable.
 Never load @import, url(), stylesheets, fonts or scripts.
 """
-import re
-import hashlib
+import hashlib, re
 from urllib.parse import urljoin
 
 MAX_BYTES = 2 * 1024 * 1024

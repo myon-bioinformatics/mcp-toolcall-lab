@@ -1,6 +1,5 @@
 """Regression coverage for compaction trust boundaries (Issue #115)."""
-import copy
-import json
+import copy, json
 
 import pytest
 

@@ -1,12 +1,7 @@
 """Execution receipts distinguish replay, approximation and unavailable inference."""
 
-from dataclasses import replace
-from datetime import UTC, datetime, timedelta
-import json
-import os
-from pathlib import Path
-import subprocess
-import sys
+import json, os, subprocess, sys
+from dataclasses import replace; from datetime import datetime, timedelta, UTC; from pathlib import Path
 
 import pytest
 

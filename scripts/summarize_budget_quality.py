@@ -1,10 +1,6 @@
 """Validate paired CI evidence and render the Actions summary (stdlib only)."""
-import argparse
-from collections import Counter
-import hashlib
-import json
-from pathlib import Path
-import subprocess
+import argparse, hashlib, json, subprocess
+from collections import Counter; from pathlib import Path
 
 
 def summarize(report, cases):

@@ -7,14 +7,8 @@ duplicating resolver semantics.
 """
 from __future__ import annotations
 
-import importlib.util
-import json
-import os
-from pathlib import Path
-import subprocess
-import sys
-from types import ModuleType
-from typing import Any, Mapping
+import importlib.util, json, os, subprocess, sys
+from pathlib import Path; from types import ModuleType; from typing import Any, Mapping
 
 from .github_public_resolver import diagnostics_payload
 

@@ -8,30 +8,8 @@ is installed, no trust store is edited, and certificate verification stays on.
 
 from __future__ import annotations
 
-import argparse
-import asyncio
-from concurrent.futures import ThreadPoolExecutor
-from contextlib import contextmanager
-from datetime import datetime, timezone
-import hashlib
-import http.client
-import importlib
-import importlib.metadata
-import json
-import os
-from pathlib import Path
-import platform
-import re
-import shutil
-import signal
-import socket
-import ssl
-import subprocess
-import sys
-import threading
-import time
-from typing import Any, Callable, Iterator
-from urllib.parse import urlsplit
+import argparse, asyncio, hashlib, http.client, importlib, importlib.metadata, json, os, platform, re, shutil, signal, socket, ssl, subprocess, sys, threading, time
+from concurrent.futures import ThreadPoolExecutor; from contextlib import contextmanager; from datetime import datetime, timezone; from pathlib import Path; from typing import Any, Callable, Iterator; from urllib.parse import urlsplit
 
 
 SOURCES = {

@@ -26,14 +26,8 @@ Not part of ``INLINE_MODULES`` in export.py: harness-side, like ``chat_sim``.
 
 from __future__ import annotations
 
-import argparse
-import json
-import os
-import re
-from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Any, Iterable
-from urllib.parse import parse_qs, urlparse
+import argparse, json, os, re
+from dataclasses import dataclass, field; from pathlib import Path; from typing import Any, Iterable; from urllib.parse import parse_qs, urlparse
 
 from mcp_toolcall_lab.mock.common import read_jsonl
 from mcp_toolcall_lab.conversation_url import KNOWN_HOSTS, parse_reference

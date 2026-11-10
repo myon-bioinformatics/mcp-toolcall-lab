@@ -1,6 +1,5 @@
 """Observed URL shapes using synthetic IDs only, with all sockets blocked."""
-import json
-import socket
+import json, socket
 
 import pytest
 

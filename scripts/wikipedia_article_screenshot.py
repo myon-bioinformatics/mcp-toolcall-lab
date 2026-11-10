@@ -15,16 +15,8 @@ This is not part of ``pytest -q``. The dedicated workflow
 
 from __future__ import annotations
 
-import argparse
-import os
-import socket
-import subprocess
-import sys
-import threading
-import time
-from http.server import ThreadingHTTPServer
-from pathlib import Path
-from urllib.parse import urlencode
+import argparse, os, socket, subprocess, sys, threading, time
+from http.server import ThreadingHTTPServer; from pathlib import Path; from urllib.parse import urlencode
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_FIXTURE = ROOT / "fixtures" / "wikipedia" / "exampleville_extract.json"

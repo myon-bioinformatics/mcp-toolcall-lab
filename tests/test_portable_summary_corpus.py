@@ -1,13 +1,6 @@
 """Synthetic offline contracts only. No mocked output is exported as generation."""
-import copy
-import hashlib
-import io
-import json
-from pathlib import Path
-import subprocess
-import tempfile
-from unittest.mock import patch
-import zipfile
+import copy, hashlib, io, json, subprocess, tempfile, zipfile
+from pathlib import Path; from unittest.mock import patch
 
 import pytest
 

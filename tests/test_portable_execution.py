@@ -1,14 +1,6 @@
 """Portable contract tests need only stdlib Python + Node, not MCP or a model."""
-import hashlib
-from html.parser import HTMLParser
-import json
-import os
-from pathlib import Path
-import subprocess
-import sys
-import tempfile
-import unittest
-import zipfile
+import hashlib, json, os, subprocess, sys, tempfile, unittest, zipfile
+from html.parser import HTMLParser; from pathlib import Path
 
 from mcp_toolcall_lab.adapters.engine_adapter import distill_engine_adapter, export_adapter_cache, extract_engine_spec
 from mcp_toolcall_lab.portable_execution import CONTRACT, execute, request_sha256

@@ -8,11 +8,7 @@ return the same record, with a Markdown table from the vendored ``markdown.py`` 
 response also carries moves, sprites and game indices, which are ignored. PokéAPI asks clients to cache, so
 ``pokemon`` keeps a small bounded LRU and the ``source`` path lets one capture be reused offline.
 """
-import copy
-import hashlib
-import json
-import re
-import threading
+import copy, hashlib, json, re, threading
 from collections import OrderedDict
 
 from ..markdown_lib import load_markdown

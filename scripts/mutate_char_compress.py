@@ -7,11 +7,7 @@ scripts/mutate_char_compress.py``. Exit code 1 when any mutant survives.
 """
 from __future__ import annotations
 
-import ast
-import os
-import copy
-import subprocess
-import sys
+import ast, copy, os, subprocess, sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]

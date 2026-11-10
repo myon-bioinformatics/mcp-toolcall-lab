@@ -1,7 +1,5 @@
 """Offline evidence validation; saved real-token receipts are not re-inference."""
-import copy
-import importlib.util
-import json
+import copy, importlib.util, json
 from pathlib import Path
 
 import pytest

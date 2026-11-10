@@ -1,15 +1,8 @@
 """Static export, optionally generating declared summaries in an owned local model."""
 from __future__ import annotations
 
-import argparse
-import hashlib
-import json
-import os
+import argparse, hashlib, json, os, shutil, subprocess, tempfile, zipfile
 from pathlib import Path
-import shutil
-import subprocess
-import tempfile
-import zipfile
 
 from mcp_toolcall_lab.adapters.engine_adapter import distill_engine_adapter, export_adapter_cache, extract_engine_spec
 from mcp_toolcall_lab.catalog import dispatch_tool

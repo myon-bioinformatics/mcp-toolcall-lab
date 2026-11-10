@@ -44,12 +44,8 @@ calls a model.
 
 from __future__ import annotations
 
-import argparse
-import json
-import sys
-import math
-from pathlib import Path
-from typing import Any
+import argparse, json, math, sys
+from pathlib import Path; from typing import Any
 
 from mcp_toolcall_lab.fixture_selection import fixture_paths, selection_arguments, list_selection
 

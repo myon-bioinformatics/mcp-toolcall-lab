@@ -8,13 +8,8 @@ normalized records suitable for a caller's export, plus completion evidence.
 """
 from __future__ import annotations
 
-import json
-import re
-import time
-from datetime import datetime
-from typing import Any, Callable
-from urllib.error import HTTPError, URLError
-from urllib.request import Request, urlopen
+import json, re, time
+from datetime import datetime; from typing import Any, Callable; from urllib.error import HTTPError, URLError; from urllib.request import Request, urlopen
 
 from .source_adapter import build_url
 

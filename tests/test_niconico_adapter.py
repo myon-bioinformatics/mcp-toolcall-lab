@@ -1,12 +1,5 @@
-import io
-import json
-from pathlib import Path
-import unittest
-from email.message import Message
-from unittest.mock import patch
-from urllib.error import HTTPError
-from urllib.error import URLError
-from urllib.parse import parse_qs, urlsplit
+import io, json, unittest
+from email.message import Message; from pathlib import Path; from unittest.mock import patch; from urllib.error import HTTPError, URLError; from urllib.parse import parse_qs, urlsplit
 
 from mcp_toolcall_lab.adapters.niconico_adapter import (
     build_search_url, classify_page, content_url, fetch_json, next_delay_seconds,

@@ -36,8 +36,7 @@ delivery paths can be compared and traced through the same JSONL log (see
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Any
+from dataclasses import dataclass; from typing import Any
 
 from mcp import ClientSession
 from mcp.client.streamable_http import streamable_http_client

@@ -9,18 +9,8 @@ endpoint stays official JSON-RPC 2.0 Streamable HTTP, not a lab event list.
 
 from __future__ import annotations
 
-import asyncio
-import json
-import os
-import shutil
-import socket
-import subprocess
-import tempfile
-import time
-from collections.abc import Iterator
-from contextlib import contextmanager
-from dataclasses import dataclass
-from pathlib import Path
+import asyncio, json, os, shutil, socket, subprocess, tempfile, time
+from collections.abc import Iterator; from contextlib import contextmanager; from dataclasses import dataclass; from pathlib import Path
 
 import httpx
 import pytest

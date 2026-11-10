@@ -20,15 +20,8 @@ stays here; it is not the library's ``extract_section``.
 
 from __future__ import annotations
 
-import hashlib
-import importlib.util
-import json
-import os
-import re
-import sys
-from dataclasses import dataclass
-from pathlib import Path
-from types import ModuleType
+import hashlib, importlib.util, json, os, re, sys
+from dataclasses import dataclass; from pathlib import Path; from types import ModuleType
 
 def _repo_root() -> Path:
     """``src/mcp_toolcall_lab/markdown_lib.py`` -> repo root, two levels up.

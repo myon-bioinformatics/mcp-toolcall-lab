@@ -6,15 +6,8 @@ heading changes from causing repeat requests. Default CI must use fixtures.
 """
 from __future__ import annotations
 
-import os
-import time
-import urllib.parse
-import urllib.request
-from collections import OrderedDict
-from dataclasses import dataclass
-from pathlib import Path
-from typing import Any
-from urllib.error import HTTPError
+import os, time, urllib.parse, urllib.request
+from collections import OrderedDict; from dataclasses import dataclass; from pathlib import Path; from typing import Any; from urllib.error import HTTPError
 
 from .markdown_lib import Section, load_markdown, lookup_heading, own_body, parse_sections
 from .pixiv_markup_normalize import pixiv_to_markdown

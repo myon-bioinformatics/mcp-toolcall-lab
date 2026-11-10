@@ -2,8 +2,7 @@
 from __future__ import annotations
 
 import time
-from dataclasses import asdict, dataclass
-from typing import Any, Callable
+from dataclasses import asdict, dataclass; from typing import Any, Callable
 
 from mcp_toolcall_lab.ironmate_client import IronmateClient
 from mcp_toolcall_lab.jev_backend import Backend

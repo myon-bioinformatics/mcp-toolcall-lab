@@ -6,16 +6,8 @@ Only the repository's synthetic test cases are ever submitted to the server.
 """
 from __future__ import annotations
 
-import argparse
-import hashlib
-import json
-import statistics
-import time
-import urllib.error
-import urllib.parse
-import urllib.request
-from pathlib import Path
-from typing import Any, Callable
+import argparse, hashlib, json, statistics, time, urllib.error, urllib.parse, urllib.request
+from pathlib import Path; from typing import Any, Callable
 
 from mcp_toolcall_lab.compaction import compact
 

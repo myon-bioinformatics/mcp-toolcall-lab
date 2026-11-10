@@ -1,13 +1,6 @@
 """Offline contracts only: mocked completions are not real model execution evidence."""
-from contextlib import contextmanager
-import copy
-import hashlib
-import json
-from pathlib import Path
-import subprocess
-import tempfile
-import unittest
-from unittest.mock import Mock, patch
+import copy, hashlib, json, subprocess, tempfile, unittest
+from contextlib import contextmanager; from pathlib import Path; from unittest.mock import Mock, patch
 
 from mcp_toolcall_lab import portable_summary_build as summary
 from mcp_toolcall_lab.portable_execution import canonical_request, execute, request_sha256

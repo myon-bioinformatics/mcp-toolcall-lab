@@ -1,14 +1,8 @@
 """Read-only source dispatch and explicit local snapshot capture; no MCP dependency."""
 from __future__ import annotations
 
-import argparse
-import hashlib
-import inspect
-import json
-from datetime import datetime, timezone
-from pathlib import Path
-from urllib.parse import urlsplit
-from urllib.request import HTTPRedirectHandler, Request, build_opener
+import argparse, hashlib, inspect, json
+from datetime import datetime, timezone; from pathlib import Path; from urllib.parse import urlsplit; from urllib.request import build_opener, HTTPRedirectHandler, Request
 
 from .adapters.html_snapshot import MAX_BYTES, extract
 

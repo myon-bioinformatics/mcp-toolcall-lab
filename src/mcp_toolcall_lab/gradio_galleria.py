@@ -5,8 +5,7 @@ Run from a source checkout with PYTHONPATH=src python -m mcp_toolcall_lab.gradio
 """
 from __future__ import annotations
 import csv, io, json
-from pathlib import Path
-from typing import Dict, Mapping, Optional
+from pathlib import Path; from typing import Dict, Mapping, Optional
 
 from mcp_toolcall_lab.markdown_lib import REPO_ROOT, load_ascii_artist, load_markdown
 

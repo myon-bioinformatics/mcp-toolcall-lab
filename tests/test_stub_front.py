@@ -2,13 +2,8 @@
 
 from __future__ import annotations
 
-import json
-import subprocess
-import sys
-import threading
-from http.server import ThreadingHTTPServer
-from pathlib import Path
-from urllib.request import Request, urlopen
+import json, subprocess, sys, threading
+from http.server import ThreadingHTTPServer; from pathlib import Path; from urllib.request import Request, urlopen
 
 from mcp_toolcall_lab.stub_front import (
     CASE_HEADING_HIT,
