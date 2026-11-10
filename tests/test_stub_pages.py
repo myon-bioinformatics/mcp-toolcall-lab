@@ -175,6 +175,7 @@ def test_write_pages_embeds_vendor_stylesheet_not_lab_css(tmp_path: Path) -> Non
     vendor_css = md.default_stylesheet()
     assert vendor_css
     assert vendor_css in html
+    assert "@layer markdown,base,components,theme;@layer markdown{" in html
     assert html.index("<style>") < html.index("<title>")
     # Lab must not ship a second markdown-feature stylesheet next to Pages.
     assert not (ROOT / "src" / "mcp_toolcall_lab" / "static" / "markdown.css").exists()

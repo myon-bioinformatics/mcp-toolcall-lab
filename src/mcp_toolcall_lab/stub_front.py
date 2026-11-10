@@ -313,7 +313,9 @@ def _vendor_style_tag(md: Any = None) -> str:
     """
     module = md if md is not None else load_markdown()
     if module is not None and hasattr(module, "default_stylesheet"):
-        return f"<style>{module.default_stylesheet()}</style>"
+        # Markdown's generic pre/table rules must not override the shared theme's
+        # component styles (unlayered rules otherwise outrank every CSS layer).
+        return f"<style>@layer markdown,base,components,theme;@layer markdown{{{module.default_stylesheet()}}}</style>"
     return ""
 
 

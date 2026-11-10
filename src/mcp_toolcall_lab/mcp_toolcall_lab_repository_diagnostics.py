@@ -109,7 +109,9 @@ def _renderer_page() -> str:
     """The shared diagnostics page from PySaiyanWeBoo (bundled CSS and renderer embedded, nothing from a CDN)."""
     import web_ui  # the pinned git dependency in the test extra
 
-    return web_ui.repository_diagnostics_page(REPOSITORY, icon=None, favicon=None,
+    # The pinned diagnostics card uses a light surface. Select the shared light
+    # theme so inherited text remains readable without forking vendor CSS.
+    return web_ui.repository_diagnostics_page(REPOSITORY, theme="github-like", icon=None, favicon=None,
                                               description="Canonical public metadata plus anonymous GitHub URL observations.")
 
 

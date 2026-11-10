@@ -252,6 +252,7 @@ def test_pages_renderer_is_the_shared_self_contained_page():
     assert "/* css/repository-diagnostics.css */" in html and "global.RepositoryDiagnostics = api" in html
     assert 'RepositoryDiagnostics.mount(document, "./repository-diagnostics.json");' in html
     assert "repository-diagnostics.jsonl" in html
+    assert 'data-ui-theme="github-like"' in html
 
 
 def test_write_pages_outputs_json_jsonl_and_html(tmp_path, monkeypatch):
