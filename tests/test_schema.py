@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-import importlib.util
-import sys
+import importlib.util, sys
 from pathlib import Path
 
 from mcp_toolcall_lab.catalog import AVAILABLE_TOOLS, TOOL_DESCRIPTIONS

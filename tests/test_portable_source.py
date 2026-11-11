@@ -1,9 +1,6 @@
 """Shared source selection requires only stdlib Python and Node, never a model."""
-import hashlib
-import json
+import hashlib, json, subprocess, unittest
 from pathlib import Path
-import subprocess
-import unittest
 
 
 ROOT = Path(__file__).resolve().parents[1]

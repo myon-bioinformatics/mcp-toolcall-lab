@@ -1,0 +1,70 @@
+{
+ "id": "pokemon",
+ "label": "Pokémon name or number",
+ "heading": "Pokémon",
+ "note": "One GET to PokéAPI per press, never retried. If the browser blocks it, open the JSON and paste it below.",
+ "placeholder": "ditto",
+ "name": "[a-z0-9][a-z0-9-]{0,39}",
+ "url": "https://pokeapi.co/api/v2/pokemon/{name}",
+ "title": "{name} (#{id})",
+ "missing": "Enter a Pokémon name or number (a-z, 0-9, -).",
+ "error": "not a PokéAPI pokemon response",
+ "tables": [
+  {
+   "headers": [
+    "type",
+    "height m",
+    "weight kg"
+   ],
+   "rows": [
+    [
+     {
+      "key": "types",
+      "sort": "slot",
+      "pick": "type.name"
+     },
+     {
+      "key": "height",
+      "div": 10
+     },
+     {
+      "key": "weight",
+      "div": 10
+     }
+    ]
+   ]
+  },
+  {
+   "headers": [
+    "stat",
+    "base"
+   ],
+   "each": "stats",
+   "cells": [
+    {
+     "key": "stat.name"
+    },
+    {
+     "key": "base_stat"
+    }
+   ]
+  },
+  {
+   "headers": [
+    "ability",
+    "hidden"
+   ],
+   "each": "abilities",
+   "sort": "slot",
+   "cells": [
+    {
+     "key": "ability.name"
+    },
+    {
+     "key": "is_hidden",
+     "yes": "yes"
+    }
+   ]
+  }
+ ]
+}

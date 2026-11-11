@@ -10,7 +10,7 @@
     {
       "file": "source_ascii_flat_duplicate.html",
       "synthetic": true,
-      "observed_shape_basis": "Non-Japanese/ASCII title with no parenthesized reading -- the alternate-title case called out in docs/pixiv_source_fixture_contract.md.",
+      "observed_shape_basis": "Non-Japanese/ASCII title with no parenthesized reading -- the alternate-title case called out in docs/pixiv-source-fixture-contract.md.",
       "notes": "Two sibling H2 sections reuse the exact same heading text ('Notes') to cover duplicate/repeated section-like structures. Carries no English/parent-article labeled line, so both new fields are expected to extract as empty rather than guessed."
     },
     {

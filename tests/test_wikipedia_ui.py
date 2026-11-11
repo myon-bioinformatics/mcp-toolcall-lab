@@ -2,11 +2,8 @@
 
 from __future__ import annotations
 
-import json
-import threading
-from http.server import ThreadingHTTPServer
-from pathlib import Path
-from urllib.request import urlopen
+import json, threading
+from http.server import ThreadingHTTPServer; from pathlib import Path; from urllib.request import urlopen
 
 from mcp_toolcall_lab.stub_front import (
     DEFAULT_CORPUS,

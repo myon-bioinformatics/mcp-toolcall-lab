@@ -6,7 +6,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW = ROOT / ".github/workflows/ci.yml"
-VENDOR_SYNC_PIN = "9e3da7ae1846e9604ebc24bb5178f7de094a4e77"
+VENDOR_SYNC_PIN = "26c442bc51b8a2837fe2556782b2937f396932af"
 
 
 def _workflow():
@@ -19,6 +19,7 @@ def test_vendor_lock_lists_expected_sources():
     expected = {
         ("myon-bioinformatics/ascii_artist", "ascii_artist.py", "vendor/ascii_artist.py"),
         ("myon-bioinformatics/myon-bioinformatics", "gh_ops.py", "vendor/gh_ops.py"),
+        ("myon-bioinformatics/myon-bioinformatics", "vendor_fleet_plan.py", "vendor/vendor_fleet_plan.py"),
         ("myon-bioinformatics/markdown", "markdown.py", "vendor/markdown.py"),
         ("myon-bioinformatics/ascii_artist", "LICENSE", "vendor/ascii_artist-LICENSE"),
         ("myon-bioinformatics/markdown", "LICENSE", "vendor/markdown-LICENSE"),
@@ -30,6 +31,8 @@ def test_vendor_lock_lists_expected_sources():
             "node_launch.py",
             "vendor/node_launch.py",
         ),
+        ("myon-bioinformatics/PySaiyanWeBoo", "web_ui.py", "vendor/web_ui.py"),
+        ("myon-bioinformatics/PySaiyanWeBoo", "LICENSE", "vendor/web-ui-LICENSE"),
     }
     actual = {(e["repository"], e["source"], e["destination"]) for e in lock["files"]}
     assert actual == expected

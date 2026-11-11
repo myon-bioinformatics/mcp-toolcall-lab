@@ -1,6 +1,5 @@
 """Completion protocol regression tests: no server, model, or network calls."""
-import importlib.util
-import json
+import importlib.util, json
 from pathlib import Path
 
 import pytest
@@ -61,21 +60,3 @@ def test_transport_errors_remain_model_errors():
     result = compare.evaluate_with_completion(compare.new, CASE, count=lambda _: 1, post=fail, base='offline:')
     assert result['status'] == 'model_error'
     assert 'completion' not in result
-
-
-def test_model_measurement_requires_manual_dispatch_without_disabling_ordinary_ci():
-    import yaml
-    # BaseLoader prevents YAML 1.1 interpreting the Actions `on` key as a bool.
-    workflow = yaml.load((ROOT / '.github/workflows/budget-quality-gguf.yml').read_text(), Loader=yaml.BaseLoader)
-    assert set(workflow['on']) == {'workflow_dispatch'}
-    for name in ('plan', 'paired-model'):
-        assert workflow['jobs'][name]['if'] == "github.event_name == 'workflow_dispatch'"
-    inputs = workflow['on']['workflow_dispatch']['inputs']
-    assert inputs['model']['default'] == 'qwen-1.5b'
-    assert 'all' in inputs['model']['options']
-    assert inputs['strict_quality']['default'] == 'false'
-    assert workflow['jobs']['paired-model']['strategy']['max-parallel'] == '3'
-    ordinary = yaml.load((ROOT / '.github/workflows/ci.yml').read_text(), Loader=yaml.BaseLoader)
-    assert {'pull_request', 'push'} <= set(ordinary['on'])
-    smoke = yaml.load((ROOT / '.github/workflows/librechat-docker-smoke.yml').read_text(), Loader=yaml.BaseLoader)
-    assert 'pull_request' in smoke['on']

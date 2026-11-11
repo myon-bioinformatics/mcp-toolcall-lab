@@ -5,24 +5,8 @@ Content hashes prove consistency, not provenance/authenticity or permission.
 """
 from __future__ import annotations
 
-import argparse
-from contextlib import closing, contextmanager
-from datetime import datetime
-import hashlib
-import io
-import json
-import math
-import os
-from pathlib import Path
-import re
-import stat
-import sqlite3
-import struct
-import tempfile
-from typing import Any, BinaryIO, Iterator
-import uuid
-import zipfile
-import zlib
+import argparse, hashlib, io, json, math, os, re, sqlite3, stat, struct, tempfile, uuid, zipfile, zlib
+from contextlib import closing, contextmanager; from datetime import datetime; from pathlib import Path; from typing import Any, BinaryIO, Iterator
 
 from .portable_execution import canonical_request, execute, request_sha256
 
@@ -830,7 +814,7 @@ def load_verified_cached_artifact(previous_dir: str | Path, summary_request: dic
     return artifact
 
 
-def main() -> None:
+def main(argv=None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--corpus", type=Path, required=True)
     commands = parser.add_subparsers(dest="command", required=True)
@@ -845,7 +829,7 @@ def main() -> None:
     exported.add_argument("path", type=Path)
     commands.add_parser("archive", help="Archive at most 16 local shards; repeat for remaining shards")
     commands.add_parser("check", help="Strict full streaming audit")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     corpus = SummaryCorpus(args.corpus)
     try:
         if args.command == "ingest":

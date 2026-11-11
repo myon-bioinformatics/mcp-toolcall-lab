@@ -17,12 +17,8 @@ in tokens; dropping VS16 (U+FE0F) keeps the glyph and saves a character.
 """
 from __future__ import annotations
 
-import argparse
-import json
-import re
-import sys
-from dataclasses import asdict, dataclass
-from typing import Callable, Sequence
+import argparse, json, re, sys
+from dataclasses import asdict, dataclass; from typing import Callable, Sequence
 
 MODES = ("tokens", "chars")
 

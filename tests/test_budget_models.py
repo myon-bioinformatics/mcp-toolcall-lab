@@ -1,7 +1,5 @@
 """Model choice and integrity checks are offline; inference is a separate CI job."""
-import hashlib
-import importlib.util
-import json
+import hashlib, importlib.util, json
 from pathlib import Path
 
 import pytest

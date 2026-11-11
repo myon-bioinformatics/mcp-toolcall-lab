@@ -53,7 +53,10 @@ jobs:
         with:
           version: 'latest'
           python-version: '3.12.15'
-          enable-cache: false
+          enable-cache: true
+          # Pull requests restore the cache and never write it; only main saves it.
+          save-cache: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          prune-cache: true
       - name: Verify the Docker dependency export matches uv.lock
         run: |
           uv export --locked --no-dev --no-emit-project --no-header --no-annotate --format requirements-txt -o /tmp/runtime-requirements.txt >/dev/null
@@ -111,7 +114,10 @@ jobs:
         with:
           version: 'latest'
           python-version: '3.12.15'
-          enable-cache: false
+          enable-cache: true
+          # Pull requests restore the cache and never write it; only main saves it.
+          save-cache: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          prune-cache: true
       - name: Verify the Docker dependency export matches uv.lock
         run: |
           uv export --locked --no-dev --no-emit-project --no-header --no-annotate --format requirements-txt -o /tmp/runtime-requirements.txt >/dev/null
@@ -164,7 +170,10 @@ jobs:
         with:
           version: 'latest'
           python-version: '3.15'
-          enable-cache: false
+          enable-cache: true
+          # Pull requests restore the cache and never write it; only main saves it.
+          save-cache: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          prune-cache: true
       - name: Install the locked real browser
         run: uv run --locked --extra test --extra browser-test playwright install --with-deps --only-shell chromium
       - name: Exercise browser fetch and repeated stub flows

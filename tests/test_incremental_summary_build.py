@@ -5,14 +5,8 @@ TemporaryDirectory paths; they are never repository/public fixtures.
 """
 from __future__ import annotations
 
-import hashlib
-import importlib.util
-import json
-import os
-from pathlib import Path
-import subprocess
-import sys
-from unittest.mock import patch
+import hashlib, importlib.util, json, os, subprocess, sys
+from pathlib import Path; from unittest.mock import patch
 
 import pytest
 

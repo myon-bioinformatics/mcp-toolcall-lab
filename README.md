@@ -306,7 +306,7 @@ python -m mcp_toolcall_lab.stub_front pages --out _site --last-run test-results/
 ```
 
 Pages also publishes repository diagnostics and build/run identity. The UI shell
-is pinned from web-ui; tool execution, fixtures, traces, and protocol behavior
+is pinned from PySaiyanWeBoo; tool execution, fixtures, traces, and protocol behavior
 remain owned here. See [Pages/stub boundaries](docs/stub-pages.md),
 [local stub roadmap](docs/stub-front-roadmap.md), and the separate
 [Wikipedia-only Deno MCP deployment](docs/wikipedia-mcp-deploy.md).
@@ -314,6 +314,32 @@ remain owned here. See [Pages/stub boundaries](docs/stub-pages.md),
 The public municipality examples use fictional Exampleville / Example Region
 (code `90001`), not a user location. Live Wikipedia starts with an empty title;
 offline article fixtures are synthetic.
+
+## 🎞️ Browser evidence
+
+![Stub Pages (home, wiki, pixiv, diagnostics) and the portable execution page in Chromium](docs/evidence/browser.gif)
+
+🗓️ 2026-11-07 · 🧭 Chromium 153 · 🐧 Linux · receipt [`docs/evidence/browser.json`](docs/evidence/browser.json)
+
+| 🧪 Suite | ✅ | 📝 |
+| --- | ---: | --- |
+| `test_browser_fetch_protocol.py` · `test_stub_demo_browser.py` | 8 | |
+| `test_portable_*.py` · `test_incremental_summary_build.py` | 202 | |
+| `scripts/check_portable_browser.py` | ✅ | without `--require-generated` (see below) |
+| `scripts/wikipedia_article_screenshot.py` (offline fixtures) | ✅ | |
+| `test_gradio_galleria.py` · `test_streamable_http_protocol.py` | 14 | |
+| 🎞️ evidence GIF shots | 7 | |
+
+🚫 Not run here (Docker unavailable): the GGUF / llama-server build of the portable site, `stub_pages_smoke`, and the Open WebUI / LibreChat `real_chat_ui` suite. Firefox / WebKit not installed.
+
+🔁 Re-record (every page is self-contained; the diagnostics page and the stub pages' `terminal.css` come from the pinned PySaiyanWeBoo dependency in the `test` extra — `scripts/build_terminal_css.py` regenerates the stylesheet):
+
+```sh
+PYTHONPATH=src python -m mcp_toolcall_lab.stub_front pages --out /tmp/site
+PYTHONPATH=src python -m mcp_toolcall_lab.mcp_toolcall_lab_repository_diagnostics /tmp/site
+PYTHONPATH=src python -S scripts/build_portable_pages.py --out /tmp/site/mcp-toolcall-lab --source-sha "$(git rev-parse HEAD)"
+uv run --project ../BrowserTestKit --group pages --group browser python ../BrowserTestKit/tools/evidence_gif.py docs/evidence/browser.gif --serve /tmp/site --plan docs/evidence/browser.json
+```
 
 ## Tests and optional experiments
 

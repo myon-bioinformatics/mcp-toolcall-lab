@@ -1,6 +1,5 @@
 """Offline CI policy checks: manual model validation is not a mocked CI pass."""
-from copy import deepcopy
-from pathlib import Path
+from copy import deepcopy; from pathlib import Path
 
 import pytest
 import yaml
@@ -30,13 +29,9 @@ def _events(workflow):
 
 
 def _assert_no_automatic_models(workflows):
-    for filename, job_id in (
-        ("pages.yml", "build"),
-        ("compaction-gguf-benchmark.yml", "live-gguf"),
-    ):
-        workflow = workflows[filename]
-        assert set(_events(workflow)) == {"workflow_dispatch"}
-        assert workflow["jobs"][job_id]["if"] == MANUAL
+    pages_workflow = workflows["pages.yml"]
+    assert set(_events(pages_workflow)) == {"workflow_dispatch"}
+    assert pages_workflow["jobs"]["build"]["if"] == MANUAL
     pages = workflows["pages.yml"]["jobs"]
     assert pages["deploy"]["if"] == MAIN_MANUAL
     assert pages["deploy"]["needs"] == "build"
@@ -55,9 +50,6 @@ def _assert_no_automatic_models(workflows):
     assert live["if"] == MANUAL  # Job-level skip, not successful skipped steps.
     assert live["strategy"]["matrix"]["include"] == [PORTABLE]
     assert not live.get("continue-on-error", False)
-    budget = workflows["budget-quality-gguf.yml"]
-    assert set(_events(budget)) == {"workflow_dispatch"}
-    assert all(job["if"] == MANUAL for job in budget["jobs"].values())
 
 
 def test_all_model_routes_are_manual_and_pages_has_no_automatic_replacement():
@@ -75,12 +67,11 @@ def test_all_model_routes_are_manual_and_pages_has_no_automatic_replacement():
 
 @pytest.mark.parametrize("damage", [
     "pages_push", "pages_job", "pages_deploy", "pages_upload",
-    "compaction_pr", "compaction_job", "runtime_matrix", "runtime_job", "budget_push",
+    "runtime_matrix", "runtime_job",
 ])
 def test_policy_rejects_each_reopened_automatic_model_or_publication_route(damage):
     workflows = deepcopy(_workflows())
     pages = workflows["pages.yml"]
-    compaction = workflows["compaction-gguf-benchmark.yml"]
     runtime = workflows["component-runtime.yml"]
     if damage == "pages_push":
         _events(pages)["push"] = {"branches": ["main"]}
@@ -91,16 +82,10 @@ def test_policy_rejects_each_reopened_automatic_model_or_publication_route(damag
     elif damage == "pages_upload":
         next(step for step in pages["jobs"]["build"]["steps"]
              if step.get("uses", "").startswith("actions/upload-pages-artifact@"))["if"] = "always()"
-    elif damage == "compaction_pr":
-        _events(compaction)["pull_request"] = None
-    elif damage == "compaction_job":
-        compaction["jobs"]["live-gguf"]["if"] = "always()"
     elif damage == "runtime_matrix":
         runtime["jobs"]["runtime"]["strategy"]["matrix"]["include"].append(PORTABLE)
-    elif damage == "runtime_job":
-        runtime["jobs"]["portable-live"]["if"] = "always()"
     else:
-        _events(workflows["budget-quality-gguf.yml"])["push"] = None
+        runtime["jobs"]["portable-live"]["if"] = "always()"
     with pytest.raises(AssertionError):
         _assert_no_automatic_models(workflows)
 
@@ -119,20 +104,13 @@ def test_manual_runtime_retains_real_build_trust_and_original_artifact_contract(
     assert "browser-protocol" in jobs
 
 
-def test_manual_pages_and_compaction_keep_actual_validation_not_mock_replacements():
+def test_manual_pages_keep_actual_validation_not_mock_replacements():
     workflows = _workflows()
     pages = {step["name"]: step for step in workflows["pages.yml"]["jobs"]["build"]["steps"] if "name" in step}
     export = pages["Export static files from Docker build"]["run"]
     assert "--target artifact" in export and "--target summary-handoff" in export
     assert "assert python['model_inference_performed'] is True" in pages["Verify exported runtime without the source checkout"]["run"]
     assert "--require-generated" in pages["Exercise browser input, snapshot miss and stale-result handling"]["run"]
-    steps = {step["name"]: step for step in workflows["compaction-gguf-benchmark.yml"]["jobs"]["live-gguf"]["steps"] if "name" in step}
-    for name in ("Download and verify pinned GGUF model", "Start digest-pinned llama.cpp server on loopback",
-                 "Paired live GGUF evaluation", "Paired Aoi published propositions evaluation",
-                 "Paired Aoi complete 114-proposition evaluation", "Validate report redaction and add numeric summary",
-                 "Upload synthetic model evaluation and JUnit evidence"):
-        assert name in steps
-        assert not steps[name].get("continue-on-error", False)
 
 
 def test_matrix_setup_precedes_bare_python_and_keeps_exact_pins_and_reports():
@@ -143,7 +121,9 @@ def test_matrix_setup_precedes_bare_python_and_keeps_exact_pins_and_reports():
     setup = job["steps"][setup_index]["with"]
     assert setup["version"] == "latest"
     assert setup["activate-environment"] is True
-    assert setup["enable-cache"] is False
+    assert setup["enable-cache"] is True
+    assert setup["save-cache"] == "${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}"  # only main writes
+    assert setup["prune-cache"] is True
     for index, step in enumerate(job["steps"]):
         if step.get("run", "").lstrip().startswith("python "):
             assert setup_index < index

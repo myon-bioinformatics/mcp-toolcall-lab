@@ -20,9 +20,7 @@ covers that directly, in contrast to ``test_curl_unknown_tool_is_error`` and
 
 from __future__ import annotations
 
-import json
-import shutil
-import subprocess
+import json, shutil, subprocess
 
 import pytest
 

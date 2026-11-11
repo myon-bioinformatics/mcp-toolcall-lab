@@ -2,11 +2,7 @@
 
 from __future__ import annotations
 
-import json
-import os
-import textwrap
-import shutil
-import subprocess
+import json, os, shutil, subprocess, textwrap
 from pathlib import Path
 
 import pytest

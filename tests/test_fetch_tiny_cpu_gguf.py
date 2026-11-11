@@ -2,12 +2,8 @@
 
 from __future__ import annotations
 
-import hashlib
-import io
-import json
-import sys
-from pathlib import Path
-from urllib.error import URLError
+import hashlib, io, json, sys
+from pathlib import Path; from urllib.error import URLError
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / "scripts"

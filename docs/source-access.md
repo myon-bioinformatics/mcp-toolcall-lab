@@ -14,6 +14,8 @@ Niconico ownership transfer stays in PR #108; this slice does not depend on it.
 | --- | --- | --- |
 | `html / extract` | `snapshot`, optional `profile` | Offline extraction, hash checked, no requests |
 | `wikipedia / article` | `title`, optional `lang` | Delegates to existing API implementation and TTL/LRU cache |
+| `pokeapi / pokemon` | `name` (or id) | One GET of PokéAPI `pokemon/<name>`; bounded LRU cache; needs `allow_network=True` |
+| `pokeapi / source` | `source` (JSON text or object), optional `url` | The same reader on JSON you already have (browser view-source / raw tab); no network |
 
 Registration is trusted Python code. Unknown provider/operation, duplicate
 registration and invalid argument names are errors. Request JSON contains data,
@@ -22,6 +24,28 @@ preserves provider-specific result fields; it does not invent completeness for
 Wikipedia or silently flatten its headings. Existing Wikipedia MCP calls are
 unmodified. The new registry requires `allow_network=True` for API operations,
 even if the underlying cache happens to be warm. There is no paid inference.
+
+## PokéAPI: the API, or the page source you already have
+
+`pokeapi / pokemon` and `pokeapi / source` return one record (`pokeapi-pokemon/1`: id, name, height and weight in
+m / kg, types, abilities with `hidden`, base stats, a `markdown` summary built by the vendored `markdown.py` table
+helper, and `source` = url / SHA-256 / bytes). The API path makes one bounded GET (the same `fetch_bytes` as HTML
+snapshots: 15 s, 2 MiB, no redirect, no compression), validates the name before any request, and keeps a small
+LRU because PokéAPI's fair-use policy asks clients to cache. Only the fields the record needs are read; the rest of
+a real response (moves, sprites, game indices) is ignored.
+
+The second way in needs no API client and no network from this process: open
+`https://pokeapi.co/api/v2/pokemon/ditto` in a browser (its raw JSON, or "view source"), copy the text, and hand it over:
+
+```sh
+python -m mcp_toolcall_lab.source_access request.json
+# {"provider": "pokeapi", "operation": "source", "arguments": {"source": {…pasted JSON object…}}}
+```
+
+`source` may be the text itself or the pasted object (no string escaping needed). Both paths share one parser, so the
+record is identical (`fixtures/pokeapi/ditto.json` is a trimmed, reviewed copy used by the tests). Same shape as the
+Wikipedia tool: structured provider data when an API exists, saved page source when only the browser has it. The Pages
+`#wiki` form could call PokéAPI directly the same way (it allows cross-origin reads); that is a later, separate slice.
 
 ## Capture once (explicit local CLI)
 

@@ -7,8 +7,7 @@ OpenAI demo can use the same helpers without importing this MCP log schema.
 from __future__ import annotations
 
 import os
-from datetime import UTC, datetime
-from typing import Any, Callable
+from datetime import datetime, UTC; from typing import Any, Callable
 
 from .mock.common import (
     CHAT_ID_HEADER_KEYS,

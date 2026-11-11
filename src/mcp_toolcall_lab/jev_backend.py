@@ -7,7 +7,8 @@ backends below -- plus the JSONL trace wiring both future backends and
 future consumers (issue #39's ``jev_router``) will share. No
 ``openai_compat``/llama.cpp, Open Jev, or live TypeSafe backend here; those
 are later increments, added behind the same ``Backend`` shape rather than
-by changing it.
+by changing it. ``KeywordBackend`` below is the light local one: weighted
+keyword cues per tool family from ``fixtures/jev_router/keywords.json``.
 
 Both backends answer in TypeSafe's real ``noul``/``choice``/``score`` wire
 shape -- the exact one ``jev_shim.validate_payload`` checks and
@@ -43,13 +44,8 @@ parallel logging path.
 
 from __future__ import annotations
 
-import json
-import os
-import time
-from dataclasses import dataclass, field
-from datetime import UTC, datetime
-from pathlib import Path
-from typing import Any, Callable, Protocol
+import json, os, time
+from dataclasses import dataclass, field; from datetime import datetime, UTC; from pathlib import Path; from typing import Any, Callable, Protocol
 
 from mcp_toolcall_lab.jev_shim import KINDS, validate_payload
 from mcp_toolcall_lab.jev_typesafe import TypeSafeClient
@@ -57,9 +53,11 @@ from mcp_toolcall_lab.mock.common import append_jsonl
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_FIXTURE_DIR = REPO_ROOT / "fixtures" / "jev_backend"
+DEFAULT_KEYWORDS_PATH = REPO_ROOT / "fixtures" / "jev_router" / "keywords.json"
 
 PROB_SOURCE_FIXTURE = "fixture"
 PROB_SOURCE_TYPESAFE_MOCK = "typesafe_mock"
+PROB_SOURCE_KEYWORD = "keyword"
 
 EVENT_BACKEND_ANSWER = "jev/backend_answer"
 
@@ -143,6 +141,58 @@ class TypeSafeMockBackend:
     def answer(self, name: str, question: dict[str, Any], state: Any) -> dict[str, Any]:
         answers = self.client.system_one(state, {name: question})
         return _validated(name, answers[name])
+
+
+@dataclass
+class KeywordBackend:
+    """Light local judgment: weighted keyword cues per tool family, stdlib only.
+
+    ``weights`` maps tool family -> {cue: weight} (a ``_lookup`` entry holds
+    generic "go find it" cues that raise ``needs_tool`` but favour no family,
+    so a vague "look this up" lands on the router's low-confidence fallback
+    instead of a confident "no tool"); a cue counts when it is a
+    case-insensitive substring of the request (no tokenizer, so Japanese works
+    as-is). With ``best`` the heaviest family score: ``needs_tool`` answers
+    ``noul = 1 - 0.5**best`` (no cue -> 0, one weight-1 cue -> 0.5, i.e. the
+    router's low-confidence fallback), and ``tool_family`` answers each
+    family's share of the total (plus 0.1 smoothing so ``none`` stays
+    possible). Two families with similar scores therefore end low-confidence
+    and fall back to the LLM. Its ``prob_source`` is ``"keyword"``: a rule
+    score, not a calibrated probability, so it is never pooled with others.
+    The caller still supplies the search keyword for the fetch itself.
+    """
+
+    weights: dict[str, dict[str, float]]
+    prob_source: str = PROB_SOURCE_KEYWORD
+
+    @classmethod
+    def from_path(cls, path: Path = DEFAULT_KEYWORDS_PATH) -> "KeywordBackend":
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(payload, dict):
+            raise ValueError(f"{path} is not a JSON object")
+        return cls(weights=payload)
+
+    def scores(self, state: Any) -> dict[str, float]:
+        text = str(state).casefold()
+        return {
+            family: sum(weight for cue, weight in cues.items() if cue.casefold() in text)
+            for family, cues in self.weights.items()
+        }
+
+    def answer(self, name: str, question: dict[str, Any], state: Any) -> dict[str, Any]:
+        scores = self.scores(state)
+        if name == "needs_tool":
+            payload: dict[str, Any] = {"type": "noul", "noul": 1.0 - 0.5 ** max(scores.values(), default=0.0)}
+        elif name == "tool_family":
+            families = list(question.get("criteria") or [*(f for f in scores if f[0] != "_"), "none"])
+            total = sum(scores.get(f, 0.0) for f in families) + 0.1 * len(families)
+            probabilities = {f: (scores.get(f, 0.0) + 0.1) / total for f in families}
+            choice = max(probabilities, key=probabilities.__getitem__)
+            payload = {"type": "choice", "choice": choice, "confidence": probabilities[choice],
+                       "probabilities": probabilities}
+        else:
+            raise BackendError(f"KeywordBackend does not answer question {name!r}")
+        return _validated(name, payload)
 
 
 def record_backend_answer(

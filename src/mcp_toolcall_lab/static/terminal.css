@@ -1,231 +1,33 @@
-/*
- * terminal-lite: the lab's one small CSS surface.
- *
- * Replaces the five-link myon-bioinformatics/web-ui CDN chain (tokens.css,
- * base.css, components.css, stub.css, themes/modern.css) on the published
- * Pages report and the local /wiki and /pixiv surfaces. web-ui itself is
- * unchanged; this file is lab-owned and intentionally small. Converted
- * Markdown content (tables, alerts, footnotes, ...) keeps its own styling
- * from vendor/markdown.py's default_stylesheet() -- that is a separate,
- * content-scoped concern and stays untouched here.
- *
- * Dark ASCII/terminal presentation: borders instead of shadows or rounded
- * corners, `#`/`>` glyphs for headings and prompts, status text instead of
- * colored pills. Readability over decoration.
- */
-
-:root {
-  --term-bg: #0a0e10;
-  --term-bg-alt: #11171a;
-  --term-bg-inset: #05080a;
-  --term-fg: #d5dee0;
-  --term-fg-muted: #7c8a8d;
-  --term-border: #2b3436;
-  --term-accent: #5fd7a7;
-  --term-warn: #f2b880;
-  --term-danger: #ff8080;
-  --term-font: ui-monospace, "SFMono-Regular", "JetBrains Mono", Consolas, "Liberation Mono", Menlo, monospace;
-}
-
-* {
-  box-sizing: border-box;
-}
-
-body {
-  margin: 0;
-  padding: 1.5rem;
-  background: var(--term-bg);
-  color: var(--term-fg);
-  font-family: var(--term-font);
-  font-size: 15px;
-  line-height: 1.5;
-}
-
-a {
-  color: var(--term-accent);
-}
-
-a:hover,
-a:focus {
-  text-decoration: none;
-}
-
-code,
-pre {
-  font-family: var(--term-font);
-}
-
-h1,
-h2,
-h3 {
-  font-weight: 600;
-  line-height: 1.3;
-}
-
-.term-page,
-.term-shell {
-  max-width: 60rem;
-  margin: 0 auto;
-}
-
-.term-title::before {
-  content: "# ";
-  color: var(--term-accent);
-}
-
-.term-muted {
-  color: var(--term-fg-muted);
-}
-
-.term-header {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.75rem;
-  border-bottom: 1px solid var(--term-border);
-  padding-bottom: 0.75rem;
-  margin-bottom: 1rem;
-}
-
-.term-meta {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.term-tag {
-  border: 1px solid var(--term-border);
-  color: var(--term-fg-muted);
-  padding: 0.1rem 0.5rem;
-  font-size: 0.85em;
-}
-
-.term-tag::before {
-  content: "[";
-}
-
-.term-tag::after {
-  content: "]";
-}
-
-#pages-nav a {
-  border: 1px solid transparent;
-  padding: 0.1rem 0.4rem;
-}
-
-#pages-nav a[aria-current="page"] {
-  border-color: var(--term-border);
-  color: var(--term-accent);
-}
-
-#pages-nav a[aria-current="page"]::before {
-  content: "> ";
-}
-
-.term-workspace {
-  display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
-  gap: 1.5rem;
-  align-items: start;
-}
-
-@media (max-width: 720px) {
-  .term-workspace {
-    grid-template-columns: 1fr;
-  }
-}
-
-.term-panel,
-.term-card {
-  border: 1px solid var(--term-border);
-  background: var(--term-bg-alt);
-  padding: 1rem;
-  margin-bottom: 1rem;
-}
-
-.term-panel > h1:first-child,
-.term-panel > h2:first-child,
-.term-card > h2:first-child {
-  margin-top: 0;
-}
-
-.term-output {
-  background: var(--term-bg-inset);
-  border: 1px solid var(--term-border);
-  color: var(--term-fg);
-  padding: 0.75rem;
-  overflow-x: auto;
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
-label {
-  display: inline-block;
-  color: var(--term-fg-muted);
-  margin-right: 0.4rem;
-}
-
-input,
-select,
-textarea,
-.term-input {
-  background: var(--term-bg-inset);
-  border: 1px solid var(--term-border);
-  color: var(--term-fg);
-  font-family: var(--term-font);
-  padding: 0.35rem 0.5rem;
-}
-
-textarea {
-  width: 100%;
-  min-height: 4rem;
-}
-
-select {
-  width: 100%;
-  margin: 0.4rem 0;
-}
-
-button,
-.term-button {
-  background: var(--term-bg-alt);
-  border: 1px solid var(--term-border);
-  color: var(--term-fg);
-  font-family: var(--term-font);
-  padding: 0.35rem 0.75rem;
-  cursor: pointer;
-}
-
-button::before,
-.term-button::before {
-  content: "> ";
-  color: var(--term-accent);
-}
-
-button:hover,
-.term-button:hover {
-  border-color: var(--term-accent);
-}
-
-[data-cache="hit"] {
-  color: var(--term-accent);
-}
-
-[data-cache="miss"] {
-  color: var(--term-warn);
-}
-
-[data-cache="error"] {
-  color: var(--term-danger);
-}
-
-[role="alert"] {
-  border: 1px solid var(--term-danger);
-  color: var(--term-danger);
-  padding: 0.5rem;
-}
-
-#build-meta {
-  color: var(--term-fg-muted);
-  font-size: 0.9em;
-}
+/* web-ui-bundle/1 commit=f624d9364017b7e2da7f797817dfba2a8d9adb14 sha256=bf0b0f866801d952e05c1ab60ddd10b1a1b5ba245209fea2d6fd253db736ca41 scripts/build_terminal_css.py*/
+@layer base,components,theme;
+/* css/tokens.css */
+:root{--ui-bg:#0d1117;--ui-panel:#101820;--ui-fg:#d1f7c4;--ui-muted:#8b949e;--ui-border:#58a6ff;--ui-accent:#7ee787;--ui-danger:#cf222e;--ui-radius:0;--ui-text:16px;--ui-space:1rem;--ui-max:960px;--ui-font:Meiryo,メイリオ,sans-serif;--ui-font-mono:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace}
+/* auto: dark (the :root palette) unless the browser prefers light, then the github-like palette. */
+body[data-ui-theme="auto"]{color-scheme:dark light}@media(prefers-color-scheme:light){body[data-ui-theme="auto"]{--ui-bg:#ffffff;--ui-panel:#f6f8fa;--ui-fg:#1f2328;--ui-muted:#59636e;--ui-border:#d0d7de;--ui-accent:#0969da}}
+/* Candidate themes, token-only: palettes, no theme files (see theme_palettes()). */
+body[data-ui-theme="green"]{--ui-bg:#edf0ec;--ui-panel:#ffffff;--ui-fg:#163b3b;--ui-muted:#546a61;--ui-border:#ccdcd4;--ui-accent:#126d66;--ui-danger:#a73528;--ui-radius:.5rem;color-scheme:light}
+body[data-ui-theme="red"]{--ui-bg:#f6eeee;--ui-panel:#fdfcfc;--ui-fg:#6c4141;--ui-muted:#7e6363;--ui-border:#d4bfbf;--ui-accent:#c43131;--ui-danger:#d02525;--ui-radius:.5rem;color-scheme:light}
+body[data-ui-theme="blue"]{--ui-bg:#eef1f6;--ui-panel:#fcfcfd;--ui-fg:#41526c;--ui-muted:#636e7e;--ui-border:#bfc7d4;--ui-accent:#316cc4;--ui-danger:#d02525;--ui-radius:.5rem;color-scheme:light}
+body[data-ui-theme="terminal"]{--ui-bg:#0a0e10;--ui-panel:#11171a;--ui-fg:#d5dee0;--ui-muted:#7c8a8d;--ui-border:#2b3436;--ui-accent:#5fd7a7;--ui-danger:#ff8080;--ui-radius:0;--ui-font:var(--ui-font-mono);color-scheme:dark}
+/* css/base.css */
+@layer base{*{box-sizing:border-box}body{margin:0;background:var(--ui-bg);color:var(--ui-fg);font:var(--ui-text)/1.6 var(--ui-font)}pre,code,kbd,samp{font-family:var(--ui-font-mono)!important}.ui-page{max-width:var(--ui-max);margin:auto;padding:var(--ui-space)}a{color:inherit}.ui-print-only{display:none}@media print{body{background:#fff;color:#000}.ui-page{max-width:none;padding:0}.ui-no-print{display:none}.ui-print-only{display:block}a{text-decoration:none}}@media(prefers-reduced-motion:reduce){*,::before,::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}}
+/* css/components.css */
+@layer components{.ui-panel,.ui-card{background:var(--ui-panel);border:1px solid var(--ui-border);padding:var(--ui-space);margin:var(--ui-space) 0;border-radius:var(--ui-radius)}.ui-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:.75rem}.ui-tag{display:inline-block;border:1px solid var(--ui-border);padding:.1rem .4rem}.ui-button,.ui-input,.ui-elements button,.ui-elements select,.ui-elements textarea,.ui-elements input:not([type=checkbox],[type=radio],[type=range],[type=color],[type=file]){font:inherit;background:var(--ui-panel);color:var(--ui-fg);border:1px solid var(--ui-border);padding:.6rem;border-radius:var(--ui-radius)}.ui-button,.ui-elements button{cursor:pointer}.ui-button:hover,.ui-elements button:hover{border-color:var(--ui-accent)}.ui-button:disabled,.ui-elements button:disabled{opacity:.4;cursor:default}.ui-elements input[type=range],.ui-elements input[type=checkbox],.ui-elements input[type=radio]{accent-color:var(--ui-accent)}.ui-elements label{color:var(--ui-muted)}.ui-muted{color:var(--ui-muted)}.ui-output{font:inherit;white-space:pre-wrap;overflow:auto;background:#d8dee4;color:#161b22;border:1px solid #8c959f;border-radius:4px;padding:.75rem}pre code,.ui-output code{font-family:inherit;color:inherit}pre.ui-output code{background:transparent}@media(max-width:480px){.ui-page{padding:.75rem}.ui-grid{grid-template-columns:1fr}.ui-card,.ui-panel{margin:.75rem 0;padding:.75rem}}.ui-lightbox{border:1px solid var(--ui-border);background:var(--ui-panel);color:var(--ui-fg);padding:1rem;max-width:min(96vw,960px);max-height:96vh;border-radius:var(--ui-radius)}.ui-lightbox::backdrop{background:rgba(0,0,0,.72)}.ui-lightbox img{display:block;max-width:100%;max-height:calc(96vh - 8rem);margin:auto}.ui-lightbox-bar{display:flex;gap:.5rem;justify-content:space-between;margin-top:.75rem}body:has(.ui-lightbox[open]){overflow:hidden}.ui-table,.ui-elements table{border-collapse:collapse;width:100%}.ui-table th,.ui-table td,.ui-elements th,.ui-elements td{border-bottom:1px solid var(--ui-border);padding:.25rem .5rem;text-align:left;vertical-align:top;overflow-wrap:anywhere}.ui-table th,.ui-elements th{color:var(--ui-muted);font-weight:500}.ui-table caption,.ui-elements caption{text-align:left;color:var(--ui-muted);padding:.25rem 0}.ui-pass{color:var(--ui-accent)}.ui-fail{color:var(--ui-danger)}.ui-changed{background:color-mix(in srgb,var(--ui-accent) 18%,transparent)}.ui-tag.ui-pass{border-color:var(--ui-accent)}.ui-tag.ui-fail{border-color:var(--ui-danger)}}
+/* css/themes/terminal.css */
+/* terminal: glyphs for the token-only terminal palette in tokens.css (# titles, [tags], > buttons, dark output). */
+@layer theme{body[data-ui-theme="terminal"] .ui-title::before{content:"# ";color:var(--ui-accent)}body[data-ui-theme="terminal"] .ui-tag:not(.ui-pass,.ui-fail)::before{content:"["}body[data-ui-theme="terminal"] .ui-tag:not(.ui-pass,.ui-fail)::after{content:"]"}body[data-ui-theme="terminal"] .ui-button::before{content:"> ";color:var(--ui-accent)}body[data-ui-theme="terminal"] .ui-button:hover{border-color:var(--ui-accent)}body[data-ui-theme="terminal"] .ui-output{background:#05080a;color:var(--ui-fg);border:1px solid var(--ui-border);border-radius:0}body[data-ui-theme="terminal"] .ui-panel,body[data-ui-theme="terminal"] .ui-card{box-shadow:none}}
+/* lab layout: the published stub report (write_pages) and the local /wiki and /pixiv surfaces */
+.term-shell{max-width:60rem;margin:0 auto}
+.term-header{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:.75rem;border-bottom:1px solid var(--ui-border);padding-bottom:.75rem;margin-bottom:1rem}
+.term-meta{display:flex;gap:.5rem}
+.term-workspace{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:1.5rem;align-items:start}
+@media(max-width:720px){.term-workspace{grid-template-columns:1fr}}
+#pages-nav a{border:1px solid transparent;padding:.1rem .4rem}
+#pages-nav a[aria-current=page]{border-color:var(--ui-border);color:var(--ui-accent)}
+#pages-nav a[aria-current=page]::before{content:"> "}
+label{display:inline-block;color:var(--ui-muted);margin-right:.4rem}
+textarea{width:100%;min-height:4rem}select{width:100%;margin:.4rem 0}
+input,select,textarea{font:inherit;background:#05080a;color:var(--ui-fg);border:1px solid var(--ui-border);padding:.35rem .5rem}
+[data-cache=hit]{color:var(--ui-accent)}[data-cache=miss]{color:#f2b880}[data-cache=error]{color:var(--ui-danger)}
+[role=alert]{border:1px solid var(--ui-danger);color:var(--ui-danger);padding:.5rem}
+#build-meta{color:var(--ui-muted);font-size:.9em}

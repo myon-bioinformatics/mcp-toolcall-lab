@@ -1,9 +1,7 @@
 """Keep stdlib-only CI lanes small without dropping their existing plugins."""
 
-from importlib.metadata import entry_points
-from pathlib import Path
-import re
-import tomllib
+import re, tomllib
+from importlib.metadata import entry_points; from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]

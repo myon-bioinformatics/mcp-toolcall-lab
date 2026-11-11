@@ -5,18 +5,8 @@ paths; the caller supplies a local adapter path out of band. See portable-execut
 """
 from __future__ import annotations
 
-import argparse
-import errno
-import hashlib
-import importlib.util
-import json
-import os
-from pathlib import Path
-import re
-import shutil
-import subprocess
-import sys
-from typing import Any
+import argparse, errno, hashlib, importlib.util, json, os, re, shutil, subprocess, sys
+from pathlib import Path; from typing import Any
 
 from .adapters.engine_adapter import execute_via_adapter, load_adapter_cache
 from .mock.common import append_jsonl
@@ -198,12 +188,12 @@ def execute(request: Any, *, adapter_path: str | Path | None = None, summary_dir
     return result
 
 
-def main() -> None:
+def main(argv=None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--adapter", type=Path)
     parser.add_argument("--summary-dir", type=Path, help="Verify exact local static summary artifacts; no model or network call")
     parser.add_argument("--native-only", action="store_true")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     raw = sys.stdin.buffer.read(MAX_REQUEST_BYTES + 1)
     try:
         if len(raw) > MAX_REQUEST_BYTES:

@@ -5,8 +5,7 @@ Run from a source checkout with PYTHONPATH=src python -m mcp_toolcall_lab.gradio
 """
 from __future__ import annotations
 import csv, io, json
-from pathlib import Path
-from typing import Dict, Mapping, Optional
+from pathlib import Path; from typing import Dict, Mapping, Optional
 
 from mcp_toolcall_lab.markdown_lib import REPO_ROOT, load_ascii_artist, load_markdown
 
@@ -29,17 +28,9 @@ __all__ = ["build_ui"]
 
 BASE_DIR = REPO_ROOT
 
-TERMINAL_CSS = """
-:root { --lime: #c9ffb6; --cyan: #48a8ff; --ink: #080d13; --panel: #0d1720; }
-.gradio-container { max-width: 1120px !important; background: var(--ink) !important; color: var(--lime) !important; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace !important; }
-.gradio-container::before { content: ''; display: block; border-top: 4px dashed var(--cyan); margin-bottom: 1rem; }
-h1, h2, h3, p, label, .prose { color: var(--lime) !important; }
-.block, .form, .wrap, .gr-box, .gr-panel, .tabitem { background: var(--panel) !important; border: 1px solid var(--cyan) !important; box-shadow: 4px 4px 0 #132b42 !important; }
-button { background: #102b22 !important; border: 1px solid var(--lime) !important; color: var(--lime) !important; font-family: inherit !important; }
-textarea, input, select { background: #081118 !important; color: var(--lime) !important; border-color: var(--cyan) !important; font-family: inherit !important; }
-.tab-nav button { box-shadow: none !important; border: 0 !important; }
-footer { display: none !important; }
-"""
+# Gradio override sheet, generated from PySaiyanWeBoo's terminal palette by scripts/build_terminal_css.py
+# (committed next to terminal.css so the galleria extra needs no web_ui at runtime).
+TERMINAL_CSS = (Path(__file__).resolve().parent / "static" / "galleria.css").read_text(encoding="utf-8")
 
 
 # ---------------------------------------------------------------------------
@@ -462,6 +453,10 @@ def build_ui():
     return demo
 
 
-if __name__ == "__main__":
+def main(argv=None):
     ui = build_ui()
     ui.launch(server_name="127.0.0.1", share=False, css=TERMINAL_CSS)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

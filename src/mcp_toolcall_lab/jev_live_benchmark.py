@@ -1,8 +1,7 @@
 """Opt-in backend benchmark for measured Jev/OpenAI-compatible routing decisions."""
 from __future__ import annotations
 
-import json
-import urllib.request
+import json, urllib.request
 from typing import Any
 
 from mcp_toolcall_lab.jev_backend import Backend

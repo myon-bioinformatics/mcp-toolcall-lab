@@ -1,16 +1,8 @@
 """Parity between legacy subprocess Node bridge and vendored node_launch."""
 from __future__ import annotations
 
-import errno
-import importlib.util
-import os
-import shutil
-import subprocess
-import sys
-import tempfile
-import threading
-from pathlib import Path
-from typing import NamedTuple, Union
+import errno, importlib.util, os, shutil, subprocess, sys, tempfile, threading
+from pathlib import Path; from typing import NamedTuple, Union
 
 import pytest
 

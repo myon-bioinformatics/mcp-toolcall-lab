@@ -1,14 +1,8 @@
 """Read-only source dispatch and explicit local snapshot capture; no MCP dependency."""
 from __future__ import annotations
 
-import argparse
-import hashlib
-import inspect
-import json
-from datetime import datetime, timezone
-from pathlib import Path
-from urllib.parse import urlsplit
-from urllib.request import HTTPRedirectHandler, Request, build_opener
+import argparse, hashlib, inspect, json
+from datetime import datetime, timezone; from pathlib import Path; from urllib.parse import urlsplit; from urllib.request import build_opener, HTTPRedirectHandler, Request
 
 from .adapters.html_snapshot import MAX_BYTES, extract
 
@@ -59,29 +53,37 @@ def _url(url):
     return url
 
 
-def fetch_snapshot(url, *, opener=None):
-    """One bounded GET, no retries/redirects/assets; explicit local use only.
+def fetch_bytes(url, *, accept, content_types, label, limit=MAX_BYTES, opener=None):
+    """One bounded GET, no retries/redirects/assets; the body and its declared charset (or None).
 
+    Shared by every provider that reads a single public URL (HTML snapshots, PokéAPI JSON).
     Not registered in the dispatcher or MCP: this is not a remote URL proxy.
-    Charset comes from Content-Type or defaults to UTF-8 (strict decoding).
     """
     request = Request(_url(url), headers={
-        'User-Agent': 'mcp-toolcall-lab/source-snapshot',
-        'Accept': 'text/html,application/xhtml+xml', 'Accept-Encoding': 'identity'})
+        'User-Agent': 'mcp-toolcall-lab/source-snapshot', 'Accept': accept, 'Accept-Encoding': 'identity'})
     open_request = opener or build_opener(_NoRedirect()).open
     with open_request(request, timeout=15) as response:
         if response.status != 200:
             raise ValueError('expected HTTP 200')
-        if response.headers.get_content_type() not in {'text/html', 'application/xhtml+xml'}:
-            raise ValueError('response is not HTML')
+        if response.headers.get_content_type() not in content_types:
+            raise ValueError(f'response is not {label}')
         if response.headers.get('Content-Encoding', 'identity').lower() != 'identity':
             raise ValueError('compressed response is not supported')
-        raw = response.read(MAX_BYTES + 1)
-        if len(raw) > MAX_BYTES:
-            raise ValueError('HTML response exceeds 2 MiB')
-        encoding = response.headers.get_content_charset() or 'utf-8'
-        html = raw.decode(encoding)
-    return make_snapshot(html, url, fetched_at=datetime.now(timezone.utc).isoformat(),
+        raw = response.read(limit + 1)
+        if len(raw) > limit:
+            raise ValueError(f'{label} response exceeds {limit // (1024 * 1024)} MiB')
+        return raw, response.headers.get_content_charset()
+
+
+def fetch_snapshot(url, *, opener=None):
+    """One bounded GET of an HTML page; explicit local use only.
+
+    Charset comes from Content-Type or defaults to UTF-8 (strict decoding).
+    """
+    raw, charset = fetch_bytes(url, accept='text/html,application/xhtml+xml', opener=opener,
+                               content_types={'text/html', 'application/xhtml+xml'}, label='HTML')
+    encoding = charset or 'utf-8'
+    return make_snapshot(raw.decode(encoding), url, fetched_at=datetime.now(timezone.utc).isoformat(),
                          encoding=encoding, response_sha256=hashlib.sha256(raw).hexdigest())
 
 
@@ -113,6 +115,9 @@ def default_registry(*, niconico_adapter=None):
     from .adapters.css_inspect import inspect_css
     registry.register('css', 'inspect', inspect_css)
     registry.register('wikipedia', 'article', article, network=True)
+    from .adapters.pokeapi import pokemon, pokemon_source
+    registry.register('pokeapi', 'pokemon', pokemon, network=True)
+    registry.register('pokeapi', 'source', pokemon_source)
     if niconico_adapter is not None:
         from .adapters.niconico_source import register_niconico
         register_niconico(registry, niconico_adapter)
