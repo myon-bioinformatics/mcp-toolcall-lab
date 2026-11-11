@@ -59,7 +59,14 @@ jobs:
       - name: Start the lab network (Open WebUI + both mocks)
         run: |
           mkdir -p test-results
-          docker compose -f docker/openwebui-smoke/docker-compose.yml up --build -d
+          # `up --build` pulled the Open WebUI/MongoDB images first (~50 s) and only then built
+          # the two mock images (~33 s). Pull and build at the same time, then start.
+          compose="docker compose -f docker/openwebui-smoke/docker-compose.yml"
+          $compose pull --quiet --ignore-buildable &
+          pull=$!
+          $compose build --quiet
+          wait "$pull"
+          $compose up -d --no-build
 
       - name: Wait for Open WebUI
         run: |
