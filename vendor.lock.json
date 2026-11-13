@@ -84,12 +84,12 @@
     },
     {
       "repository": "myon-bioinformatics/myon-bioinformatics",
-      "ref": "384f5dd532076062f7833038764e9a62322c387c",
-      "commit": "384f5dd532076062f7833038764e9a62322c387c",
-      "source": "node_launch.py",
-      "destination": "vendor/node_launch.py",
-      "blob_sha": "08b4027bb5e3e9248eb3be88de2c2484f2e184bb",
-      "sha256": "a88d8fdb726239e4640da864348d5b70d2266f796b0d16f5afde5377e19714ec"
+      "ref": "0d20801e2e372a72426ce85cee7ac04d701e71b5",
+      "commit": "0d20801e2e372a72426ce85cee7ac04d701e71b5",
+      "source": "njs_launch.py",
+      "destination": "vendor/njs_launch.py",
+      "blob_sha": "79521fdd4d77f4a0ae91ca4a1791f4ad46a0d574",
+      "sha256": "2499b0c407388c7977e8c8aab51467e882080566b0aab03019cb7bb8d263672f"
     },
     {
       "repository": "myon-bioinformatics/PySaiyanWeBoo",

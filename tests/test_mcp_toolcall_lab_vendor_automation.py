@@ -28,8 +28,8 @@ def test_vendor_lock_lists_expected_sources():
         ("myon-bioinformatics/gh_identity", "LICENSE", "vendor/gh_identity-LICENSE"),
         (
             "myon-bioinformatics/myon-bioinformatics",
-            "node_launch.py",
-            "vendor/node_launch.py",
+            "njs_launch.py",
+            "vendor/njs_launch.py",
         ),
         ("myon-bioinformatics/PySaiyanWeBoo", "pysaiyanweboo.py", "vendor/pysaiyanweboo.py"),
         ("myon-bioinformatics/PySaiyanWeBoo", "LICENSE", "vendor/pysaiyanweboo-LICENSE"),

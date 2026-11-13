@@ -16,7 +16,7 @@ MAX_REQUEST_BYTES = 2 * 1024 * 1024
 NODE_BRIDGE_TIMEOUT = 15
 NODE_RECEIPT_MAX_BYTES = 4 * 1024 * 1024
 CORE = Path(__file__).with_name("static") / "portable_cli.mjs"
-_NODE_LAUNCH: Any = None
+_NJS_LAUNCH: Any = None
 
 
 class ReceiptTooLargeError(Exception):
@@ -35,15 +35,15 @@ def request_sha256(request: dict[str, Any]) -> str:
     return hashlib.sha256(canonical_request(request).encode("utf-8")).hexdigest()
 
 
-def _node_launch_module() -> Any:
-    global _NODE_LAUNCH
-    if _NODE_LAUNCH is None:
-        path = Path(__file__).resolve().parents[2] / "vendor" / "node_launch.py"
-        spec = importlib.util.spec_from_file_location("_vendored_node_launch", path)
+def _njs_launch_module() -> Any:
+    global _NJS_LAUNCH
+    if _NJS_LAUNCH is None:
+        path = Path(__file__).resolve().parents[2] / "vendor" / "njs_launch.py"
+        spec = importlib.util.spec_from_file_location("_vendored_njs_launch", path)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
-        _NODE_LAUNCH = module
-    return _NODE_LAUNCH
+        _NJS_LAUNCH = module
+    return _NJS_LAUNCH
 
 
 def _raise_portable_node_not_found(exc: BaseException, node: str | os.PathLike[str] | None) -> None:
@@ -58,10 +58,10 @@ def _raise_portable_node_not_found(exc: BaseException, node: str | os.PathLike[s
     if node is None and "node executable not found" in message:
         discovered = shutil.which("node")
         if discovered:
-            node_launch = _node_launch_module()
+            njs_launch = _njs_launch_module()
             try:
-                node_launch._probe_node_once(discovered, node_launch.DEFAULT_PROBE_TIMEOUT)
-            except node_launch.NodeNotFoundError as probe_exc:
+                njs_launch._probe_node_once(discovered, njs_launch.DEFAULT_PROBE_TIMEOUT)
+            except njs_launch.NodeNotFoundError as probe_exc:
                 version = re.search(r"must be \d+ or newer \(found (\d+)\)", str(probe_exc))
                 if version is not None:
                     raise RuntimeError(
@@ -70,7 +70,7 @@ def _raise_portable_node_not_found(exc: BaseException, node: str | os.PathLike[s
     raise RuntimeError("Node 26+ required; node executable not found on PATH") from exc
 
 
-def _map_node_launch_error(
+def _map_njs_launch_error(
     exc: Any,
     command: list[str],
     timeout: float | None,
@@ -96,20 +96,20 @@ def _portable_node_run(
     check: bool = True,
     summary_dir: str | Path | None = None,
 ) -> subprocess.CompletedProcess[bytes]:
-    node_launch = _node_launch_module()
+    njs_launch = _njs_launch_module()
     env_var = "NODE"
     try:
-        executable = node_launch.resolve_node(node=node, env_var=env_var)
-    except node_launch.NodeNotFoundError as exc:
+        executable = njs_launch.resolve_node(node=node, env_var=env_var)
+    except njs_launch.NodeNotFoundError as exc:
         _raise_portable_node_not_found(exc, node)
     arguments = ["--native-only"]
     if summary_dir is not None:
         arguments.extend(["--summary-dir", str(summary_dir)])
-    command = node_launch.node_command(
+    command = njs_launch.node_command(
         CORE, *arguments, node=executable, probe=False, env_var=env_var
     )
     try:
-        completed = node_launch.run(
+        completed = njs_launch.run(
             CORE,
             *arguments,
             input=input,
@@ -120,14 +120,14 @@ def _portable_node_run(
             env_var=env_var,
             check=check,
         )
-    except node_launch.NodeNotFoundError as exc:
+    except njs_launch.NodeNotFoundError as exc:
         _raise_portable_node_not_found(exc, node)
-    except node_launch.LaunchError as exc:
+    except njs_launch.LaunchError as exc:
         if exc.code == "ERESPONSETOOLARGE":
             raise ReceiptTooLargeError() from exc
         if check and exc.code == "ELAUNCHFAILURE" and exc.status and "timed out" not in str(exc):
             raise subprocess.CalledProcessError(exc.status, command, exc.stdout, exc.stderr) from exc
-        completed = _map_node_launch_error(exc, command, timeout)
+        completed = _map_njs_launch_error(exc, command, timeout)
         if check and completed.returncode != 0:
             raise subprocess.CalledProcessError(
                 completed.returncode, completed.args, completed.stdout, completed.stderr

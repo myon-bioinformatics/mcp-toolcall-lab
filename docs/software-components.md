@@ -103,14 +103,9 @@ distrust. A metadata-only receipt is not a security pass.
 The sixth, portable-build image generates real model output. Its complete
 build/trust checks remain in the separate `portable-live` job, guarded by
 `workflow_dispatch`; ordinary PRs report that job as **skipped**, not passed.
-`pages.yml` also remains **manual-only**. Its real generation and
-validation commands are retained, not replaced with mock successes. Portable
-browser validation remains part of the manual portable workflow.
-
-The sole Pages publisher is `pages.yml`. Both its Pages artifact upload
-and deployment require a manual dispatch on `main`. Ordinary PRs and pushes do
-not regenerate or replace the published Pages content. Adopting floating CI
-versions does not itself authorize a model run or manual publication.
+No workflow publishes Pages: the manual-only `pages.yml` was removed on
+2026-11-13. Ordinary PRs and pushes do not regenerate or replace the published
+Pages content. Adopting floating CI versions does not itself authorize a model run.
 
 Core compatibility/latest tests, Galleria, the browser-protocol lane and existing
 LibreChat/Open WebUI/stub mock-backed smokes remain automatic. The October 24
