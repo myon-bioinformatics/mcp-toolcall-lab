@@ -29,7 +29,7 @@ __all__ = ["build_ui"]
 BASE_DIR = REPO_ROOT
 
 # Gradio override sheet, generated from PySaiyanWeBoo's terminal palette by scripts/build_terminal_css.py
-# (committed next to terminal.css so the galleria extra needs no web_ui at runtime).
+# (committed next to terminal.css so the galleria extra needs no pysaiyanweboo at runtime).
 TERMINAL_CSS = (Path(__file__).resolve().parent / "static" / "galleria.css").read_text(encoding="utf-8")
 
 

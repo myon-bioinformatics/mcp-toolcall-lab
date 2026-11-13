@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Regenerate src/mcp_toolcall_lab/static/terminal.css and galleria.css from PySaiyanWeBoo's web_ui.
+"""Regenerate src/mcp_toolcall_lab/static/terminal.css and galleria.css from PySaiyanWeBoo's pysaiyanweboo.
 
-terminal.css is ``web_ui.write_bundle`` output: ``core_css("terminal")`` (tokens, base, components and the
+terminal.css is ``pysaiyanweboo.write_bundle`` output: ``core_css("terminal")`` (tokens, base, components and the
 terminal theme: ``# `` titles, ``[tags]``, ``> `` buttons) plus the few lab-only layout rules below, under
-web_ui's provenance header. The file is committed so the stdlib-only stub server and ``write_pages()`` can serve
-it without web_ui installed; ``tests/test_stub_pages.py`` (``web_ui.check_bundle``) fails when it drifts. ``galleria.css`` is the Gradio galleria's
-override sheet, coloured from the same ``terminal`` palette (``web_ui.theme_palettes()``).
+pysaiyanweboo's provenance header. The file is committed so the stdlib-only stub server and ``write_pages()`` can serve
+it without pysaiyanweboo installed; ``tests/test_stub_pages.py`` (``pysaiyanweboo.check_bundle``) fails when it drifts. ``galleria.css`` is the Gradio galleria's
+override sheet, coloured from the same ``terminal`` palette (``pysaiyanweboo.theme_palettes()``).
 
     uv run --extra test python scripts/build_terminal_css.py          # rewrite
     uv run --extra test python scripts/build_terminal_css.py --check  # exit 1 when stale
@@ -63,10 +63,10 @@ def bundle_options() -> dict:
 
 
 def render_galleria() -> str:
-    import web_ui  # PySaiyanWeBoo
+    import pysaiyanweboo  # PySaiyanWeBoo
 
-    palette = web_ui.theme_palettes()["terminal"]
-    mono = re.search(r"--ui-font-mono:([^;}]+)", web_ui.css_source("tokens.css")).group(1)  # Gradio has no tokens.css
+    palette = pysaiyanweboo.theme_palettes()["terminal"]
+    mono = re.search(r"--ui-font-mono:([^;}]+)", pysaiyanweboo.css_source("tokens.css")).group(1)  # Gradio has no tokens.css
     rules = GALLERIA_RULES
     for key, value in {"bg": palette["--ui-bg"], "panel": palette["--ui-panel"], "fg": palette["--ui-fg"],
                        "border": palette["--ui-border"], "accent": palette["--ui-accent"], "mono": mono}.items():
@@ -78,17 +78,17 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--check", action="store_true", help="exit 1 when the committed file is stale")
     args = parser.parse_args(argv)
-    import web_ui  # PySaiyanWeBoo
+    import pysaiyanweboo  # PySaiyanWeBoo
 
     if args.check:
-        problems = web_ui.check_bundle(TARGET, **bundle_options())
+        problems = pysaiyanweboo.check_bundle(TARGET, **bundle_options())
         if (GALLERIA.read_text(encoding="utf-8") if GALLERIA.exists() else None) != render_galleria():
             problems.append(f"{GALLERIA} is stale; run scripts/build_terminal_css.py")
         for problem in problems:
             print(problem, file=sys.stderr)
         return 1 if problems else 0
-    fields = web_ui.write_bundle(TARGET, note=NOTE, **bundle_options())
-    print(f"{TARGET} web_ui {fields['commit'][:8]}")
+    fields = pysaiyanweboo.write_bundle(TARGET, note=NOTE, **bundle_options())
+    print(f"{TARGET} pysaiyanweboo {fields['commit'][:8]}")
     GALLERIA.write_text(render_galleria(), encoding="utf-8")
     print(f"{GALLERIA} ({GALLERIA.stat().st_size} bytes)")
     return 0
