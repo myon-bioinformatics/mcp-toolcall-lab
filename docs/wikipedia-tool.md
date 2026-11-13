@@ -134,7 +134,7 @@ in-process):
   single-flight, and a hit on a warm title is not blocked by another
   title's in-flight fetch (the stub is a `ThreadingHTTPServer`)
 - cache hit/miss, TTL expiry, the size cap, and that lock/load split
-  are unit-tested in `tests/test_wikipedia_cache.py`
+  are unit-tested in `tests/test_wikipedia_tool.py`
 
 The copy-paste MCP mocks (`openwebui_mcp_mock.py`, `librechat_mcp_mock.py`)
 inline this module (and the rest of the FastMCP server, including #19's
@@ -171,7 +171,7 @@ This repo's own dev sandbox cannot reach `en.wikipedia.org` (the agent
 proxy denies the CONNECT — same story as `scripts/fetch_tiny_cpu_gguf.py`
 and `huggingface.co`). Default `pytest -q` never depends on Wikipedia:
 
-- `tests/test_wikipedia_tool.py` / `tests/test_wikipedia_cache.py` mock
+- `tests/test_wikipedia_tool.py` mocks
   `urllib.request.urlopen` with a MediaWiki API response shape
 - `MCP_TOOLCALL_LAB_WIKIPEDIA_FIXTURE` points at
   `fixtures/wikipedia/exampleville_extract.json` for deterministic CI

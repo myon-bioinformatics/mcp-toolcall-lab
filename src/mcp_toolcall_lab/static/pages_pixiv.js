@@ -3,7 +3,7 @@
  * #pixiv panel. This is the History -> Source -> Extract workflow, not a
  * search box: dic.pixiv.net does not send permissive CORS headers, so a
  * static host like Pages can never fetch it directly (that dead end is
- * retired -- see tests/test_pages_pixiv.py's retirement regression tests).
+ * retired -- see tests/test_pixiv.py's retirement regression tests).
  *
  * Instead this panel generates/validates the real dic.pixiv.net URLs
  * (article, history, revision-source) so a visitor can open them in a new
@@ -14,7 +14,7 @@
  *
  * Vanilla JS, no build step. write_pages() copies this file next to
  * index.html as pages-pixiv.js. The exported functions are the contracts
- * tests/test_pages_pixiv.py exercises via node.
+ * tests/test_pixiv.py exercises via node.
  */
 (function (root, factory) {
   "use strict";
