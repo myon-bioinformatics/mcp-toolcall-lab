@@ -7,7 +7,6 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 MANUAL = "github.event_name == 'workflow_dispatch'"
-MAIN_MANUAL = MANUAL + " && github.ref == 'refs/heads/main'"
 PORTABLE = {
     "name": "portable-build",
     "dockerfile": "docker/portable-pages/Dockerfile",
@@ -29,16 +28,6 @@ def _events(workflow):
 
 
 def _assert_no_automatic_models(workflows):
-    pages_workflow = workflows["pages.yml"]
-    assert set(_events(pages_workflow)) == {"workflow_dispatch"}
-    assert pages_workflow["jobs"]["build"]["if"] == MANUAL
-    pages = workflows["pages.yml"]["jobs"]
-    assert pages["deploy"]["if"] == MAIN_MANUAL
-    assert pages["deploy"]["needs"] == "build"
-    upload = next(step for step in pages["build"]["steps"]
-                  if step.get("uses", "").startswith("actions/upload-pages-artifact@"))
-    assert upload["if"] == MAIN_MANUAL
-
     runtime = workflows["component-runtime.yml"]
     assert set(_events(runtime)) == {"pull_request", "workflow_dispatch"}
     automatic = runtime["jobs"]["runtime"]["strategy"]["matrix"]["include"]
@@ -52,37 +41,21 @@ def _assert_no_automatic_models(workflows):
     assert not live.get("continue-on-error", False)
 
 
-def test_all_model_routes_are_manual_and_pages_has_no_automatic_replacement():
+def test_all_model_routes_are_manual_and_no_workflow_publishes_pages():
+    # The manual-only pages.yml was removed (2026-11-13): nothing here deploys Pages or uploads a Pages artifact.
     workflows = _workflows()
     _assert_no_automatic_models(workflows)
-    publishers = []
     for filename, workflow in workflows.items():
         for job in workflow["jobs"].values():
             for step in job.get("steps", []):
-                if step.get("uses", "").startswith("actions/deploy-pages@"):
-                    publishers.append(filename)
-    assert publishers == ["pages.yml"]
-    assert workflows["pages.yml"]["jobs"]["deploy"]["environment"]["name"] == "github-pages"
+                assert not step.get("uses", "").startswith(("actions/deploy-pages@", "actions/upload-pages-artifact@")), filename
 
 
-@pytest.mark.parametrize("damage", [
-    "pages_push", "pages_job", "pages_deploy", "pages_upload",
-    "runtime_matrix", "runtime_job",
-])
-def test_policy_rejects_each_reopened_automatic_model_or_publication_route(damage):
+@pytest.mark.parametrize("damage", ["runtime_matrix", "runtime_job"])
+def test_policy_rejects_each_reopened_automatic_model_route(damage):
     workflows = deepcopy(_workflows())
-    pages = workflows["pages.yml"]
     runtime = workflows["component-runtime.yml"]
-    if damage == "pages_push":
-        _events(pages)["push"] = {"branches": ["main"]}
-    elif damage == "pages_job":
-        pages["jobs"]["build"]["if"] = "always()"
-    elif damage == "pages_deploy":
-        pages["jobs"]["deploy"]["if"] = "github.ref == 'refs/heads/main'"
-    elif damage == "pages_upload":
-        next(step for step in pages["jobs"]["build"]["steps"]
-             if step.get("uses", "").startswith("actions/upload-pages-artifact@"))["if"] = "always()"
-    elif damage == "runtime_matrix":
+    if damage == "runtime_matrix":
         runtime["jobs"]["runtime"]["strategy"]["matrix"]["include"].append(PORTABLE)
     else:
         runtime["jobs"]["portable-live"]["if"] = "always()"
@@ -102,15 +75,6 @@ def test_manual_runtime_retains_real_build_trust_and_original_artifact_contract(
     assert "node --version" in manual["Record portable Node version"]["run"]
     assert manual["Preserve runtime receipts even on failure"]["with"]["name"] == "runtime-${{ matrix.name }}"
     assert "browser-protocol" in jobs
-
-
-def test_manual_pages_keep_actual_validation_not_mock_replacements():
-    workflows = _workflows()
-    pages = {step["name"]: step for step in workflows["pages.yml"]["jobs"]["build"]["steps"] if "name" in step}
-    export = pages["Export static files from Docker build"]["run"]
-    assert "--target artifact" in export and "--target summary-handoff" in export
-    assert "assert python['model_inference_performed'] is True" in pages["Verify exported runtime without the source checkout"]["run"]
-    assert "--require-generated" in pages["Exercise browser input, snapshot miss and stale-result handling"]["run"]
 
 
 def test_matrix_setup_precedes_bare_python_and_keeps_exact_pins_and_reports():
