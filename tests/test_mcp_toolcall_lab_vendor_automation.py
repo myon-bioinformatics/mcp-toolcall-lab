@@ -31,8 +31,8 @@ def test_vendor_lock_lists_expected_sources():
             "node_launch.py",
             "vendor/node_launch.py",
         ),
-        ("myon-bioinformatics/PySaiyanWeBoo", "web_ui.py", "vendor/web_ui.py"),
-        ("myon-bioinformatics/PySaiyanWeBoo", "LICENSE", "vendor/web-ui-LICENSE"),
+        ("myon-bioinformatics/PySaiyanWeBoo", "pysaiyanweboo.py", "vendor/pysaiyanweboo.py"),
+        ("myon-bioinformatics/PySaiyanWeBoo", "LICENSE", "vendor/pysaiyanweboo-LICENSE"),
     }
     actual = {(e["repository"], e["source"], e["destination"]) for e in lock["files"]}
     assert actual == expected

@@ -44,7 +44,7 @@ from mcp_toolcall_lab.stub_front import (
     _status_is_dirty,
     collect_revision,
     load_corpus,
-    load_web_ui,
+    load_pysaiyanweboo,
     pages_summary,
     pokemon_spec,
     parse_sections,
@@ -186,7 +186,7 @@ def test_single_css_contract_across_pages_wiki_and_pixiv(tmp_path: Path) -> None
 
     No PySaiyanWeBoo CDN chain anywhere in these three rendered surfaces (the
     look comes from the committed ``terminal.css``, generated from
-    ``web_ui.core_css("terminal")``), every page opts into that theme, and
+    ``pysaiyanweboo.core_css("terminal")``), every page opts into that theme, and
     exactly one ``terminal.css`` link per page (the inlined vendor markdown
     stylesheet is a separate, content-scoped concern and is not "the CSS chain").
     """
@@ -942,17 +942,17 @@ def test_stub_demo_js_is_valid_javascript() -> None:
 
 
 def test_terminal_css_is_generated_from_pysaiyanweboo() -> None:
-    """The committed stylesheet is scripts/build_terminal_css.py's output (web_ui.core_css("terminal") + lab rules)."""
+    """The committed stylesheet is scripts/build_terminal_css.py's output (pysaiyanweboo.core_css("terminal") + lab rules)."""
     import importlib.util
 
     spec = importlib.util.spec_from_file_location("build_terminal_css", ROOT / "scripts" / "build_terminal_css.py")
     module = importlib.util.module_from_spec(spec)
     assert spec.loader is not None
     spec.loader.exec_module(module)
-    import web_ui
+    import pysaiyanweboo
     assert module.TARGET == TERMINAL_CSS_SOURCE
     text = TERMINAL_CSS_SOURCE.read_text(encoding="utf-8")
-    assert web_ui.check_bundle(TERMINAL_CSS_SOURCE, **module.bundle_options()) == []
+    assert pysaiyanweboo.check_bundle(TERMINAL_CSS_SOURCE, **module.bundle_options()) == []
     assert text.startswith("/* web-ui-bundle/1 commit=")
     assert "/* css/themes/terminal.css */" in text and 'body[data-ui-theme="terminal"]' in text and ".term-workspace{" in text
     assert "cdn.jsdelivr.net" not in text
@@ -972,11 +972,11 @@ def test_write_pages_has_pokemon_tab_after_wiki_and_pixiv_and_ships_the_shared_s
     assert nav == sorted(nav)
     assert 'href="#pokemon"' in html and 'data-testid="pages-nav-pokemon"' in html
     assert 'id="pokemon" data-pages-view="pokemon" data-testid="pages-pokemon" hidden' in html
-    web_ui = load_web_ui()
-    assert web_ui.source_panel_html(pokemon_spec()) in html                      # the panel is the shared one, built from the lab's spec
+    pswb = load_pysaiyanweboo()
+    assert pswb.source_panel_html(pokemon_spec()) in html                      # the panel is the shared one, built from the lab's spec
     assert f'src="{SOURCE_JS_NAME}?v=' in html
-    assert (out / SOURCE_JS_NAME).read_text(encoding="utf-8") == web_ui.js_source("source.js")
-    assert web_ui.css_source("source.css") in html
+    assert (out / SOURCE_JS_NAME).read_text(encoding="utf-8") == pswb.js_source("source.js")
+    assert pswb.css_source("source.css") in html
     assert not (out / "pages-pokemon.js").exists()                                  # no lab-owned panel script any more
 
 
@@ -984,13 +984,13 @@ def test_pokemon_spec_writes_the_python_adapter_markdown_byte_for_byte() -> None
     from mcp_toolcall_lab.adapters.pokeapi import parse
 
     source = POKEMON_FIXTURE.read_text(encoding="utf-8")
-    web_ui = load_web_ui()
-    from_spec = web_ui.source_markdown(web_ui.source_extract(pokemon_spec(), source))
+    pswb = load_pysaiyanweboo()
+    from_spec = pswb.source_markdown(pswb.source_extract(pokemon_spec(), source))
     assert from_spec == parse(source)["markdown"]
     assert from_spec.startswith("# ditto (#132)\n")
 
 
 def test_pokemon_spec_is_the_panel_s_only_consumer_data() -> None:
-    web_ui = load_web_ui()
-    spec = web_ui.source_spec(pokemon_spec())
+    pswb = load_pysaiyanweboo()
+    spec = pswb.source_spec(pokemon_spec())
     assert spec["id"] == "pokemon" and spec["url"] == "https://pokeapi.co/api/v2/pokemon/{name}"
