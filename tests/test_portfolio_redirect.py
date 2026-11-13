@@ -20,9 +20,7 @@ def test_legacy_redirect_preserves_routes_and_public_export_is_still_retained():
             assert result.stdout.endswith('?view=wiki' + route)
     workflow = (ROOT / '.github/workflows/stub-pages.yml').read_text()
     assert 'actions/deploy-pages' not in workflow
-    portable = (ROOT / '.github/workflows/pages.yml').read_text()
-    assert 'path: _portable_site' in portable
-    assert 'actions/deploy-pages' in portable
+    assert not (ROOT / '.github/workflows/pages.yml').exists()  # no Pages publisher since 2026-11-13
     assert 'stub-pages-observations' in workflow
     assert '            _site/' in workflow
     assert 'scripts/stub_pages_smoke.py' in workflow

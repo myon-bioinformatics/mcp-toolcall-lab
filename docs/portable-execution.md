@@ -108,10 +108,10 @@ to prevent stale receipts from leaking across builds. Generated receipts are
 snapshots, not latest-live values. Runtime source and
 existing vendored dependency licenses and lock are shipped alongside the UI.
 
-`pages.yml` is the sole Pages publisher. It builds on PRs, uploads the
-static build for inspection, and deploys only main. The old `stub-pages.yml`
-continues its separate Docker/MCP smoke/report artifact job, but no longer
-publishes a competing root redirect. No Pages settings or credentials change.
+No workflow publishes Pages: the manual-only `pages.yml` was removed on 2026-11-13
+(the site already published stays as it is; `scripts/build_portable_pages.py` still
+builds it locally). `stub-pages.yml` continues its separate Docker/MCP smoke/report
+artifact job and publishes nothing. No Pages settings or credentials change.
 
 Validation: `PYTHONPATH=src python -m unittest discover -s tests -p 'test_portable_execution.py'`.
 Docker export itself is a separate required CI job; source-level generation is
