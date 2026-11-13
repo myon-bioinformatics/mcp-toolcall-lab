@@ -264,7 +264,7 @@ console.log(JSON.stringify([ok,miss,mismatch,offline]));'''.replace('CORE', json
             self.assertEqual(json.loads(proc.stdout)['metrics']['tool_calls'], 2)
             self.assertTrue((extracted / 'LICENSE').is_file())
             self.assertTrue((extracted / 'vendor.lock.json').is_file())
-            self.assertEqual((extracted / 'vendor/node_launch.py').read_bytes(), (ROOT / 'vendor/node_launch.py').read_bytes())
+            self.assertEqual((extracted / 'vendor/njs_launch.py').read_bytes(), (ROOT / 'vendor/njs_launch.py').read_bytes())
             again = subprocess.run([sys.executable, '-S', str(ROOT / 'scripts/build_portable_pages.py'), '--out', str(out), '--source-sha', sha], env=ENV, capture_output=True)
             self.assertNotEqual(again.returncode, 0)
             self.assertIn(b'stale build receipts', again.stderr)

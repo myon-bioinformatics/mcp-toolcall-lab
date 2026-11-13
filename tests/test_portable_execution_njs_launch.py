@@ -1,4 +1,4 @@
-"""Parity between legacy subprocess Node bridge and vendored node_launch."""
+"""Parity between legacy subprocess Node bridge and vendored njs_launch."""
 from __future__ import annotations
 
 import errno, importlib.util, os, shutil, subprocess, sys, tempfile, threading
@@ -212,10 +212,10 @@ def _complete_fake_run(argv: list[str], **kwargs) -> subprocess.CompletedProcess
 
 
 @pytest.fixture(autouse=True)
-def _node_launch_process_layer_stub(monkeypatch):
-    node_launch = pe._node_launch_module()
-    real_run = node_launch.subprocess.run
-    real_popen = node_launch.subprocess.Popen
+def _njs_launch_process_layer_stub(monkeypatch):
+    njs_launch = pe._njs_launch_module()
+    real_run = njs_launch.subprocess.run
+    real_popen = njs_launch.subprocess.Popen
 
     def fake_run(args, *pargs, **kwargs):
         if args and not isinstance(args, (str, bytes)):
@@ -246,8 +246,8 @@ def _node_launch_process_layer_stub(monkeypatch):
             **kwargs,
         )
 
-    monkeypatch.setattr(node_launch.subprocess, "run", fake_run)
-    monkeypatch.setattr(node_launch.subprocess, "Popen", fake_popen)
+    monkeypatch.setattr(njs_launch.subprocess, "run", fake_run)
+    monkeypatch.setattr(njs_launch.subprocess, "Popen", fake_popen)
     yield
     _FAKE_NODE_SPECS.clear()
 
@@ -353,7 +353,7 @@ def test_receipt_over_cap_matches_legacy_execute_message(tmp_path, monkeypatch):
         stdout_bytes=b"x" * _OVER_CAP_BYTES,
     )
     monkeypatch.setenv("NODE", str(script))
-    pe._node_launch_module().clear_probe_cache()
+    pe._njs_launch_module().clear_probe_cache()
     request = {
         "schema": pe.CONTRACT,
         "operation": "trace_summary",
@@ -404,7 +404,7 @@ def test_node_not_on_path_raises_runtime_error(monkeypatch):
     monkeypatch.delenv("NODE", raising=False)
     monkeypatch.setenv("PATH", "")
     monkeypatch.setattr(shutil, "which", lambda name, **kw: None)
-    pe._node_launch_module().clear_probe_cache()
+    pe._njs_launch_module().clear_probe_cache()
     payload = b"x"
     with pytest.raises(FileNotFoundError):
         _legacy_portable_node_run(payload, check=False)
@@ -433,7 +433,7 @@ def test_node_v20_on_path_names_found_version(tmp_path, monkeypatch):
         "which",
         lambda name, **kw: str(script) if name == "node" else None,
     )
-    pe._node_launch_module().clear_probe_cache()
+    pe._njs_launch_module().clear_probe_cache()
     with pytest.raises(RuntimeError, match=r"Node 26\+.*found Node 20"):
         pe._portable_node_run(b"x", check=False)
 
@@ -474,17 +474,17 @@ def test_nonzero_exit_with_check_raises_called_process_error(tmp_path):
 
 def test_timeout_cmd_includes_resolved_node(tmp_path, monkeypatch):
     script = _write_fake_node(tmp_path, version="v26.0.0", on_eval="import time; time.sleep(60)")
-    node_launch = pe._node_launch_module()
+    njs_launch = pe._njs_launch_module()
 
     def hang(*args, **kwargs):
-        raise node_launch.LaunchError(
-            "node_launch: Node process timed out",
+        raise njs_launch.LaunchError(
+            "njs_launch: Node process timed out",
             code="ELAUNCHFAILURE",
             stdout=b"",
             stderr=b"",
         )
 
-    monkeypatch.setattr(node_launch, "run", hang)
+    monkeypatch.setattr(njs_launch, "run", hang)
     with pytest.raises(subprocess.TimeoutExpired) as info:
         pe._portable_node_run(b"x", node=script, timeout=7, check=False)
     assert info.value.timeout == 7
@@ -495,17 +495,17 @@ def test_timeout_matches_legacy(monkeypatch, tmp_path):
     script = _write_fake_node(tmp_path, version="v26.0.0", on_eval="pass")
     cmd = [str(script), str(CORE), "--native-only"]
     timeout = 11.0
-    node_launch = pe._node_launch_module()
+    njs_launch = pe._njs_launch_module()
 
     def launch_timeout(*args, **kwargs):
-        raise node_launch.LaunchError(
-            "node_launch: Node process timed out",
+        raise njs_launch.LaunchError(
+            "njs_launch: Node process timed out",
             code="ELAUNCHFAILURE",
             stdout=b"out\r\nline\r",
             stderr=b"err\r\n",
         )
 
-    monkeypatch.setattr(node_launch, "run", launch_timeout)
+    monkeypatch.setattr(njs_launch, "run", launch_timeout)
 
     def old():
         raise subprocess.TimeoutExpired(cmd=cmd, timeout=timeout, output=b"out\r\nline\r", stderr=b"err\r\n")
@@ -574,7 +574,7 @@ def test_node_env_var_honoured_when_unset_path(tmp_path, monkeypatch):
         "which",
         lambda name, **kw: str(script) if name == "node" else None,
     )
-    pe._node_launch_module().clear_probe_cache()
+    pe._njs_launch_module().clear_probe_cache()
     with pytest.raises(FileNotFoundError):
         pe._portable_node_run(b"x", check=False)
 
@@ -586,16 +586,16 @@ def test_node_env_var_used_when_set_to_fake(tmp_path, monkeypatch):
         on_eval="import sys; sys.stdout.write('via\\n')",
     )
     monkeypatch.setenv("NODE", str(script))
-    pe._node_launch_module().clear_probe_cache()
+    pe._njs_launch_module().clear_probe_cache()
     done = pe._portable_node_run(b"x", check=False)
     assert done.stdout == b"via\n"
 
 
 def _node_reader_ready() -> bool:
-    node_launch = pe._node_launch_module()
+    njs_launch = pe._njs_launch_module()
     try:
-        node_launch.resolve_node(env_var="NODE")
-    except node_launch.NodeNotFoundError:
+        njs_launch.resolve_node(env_var="NODE")
+    except njs_launch.NodeNotFoundError:
         return False
     return True
 
@@ -613,29 +613,29 @@ def test_real_node_trace_summary_roundtrip():
 
 def test_mutation_timeout_mapping_required(tmp_path, monkeypatch):
     script = _write_fake_node(tmp_path, version="v26.0.0", on_eval="pass")
-    node_launch = pe._node_launch_module()
+    njs_launch = pe._njs_launch_module()
 
     def launch_timeout(*args, **kwargs):
-        raise node_launch.LaunchError(
-            "node_launch: Node process timed out",
+        raise njs_launch.LaunchError(
+            "njs_launch: Node process timed out",
             code="ELAUNCHFAILURE",
             stdout=b"",
             stderr=b"",
         )
 
-    monkeypatch.setattr(node_launch, "run", launch_timeout)
+    monkeypatch.setattr(njs_launch, "run", launch_timeout)
     with pytest.raises(subprocess.TimeoutExpired):
         pe._portable_node_run(b"x", node=script, timeout=9, check=False)
 
-    real_map = pe._map_node_launch_error
+    real_map = pe._map_njs_launch_error
 
     def map_without_timeout(exc, command, timeout):
         if exc.code == "ELAUNCHFAILURE" and "timed out" in str(exc):
             raise exc
         return real_map(exc, command, timeout)
 
-    monkeypatch.setattr(pe, "_map_node_launch_error", map_without_timeout)
-    with pytest.raises(node_launch.LaunchError, match="timed out"):
+    monkeypatch.setattr(pe, "_map_njs_launch_error", map_without_timeout)
+    with pytest.raises(njs_launch.LaunchError, match="timed out"):
         pe._portable_node_run(b"x", node=script, timeout=9, check=False)
 
 
@@ -648,15 +648,15 @@ def test_mutation_stdin_zero_mapping_required(tmp_path, monkeypatch):
         stdin_close_stdout=b"z",
     )
     assert pe._portable_node_run(_LARGE_INPUT, node=script, check=False).stdout == b"z"
-    real_map = pe._map_node_launch_error
+    real_map = pe._map_njs_launch_error
 
     def map_without_stdin_zero(exc, command, timeout):
         if exc.code == "ELAUNCHSTDINCLOSED" and (exc.status if exc.status is not None else -1) == 0:
             raise exc
         return real_map(exc, command, timeout)
 
-    monkeypatch.setattr(pe, "_map_node_launch_error", map_without_stdin_zero)
-    with pytest.raises(pe._node_launch_module().LaunchError, match="stdin pipe closed"):
+    monkeypatch.setattr(pe, "_map_njs_launch_error", map_without_stdin_zero)
+    with pytest.raises(pe._njs_launch_module().LaunchError, match="stdin pipe closed"):
         pe._portable_node_run(_LARGE_INPUT, node=script, check=False)
 
 
@@ -687,7 +687,7 @@ def _pytest_on_mutated_portable_execution(
         (target_dir / "portable_execution.py").write_text(source, encoding="utf-8")
         isolated = overlay / "isolated"
         isolated.mkdir()
-        isolated_test = isolated / "test_portable_execution_node_launch.py"
+        isolated_test = isolated / "test_portable_execution_njs_launch.py"
         shutil.copy2(_MUTATION_TEST_FILE, isolated_test)
         env = os.environ.copy()
         env["PYTHONPATH"] = str(overlay / "src") + os.pathsep + env.get("PYTHONPATH", "")
@@ -748,7 +748,7 @@ def test_mutation_subprocess_broken_over_cap_mapping_fails_execute_test():
 @pytest.mark.parametrize("failure_code", [None, "ELAUNCHFAILURE", "ERESPONSETOOLARGE"])
 def test_summary_directory_uses_bounded_launcher_and_preserves_timeout_command(tmp_path, monkeypatch, failure_code):
     script = _write_fake_node(tmp_path, version="v26.0.0", on_eval="pass")
-    node_launch = pe._node_launch_module()
+    njs_launch = pe._njs_launch_module()
     summary_dir = tmp_path / "reviewed summaries"
     arguments = (CORE, "--native-only", "--summary-dir", str(summary_dir))
 
@@ -761,13 +761,13 @@ def test_summary_directory_uses_bounded_launcher_and_preserves_timeout_command(t
         assert kwargs["probe"] is False
         assert kwargs["check"] is True
         if failure_code:
-            raise node_launch.LaunchError(
-                "node_launch: Node process timed out" if failure_code == "ELAUNCHFAILURE" else "too large",
+            raise njs_launch.LaunchError(
+                "njs_launch: Node process timed out" if failure_code == "ELAUNCHFAILURE" else "too large",
                 code=failure_code, stdout=b"partial", stderr=b"diagnostic",
             )
         return subprocess.CompletedProcess([str(script), *map(str, args)], 0, b"{}", b"")
 
-    monkeypatch.setattr(node_launch, "run", run)
+    monkeypatch.setattr(njs_launch, "run", run)
     if failure_code == "ELAUNCHFAILURE":
         with pytest.raises(subprocess.TimeoutExpired) as info:
             pe._portable_node_run(b"source-selection", node=script, summary_dir=summary_dir)
