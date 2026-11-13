@@ -165,7 +165,7 @@ call that was wrong) — schema validity and calibration are different axes.
   `python -m mcp_toolcall_lab.jev_shim replay` — all 5 pass against the
   corrected shapes.
 - `jev_typesafe.py`'s request building and response parsing: verified with
-  injected fake `post` functions (`tests/test_jev_typesafe.py`) — proves the
+  injected fake `post` functions (`tests/test_jev.py`) — proves the
   logic, not a live server.
 - `jev_typesafe.py`'s actual HTTP transport (`urllib_post`, real headers,
   real JSON body over a real socket): verified against a real

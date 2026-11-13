@@ -25,7 +25,7 @@ settings from the official SDK's `FastMCP`; no such arguments were added here.
 
 ## Observed boundaries
 
-`tests/test_sdk_transport_boundaries.py` uses the application's real
+`tests/test_server.py` uses the application's real
 `create_mcp().http_app()` over loopback TCP and the unmodified chat/direct
 callers. No external service, new dependency, or production setting is needed.
 
@@ -84,5 +84,5 @@ Upstream behavior reference:
 Focused reproduction after `pip install -e '.[test]'`:
 
 ```sh
-uv run pytest -q tests/test_sdk_transport_boundaries.py tests/test_streamable_http_protocol.py tests/test_trace.py
+uv run pytest -q tests/test_server.py tests/test_streamable_http_protocol.py
 ```

@@ -1,68 +1,47 @@
-"""Pages/Actions stub stack — no Docker in default pytest."""
-
+"""Pages/Actions stub stack, its smoke script, the stdlib stub front, frontends and markdown rendering: no Docker."""
 from __future__ import annotations
 
-import json, shutil, subprocess
+import json
+import shutil
+import subprocess
+import sys
+import threading
+from http.server import ThreadingHTTPServer
 from pathlib import Path
+from urllib.request import Request, urlopen
 
 import pytest
 
+ROOT = Path(__file__).resolve().parents[1]
 from mcp_toolcall_lab.antipatterns import (
-    CPU_LLM_UNREACHABLE,
-    MCP_UNREACHABLE,
-    classify_stub_turn,
+    AUTH_BLOCKED, CPU_LLM_UNREACHABLE, KNOWN_IDS, MCP_NOT_CALLED, MCP_PICKER_OFF, MCP_UNREACHABLE, UI_NO_RESULT, VERDICT_ANTIPATTERN, VERDICT_PASS,
+    classify_observation, classify_stub_turn, write_observation,
 )
+from mcp_toolcall_lab.catalog import AVAILABLE_TOOLS as AVAILABLE_TOOLS_frontends, TOOL_DESCRIPTIONS
+from mcp_toolcall_lab.chat_ui import describe, wait_for_assistant
+from mcp_toolcall_lab.frontends import FRONTENDS, LIBRECHAT, OPENWEBUI, PRODUCT_CLIENTS, REFERENCE_CLIENTS, STUB, catalog, get_frontend
 from mcp_toolcall_lab.markdown_lib import (
-    assert_markdown_provenance,
-    load_markdown,
-    markdown_py_path,
+    assert_markdown_provenance, load_markdown, markdown_py_path, own_body, parse_sections as parse_sections_markdown_lib,
 )
-from mcp_toolcall_lab.catalog import TOOL_DESCRIPTIONS
 from mcp_toolcall_lab.pixiv_dictionary_tool import PixivDictionaryFetchError
 from mcp_toolcall_lab.stub_front import (
-    AVAILABLE_TOOLS,
-    BUILD_META_KEYS,
-    BUILD_META_NAME,
-    MCP_PATTERNS,
-    PAGES_FORBIDDEN_NAMES,
-    PAGES_HASH_JS_NAME,
-    PAGES_HASH_JS_SOURCE,
-    PAGES_PIXIV_JS_NAME,
-    PAGES_PIXIV_JS_SOURCE,
-    PAGES_SUMMARY_KEYS,
-    PAGES_WIKI_BROWSER_NOTE,
-    PAGES_WIKI_JS_NAME,
-    PAGES_WIKI_JS_SOURCE,
-    PAGES_WIKI_SERVE,
-    PIXIV_LOCAL_SERVE,
-    SOURCE_JS_NAME,
-    STUB_DEMO_DATA_NAME,
-    STUB_DEMO_JS_NAME,
-    STUB_DEMO_JS_SOURCE,
-    TERMINAL_CSS_NAME,
-    TERMINAL_CSS_SOURCE,
-    _status_is_dirty,
-    collect_revision,
-    load_corpus,
-    load_pysaiyanweboo,
-    pages_summary,
-    pokemon_spec,
-    parse_sections,
-    render_rows,
-    render_pixiv_page,
-    render_wiki_page,
-    pixiv_page_response,
-    write_pages,
-    write_stub_demo_page,
+    AVAILABLE_TOOLS, BUILD_META_KEYS, BUILD_META_NAME, CASE_HEADING_HIT, CASE_HEADING_MISS, CASE_MCP_EMPTY, CASE_MCP_SUCCESS, DEFAULT_CORPUS,
+    LIBRECHAT_INPUT, LIBRECHAT_SEND, MCP_PATTERNS, OWUI_INPUT, OWUI_RESPONSE, OWUI_SEND, PAGES_FORBIDDEN_NAMES, PAGES_HASH_JS_NAME,
+    PAGES_HASH_JS_SOURCE, PAGES_PIXIV_JS_NAME, PAGES_PIXIV_JS_SOURCE, PAGES_SUMMARY_KEYS, PAGES_WIKI_BROWSER_NOTE, PAGES_WIKI_JS_NAME,
+    PAGES_WIKI_JS_SOURCE, PAGES_WIKI_SERVE, PIXIV_LOCAL_SERVE, SOURCE_JS_NAME, STUB_DEMO_DATA_NAME, STUB_DEMO_JS_NAME, STUB_DEMO_JS_SOURCE,
+    StubState, TERMINAL_CSS_NAME, TERMINAL_CSS_SOURCE, _assistant_html, _status_is_dirty, classify_prompt, collect_revision, load_corpus,
+    load_pysaiyanweboo, lookup_heading, main, make_handler, pages_summary, parse_sections, pixiv_page_response, pokemon_spec, render_pixiv_page,
+    render_rows, render_wiki_page, reply, write_pages, write_stub_demo_page,
 )
 
+
+# ═══ · stub pages ════════════════════════════════════════════════════════════════════════════════════════
+# Pages/Actions stub stack — no Docker in default pytest.
 
 def _locked(destination):
     root = Path(__file__).resolve().parents[1]
     lock = json.loads((root / "vendor.lock.json").read_text(encoding="utf-8"))
     return next(e for e in lock["files"] if e["destination"] == destination)
-
-ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_vendored_markdown_py_is_loadable() -> None:
@@ -991,3 +970,637 @@ def test_pokemon_spec_is_the_panel_s_only_consumer_data() -> None:
     pswb = load_pysaiyanweboo()
     spec = pswb.source_spec(pokemon_spec())
     assert spec["id"] == "pokemon" and spec["url"] == "https://pokeapi.co/api/v2/pokemon/{name}"
+
+
+# ═══ · stub pages smoke ══════════════════════════════════════════════════════════════════════════════════
+# scripts/stub_pages_smoke.py -- no Docker, no network in default pytest.
+
+SCRIPTS = ROOT / "scripts"
+if str(SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS))
+
+import stub_pages_smoke as smoke  # noqa: E402
+
+
+def test_cpu_completion_ok_reads_choices(monkeypatch) -> None:
+    monkeypatch.setattr(
+        smoke,
+        "_post_json",
+        lambda *a, **kw: (200, {"choices": [{"message": {"content": "pong"}}]}),
+    )
+    ok, detail = smoke._cpu_completion_ok()
+    assert ok is True
+    assert detail == ""
+
+
+def test_cpu_completion_ok_false_on_non_200(monkeypatch) -> None:
+    monkeypatch.setattr(smoke, "_post_json", lambda *a, **kw: (500, "boom"))
+    ok, detail = smoke._cpu_completion_ok()
+    assert ok is False
+    assert "boom" in detail
+
+
+def test_cpu_completion_ok_false_on_missing_choices(monkeypatch) -> None:
+    monkeypatch.setattr(smoke, "_post_json", lambda *a, **kw: (200, {"choices": []}))
+    ok, detail = smoke._cpu_completion_ok()
+    assert ok is False
+    assert "no choices" in detail
+
+
+def test_default_backend_is_lite_stub() -> None:
+    assert smoke.CPU_LLM_BACKEND == "lite-stub"
+
+
+# ═══ · stub front ════════════════════════════════════════════════════════════════════════════════════════
+# Stdlib stub front: heading → body, MCP cases, dual locators, chat_id.
+
+def test_corpus_has_readme_and_wiki_headings() -> None:
+    sections = load_corpus(DEFAULT_CORPUS)
+    titles = {section.title for section in sections}
+    assert "Find municipalities" in titles
+    assert "Exampleville" in titles
+    assert "Geography" in titles
+    exampleville = lookup_heading("Exampleville", sections, fuzzy=False)
+    assert exampleville is not None
+    assert "90001" in exampleville.body
+
+
+def test_exact_heading_wins_over_mcp_keyword() -> None:
+    sections = parse_sections("# Exampleville\n\nFrom the corpus.\n")
+    classified = classify_prompt("Exampleville", sections)
+    assert classified["kind"] == "heading"
+    assert classified["section"].body == "From the corpus."
+
+
+def test_heading_select_is_on_the_composer_page() -> None:
+    sections = load_corpus(DEFAULT_CORPUS)
+    from mcp_toolcall_lab.stub_front import _page
+
+    html = _page("chat_" + "c" * 24, [], sections=sections)
+    assert 'data-testid="heading-select"' in html
+    assert "Geography" in html
+    assert "wikipedia.org" not in html
+    assert "source-url" not in html
+
+
+def test_sentence_with_exampleville_takes_mcp_path() -> None:
+    sections = load_corpus(DEFAULT_CORPUS)
+    classified = classify_prompt("Find municipalities named Exampleville", sections)
+    assert classified["kind"] == "mcp"
+    assert classified["tool"] == "find_municipalities"
+    assert classified["arguments"]["query"] == "Exampleville"
+
+
+def test_reply_heading_and_mcp_inprocess(tmp_path: Path, monkeypatch) -> None:
+    log = tmp_path / "mcp.jsonl"
+    monkeypatch.setenv("MCP_TOOLCALL_LOG", str(log))
+    heading = reply("# Find municipalities", chat_id="chat_" + "a" * 24)
+    assert heading.case == CASE_HEADING_HIT
+    assert heading.chat_id.startswith("chat_")
+    assert "find_municipalities" in heading.assistant
+
+    mcp_ok = reply("Where is Exampleville?", chat_id=heading.chat_id)
+    assert mcp_ok.case == CASE_MCP_SUCCESS
+    assert mcp_ok.tool == "find_municipalities"
+    assert "90001" in mcp_ok.assistant
+    row = json.loads(log.read_text(encoding="utf-8").splitlines()[0])
+    assert row["meta"]["chat_id"] == heading.chat_id
+    assert row["meta"]["source"] == "stub-front"
+
+    miss = reply("this heading does not exist xyz")
+    assert miss.case == CASE_HEADING_MISS
+
+
+def test_jsonrpc_error_is_not_classified_empty(monkeypatch) -> None:
+    from mcp_toolcall_lab import stub_front
+
+    class _Fake:
+        def initialize(self) -> None:
+            return None
+
+        def list_tools(self) -> dict:
+            return {"result": {"tools": []}}
+
+        def call_tool(self, *args, **kwargs):
+            return {"jsonrpc": "2.0", "id": 1, "error": {"code": -32603, "message": "boom"}}
+
+    monkeypatch.setattr(stub_front, "McpStdlibSession", lambda *args, **kwargs: _Fake())
+    outcome, payload, via = stub_front._call_mcp(
+        tool="find_municipalities",
+        arguments={"query": "Exampleville"},
+        chat_id="chat_x",
+        call_id="call_x",
+        mcp_url="http://127.0.0.1:9/mcp",
+    )
+    assert via == "mcp"
+    assert outcome == "error"
+    assert payload == {"code": -32603, "message": "boom"}
+
+
+def test_stub_front_lists_tools_before_call(monkeypatch) -> None:
+    from mcp_toolcall_lab import stub_front
+
+    seen: list[str] = []
+
+    class _Fake:
+        def initialize(self) -> None:
+            seen.append("initialize")
+
+        def list_tools(self) -> dict:
+            seen.append("list_tools")
+            return {"result": {"tools": []}}
+
+        def call_tool(self, *args, **kwargs):
+            seen.append("call_tool")
+            return {
+                "result": {
+                    "structuredContent": {"result": [{"code": "90001", "name": "Exampleville"}]}
+                }
+            }
+
+    monkeypatch.setattr(stub_front, "McpStdlibSession", lambda *args, **kwargs: _Fake())
+    outcome, payload, via = stub_front._call_mcp(
+        tool="find_municipalities",
+        arguments={"query": "Exampleville"},
+        chat_id="chat_x",
+        call_id="call_x",
+        mcp_url="http://127.0.0.1:9/mcp",
+    )
+    assert via == "mcp"
+    assert outcome == "success"
+    assert seen == ["initialize", "list_tools", "call_tool"]
+    assert payload[0]["name"] == "Exampleville"
+
+
+def test_mcp_empty_case() -> None:
+    sections = parse_sections("# Other\n\nbody\n")
+    classified = classify_prompt("stations unknown code 00000", sections)
+    assert classified["kind"] == "mcp"
+    assert classified["arguments"]["municipality_code"] == "00000"
+    turn = reply("stations unknown code 00000", sections=sections)
+    assert turn.case == CASE_MCP_EMPTY
+    assert turn.mcp_outcome == "empty"
+
+
+def test_cli_turn_one_liner() -> None:
+    proc = subprocess.run(
+        [sys.executable, "-m", "mcp_toolcall_lab.stub_front", "turn", "--heading", "Exampleville", "--chat-id", "chat_" + "b" * 24],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    payload = json.loads(proc.stdout)
+    assert payload["case"] == CASE_HEADING_HIT
+    assert payload["chat_id"] == "chat_" + "b" * 24
+    assert "90001" in payload["assistant"]
+
+
+def test_html_exposes_librechat_and_owui_locators() -> None:
+    state = StubState(sections=load_corpus(DEFAULT_CORPUS), mcp_url=None)
+    server = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(state))
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        host, port = server.server_address
+        base = f"http://{host}:{port}"
+        with urlopen(base + "/", timeout=5) as response:
+            assert response.status == 200
+            url = response.geturl()
+            html = response.read().decode("utf-8")
+        assert "/c/chat_" in url
+        assert f'data-testid="{LIBRECHAT_INPUT}"' in html
+        assert f'data-testid="{LIBRECHAT_SEND}"' in html
+        assert f'id="{OWUI_INPUT}"' in html
+        assert f'id="{OWUI_SEND}"' in html
+        chat_id = url.rstrip("/").rsplit("/", 1)[-1]
+        body = f"prompt=Exampleville".encode("utf-8")
+        request = Request(
+            f"{base}/c/{chat_id}",
+            data=body,
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            method="POST",
+        )
+        with urlopen(request, timeout=5) as response:
+            page = response.read().decode("utf-8")
+        assert f'id="{OWUI_RESPONSE}"' in page
+        assert "90001" in page
+        api = Request(
+            f"{base}/api/turn",
+            data=json.dumps({"prompt": "Find municipalities named Exampleville", "chat_id": chat_id}).encode(),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urlopen(api, timeout=5) as response:
+            turn = json.loads(response.read().decode("utf-8"))
+        assert turn["case"] == CASE_MCP_SUCCESS
+        assert turn["chat_id"] == chat_id
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+def test_main_turn_exit(capsys) -> None:
+    code = main(["turn", "--heading", "Exampleville", "--chat-id", "chat_cli"])
+    assert code == 0
+    assert json.loads(capsys.readouterr().out)["case"] == CASE_HEADING_HIT
+
+
+# ═══ · frontends ═════════════════════════════════════════════════════════════════════════════════════════
+
+def test_both_clients_are_documented() -> None:
+    assert set(PRODUCT_CLIENTS) == {"librechat", "openwebui"}
+    assert set(REFERENCE_CLIENTS) == {"stub"}
+    assert set(FRONTENDS) == PRODUCT_CLIENTS | REFERENCE_CLIENTS
+    assert LIBRECHAT.composer.input.css() == '[data-testid="text-input"]'
+    assert LIBRECHAT.composer.send.css() == '[data-testid="send-button"]'
+    assert OPENWEBUI.composer.input.css() == "#chat-input"
+    assert OPENWEBUI.composer.send.css() == "#send-message-button"
+    assert OPENWEBUI.response.container is not None
+    assert OPENWEBUI.response.container.css() == "#response-content-container"
+
+
+def test_librechat_mcp_tool_key_and_compose_dns() -> None:
+    assert LIBRECHAT.mcp.tool_key("find_municipalities") == "find_municipalities_mcp_lab"
+    assert LIBRECHAT.mcp.compose_mcp_url == "http://mcp-mock:8000/mcp"
+    assert OPENWEBUI.mcp.tool_key("find_municipalities") == "lab_find_municipalities"
+    assert OPENWEBUI.mcp.compose_openai_url == "http://openai-mock:8090/v1"
+    assert OPENWEBUI.compose_file == "docker/openwebui-smoke/docker-compose.yml"
+    assert set(LIBRECHAT.advertised_tools) == set(AVAILABLE_TOOLS_frontends)
+
+
+def test_aliases() -> None:
+    assert get_frontend("owui").id == "openwebui"
+    assert get_frontend("lc").id == "librechat"
+    assert get_frontend("stubfront").id == "stub"
+    assert STUB.role == "reference"
+    assert STUB.composer.input.css() == LIBRECHAT.composer.input.css()
+
+
+def test_catalog_and_describe_are_json() -> None:
+    dumped = catalog()
+    assert "librechat" in dumped["clients"]
+    assert "openwebui" in dumped["clients"]
+    assert "send_librechat" in dumped["one_liners"]
+    assert "trace_probe" in dumped["one_liners"]
+    assert "stub_front_turn" in dumped["one_liners"]
+    assert "docker_logs" in dumped["one_liners"]
+    assert dumped["roles"]["reference"] == ["stub"]
+    summary = describe("librechat")
+    assert summary["composer_input"] == '[data-testid="text-input"]'
+    assert any("chat_ui send" in line for line in summary["one_liners"])
+    assert any("trace_probe" in line for line in summary["one_liners"])
+
+
+def test_frontends_module_one_liner() -> None:
+    proc = subprocess.run(
+        [sys.executable, "-m", "mcp_toolcall_lab.frontends", "openwebui"],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    payload = json.loads(proc.stdout)
+    assert payload["id"] == "openwebui"
+    assert payload["composer"]["input"]["value"] == "chat-input"
+
+
+def test_chat_ui_describe_one_liner() -> None:
+    proc = subprocess.run(
+        [sys.executable, "-m", "mcp_toolcall_lab.chat_ui", "describe"],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    payload = json.loads(proc.stdout)
+    assert "one_liners" in payload
+    assert payload["clients"]["librechat"]["default_url"].startswith("http://")
+
+
+class _FakeLocator:
+    def __init__(self, n: int) -> None:
+        self._n = n
+
+    def count(self) -> int:
+        return self._n
+
+    def wait_for(self, timeout=None) -> None:  # noqa: ANN001
+        return None
+
+    @property
+    def last(self) -> "_FakeLocator":
+        return self
+
+
+class _FakePage:
+    def __init__(self, n: int, last_text: str = "") -> None:
+        self.n = n
+        self.last_text = last_text
+        self.calls: list[tuple] = []
+
+    def locator(self, css: str) -> _FakeLocator:
+        return _FakeLocator(self.n)
+
+    def wait_for_function(self, expression, arg=None, timeout=None) -> None:  # noqa: ANN001
+        self.calls.append((arg, timeout))
+        if arg is None:
+            return
+        need = arg.get("n")
+        if need is not None and self.n < need:
+            raise TimeoutError("not enough assistant bubbles")
+        needle = arg.get("text")
+        if needle and needle not in self.last_text.lower():
+            raise TimeoutError("last bubble missing fragment")
+
+
+def test_wait_for_assistant_requires_a_new_bubble_when_min_count_set() -> None:
+    page = _FakePage(n=1, last_text="hello")
+    assert wait_for_assistant(page, OPENWEBUI, min_count=2) is False
+    page.n = 2
+    page.last_text = "Exampleville (code 90001)"
+    assert (
+        wait_for_assistant(
+            page,
+            OPENWEBUI,
+            min_count=2,
+            text_in_last="Exampleville",
+        )
+        is True
+    )
+    assert page.calls[-1][0]["n"] == 2
+    assert page.calls[-1][0]["text"] == "exampleville"
+
+
+# ═══ · librechat example ═════════════════════════════════════════════════════════════════════════════════
+# Guard the LibreChat example config so the documented Streamable HTTP shape cannot drift.
+
+EXAMPLE = ROOT / "examples" / "librechat.mcp.example.yaml"
+
+
+def test_librechat_example_yaml_exists_and_targets_streamable_http() -> None:
+    text = EXAMPLE.read_text(encoding="utf-8")
+    assert "mcpServers:" in text
+    assert "mcp-toolcall-lab:" in text
+    assert "type: streamable-http" in text
+    assert "url: http://127.0.0.1:8000/mcp" in text
+    assert "requiresOAuth: false" in text
+    assert "startup: true" in text
+    # stdio-only knobs must not sneak into the HTTP example
+    assert "command:" not in text
+    assert "args:" not in text
+    assert "librechat_mcp_mock.py" in text
+    assert "openwebui_mcp_mock.py" not in text
+
+
+def test_librechat_smoke_compose_uses_shared_docker_network() -> None:
+    compose = (ROOT / "docker" / "librechat-smoke" / "docker-compose.yml").read_text(
+        encoding="utf-8"
+    )
+    yaml = (ROOT / "docker" / "librechat-smoke" / "librechat.yaml").read_text(encoding="utf-8")
+    assert "name: mcp-toolcall-lab" in compose
+    assert "mcp-mock:" in compose
+    assert "openai-mock:" in compose
+    assert "url: http://mcp-mock:8000/mcp" in yaml
+    assert 'baseURL: "http://openai-mock:8090/v1"' in yaml
+    assert "host.docker.internal" not in yaml
+    dockerfile = (ROOT / "docker" / "librechat-smoke" / "Dockerfile.mcp").read_text(encoding="utf-8")
+    assert "librechat_mcp_mock.py" in dockerfile
+    assert "openwebui_mcp_mock.py" not in dockerfile
+    openai_df = (ROOT / "docker" / "librechat-smoke" / "Dockerfile.openai").read_text(
+        encoding="utf-8"
+    )
+    assert "src/mcp_toolcall_lab/mock/common.py" in openai_df
+    assert "openai_toolcall_mock.py" in openai_df
+    assert "server.py" not in openai_df
+
+
+def test_librechat_docs_and_prompt_are_present() -> None:
+    notes = (ROOT / "docs" / "librechat-mcp-notes.md").read_text(encoding="utf-8")
+    assert "librechat_mcp_mock.py" in notes
+    assert "http://mcp-mock:8000/mcp" in notes
+    prompt = (ROOT / "system_prompts" / "strict_tool_selection_librechat.md").read_text(
+        encoding="utf-8"
+    )
+    assert "LibreChat" in prompt
+    assert "tools/list" in prompt
+
+
+def test_librechat_smoke_workflow_tracks_the_librechat_named_mock() -> None:
+    workflow = (ROOT / ".github" / "workflows" / "librechat-docker-smoke.yml").read_text(
+        encoding="utf-8"
+    )
+    assert "librechat_mcp_mock.py" in workflow
+    assert "mcp_toolcall_lab.docker_logs" in workflow
+    assert "pytest -q" in workflow
+
+
+# ═══ · markdown lib ══════════════════════════════════════════════════════════════════════════════════════
+# markdown_lib.parse_sections -- inclusive nested section bodies.
+#
+# BLEACH-shaped corpus: an H2 parent (``あらすじ``) followed by two H3
+# children, then a sibling H2. The parent's body must include both
+# children's headings/text and stop only at the next H2 -- otherwise the
+# Pages ``#wiki`` UI's "labels say inclusive but Docker/MCP say exclusive"
+# parity gap (see issue #34) comes back for the Python side. Both the
+# vendored ``markdown.py`` path and the local ATX-regex fallback must agree.
+
+BLEACH_MARKDOWN = (
+    "# BLEACH\n"
+    "\n"
+    "## あらすじ\n"
+    "\n"
+    "### 死神代行篇\n"
+    "arc1 body\n"
+    "\n"
+    "### 尸魂界篇\n"
+    "arc2 body\n"
+    "\n"
+    "## 登場人物\n"
+    "people body\n"
+)
+
+
+def _assert_bleach_shape(sections) -> None:
+    by_title = {section.title: section for section in sections}
+    assert by_title.keys() >= {"あらすじ", "死神代行篇", "尸魂界篇", "登場人物"}
+
+    lead = by_title["あらすじ"]
+    assert lead.level == 2
+    assert "### 死神代行篇" in lead.body
+    assert "arc1 body" in lead.body
+    assert "### 尸魂界篇" in lead.body
+    assert "arc2 body" in lead.body
+    assert "登場人物" not in lead.body
+    assert "people body" not in lead.body
+
+    arc1 = by_title["死神代行篇"]
+    assert arc1.level == 3
+    assert arc1.body == "arc1 body"
+
+    people = by_title["登場人物"]
+    assert people.level == 2
+    assert people.body == "people body"
+
+
+def test_parse_sections_inclusive_nested_bleach_shape_vendored() -> None:
+    assert load_markdown() is not None, "vendor/markdown.py must be present for this check"
+    _assert_bleach_shape(parse_sections_markdown_lib(BLEACH_MARKDOWN))
+
+
+def test_parse_sections_inclusive_nested_bleach_shape_fallback(monkeypatch) -> None:
+    import mcp_toolcall_lab.markdown_lib as markdown_lib
+
+    monkeypatch.setattr(markdown_lib, "load_markdown", lambda: None)
+    _assert_bleach_shape(parse_sections_markdown_lib(BLEACH_MARKDOWN))
+
+
+def test_parse_sections_sibling_h2_still_stops_at_next_h2() -> None:
+    text = "## A\nbody a\n\n## B\nbody b\n"
+    sections = parse_sections_markdown_lib(text)
+    assert [s.title for s in sections] == ["A", "B"]
+    assert sections[0].body == "body a"
+    assert sections[1].body == "body b"
+
+
+def test_own_body_excludes_child_heading_prose_that_section_body_includes() -> None:
+    """``own_body`` is the narrower, non-inclusive counterpart to ``Section.body``.
+
+    Added for #60's Pixiv source-extraction "overview" field: a heading with
+    no prose of its own before its first child heading -- e.g. ``あらすじ``,
+    whose entire ``section.body`` belongs to its two H3 children -- must
+    report an empty own body rather than leaking the children's text.
+    """
+    sections = parse_sections_markdown_lib(BLEACH_MARKDOWN)
+    by_title = {section.title: section for section in sections}
+
+    lead = by_title["あらすじ"]
+    assert lead.body != ""
+    assert own_body(BLEACH_MARKDOWN, lead) == ""
+
+    people = by_title["登場人物"]
+    assert own_body(BLEACH_MARKDOWN, people) == "people body"
+
+    root = by_title["BLEACH"]
+    assert own_body(BLEACH_MARKDOWN, root) == ""
+
+
+def test_own_body_stops_at_first_child_heading_when_direct_prose_exists() -> None:
+    text = "# Title\ndirect prose\n\n## Child\nchild body\n"
+    sections = parse_sections_markdown_lib(text)
+    root = next(s for s in sections if s.title == "Title")
+    assert own_body(text, root) == "direct prose"
+
+
+def test_own_body_falls_back_to_section_body_when_heading_line_not_found() -> None:
+    """An out-of-sync ``Section`` whose title has no matching ``#`` line in
+    the given Markdown gets ``section.body`` back, not an empty string or a
+    crash.
+    """
+    sections = parse_sections_markdown_lib(BLEACH_MARKDOWN)
+    lead = next(s for s in sections if s.title == "あらすじ")
+    assert own_body("no headings in this string at all", lead) == lead.body
+
+
+# ═══ · markdown nul ══════════════════════════════════════════════════════════════════════════════════════
+# Upstream markdown#62 regressions through the lab's actual rendering path.
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        ("keep \x00PH0\x00 here and `code`", "<p>keep \ufffdPH0\ufffd here and <code>code</code></p>\n"),
+        ("only \x00PH0\x00 text", "<p>only \ufffdPH0\ufffd text</p>\n"),
+        ("```\n\x00\n```", "<pre><code>\ufffd\n</code></pre>\n"),
+    ],
+)
+def test_vendored_markdown_and_assistant_replace_input_nul(source, expected):
+    md = load_markdown()
+    assert md is not None
+    for result in (md.markdown_to_html(source), _assistant_html(source)):
+        assert result == expected
+        assert "\x00" not in result
+
+
+# ═══ · antipatterns ══════════════════════════════════════════════════════════════════════════════════════
+
+CATALOG = Path(__file__).resolve().parents[1] / "fixtures" / "antipatterns" / "catalog.yaml"
+
+
+def test_catalog_lists_every_known_id() -> None:
+    text = CATALOG.read_text(encoding="utf-8")
+    for antipattern_id in sorted(KNOWN_IDS):
+        assert f"id: {antipattern_id}" in text, antipattern_id
+
+
+def test_classify_pass_when_mcp_and_ui_agree() -> None:
+    result = classify_observation(
+        input_found=True,
+        send_clicked=True,
+        logged_in=True,
+        assistant_visible=True,
+        openai_saw_tools=True,
+        mcp_calls=[{"tool": "find_municipalities", "outcome": "success"}],
+        ui_text="Exampleville (code 90001) is in Example Region.",
+    )
+    assert result["verdict"] == VERDICT_PASS
+    assert result["antipattern_id"] is None
+
+
+def test_classify_picker_off_and_mcp_not_called() -> None:
+    picker = classify_observation(
+        input_found=True,
+        send_clicked=True,
+        logged_in=True,
+        assistant_visible=True,
+        openai_saw_tools=False,
+        mcp_calls=[],
+        ui_text="No MCP tools were attached",
+    )
+    assert picker["antipattern_id"] == MCP_PICKER_OFF
+
+    missing = classify_observation(
+        input_found=True,
+        send_clicked=True,
+        logged_in=True,
+        assistant_visible=True,
+        openai_saw_tools=True,
+        mcp_calls=[],
+        ui_text="something else",
+    )
+    assert missing["antipattern_id"] == MCP_NOT_CALLED
+
+
+def test_classify_auth_and_ui_gap() -> None:
+    assert (
+        classify_observation(
+            input_found=False,
+            send_clicked=False,
+            logged_in=False,
+            assistant_visible=False,
+            openai_saw_tools=None,
+            mcp_calls=[],
+            ui_text="",
+        )["antipattern_id"]
+        == AUTH_BLOCKED
+    )
+    gap = classify_observation(
+        input_found=True,
+        send_clicked=True,
+        logged_in=True,
+        assistant_visible=True,
+        openai_saw_tools=True,
+        mcp_calls=[{"tool": "find_municipalities", "outcome": "success"}],
+        ui_text="an error occurred",
+    )
+    assert gap["antipattern_id"] == UI_NO_RESULT
+    assert gap["verdict"] == VERDICT_ANTIPATTERN
+
+
+def test_write_observation_appends_jsonl(tmp_path: Path) -> None:
+    path = tmp_path / "observed.jsonl"
+    write_observation(path, observation={"verdict": VERDICT_ANTIPATTERN, "antipattern_id": MCP_NOT_CALLED})
+    write_observation(path, observation={"verdict": VERDICT_PASS, "antipattern_id": None})
+    lines = path.read_text(encoding="utf-8").splitlines()
+    assert len(lines) == 2
+    assert "MCP_NOT_CALLED" in lines[0]
+    assert "PASS" in lines[1]

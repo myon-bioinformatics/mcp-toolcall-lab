@@ -185,7 +185,7 @@ h-level-to-`#`-heading model `pixiv_dictionary_tool.py` already gets from
 title/body only rather than guessing at pixiv's undocumented wiki markup).
 Paste normalization (CRLF/lone-CR/U+2028/U+2029 line breaks, NBSP/U+3000
 whitespace, trailing whitespace) and an input-size budget (checked before any
-decoding, not after) are tested in `tests/test_pages_pixiv.py`. The
+decoding, not after) are tested in `tests/test_pixiv.py`. The
 revision-source URL shape has its own valid/invalid contract table in
 `fixtures/pixiv_dictionary/history_source_urls.json` (JP/raw-Unicode/
 percent-encoded titles, a title containing `/` encoding to `%2F`,
@@ -201,7 +201,7 @@ for this workflow's replacement, unaffected by it, and continue to fetch
 `dic.pixiv.net` server-side as before. The panel never shows a `127.0.0.1`
 URL as if this static host could reach it — regression-tested by
 `tests/test_stub_pages.py::test_pixiv_pages_panel_never_regresses_to_localhost_dead_end`,
-`test_pixiv_pages_search_is_retired`, and `tests/test_pages_pixiv.py`.
+`test_pixiv_pages_search_is_retired`, and `tests/test_pixiv.py`.
 
 Pages `#pokemon` (after Wiki and Pixiv in the nav) is the same source-or-API
 idea for PokéAPI: **Fetch** asks `https://pokeapi.co/api/v2/pokemon/<name>`

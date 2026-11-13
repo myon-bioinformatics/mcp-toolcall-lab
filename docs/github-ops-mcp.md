@@ -54,7 +54,7 @@ fastmcp call http://127.0.0.1:8010/mcp pr_status repo=myon-bioinformatics/mcp-to
 The token comes **only** from the `GITHUB_TOKEN` / `GH_TOKEN` environment
 variables — exactly how `gh_ops.Client()` already resolves it when
 constructed with no explicit token. No tool below takes a `token` argument,
-returns one, or logs one; `tests/test_github_ops_server.py` asserts no tool's
+returns one, or logs one; `tests/test_server.py` asserts no tool's
 schema has a `token` property. `_safe()` catches `gh_ops.GhOpsError`,
 `ValueError`, and `KeyError`, scrubs their messages, and returns
 `{"ok": False, "error": ...}`. An unexpected exception (for example, a
@@ -131,7 +131,7 @@ the reviewed parent commit, source blob, and SHA-256.
 ## Tests
 
 ```bash
-uv run pytest -q tests/test_github_ops_server.py tests/test_mcp_toolcall_lab_vendor_lock.py
+uv run pytest -q tests/test_server.py tests/test_mcp_toolcall_lab_vendor_lock.py
 ```
 
 No network: every REST-backed tool test stubs `gh_ops.Client`'s transport

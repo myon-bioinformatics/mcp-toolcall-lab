@@ -37,7 +37,7 @@ input is longer than the requested budget.
 - tests/test_compaction.py contains 28 tests covering trust boundaries,
   pairing, tool-result attacks, and fail-closed behavior. Attack inputs
   include actual line breaks, not only a literal backslash followed by n.
-- tests/test_compaction_tool_choice.py compares tool name and arguments
+- tests/test_compaction.py compares tool name and arguments
   between original and compacted requests on five attack payloads and
   three real user intents. It runs the repo's deterministic CPU-lite
   stand-in (demos/cpu_llm_lite.py). Generated tool_call_id values are
