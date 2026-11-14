@@ -43,12 +43,26 @@ input is longer than the requested budget.
   stand-in (demos/cpu_llm_lite.py). Generated tool_call_id values are
   ignored because IDs are not decisions.
 - These checks do **not** establish prompt-injection immunity for a
-  generative model. Real GGUF inference, run-to-run variation, and
-  anti-pattern-rate comparisons remain to be measured separately.
+  generative model or real MCP tool-choice accuracy.
 
-## Deferred Issue #115 scope
+## Measured scope and remaining work
 
-There is no compaction proxy/compose overlay, OPENAI_MOCK_LOG request
-growth report, llama.cpp tokenizer integration, or real-model benchmark.
-The core often declines normal multi-turn user histories because user
-constraint-preserving summary rendering has not been implemented.
+- [History growth telemetry (#118)](history-growth-telemetry.md) measures
+  message counts and normalized character counts at OpenAI mock ingress,
+  without retaining message or argument bodies. Character counts are not tokens.
+- The [GGUF benchmark (#119)](compaction-gguf-benchmark.md) compares original
+  and compacted synthetic requests using SHA-256-verified SmolLM2-135M-Instruct
+  GGUF and a pinned llama.cpp server in Docker. It records server-reported
+  token usage and context length, HTTP round-trip latency, and a narrow
+  exact-match proxy. Compacted and declined cases are reported separately.
+  No functions are advertised: textual mentions are not actual MCP calls,
+  and this experiment does **not** establish real MCP tool-choice accuracy
+  or safety. See the benchmark for conditions and limitations.
+- The UI → proxy → model opt-in path, its operational tokenizer/chat template
+  and context-limit integration, and real multi-turn MCP tool-choice quality
+  comparisons remain unmeasured. A deployed compaction proxy and
+  user-constraint-preserving summary rendering are not implemented. The core
+  therefore often declines normal multi-turn histories rather than removing
+  earlier user constraints.
+
+Remaining work is tracked in [Issue #122](https://github.com/myon-bioinformatics/mcp-toolcall-lab/issues/122).
