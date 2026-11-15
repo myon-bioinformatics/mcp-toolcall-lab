@@ -14,7 +14,7 @@ def test_legacy_redirect_preserves_routes_and_public_export_is_still_retained():
         assert 'rel="apple-touch-icon"' in html
         assert 'src="execution/assets/mcp-toolcall-lab-logo.png"' in html
         js = html.split('<script>')[1].split('</script>')[0]
-        for route in ('#wiki', '#pixiv', ''):
+        for route in ('#wiki', '#pixiv', '#pokemon', ''):
             node = "let result; const location={search:'?view=wiki',hash:" + repr(route) + ",replace:v=>{result=v}};" + js + ";process.stdout.write(result)"
             result = subprocess.run(['node', '-e', node], text=True, capture_output=True, check=True)
             assert result.stdout.endswith('?view=wiki' + route)
