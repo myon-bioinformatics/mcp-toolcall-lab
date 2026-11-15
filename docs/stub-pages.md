@@ -72,7 +72,7 @@ Off by default (never on a plain push); turn it on via the `stub-pages`
 workflow's `use_real_gguf` dispatch input, or locally:
 
 ```bash
-scripts/fetch_tiny_cpu_gguf.sh docker/stub-pages/models/model.gguf
+python3 scripts/fetch_tiny_cpu_gguf.py docker/stub-pages/models/model.gguf
 docker compose -f docker/stub-pages/docker-compose.yml \
   -f docker/stub-pages/docker-compose.gguf.yml up --build
 ```

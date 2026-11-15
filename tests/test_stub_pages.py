@@ -56,7 +56,7 @@ def test_vendored_markdown_py_is_loadable() -> None:
     assert recorded["sha256"] == _locked('vendor/markdown.py')['sha256']
     readme = (ROOT / "vendor" / "README.md").read_text(encoding="utf-8")
     assert "vendor.lock.json" in readme
-    assert "test_mcp_toolcall_lab_vendor_lock.py" in readme
+    assert "tests/test_fleet.py" in readme
     # Vendored API surface through the current markdown.py snapshot must be present.
     assert hasattr(md, "markdown_to_html")
     assert hasattr(md, "html_to_markdown")
@@ -1009,6 +1009,33 @@ def test_cpu_completion_ok_false_on_missing_choices(monkeypatch) -> None:
 
 def test_default_backend_is_lite_stub() -> None:
     assert smoke.CPU_LLM_BACKEND == "lite-stub"
+
+
+# ═══ · portfolio redirect ════════════════════════════════════════════════════════════
+# The legacy Pages URL redirects to the portfolio and keeps the routes; stub-pages.yml stays a non-publisher.
+
+def test_legacy_redirect_preserves_routes_and_public_export_is_still_retained():
+    script = ROOT / 'scripts/write_portfolio_redirect.py'
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as directory:
+        subprocess.run(['python', '-S', str(script), directory], check=True)
+        html = (Path(directory) / 'index.html').read_text()
+        assert 'https://myon-bioinformatics.github.io/tools/mcp-toolcall-lab/' in html
+        assert 'rel="icon" type="image/png" href="execution/assets/mcp-toolcall-lab-favicon-artwork.png"' in html
+        assert 'rel="apple-touch-icon"' in html
+        assert 'src="execution/assets/mcp-toolcall-lab-logo.png"' in html
+        js = html.split('<script>')[1].split('</script>')[0]
+        for route in ('#wiki', '#pixiv', '#pokemon', ''):
+            node = "let result; const location={search:'?view=wiki',hash:" + repr(route) + ",replace:v=>{result=v}};" + js + ";process.stdout.write(result)"
+            result = subprocess.run(['node', '-e', node], text=True, capture_output=True, check=True)
+            assert result.stdout.endswith('?view=wiki' + route)
+    workflow = (ROOT / '.github/workflows/stub-pages.yml').read_text()
+    assert 'actions/deploy-pages' not in workflow
+    assert not (ROOT / '.github/workflows/pages.yml').exists()  # no Pages publisher since 2026-11-13
+    assert 'stub-pages-observations' in workflow
+    assert '            _site/' in workflow
+    assert 'scripts/stub_pages_smoke.py' in workflow
 
 
 # ═══ · stub front ════════════════════════════════════════════════════════════════════════════════════════

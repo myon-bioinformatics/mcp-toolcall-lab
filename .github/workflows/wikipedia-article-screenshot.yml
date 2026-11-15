@@ -1,4 +1,4 @@
-name: wikipedia-article-screenshot
+name: Wikipedia article screenshot
 
 # Stdlib stub /wiki screenshots via `python -m playwright screenshot`.
 # Default pytest (`test` workflow, `uv run --locked` then `pytest -q`) does not run this.
@@ -22,7 +22,7 @@ on:
       - "docs/wikipedia-tool.md"
       - "pyproject.toml"
       - "uv.lock"
-      - "tests/test_ci_wiki_screenshot_profile.py"
+      - "tests/test_fleet.py"
       - ".github/workflows/wikipedia-article-screenshot.yml"
 
 jobs:

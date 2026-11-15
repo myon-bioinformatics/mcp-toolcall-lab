@@ -1,4 +1,4 @@
-name: stub-pages
+name: Stub pages
 
 # Serverless try: Actions boots Docker (stub + MCP + CPU-class model),
 # records anti-patterns as JSONL and exports public reports for portfolio publication.
@@ -48,9 +48,8 @@ on:
       - "vendor/gh_identity.py"
       - "scripts/stub_pages_smoke.py"
       - "scripts/write_portfolio_redirect.py"
-      - "tests/test_portfolio_redirect.py"
+      - "tests/test_stub_pages.py"
       - "scripts/fetch_tiny_cpu_gguf.py"
-      - "scripts/fetch_tiny_cpu_gguf.sh"
       - "src/mcp_toolcall_lab/antipatterns.py"
       - "fixtures/antipatterns/catalog.yaml"
       - ".github/workflows/stub-pages.yml"
@@ -77,9 +76,8 @@ on:
       - "vendor/gh_identity.py"
       - "scripts/stub_pages_smoke.py"
       - "scripts/write_portfolio_redirect.py"
-      - "tests/test_portfolio_redirect.py"
+      - "tests/test_stub_pages.py"
       - "scripts/fetch_tiny_cpu_gguf.py"
-      - "scripts/fetch_tiny_cpu_gguf.sh"
       - "src/mcp_toolcall_lab/antipatterns.py"
       - "fixtures/antipatterns/catalog.yaml"
       - ".github/workflows/stub-pages.yml"
@@ -129,7 +127,7 @@ jobs:
         env:
           CPU_LLM_GGUF_REPO: ${{ github.event.inputs.cpu_llm_gguf_repo }}
           CPU_LLM_GGUF_SHA256: ${{ github.event.inputs.cpu_llm_gguf_sha256 }}
-        run: scripts/fetch_tiny_cpu_gguf.sh docker/stub-pages/models/model.gguf
+        run: python3 scripts/fetch_tiny_cpu_gguf.py docker/stub-pages/models/model.gguf
 
       - name: Start stub + MCP + CPU-class model
         env:

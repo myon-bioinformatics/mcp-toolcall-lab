@@ -6,7 +6,7 @@ this file by path so the Pages/Docker image does not grow a pip dependency.
 
 Identity and byte hashes live in the repo-root [`vendor.lock.json`](../vendor.lock.json)
 entry for `vendor/markdown.py`. Refresh by updating that lock entry and the
-checked-in bytes together; `tests/test_mcp_toolcall_lab_vendor_lock.py` and
+checked-in bytes together; `tests/test_fleet.py` and
 `mcp_toolcall_lab.markdown_lib.assert_markdown_provenance()` guard drift.
 
 # Vendored `ascii_artist.py`
@@ -61,3 +61,10 @@ Pins and hashes: `vendor.lock.json` entries `vendor/pysaiyanweboo.py` and `vendo
 # Vendored `vendor_fleet_plan.py`
 
 Pinned snapshot of the parent repository's stdlib-only fleet evidence planner. The `fleet_query` MCP tool loads this module by path and delegates `deps`, `who`, `facts`, `why`, and `reverify` queries against the parent's published `fleet.jsonld`. The lock pins the reviewed parent commit and records the source blob and SHA-256; the module is never imported from the package path.
+
+# Vendored `fleet_check.py`
+
+Pinned snapshot of the parent's shared child contract checks (stdlib-only). `tests/test_fleet.py` calls
+`check_lock` and `parent_refs` from it instead of keeping local copies.
+
+Pins and hashes: `vendor.lock.json` entry `vendor/fleet_check.py`.

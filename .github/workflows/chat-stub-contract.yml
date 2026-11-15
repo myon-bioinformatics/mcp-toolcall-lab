@@ -1,4 +1,4 @@
-name: chat-stub-contract
+name: Chat stub contract
 
 on:
   pull_request:
@@ -6,7 +6,7 @@ on:
       - "deploy/chat-stub/**"
       - "fixtures/prompt_experiments/**"
       - "tests/test_chat_contract.py"
-      - "tests/test_ci_stdlib_profile.py"
+      - "tests/test_fleet.py"
       - "pyproject.toml"
       - "uv.lock"
       - ".github/workflows/chat-stub-contract.yml"

@@ -1,4 +1,4 @@
-"""Repository contracts: diagnostics, vendor lock wiring, parent tools and pins, JUnit production, Docker log projection."""
+"""Repository contracts: diagnostics, parent tools, JUnit production, Docker log projection (lock and pins: test_fleet.py)."""
 from __future__ import annotations
 
 import http.client
@@ -338,121 +338,13 @@ def test_unsupported_ref_degrades_to_not_checked(branch):
     assert payload["resolver"]["candidates"] == []
 
 
-# ═══ · mcp toolcall lab retired vendor refs ══════════════════════════════════════════════════════════════
-# Retired upstream source paths must not remain in the vendor lock.
-
-def test_ironmate_sources_are_not_locked_anymore():
-    root = Path(__file__).resolve().parents[1]
-    entries = json.loads((root / "vendor.lock.json").read_text(encoding="utf-8"))["files"]
-    ironmate = [e for e in entries if e["repository"] == "myon-bioinformatics/Ironmate"]
-    assert ironmate == []
-
-
-# ═══ · mcp toolcall lab vendor automation ════════════════════════════════════════════════════════════════
-# Regression checks for vendor.lock.json CI wiring.
-
-WORKFLOW = ROOT / ".github/workflows/ci.yml"
-VENDOR_SYNC_PIN = "26c442bc51b8a2837fe2556782b2937f396932af"
-
-
-def _workflow():
-    import yaml
-    return yaml.load(WORKFLOW.read_text(encoding="utf-8"), Loader=yaml.BaseLoader)
-
-
-def test_vendor_lock_lists_expected_sources():
-    lock = json.loads((ROOT / "vendor.lock.json").read_text(encoding="utf-8"))
-    expected = {
-        ("myon-bioinformatics/ascii_artist", "ascii_artist.py", "vendor/ascii_artist.py"),
-        ("myon-bioinformatics/myon-bioinformatics", "gh_ops.py", "vendor/gh_ops.py"),
-        ("myon-bioinformatics/myon-bioinformatics", "vendor_fleet_plan.py", "vendor/vendor_fleet_plan.py"),
-        ("myon-bioinformatics/markdown", "markdown.py", "vendor/markdown.py"),
-        ("myon-bioinformatics/ascii_artist", "LICENSE", "vendor/ascii_artist-LICENSE"),
-        ("myon-bioinformatics/markdown", "LICENSE", "vendor/markdown-LICENSE"),
-        ("myon-bioinformatics/myon-bioinformatics", "LICENSE", "vendor/myon-bioinformatics-LICENSE"),
-        ("myon-bioinformatics/gh_identity", "gh_identity.py", "vendor/gh_identity.py"),
-        ("myon-bioinformatics/gh_identity", "LICENSE", "vendor/gh_identity-LICENSE"),
-        (
-            "myon-bioinformatics/myon-bioinformatics",
-            "njs_launch.py",
-            "vendor/njs_launch.py",
-        ),
-        ("myon-bioinformatics/PySaiyanWeBoo", "pysaiyanweboo.py", "vendor/pysaiyanweboo.py"),
-        ("myon-bioinformatics/PySaiyanWeBoo", "LICENSE", "vendor/pysaiyanweboo-LICENSE"),
-    }
-    actual = {(e["repository"], e["source"], e["destination"]) for e in lock["files"]}
-    assert actual == expected
-
-
-def test_ci_verifies_vendor_lock_without_auto_update_jobs():
-    ci = _workflow()
-    assert {"push", "pull_request"} <= set(ci["on"])
-    assert "workflow_dispatch" not in ci["on"]
-    text = WORKFLOW.read_text(encoding="utf-8")
-    assert "vendor_sync.py promote" not in text
-    assert "vendor_sync.py update" not in text
-    assert "sync_vendor_provenance" not in text
-    assert "resolve-vendor" not in text
-    assert "test-locked" not in text
-
-    vendor_job = ci["jobs"]["vendor-locked"]
-    test_job = ci["jobs"]["test"]
-    assert vendor_job["permissions"] == test_job["permissions"] == {"contents": "read"}
-    assert "continue-on-error" not in vendor_job
-    assert test_job["needs"] == ["changes", "vendor-locked"]
-
-    pins = [
-        step["with"]["ref"]
-        for job in (vendor_job, test_job)
-        for step in job["steps"]
-        if step.get("with", {}).get("repository") == "myon-bioinformatics/myon-bioinformatics"
-    ]
-    assert pins == [VENDOR_SYNC_PIN, VENDOR_SYNC_PIN]
-
-    verify_steps = [
-        step["run"]
-        for step in vendor_job["steps"]
-        if "vendor_sync.py check" in step.get("run", "")
-    ]
-    assert verify_steps
-    assert any(
-        step.get("run") == "uv run --locked --extra test pytest -q --junitxml=reports/pytest.xml"
-        for step in test_job["steps"]
-    )
-
-
-@pytest.mark.parametrize("path", ["scripts/sync_vendor_provenance.py"])
-def test_removed_local_vendor_provenance_helpers(path):
-    assert not (ROOT / path).is_file()
-
-
-# ═══ · mcp toolcall lab vendor staging ═══════════════════════════════════════════════════════════════════
-# Vendor evidence staging was removed when vendor.lock.json became the sole record.
-
-def test_workflows_no_longer_invoke_vendor_stage():
-    for workflow in (ROOT / ".github/workflows").glob("*.yml"):
-        text = workflow.read_text(encoding="utf-8")
-        assert "Stage canonical vendor evidence" not in text
-        assert "vendor_stage.py" not in text
-        assert "vendor-promotion.json" not in text
-
-
 # ═══ · parent tools ══════════════════════════════════════════════════════════════════════════════════════
 # Offline compatibility of canonical parent tools with adjacent vendored GHI.
 
 __all__ = []
 
-import hashlib, json, subprocess, sys
+import json, subprocess, sys
 VENDOR = ROOT / "vendor"
-
-
-def test_parent_tools_match_recorded_bytes():
-    entries = json.loads((ROOT / "vendor.lock.json").read_text())["files"]
-    for entry in entries:
-        if entry["repository"] == "myon-bioinformatics/myon-bioinformatics":
-            data = (ROOT / entry["destination"]).read_bytes()
-            assert hashlib.sha256(data).hexdigest() == entry["sha256"]
-            assert hashlib.sha1(b"blob " + str(len(data)).encode() + b"\0" + data).hexdigest() == entry["blob_sha"]
 
 
 def test_gh_ops_help_is_standalone():
@@ -500,31 +392,6 @@ print(json.dumps(receipt))
     assert receipt["mutation_status"] == receipt["verification_status"] == "not_attempted"
     assert "invalid.invalid" not in result.stdout
     assert not git("for-each-ref", "refs/remotes/").stdout
-
-
-# ═══ · parent workflow pins ══════════════════════════════════════════════════════════════════════════════
-# Local rollout contract; adopted vendor locks are deliberately independent.
-
-PARENT = "myon-bioinformatics/myon-bioinformatics"
-PARENT_WORKFLOW_PIN = "9e3da7ae1846e9604ebc24bb5178f7de094a4e77"
-
-
-def test_parent_workflow_references_use_reviewed_rollout_commit():
-    pins = []
-    for path in sorted((ROOT / ".github/workflows").glob("*")):
-        if path.suffix not in (".yml", ".yaml"):
-            continue
-        text = path.read_text(encoding="utf-8")
-        # Capture mutable and shortened references too, rather than ignoring them.
-        pins.extend(re.findall(r"uses:\s*['\"]?" + re.escape(PARENT) + r"/[^\s@'\"]+@([^\s'\"]+)", text))
-        lines = text.splitlines()
-        for i, line in enumerate(lines):
-            if re.fullmatch(r"\s+repository:\s*['\"]?" + re.escape(PARENT) + r"['\"]?\s*", line):
-                refs = [re.fullmatch(r"\s+ref:\s*['\"]?([^\s'\"]+)['\"]?\s*", item) for item in lines[i + 1:i + 12]]
-                if not any(re.fullmatch(r"\s+path:\s*['\"]?\.vendor-sync-tools['\"]?\s*", item) for item in lines[i + 1:i + 12]):
-                    pins.append(next((m.group(1) for m in refs if m), None))
-    assert pins, "shared parent references must remain observable"
-    assert set(pins) == {PARENT_WORKFLOW_PIN}, pins
 
 
 # ═══ · junit ci ══════════════════════════════════════════════════════════════════════════════════════════

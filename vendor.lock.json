@@ -108,6 +108,15 @@
       "destination": "vendor/pysaiyanweboo-LICENSE",
       "blob_sha": "4ec4989b801bf1a3df6184d21f79e6e7ed5931f6",
       "sha256": "15f66204c4a6a1ce0c94f0ed4319ff9400f872e85fd32c95f21695c2f231af59"
+    },
+    {
+      "repository": "myon-bioinformatics/myon-bioinformatics",
+      "ref": "6c29503cf17eda856766ddfdf4d66a5b0965a8b1",
+      "commit": "6c29503cf17eda856766ddfdf4d66a5b0965a8b1",
+      "source": "fleet_check.py",
+      "destination": "vendor/fleet_check.py",
+      "blob_sha": "5b6b732ff2c4fa966a64b6ab07e4da8d563038cf",
+      "sha256": "ae36c7e4d0f8d19ea5a62de98860a37302a65ab48db1bee2bdb6ada4bf7be56d"
     }
   ]
 }
