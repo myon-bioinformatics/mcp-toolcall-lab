@@ -1,4 +1,4 @@
-name: component-runtime
+name: Component runtime
 
 # Automatic CI tests the five non-model runtimes and browser protocol.
 # The portable build also generates summaries and requires manual dispatch. No deployment.

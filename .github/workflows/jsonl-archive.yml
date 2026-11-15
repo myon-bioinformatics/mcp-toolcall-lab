@@ -5,7 +5,7 @@ on:
     paths:
       - pyproject.toml
       - uv.lock
-      - tests/test_ci_stdlib_profile.py
+      - tests/test_fleet.py
       - src/mcp_toolcall_lab/jsonl_log_archive.py
       - tests/test_jsonl_log_archive.py
       - tests/fixtures/jsonl_log_archive_sample.jsonl
@@ -15,7 +15,7 @@ on:
     paths:
       - pyproject.toml
       - uv.lock
-      - tests/test_ci_stdlib_profile.py
+      - tests/test_fleet.py
       - src/mcp_toolcall_lab/jsonl_log_archive.py
       - tests/test_jsonl_log_archive.py
       - tests/fixtures/jsonl_log_archive_sample.jsonl

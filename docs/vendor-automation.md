@@ -13,8 +13,8 @@ repository; lock changes land through normal commits.
 
 `vendor.lock.json` (schema `vendor-lock/1`) is the only provenance record for vendored
 files. Each entry's `ref` is a full 40-character commit SHA equal to `commit`.
-`tests/test_mcp_toolcall_lab_vendor_lock.py` cross-checks every destination's git blob SHA-1 and SHA-256
-against the lock.
+`tests/test_fleet.py` cross-checks every destination's git blob SHA-1 and SHA-256
+against the lock through the parent's shared `vendor/fleet_check.py` (`check_lock`, `parent_refs`).
 
 ALM agents can reproduce verification in a disposable checkout:
 

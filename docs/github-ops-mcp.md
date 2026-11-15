@@ -110,7 +110,7 @@ the squash-merge of browser-test-kit PR
 [#10](https://github.com/myon-bioinformatics/browser-test-kit/pull/10) on `main`
 (the file is byte-identical to the PR head `679c05e` it was first vendored from).
 [`vendor.lock.json`](../vendor.lock.json) records that
-commit, its git blob SHA, and the file's SHA-256; `tests/test_mcp_toolcall_lab_vendor_lock.py`
+commit, its git blob SHA, and the file's SHA-256; `tests/test_fleet.py`
 fails the build if the vendored file drifts from that record. See
 [`vendor/README.md`](../vendor/README.md) for the refresh command — the same
 shape as the existing `markdown.py` refresh, pointed at
@@ -131,7 +131,7 @@ the reviewed parent commit, source blob, and SHA-256.
 ## Tests
 
 ```bash
-uv run pytest -q tests/test_server.py tests/test_mcp_toolcall_lab_vendor_lock.py
+uv run pytest -q tests/test_server.py tests/test_fleet.py
 ```
 
 No network: every REST-backed tool test stubs `gh_ops.Client`'s transport

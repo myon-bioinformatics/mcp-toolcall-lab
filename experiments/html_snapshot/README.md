@@ -14,7 +14,7 @@ scripts. Multiple articles and malformed HTML need a provider-specific contract.
 
 ```sh
 PYTHONPATH=src python experiments/html_snapshot/extract.py snapshot.html --url https://example.test/page
-uv run pytest experiments/html_snapshot/test_extract.py -q
+uv run pytest tests/test_source_access.py -q
 ```
 
 ## Measured public GitHub HTML
