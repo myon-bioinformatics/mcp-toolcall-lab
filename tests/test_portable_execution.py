@@ -275,7 +275,7 @@ console.log(JSON.stringify([ok,miss,mismatch,offline]));'''.replace('CORE', json
         self.assertEqual(publishers, [])  # the manual-only pages.yml was removed (2026-11-13)
         docker = (ROOT / 'docker/portable-pages/Dockerfile').read_text()
         self.assertIn('FROM scratch AS artifact', docker)
-        self.assertIn('FROM node:26.12.1-trixie-slim@sha256:36793bcbb160a6a16cede1e62b93f84e26b78a972a8a4c0b879c1c12f22761ec AS node', docker)
+        self.assertIn('FROM node:26.13.1-trixie-slim@sha256:e6bedef217677b276c591795e169840edd9096dbf13f29df8ef8d1856b8820bc AS node', docker)
         self.assertIn('ENV LD_LIBRARY_PATH=/app', docker)
         self.assertLess(docker.index('RUN /app/llama-server --version'), docker.index('RUN python3 -S scripts/fetch_tiny_cpu_gguf.py'))
         self.assertNotIn('CMD', docker)
