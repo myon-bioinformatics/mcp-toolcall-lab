@@ -1,6 +1,6 @@
 # Build-time runtimes only. The final target contains static files, not a service.
 FROM ghcr.io/ggml-org/llama.cpp:server-b11669@sha256:8ffe0d28ff5261cc2f78ca1f67db1515bc2529b904a3c25f5b24f4cedfc3411d AS llama
-FROM node:26.12.1-trixie-slim@sha256:36793bcbb160a6a16cede1e62b93f84e26b78a972a8a4c0b879c1c12f22761ec AS node
+FROM node:26.13.1-trixie-slim@sha256:e6bedef217677b276c591795e169840edd9096dbf13f29df8ef8d1856b8820bc AS node
 FROM python:3.15.1-slim-trixie@sha256:08275f764e022331c6d3e3ca55d8cce01fa4684b02111adf0445d71806fe7941 AS build
 # Ordinary signed Debian security update; no custom CA trust overrides.
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates=20250419+deb13u1 libstdc++6=14.2.0-19 libatomic1=14.2.0-19 libgomp1=14.2.0-19 \

@@ -10,10 +10,10 @@ portable runtime with Node **26+**.
 
 - The setup-uv action remains SHA-pinned, while its uv binary selection is
   **`latest`**. The latest-version test and browser-protocol lanes request
-  **Python 3.15** through `UV_PYTHON`, paired with Node **26.12.1**. The actual
+  **Python 3.15** through `UV_PYTHON`, paired with Node **26.13.1**. The actual
   patch follows uv's interpreter selection, including available interpreters and
   its download catalog; this is not a guarantee of the newest upstream patch.
-- Exact compatibility lanes are **Python 3.12.15 / Node 26.12.1** (minimum) and **Python 3.15 / Node 26.12.1** (latest);
+- Exact compatibility lanes are **Python 3.12.15 / Node 26.13.1** (minimum) and **Python 3.15 / Node 26.13.1** (latest);
   JSONL archive checks retain **3.12.15 / 3.13.17 / 3.14.9** on all three OSes.
   The standalone public-resolver Python **3.9/3.10** checks are unchanged.
 - This floating CI selection is distinct from the immutable image and dependency
@@ -21,7 +21,7 @@ portable runtime with Node **26+**.
   Upgrade those pins and run their corresponding checks together.
 - Re-running the same commit can now select a newer uv or Python 3.15 patch.
   Use each run's setup logs for the resolved versions. The
-  `junit-python-3.15-node-26.12.1` artifact label identifies a minor-series lane,
+  `junit-python-3.15-node-26.13.1` artifact label identifies a minor-series lane,
   not an exact Python patch; its `expected-reports` entry uses the same label.
   The uv security floor remains a minimum, not an exact selection or a substitute
   for checking the resolved runtime.
@@ -29,7 +29,7 @@ portable runtime with Node **26+**.
 ## Project-owned components
 
 - All six Python Dockerfiles: Python **3.15.1**, Debian trixie, immutable
-  multi-architecture digest. Portable builds copy Node **26.12.1** from a
+  multi-architecture digest. Portable builds copy Node **26.13.1** from a
   matching trixie image. Node 26 is stable Current; Node 24 is the LTS baseline.
 - Debian **ca-certificates 20250419+deb13u1**, plus portable Node libraries
   **libstdc++6/libatomic1 14.2.0-19**, are explicit signed package pins.
@@ -119,7 +119,7 @@ edit or persistent data migration is part of this CI selection policy.
 ## Primary sources
 
 - [Python image tags/digest](https://hub.docker.com/v2/repositories/library/python/tags/3.15.1-slim-trixie)
-- [Node image tags/digest](https://hub.docker.com/v2/repositories/library/node/tags/26.12.1-trixie-slim)
+- [Node image tags/digest](https://hub.docker.com/v2/repositories/library/node/tags/26.13.1-trixie-slim)
 - [MongoDB image tags/digest](https://hub.docker.com/v2/repositories/library/mongo/tags/9.0.4)
 - [Open WebUI v0.12.3](https://github.com/open-webui/open-webui/releases/tag/v0.12.3)
 - [llama.cpp v0.7.0](https://github.com/ggml-org/llama.cpp/releases/tag/v0.7.0)
