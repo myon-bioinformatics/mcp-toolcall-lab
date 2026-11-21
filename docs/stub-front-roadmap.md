@@ -21,7 +21,7 @@ split. It is not a product clone and not a CommonMark engine.
 - `dispatch_tool`, stdlib `McpStdlibSession`
 - Serverless stub try: Actions boots `docker/stub-pages` (stub + MCP +
   CPU-class `cpu-llm`), JSONL anti-patterns, GitHub Pages static report
-- Vendored `markdown.py` (snapshot `441fb675`): current stdlib helper surface,
+- Vendored `markdown.py` (revision and digest in [vendor.lock.json](../vendor.lock.json)): current stdlib helper surface,
   including Markdown ↔ HTML/CSS/Kramdown, structured conversions, py:percent,
   structural diagram generators, and API/CLI/package reference generation.
   The stub calls the helpers it needs; it does not reimplement them.
@@ -56,13 +56,14 @@ split. It is not a product clone and not a CommonMark engine.
   CORS + HMAC `Mcp-Session-Id`. Pages `#wiki` can optionally be its browser client; local/CI use needs no hosted deployment.
   See `docs/wikipedia-mcp-deploy.md`.
 
+- [Browser tests for the static heading-lookup demo](../tests/test_stub_demo_browser.py) cover heading lookup, misses, MCP-shaped input, and chat ID reuse in Chromium.
+
 ## Later (unnumbered)
 
 - OpenAI `tools` / `tool_calls` → MCP → `role: tool` browser round-trip
 - Accuracy harness vs `myon-bioinformatics/markdown` (do not vendor CommonMark here)
-- Playwright against the stub (reuse `frontends.py`; no product Docker)
 - Optional `openai_toolcall_mock` backend for the stub
-- Playwright against the stub (reuse `frontends.py`; no product Docker)
+- Browser coverage for the running stub server using the locators in `frontends.py`.
 - Real GGUF opt-in is proven on Actions run 35433482811 (`cpu_llm_backend=real-gguf`, completions ok). Pages deploy stays main-only.
 
 ## One-liners
