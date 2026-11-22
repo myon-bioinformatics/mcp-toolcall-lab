@@ -18,7 +18,7 @@ the digest to ``<dest>.provenance.json``.
 
 from __future__ import annotations
 
-import hashlib, json, os, sys, urllib.error, urllib.request
+import argparse, hashlib, json, os, sys, urllib.error, urllib.request
 from datetime import datetime, UTC; from fnmatch import fnmatch; from pathlib import Path; from typing import Any
 
 HF_API = "https://huggingface.co/api/models"
@@ -108,8 +108,12 @@ def _download(url: str, dest: Path) -> tuple[str, int]:
 
 
 def main(argv: list[str] | None = None) -> int:
-    argv = sys.argv[1:] if argv is None else argv
-    dest = Path(argv[0]) if argv else Path("docker/stub-pages/models/model.gguf")
+    parser = argparse.ArgumentParser(
+        description=__doc__.splitlines()[0],
+        epilog="Env: CPU_LLM_GGUF_URL, CPU_LLM_GGUF_SHA256, CPU_LLM_GGUF_REPO, CPU_LLM_GGUF_FILE.")
+    parser.add_argument("dest", nargs="?", type=Path, default=Path("docker/stub-pages/models/model.gguf"),
+                        help="where to write the GGUF (default: docker/stub-pages/models/model.gguf)")
+    dest = parser.parse_args(argv).dest
 
     explicit_url = os.environ.get("CPU_LLM_GGUF_URL") or ""
     expected_sha256 = os.environ.get("CPU_LLM_GGUF_SHA256") or ""

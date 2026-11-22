@@ -1,6 +1,7 @@
 """Fleet contracts through the parent's shared checks (vendor/fleet_check.py): the vendor lock, parent pins,
 vendor wiring in CI and the dependency profiles of the small CI lanes."""
 from __future__ import annotations
+import unittest
 
 import json, re, tomllib
 from importlib.metadata import entry_points
@@ -12,7 +13,7 @@ from vendor import fleet_check as fleet
 
 ROOT = fleet.repo_root(__file__)
 PARENT_WORKFLOW_PIN = "9e3da7ae1846e9604ebc24bb5178f7de094a4e77"
-ACCEPTED = {"vendor/fleet_check.py": "6c29503cf17eda856766ddfdf4d66a5b0965a8b1"}
+ACCEPTED = {"vendor/fleet_check.py": "64db25eb0fd9025dbe3cbcbced8b88a39ecb9266"}
 
 
 # ═══ · vendor lock and parent pins (fleet_check) ════════════════════════════════════════════════════════════
@@ -219,3 +220,11 @@ def test_all_screenshot_commands_use_the_same_exact_group():
     assert 'sys.path.insert(0, str(ROOT / "src"))' in script
     assert '"--full-page"' in script
     assert 'wiki-title-entered.png' in script and 'wiki-heading-selected.png' in script
+
+
+# 🧰 Scripts: 📝 each one describes itself and ⌨️ one that reads sys.argv declares its arguments (argparse /
+# cli_args). Read with ast, never run; the portfolio's script catalog reads the same facts.
+
+class ScriptsDescribeThemselves(unittest.TestCase):
+    def test_every_script_has_a_description_and_declared_arguments(self):
+        fleet.check_scripts(fleet.repo_root(__file__))

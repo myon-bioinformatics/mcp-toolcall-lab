@@ -1,6 +1,6 @@
 """Build the legacy Pages entry point after portfolio publication lands."""
 from pathlib import Path
-import sys
+import argparse
 
 TARGET = 'https://myon-bioinformatics.github.io/tools/mcp-toolcall-lab/'
 
@@ -20,4 +20,6 @@ def write_redirect(out: Path) -> None:
 
 
 if __name__ == '__main__':
-    write_redirect(Path(sys.argv[1]))
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('out', type=Path, help='directory to write index.html into')
+    write_redirect(parser.parse_args().out)
