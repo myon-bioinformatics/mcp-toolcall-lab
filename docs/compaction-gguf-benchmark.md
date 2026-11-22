@@ -51,10 +51,12 @@ benchmark **fails** rather than publishing an estimate as measured data.
 ## Privacy and traceability
 
 Only synthetic histories are submitted. Neither request bodies, injected
-tool text, nor generated answers are placed in JSON evidence. The artifact
+tool text, nor generated answers are placed in JSON evidence. The result JSON
 contains numeric measurements, scenario identifiers and binary pass/fail
-indicators, plus separate raw pytest JUnit and the model download provenance
-record. The workflow checks for known fixture leaks before uploading.
+indicators. The workflow that also uploaded raw pytest JUnit and the model
+download provenance record, and checked for known fixture leaks before
+uploading, was removed with the other manual-only GGUF workflows (`4088c0d`,
+2026-11-06). Check a result for fixture text yourself before sharing it.
 
 Repo-provided pins:
 - GGUF: `bartowski/SmolLM2-135M-Instruct-GGUF` at
@@ -64,11 +66,12 @@ Repo-provided pins:
 
 ## Running it
 
-Use the Actions workflow for repeatable CPU isolation and JUnit evidence.
-It runs on benchmark-code PR changes, and also supports a manual
-`workflow_dispatch`. Normal `pytest` does not fetch model weights.
+No workflow on main runs this benchmark. Normal `pytest` does not fetch model
+weights; `tests/test_compaction.py` covers the report shape with an offline
+fake, which is not a live measurement.
 
-To run locally with Docker:
+Run it locally with Docker. The `--cpus` and `--memory` limits below are the
+two CPUs and 3 GiB stated in the measured conditions above:
 
 ```bash
 python scripts/fetch_tiny_cpu_gguf.py docker/stub-pages/models/model.gguf
