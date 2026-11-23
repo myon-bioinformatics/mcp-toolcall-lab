@@ -689,9 +689,8 @@ def test_invalid_scope_is_rejected(tmp_path):
 
 
 # ═══ · model workflow gates ══════════════════════════════════════════════════════════════════════════════
-# Offline CI policy checks: manual model validation is not a mocked CI pass.
+# Offline CI policy checks: no workflow builds the image that runs a real model.
 
-MANUAL = "github.event_name == 'workflow_dispatch'"
 PORTABLE = {
     "name": "portable-build",
     "dockerfile": "docker/portable-pages/Dockerfile",
@@ -714,19 +713,16 @@ def _events(workflow):
 
 def _assert_no_automatic_models(workflows):
     runtime = workflows["component-runtime.yml"]
-    assert set(_events(runtime)) == {"pull_request", "workflow_dispatch"}
+    assert set(_events(runtime)) == {"pull_request"}
     automatic = runtime["jobs"]["runtime"]["strategy"]["matrix"]["include"]
     assert {row["name"] for row in automatic} == {
         "librechat-mcp", "openwebui-mcp", "openai-mock", "stub-cpu", "stub-front",
     }
     assert all(row["dockerfile"] != PORTABLE["dockerfile"] for row in automatic)
-    live = runtime["jobs"]["portable-live"]
-    assert live["if"] == MANUAL  # Job-level skip, not successful skipped steps.
-    assert live["strategy"]["matrix"]["include"] == [PORTABLE]
-    assert not live.get("continue-on-error", False)
+    assert set(runtime["jobs"]) == {"runtime", "browser-protocol"}  # The manual portable-live job was removed (2026-11-23).
 
 
-def test_all_model_routes_are_manual_and_no_workflow_publishes_pages():
+def test_no_workflow_builds_the_model_image_or_publishes_pages():
     # The manual-only pages.yml was removed (2026-11-13): nothing here deploys Pages or uploads a Pages artifact.
     workflows = _workflows()
     _assert_no_automatic_models(workflows)
@@ -743,22 +739,17 @@ def test_policy_rejects_each_reopened_automatic_model_route(damage):
     if damage == "runtime_matrix":
         runtime["jobs"]["runtime"]["strategy"]["matrix"]["include"].append(PORTABLE)
     else:
-        runtime["jobs"]["portable-live"]["if"] = "always()"
+        runtime["jobs"]["portable-live"] = {"strategy": {"matrix": {"include": [PORTABLE]}}}
     with pytest.raises(AssertionError):
         _assert_no_automatic_models(workflows)
 
 
-def test_manual_runtime_retains_real_build_trust_and_original_artifact_contract():
+def test_runtime_retains_real_build_trust_and_original_artifact_contract():
     jobs = _workflows()["component-runtime.yml"]["jobs"]
     automatic = {step["name"]: step for step in jobs["runtime"]["steps"] if "name" in step}
-    manual = {step["name"]: step for step in jobs["portable-live"]["steps"] if "name" in step}
-    assert jobs["portable-live"]["name"] == "runtime (portable-build, docker/portable-pages/Dockerfile, build)"
-    for name in automatic:
-        assert manual[name] == automatic[name]
-    assert "docker build --pull --no-cache" in manual["Rebuild pinned runtime with no layer cache"]["run"]
-    assert "--live" in manual["Verify actual container trust and installed component versions"]["run"]
-    assert "node --version" in manual["Record portable Node version"]["run"]
-    assert manual["Preserve runtime receipts even on failure"]["with"]["name"] == "runtime-${{ matrix.name }}"
+    assert "docker build --pull --no-cache" in automatic["Rebuild pinned runtime with no layer cache"]["run"]
+    assert "--live" in automatic["Verify actual container trust and installed component versions"]["run"]
+    assert automatic["Preserve runtime receipts even on failure"]["with"]["name"] == "runtime-${{ matrix.name }}"
     assert "browser-protocol" in jobs
 
 
