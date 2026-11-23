@@ -100,9 +100,9 @@ See [runtime-trust.md](runtime-trust.md) for exact pass/failure semantics.
 Timeouts, blocked probes and missing required clients are not evidence of
 distrust. A metadata-only receipt is not a security pass.
 
-The sixth, portable-build image generates real model output. Its complete
-build/trust checks remain in the separate `portable-live` job, guarded by
-`workflow_dispatch`; ordinary PRs report that job as **skipped**, not passed.
+The sixth, portable-build image generates real model output, so no workflow
+builds it: the manual-only `portable-live` job was removed on 2026-11-23. Build
+it locally as described in [portable-execution.md](portable-execution.md).
 No workflow publishes Pages: the manual-only `pages.yml` was removed on
 2026-11-13. Ordinary PRs and pushes do not regenerate or replace the published
 Pages content. Adopting floating CI versions does not itself authorize a model run.
