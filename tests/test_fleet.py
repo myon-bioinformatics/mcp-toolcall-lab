@@ -13,7 +13,7 @@ from vendor import fleet_check as fleet
 
 ROOT = fleet.repo_root(__file__)
 PARENT_WORKFLOW_PIN = "9e3da7ae1846e9604ebc24bb5178f7de094a4e77"
-ACCEPTED = {"vendor/fleet_check.py": "64db25eb0fd9025dbe3cbcbced8b88a39ecb9266"}
+ACCEPTED = {"vendor/fleet_check.py": "bc57f08a590ee1cb33a8bb37c1bb3b8f28a2f3c9"}
 
 
 # ═══ · vendor lock and parent pins (fleet_check) ════════════════════════════════════════════════════════════
