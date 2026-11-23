@@ -33,6 +33,11 @@ from mcp_toolcall_lab.stub_front import (
     load_pysaiyanweboo, lookup_heading, main, make_handler, pages_summary, parse_sections, pixiv_page_response, pokemon_spec, render_pixiv_page,
     render_rows, render_wiki_page, reply, write_pages, write_stub_demo_page,
 )
+from vendor import fleet_check as fleet
+
+# $NODE or node on PATH; no version floor: these only syntax-check and run plain browser JS.
+NODE = fleet.node(minimum=0)
+needs_node = pytest.mark.skipif(NODE is None, reason="node not installed in this environment")
 
 
 # ═══ · stub pages ════════════════════════════════════════════════════════════════════════════════════════
@@ -661,10 +666,10 @@ console.log("ok");
 """
 
 
-@pytest.mark.skipif(shutil.which("node") is None, reason="node not installed in this environment")
+@needs_node
 def test_pages_hash_js_view_and_apply_contracts() -> None:
     result = subprocess.run(
-        ["node", "-e", _PAGES_HASH_CONTRACT, str(PAGES_HASH_JS_SOURCE)],
+        [NODE, "-e", _PAGES_HASH_CONTRACT, str(PAGES_HASH_JS_SOURCE)],
         capture_output=True,
         text=True,
         check=False,
@@ -673,10 +678,10 @@ def test_pages_hash_js_view_and_apply_contracts() -> None:
     assert "ok" in result.stdout
 
 
-@pytest.mark.skipif(shutil.which("node") is None, reason="node not installed in this environment")
+@needs_node
 def test_pages_hash_js_is_valid_javascript() -> None:
     result = subprocess.run(
-        ["node", "--check", str(PAGES_HASH_JS_SOURCE)], capture_output=True, text=True
+        [NODE, "--check", str(PAGES_HASH_JS_SOURCE)], capture_output=True, text=True
     )
     assert result.returncode == 0, result.stderr
 
@@ -909,10 +914,10 @@ def test_stub_demo_js_never_fabricates_an_mcp_result() -> None:
     assert "will not fabricate" in js_source
 
 
-@pytest.mark.skipif(shutil.which("node") is None, reason="node not installed in this environment")
+@needs_node
 def test_stub_demo_js_is_valid_javascript() -> None:
     result = subprocess.run(
-        ["node", "--check", str(STUB_DEMO_JS_SOURCE)], capture_output=True, text=True
+        [NODE, "--check", str(STUB_DEMO_JS_SOURCE)], capture_output=True, text=True
     )
     assert result.returncode == 0, result.stderr
 
