@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import io
 import json
-import shutil
 import subprocess
 import unittest
 from email.message import Message
@@ -27,6 +26,11 @@ from mcp_toolcall_lab.pixiv_source_extract import (
     PixivSourceExtractError, _ENGLISH_LABEL_RE, _PARENT_LABEL_RE, _labeled_field, _split_reading, extract_pixiv_source, fetch_pixiv_source_extract,
 )
 from mcp_toolcall_lab.stub_front import PAGES_PIXIV_JS_SOURCE, _pixiv_error_from_body, pixiv_page_response
+from vendor import fleet_check as fleet
+
+# $NODE or node on PATH; no version floor: these only syntax-check and run plain browser JS.
+NODE = fleet.node(minimum=0)
+needs_node = pytest.mark.skipif(NODE is None, reason="node not installed in this environment")
 
 
 # ═══ · pixiv dictionary tool ═════════════════════════════════════════════════════════════════════════════
@@ -948,11 +952,11 @@ console.log("ok");
 """
 
 
-@pytest.mark.skipif(shutil.which("node") is None, reason="node not installed in this environment")
+@needs_node
 def test_pages_pixiv_js_open_source_extract_contracts() -> None:
     result = subprocess.run(
         [
-            "node",
+            NODE,
             "-e",
             _PAGES_PIXIV_CONTRACT,
             str(PAGES_PIXIV_JS_SOURCE),
@@ -967,10 +971,10 @@ def test_pages_pixiv_js_open_source_extract_contracts() -> None:
     assert "ok" in result.stdout
 
 
-@pytest.mark.skipif(shutil.which("node") is None, reason="node not installed in this environment")
+@needs_node
 def test_pages_pixiv_js_is_valid_javascript() -> None:
     result = subprocess.run(
-        ["node", "--check", str(PAGES_PIXIV_JS_SOURCE)], capture_output=True, text=True
+        [NODE, "--check", str(PAGES_PIXIV_JS_SOURCE)], capture_output=True, text=True
     )
     assert result.returncode == 0, result.stderr
 

@@ -30,6 +30,11 @@ from mcp_toolcall_lab.wikipedia_mcp_catalog import CATALOG_PATH, WIKIPEDIA_TOOL_
 from mcp_toolcall_lab.wikipedia_tool import FIXTURE_ENV
 from tests.test_schema import EXPECTED_TOOL_SPECS
 from tests.test_streamable_http_protocol import running_mcp_server
+from vendor import fleet_check as fleet
+
+# $NODE or node on PATH; no version floor: these only syntax-check and run plain browser JS.
+NODE = fleet.node(minimum=0)
+needs_node = pytest.mark.skipif(NODE is None, reason="node not installed in this environment")
 
 
 # ═══ · pages wiki ════════════════════════════════════════════════════════════════════════════════════════
@@ -425,10 +430,10 @@ wiki.loadArticle("", "en", null, MCP).then((empty) => {
 """
 
 
-@pytest.mark.skipif(shutil.which("node") is None, reason="node not installed in this environment")
+@needs_node
 def test_pages_wiki_js_heading_fetch_and_view_contracts() -> None:
     result = subprocess.run(
-        ["node", "-e", _PAGES_WIKI_CONTRACT, str(PAGES_WIKI_JS_SOURCE), str(FIXTURE)],
+        [NODE, "-e", _PAGES_WIKI_CONTRACT, str(PAGES_WIKI_JS_SOURCE), str(FIXTURE)],
         capture_output=True,
         text=True,
         check=False,
@@ -437,10 +442,10 @@ def test_pages_wiki_js_heading_fetch_and_view_contracts() -> None:
     assert "ok" in result.stdout
 
 
-@pytest.mark.skipif(shutil.which("node") is None, reason="node not installed in this environment")
+@needs_node
 def test_pages_wiki_js_is_valid_javascript() -> None:
     result = subprocess.run(
-        ["node", "--check", str(PAGES_WIKI_JS_SOURCE)], capture_output=True, text=True
+        [NODE, "--check", str(PAGES_WIKI_JS_SOURCE)], capture_output=True, text=True
     )
     assert result.returncode == 0, result.stderr
 
@@ -514,7 +519,7 @@ def test_exampleville_fixture_is_mediawiki_extract_shape() -> None:
     assert "missing" not in page
 
 
-@pytest.mark.skipif(shutil.which("node") is None, reason="node not installed")
+@needs_node
 def test_optional_mcp_direct_transport_contract() -> None:
     script = r"""
 const wiki = require(process.argv[1]);
@@ -557,7 +562,7 @@ const assert = require('node:assert/strict');
 })().catch(e => { console.error(e); process.exitCode = 1; });
 """
     result = subprocess.run(
-        ["node", "-e", script, str(PAGES_WIKI_JS_SOURCE), str(FIXTURE)],
+        [NODE, "-e", script, str(PAGES_WIKI_JS_SOURCE), str(FIXTURE)],
         capture_output=True, text=True,
     )
     assert result.returncode == 0, result.stderr + result.stdout
