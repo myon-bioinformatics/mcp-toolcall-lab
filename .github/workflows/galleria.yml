@@ -24,7 +24,6 @@ on:
       - 'tests/test_streamable_http_protocol.py'
       - 'vendor/**'
       - 'vendor.lock.json'
-  workflow_dispatch:
 
 permissions:
   contents: read
