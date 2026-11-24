@@ -5,6 +5,9 @@ on:
   push:
     branches: [main]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   changes:
     name: Change detection
@@ -51,6 +54,7 @@ jobs:
           python -S .vendor-sync-tools/vendor_sync.py recreate --manifest vendor.lock.json
 
   test:
+    timeout-minutes: 30
     permissions:
       contents: read
     needs: [changes, vendor-locked]
@@ -123,6 +127,7 @@ jobs:
       output-artifact: python-failure-identity
 
   public-resolver-compat:
+    timeout-minutes: 30
     needs: changes
     if: needs.changes.outputs.product_changed == 'true'
     runs-on: ubuntu-latest

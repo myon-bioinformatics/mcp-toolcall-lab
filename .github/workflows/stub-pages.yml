@@ -87,7 +87,7 @@ permissions:
 
 concurrency:
   group: stub-pages
-  cancel-in-progress: false
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   smoke:

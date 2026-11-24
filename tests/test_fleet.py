@@ -13,7 +13,7 @@ from vendor import fleet_check as fleet
 
 ROOT = fleet.repo_root(__file__)
 PARENT_WORKFLOW_PIN = "9e3da7ae1846e9604ebc24bb5178f7de094a4e77"
-ACCEPTED = {"vendor/fleet_check.py": "bc57f08a590ee1cb33a8bb37c1bb3b8f28a2f3c9"}
+ACCEPTED = {"vendor/fleet_check.py": "20de01921e50e9339aa9271b0547a5be7649b3b3"}
 
 
 # ═══ · vendor lock and parent pins (fleet_check) ════════════════════════════════════════════════════════════
@@ -228,3 +228,7 @@ def test_all_screenshot_commands_use_the_same_exact_group():
 class ScriptsDescribeThemselves(unittest.TestCase):
     def test_every_script_has_a_description_and_declared_arguments(self):
         fleet.check_scripts(fleet.repo_root(__file__))
+
+    def test_pull_request_ci_stays_quick(self):
+        # ⏱ push limited to branches, superseded PR runs cancelled, every job timed (fleet_check.check_ci)
+        fleet.check_ci(fleet.repo_root(__file__))
