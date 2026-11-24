@@ -27,6 +27,9 @@ on:
       - "tests/real_chat_ui/**"
       - ".github/workflows/librechat-docker-smoke.yml"
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   changes:
     name: Change detection

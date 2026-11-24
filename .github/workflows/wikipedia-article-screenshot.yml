@@ -25,6 +25,9 @@ on:
       - "tests/test_fleet.py"
       - ".github/workflows/wikipedia-article-screenshot.yml"
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   screenshot:
     runs-on: ubuntu-latest

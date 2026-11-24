@@ -39,6 +39,9 @@ on:
       - "tests/test_openwebui_loop.py"
       - ".github/workflows/openwebui-docker-smoke.yml"
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   openwebui-smoke:
     runs-on: ubuntu-latest
