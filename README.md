@@ -77,7 +77,7 @@ observation-cache implementation.
 
 ### Traditional MCP validation view
 
-![Traditional MCP validation concept: a user asks an LLM to discover and call tools through a FastMCP server, and receives the results.](docs/assets/mcp-toolcall-lab-concept.png)
+![Traditional MCP validation concept: a user asks an LLM to discover and call tools through a FastMCP server, and receives the results.](docs/assets/repository-concept-v0.png)
 
 *This supplied illustration shows the original MCP tool-validation facet, not
 the full adapter/reuse/Adaptive Inference direction above. It is conceptual, not
