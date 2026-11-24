@@ -162,7 +162,7 @@ browser → Wikipedia Streamable HTTP MCP. `#wiki` is still on
 ```bash
 python -m mcp_toolcall_lab.stub_front serve --port 8765
 # open http://127.0.0.1:8765/wiki
-# Pages browser MCP UI: https://myon-bioinformatics.github.io/mcp-toolcall-lab/#wiki
+# Pages browser MCP UI: https://myon-bioinformatics.github.io/tools/mcp-toolcall-lab/#wiki
 ```
 
 ## Testing without live network
