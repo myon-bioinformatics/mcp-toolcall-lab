@@ -1,0 +1,37 @@
+name: Pages
+
+# 🔀 The front page stays the redirect to the portfolio (scripts/write_portfolio_redirect.py). The parent's reusable
+# workflow adds the usage guide from docs/guide.page.json under guide/ (guide_dir), with 📚 機能全一覧 read from the
+# two standalone mocks. Pull requests build the guide; only main deploys.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/guide.page.json"
+      - "openwebui_mcp_mock.py"
+      - "librechat_mcp_mock.py"
+      - "scripts/write_portfolio_redirect.py"
+      - ".github/workflows/pages.yml"
+  pull_request:
+    paths:
+      - "docs/guide.page.json"
+      - ".github/workflows/pages.yml"
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  pages:
+    uses: myon-bioinformatics/myon-bioinformatics/.github/workflows/reusable-pages-static.yml@fb4a58060e0f28e5336752d8e33d827545c1ce53
+    with:
+      artifact_path: _site
+      build: |
+        python3 scripts/write_portfolio_redirect.py _site
+        mkdir -p _site/execution/assets
+        cp docs/assets/mcp-toolcall-lab-logo.png docs/assets/mcp-toolcall-lab-favicon-artwork.png _site/execution/assets/
+      guide_page: docs/guide.page.json
+      guide_dir: guide
+      guide_brand: mcp-toolcall-lab
+      guide_features: openwebui_mcp_mock.py librechat_mcp_mock.py
