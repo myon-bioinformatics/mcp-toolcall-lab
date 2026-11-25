@@ -113,7 +113,7 @@ running. Browser and Node share one log-analysis implementation; Python uses it
 through the same JSON contract, while Node delegates verified observation replay
 to the existing Python adapter. Unknown inputs never receive invented results.
 [Contract, CLI reuse, evidence limits and Docker build](docs/portable-execution.md).
-The existing portfolio redirect and Wiki/Pixiv report publication are preserved.
+🔌 The portfolio builds both pages from `main` at its deploy time (🔌 MCP 実験室: `tools/mcp/` and `tools/mcp/execution/`); this repository's Pages is its usage guide.
 
 ## Optional SDK-only caller environment
 

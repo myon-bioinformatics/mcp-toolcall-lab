@@ -1,8 +1,8 @@
 {
  "schema": "web-ui-page/1",
- "title": "mcp-toolcall-lab 機能一覧",
+ "title": "🧪 mcp-toolcall-lab 利用ガイド",
  "theme": "auto",
- "description": "Open WebUI・LibreChat の MCP ツール呼び出しを試すモックと検証ラボ。動く実験室はポートフォリオへ移り、ここでは配布する単一ファイルのモックの機能を全部並べる。",
+ "description": "Open WebUI・LibreChat の MCP ツール呼び出しを試すモックと検証ラボ。ブラウザで動く道具はポートフォリオの 🔌 MCP 実験室に、ここでは配布する単一ファイルのモックの機能を全部並べる。",
  "icon": "./icon.png",
  "favicon": "./favicon.png",
  "blocks": [
@@ -24,18 +24,26 @@
      "blocks": [
       {
        "type": "section",
-       "title": "🧪 実験室",
+       "title": "🧭 ブラウザで開く",
        "blocks": [
         {
          "type": "text",
-         "text": "Wiki・Pixiv・Pokémon と公開レポートの実験室は、ポートフォリオの 🧭 Tools & Demos の 🔌 MCP 実験室に移りました。"
+         "text": "公開のたびに、このリポジトリの main からポートフォリオの 🔌 MCP 実験室で組み立てます。🧪 検証の結果は stub-pages の Actions に。"
         },
         {
          "type": "links",
          "items": [
           {
-           "label": "🔌 MCP 実験室（ポートフォリオ）",
+           "label": "🔎 Tool Lab（Wiki・Pixiv・ニコニコ・ポケモン）",
            "href": "https://myon-bioinformatics.github.io/tools/mcp/"
+          },
+          {
+           "label": "🧮 Execution Lab（呼び出し記録の集計）",
+           "href": "https://myon-bioinformatics.github.io/tools/mcp/execution/"
+          },
+          {
+           "label": "🧪 stub-pages の Actions",
+           "href": "https://github.com/myon-bioinformatics/mcp-toolcall-lab/actions/workflows/stub-pages.yml"
           }
          ]
         }
@@ -123,6 +131,10 @@
       {
        "label": "📄 librechat_mcp_mock.py",
        "href": "https://github.com/myon-bioinformatics/mcp-toolcall-lab/blob/main/librechat_mcp_mock.py"
+      },
+      {
+       "label": "🧭 ポートフォリオ",
+       "href": "https://myon-bioinformatics.github.io/#mcp"
       }
      ]
     }

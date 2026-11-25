@@ -1,11 +1,10 @@
-> Publication transfer: land the portfolio receiving PR before this workflow
-> switches the old URL to a redirect. Wiki/Pixiv/public reports will live at
-> https://myon-bioinformatics.github.io/tools/mcp/ .
-> The lab continues producing `_site/` in `stub-pages-observations` artifacts,
-> running Docker/MCP tests, and preserving raw logs separately. Portfolio imports
-> only the allowlisted public export with explicit snapshot identity. Imported
-> results are not automatically the latest Actions result. The old Pages URL
-> redirects while preserving query and fragment, including `#wiki`, `#pixiv` and `#pokemon`.
+> 🔌 Publication: the portfolio builds the Tool Lab from `main` at its deploy time
+> (`python -S -m mcp_toolcall_lab.stub_front pages`, no Docker) and publishes it at
+> https://myon-bioinformatics.github.io/tools/mcp/ (🔌 MCP 実験室), like Ironmate's studios.
+> The page records no run; its report links this workflow's runs. The lab continues
+> producing `_site/` in `stub-pages-observations` artifacts, running Docker/MCP tests,
+> and preserving raw logs separately. This repository's own Pages is its usage guide
+> (`pages.yml`, whose `build` job runs the portfolio's commands).
 > Earlier deployment descriptions below document the pre-transfer layout.
 
 # Serverless stub try (GitHub Actions + Pages)

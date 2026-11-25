@@ -272,7 +272,7 @@ console.log(JSON.stringify([ok,miss,mismatch,offline]));'''.replace('CORE', json
     def test_no_pages_publisher_and_the_portable_export_image(self):
         workflows = list((ROOT / '.github/workflows').glob('*.yml'))
         publishers = [p.name for p in workflows if 'uses: actions/deploy-pages@' in p.read_text()]
-        self.assertEqual(publishers, [])  # the manual-only pages.yml was removed (2026-11-13)
+        self.assertEqual(publishers, [])  # pages.yml deploys the usage guide through the parent's reusable workflow
         docker = (ROOT / 'docker/portable-pages/Dockerfile').read_text()
         self.assertIn('FROM scratch AS artifact', docker)
         self.assertIn('FROM node:26.13.1-trixie-slim@sha256:e6bedef217677b276c591795e169840edd9096dbf13f29df8ef8d1856b8820bc AS node', docker)

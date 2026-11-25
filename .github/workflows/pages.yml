@@ -1,8 +1,9 @@
 name: Pages
 
-# 🔀 The front page stays the redirect to the portfolio (scripts/write_portfolio_redirect.py). The parent's reusable
-# workflow adds the usage guide from docs/guide.page.json under guide/ (guide_dir), with 📚 機能全一覧 read from the
-# two standalone mocks. Pull requests build the guide; only main deploys.
+# 📚 Like Ironmate and DRAgoWing: the tools are built by the portfolio (🔌 MCP 実験室, tools/mcp/) from main at its
+# deploy time, so this repository's Pages is its usage guide (docs/guide.page.json, with 📚 機能全一覧 read from the two
+# standalone mocks). `build` runs the portfolio's commands here (python -S, src + vendor, Node 26) so a change that
+# would break them fails in this repository first; only `guide` deploys, and only from main.
 on:
   push:
     branches: [main]
@@ -10,28 +11,52 @@ on:
       - "docs/guide.page.json"
       - "openwebui_mcp_mock.py"
       - "librechat_mcp_mock.py"
-      - "scripts/write_portfolio_redirect.py"
+      - "src/mcp_toolcall_lab/**"
+      - "vendor/**"
+      - "scripts/build_portable_pages.py"
       - ".github/workflows/pages.yml"
   pull_request:
     paths:
       - "docs/guide.page.json"
+      - "src/mcp_toolcall_lab/**"
+      - "vendor/**"
+      - "scripts/build_portable_pages.py"
       - ".github/workflows/pages.yml"
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  pages:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "26.13.1"
+      - name: Build the pages the portfolio publishes (🔎 tools/mcp/ and 🧮 tools/mcp/execution/)
+        env:
+          PYTHONPATH: src:vendor
+        run: |
+          python3 -S -m mcp_toolcall_lab.stub_front pages --out site/tools
+          python3 -S -m mcp_toolcall_lab.mcp_toolcall_lab_repository_diagnostics site/tools
+          python3 -S scripts/build_portable_pages.py --source-sha "$GITHUB_SHA" --out site/lab
+          test -s site/tools/index.html && test -s site/tools/repository-diagnostics.html && test -s site/lab/execution/index.html
+  guide:
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
     uses: myon-bioinformatics/myon-bioinformatics/.github/workflows/reusable-pages-static.yml@fb4a58060e0f28e5336752d8e33d827545c1ce53
     with:
       artifact_path: _site
-      build: |
-        python3 scripts/write_portfolio_redirect.py _site
-        mkdir -p _site/execution/assets
-        cp docs/assets/mcp-toolcall-lab-logo.png docs/assets/mcp-toolcall-lab-favicon-artwork.png _site/execution/assets/
       guide_page: docs/guide.page.json
-      guide_dir: guide
       guide_brand: mcp-toolcall-lab
       guide_features: openwebui_mcp_mock.py librechat_mcp_mock.py
