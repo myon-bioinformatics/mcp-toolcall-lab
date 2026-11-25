@@ -1,11 +1,10 @@
-> Publication transfer: land the portfolio receiving PR before this workflow
-> switches the old URL to a redirect. Wiki/Pixiv/public reports will live at
-> https://myon-bioinformatics.github.io/tools/mcp-toolcall-lab/ .
-> The lab continues producing `_site/` in `stub-pages-observations` artifacts,
-> running Docker/MCP tests, and preserving raw logs separately. Portfolio imports
-> only the allowlisted public export with explicit snapshot identity. Imported
-> results are not automatically the latest Actions result. The old Pages URL
-> redirects while preserving query and fragment, including `#wiki`, `#pixiv` and `#pokemon`.
+> 🔌 Publication: the portfolio builds the Tool Lab from `main` at its deploy time
+> (`python -S -m mcp_toolcall_lab.stub_front pages`, no Docker) and publishes it at
+> https://myon-bioinformatics.github.io/tools/mcp/ (🔌 MCP 実験室), like Ironmate's studios.
+> The page records no run; its report links this workflow's runs. The lab continues
+> producing `_site/` in `stub-pages-observations` artifacts, running Docker/MCP tests,
+> and preserving raw logs separately. This repository's own Pages is its usage guide
+> (`pages.yml`, whose `build` job runs the portfolio's commands).
 > Earlier deployment descriptions below document the pre-transfer layout.
 
 # Serverless stub try (GitHub Actions + Pages)
@@ -21,7 +20,7 @@ fallback. Deno can remain a local/CI experiment. GitHub Actions
 is the compute for the Last Actions snapshot: it starts one compose
 network, sends a turn through the stub, appends anti-patterns as JSONL,
 then keeps `_site/` as a workflow artifact. The portfolio publishes the Tool Lab at
-https://myon-bioinformatics.github.io/tools/mcp-toolcall-lab/ (the execution lab under `execution/`).
+https://myon-bioinformatics.github.io/tools/mcp/ (the execution lab under `execution/`).
 
 The published `index.html` stays on one GitHub Pages endpoint. A
 same-origin hash switch (`#wiki`, optional `?view=wiki`) shows an
@@ -156,7 +155,7 @@ python -m mcp_toolcall_lab.stub_front serve --port 8765
 ```
 
 Deep-link the wiki panel as
-`https://myon-bioinformatics.github.io/tools/mcp-toolcall-lab/#wiki`
+`https://myon-bioinformatics.github.io/tools/mcp/#wiki`
 (optional `#wiki?title=Mathematics&lang=en`; or `index.html?view=wiki`,
 which the hash script treats like `#wiki`). `write_pages()` copies
 `pages-hash.js` and `pages-wiki.js` next to `index.html`. Do not
@@ -208,7 +207,7 @@ idea for PokéAPI: **Fetch** asks `https://pokeapi.co/api/v2/pokemon/<name>`
 once from the browser, **Open JSON** opens that URL so you can copy the text
 the browser shows (its view-source / raw tab), and pasting it back runs
 **Extract** with no network at all. The panel is web-ui's shared source panel
-(`vendor/pysaiyanweboo.py` `source_panel_html`, `source.js`, `source.css`); this repo
+(the pinned `pysaiyanweboo`: `source_panel_html`, `source.js`, `source.css`); this repo
 keeps only its JSON spec, `fixtures/pokeapi/pokeapi.spec.json`, and no panel
 script or stylesheet of its own. The spec reads the same fields as
 `adapters/pokeapi.py` and writes the same Markdown tables, which

@@ -113,7 +113,7 @@ running. Browser and Node share one log-analysis implementation; Python uses it
 through the same JSON contract, while Node delegates verified observation replay
 to the existing Python adapter. Unknown inputs never receive invented results.
 [Contract, CLI reuse, evidence limits and Docker build](docs/portable-execution.md).
-The existing portfolio redirect and Wiki/Pixiv report publication are preserved.
+🔌 The portfolio builds both pages from `main` at its deploy time (🔌 MCP 実験室: `tools/mcp/` and `tools/mcp/execution/`); this repository's Pages is its usage guide.
 
 ## Optional SDK-only caller environment
 
@@ -291,7 +291,7 @@ network opt-in, and extraction limits are documented in
 
 ### Static Pages versus local execution
 
-The [Tool Lab on the portfolio](https://myon-bioinformatics.github.io/tools/mcp-toolcall-lab/) is a static
+The [Tool Lab on the portfolio](https://myon-bioinformatics.github.io/tools/mcp/) is a static
 workspace/report, not a hosted Python inference service. Its tool catalog is
 generated from the shared Python catalog; the `#wiki` panel is a browser
 Streamable HTTP MCP client of the Wikipedia-only Deno server (`POST /mcp`;

@@ -723,7 +723,7 @@ def _assert_no_automatic_models(workflows):
 
 
 def test_no_workflow_builds_the_model_image_or_publishes_pages():
-    # The manual-only pages.yml was removed (2026-11-13): nothing here deploys Pages or uploads a Pages artifact.
+    # No step here deploys Pages or uploads a Pages artifact: pages.yml hands the usage guide to the parent's reusable workflow.
     workflows = _workflows()
     _assert_no_automatic_models(workflows)
     for filename, workflow in workflows.items():

@@ -1,8 +1,9 @@
 # Portable execution, built once
 
 The public `/execution/` page is a consumer of the reusable execution contract,
-not a second Python implementation or a hosted backend. The root still redirects
-to the existing portfolio. GitHub Pages serves static files only:
+not a second Python implementation or a hosted backend. The portfolio publishes it at
+https://myon-bioinformatics.github.io/tools/mcp/execution/ (the export's root `index.html`
+is a redirect there and is not published). GitHub Pages serves static files only:
 https://docs.github.com/en/pages/getting-started-with-github-pages/what-is-github-pages
 
 ## One request, two explicit capabilities
