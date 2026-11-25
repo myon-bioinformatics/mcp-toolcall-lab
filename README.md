@@ -291,7 +291,7 @@ network opt-in, and extraction limits are documented in
 
 ### Static Pages versus local execution
 
-The [Tool Lab on the portfolio](https://myon-bioinformatics.github.io/tools/mcp-toolcall-lab/) is a static
+The [Tool Lab on the portfolio](https://myon-bioinformatics.github.io/tools/mcp/) is a static
 workspace/report, not a hosted Python inference service. Its tool catalog is
 generated from the shared Python catalog; the `#wiki` panel is a browser
 Streamable HTTP MCP client of the Wikipedia-only Deno server (`POST /mcp`;

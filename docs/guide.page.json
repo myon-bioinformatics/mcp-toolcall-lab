@@ -28,14 +28,14 @@
        "blocks": [
         {
          "type": "text",
-         "text": "Wiki・Pixiv・Pokémon と公開レポートの実験室は、ポートフォリオの 🧭 Tools & Demos に移りました。"
+         "text": "Wiki・Pixiv・Pokémon と公開レポートの実験室は、ポートフォリオの 🧭 Tools & Demos の 🔌 MCP 実験室に移りました。"
         },
         {
          "type": "links",
          "items": [
           {
-           "label": "🧪 実験室（ポートフォリオ）",
-           "href": "https://myon-bioinformatics.github.io/tools/mcp-toolcall-lab/"
+           "label": "🔌 MCP 実験室（ポートフォリオ）",
+           "href": "https://myon-bioinformatics.github.io/tools/mcp/"
           }
          ]
         }

@@ -2,7 +2,7 @@
 from pathlib import Path
 import argparse
 
-TARGET = 'https://myon-bioinformatics.github.io/tools/mcp-toolcall-lab/'
+TARGET = 'https://myon-bioinformatics.github.io/tools/mcp/'
 
 
 def write_redirect(out: Path) -> None:

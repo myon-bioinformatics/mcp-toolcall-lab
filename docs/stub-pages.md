@@ -1,6 +1,6 @@
 > Publication transfer: land the portfolio receiving PR before this workflow
 > switches the old URL to a redirect. Wiki/Pixiv/public reports will live at
-> https://myon-bioinformatics.github.io/tools/mcp-toolcall-lab/ .
+> https://myon-bioinformatics.github.io/tools/mcp/ .
 > The lab continues producing `_site/` in `stub-pages-observations` artifacts,
 > running Docker/MCP tests, and preserving raw logs separately. Portfolio imports
 > only the allowlisted public export with explicit snapshot identity. Imported
@@ -21,7 +21,7 @@ fallback. Deno can remain a local/CI experiment. GitHub Actions
 is the compute for the Last Actions snapshot: it starts one compose
 network, sends a turn through the stub, appends anti-patterns as JSONL,
 then keeps `_site/` as a workflow artifact. The portfolio publishes the Tool Lab at
-https://myon-bioinformatics.github.io/tools/mcp-toolcall-lab/ (the execution lab under `execution/`).
+https://myon-bioinformatics.github.io/tools/mcp/ (the execution lab under `execution/`).
 
 The published `index.html` stays on one GitHub Pages endpoint. A
 same-origin hash switch (`#wiki`, optional `?view=wiki`) shows an
@@ -156,7 +156,7 @@ python -m mcp_toolcall_lab.stub_front serve --port 8765
 ```
 
 Deep-link the wiki panel as
-`https://myon-bioinformatics.github.io/tools/mcp-toolcall-lab/#wiki`
+`https://myon-bioinformatics.github.io/tools/mcp/#wiki`
 (optional `#wiki?title=Mathematics&lang=en`; or `index.html?view=wiki`,
 which the hash script treats like `#wiki`). `write_pages()` copies
 `pages-hash.js` and `pages-wiki.js` next to `index.html`. Do not

@@ -1026,7 +1026,7 @@ def test_legacy_redirect_preserves_routes_and_public_export_is_still_retained():
     with tempfile.TemporaryDirectory() as directory:
         subprocess.run(['python', '-S', str(script), directory], check=True)
         html = (Path(directory) / 'index.html').read_text()
-        assert 'https://myon-bioinformatics.github.io/tools/mcp-toolcall-lab/' in html
+        assert 'https://myon-bioinformatics.github.io/tools/mcp/' in html
         assert 'rel="icon" type="image/png" href="execution/assets/mcp-toolcall-lab-favicon-artwork.png"' in html
         assert 'rel="apple-touch-icon"' in html
         assert 'src="execution/assets/mcp-toolcall-lab-logo.png"' in html
@@ -1037,7 +1037,11 @@ def test_legacy_redirect_preserves_routes_and_public_export_is_still_retained():
             assert result.stdout.endswith('?view=wiki' + route)
     workflow = (ROOT / '.github/workflows/stub-pages.yml').read_text()
     assert 'actions/deploy-pages' not in workflow
-    assert not (ROOT / '.github/workflows/pages.yml').exists()  # no Pages publisher since 2026-11-13
+    # 📚 The only Pages publisher is pages.yml: this redirect as the front page and the usage guide under guide/
+    # (the parent's reusable workflow); the report and the tools stay in the portfolio's 🔌 MCP 実験室.
+    pages = (ROOT / '.github/workflows/pages.yml').read_text()
+    assert 'python3 scripts/write_portfolio_redirect.py _site' in pages and 'guide_dir: guide' in pages
+    assert 'stub_front' not in pages and 'docker' not in pages.lower()
     assert 'stub-pages-observations' in workflow
     assert '            _site/' in workflow
     assert 'scripts/stub_pages_smoke.py' in workflow
