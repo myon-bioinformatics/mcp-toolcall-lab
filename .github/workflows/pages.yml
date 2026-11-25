@@ -41,12 +41,20 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "26.13.1"
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: "latest"
+          python-version: "3.15"
+          enable-cache: true
+          save-cache: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          prune-cache: true
       - name: Build the pages the portfolio publishes (🔎 tools/mcp/ and 🧮 tools/mcp/execution/)
         env:
           PYTHONPATH: src:vendor
+        # 📦 the pages group: the pinned PySaiyanWeBoo alone (pyproject.toml), not the whole lab.
         run: |
-          python3 -S -m mcp_toolcall_lab.stub_front pages --out site/tools
-          python3 -S -m mcp_toolcall_lab.mcp_toolcall_lab_repository_diagnostics site/tools
+          uv run --locked --only-group pages python -m mcp_toolcall_lab.stub_front pages --out site/tools
+          uv run --locked --only-group pages python -m mcp_toolcall_lab.mcp_toolcall_lab_repository_diagnostics site/tools
           python3 -S scripts/build_portable_pages.py --source-sha "$GITHUB_SHA" --out site/lab
           test -s site/tools/index.html && test -s site/tools/repository-diagnostics.html && test -s site/lab/execution/index.html
   guide:
@@ -54,7 +62,7 @@ jobs:
       contents: read
       pages: write
       id-token: write
-    uses: myon-bioinformatics/myon-bioinformatics/.github/workflows/reusable-pages-static.yml@fb4a58060e0f28e5336752d8e33d827545c1ce53
+    uses: myon-bioinformatics/myon-bioinformatics/.github/workflows/reusable-pages-static.yml@1cd621c8a46d18611a9135bdc8a0e9d46013d58d
     with:
       artifact_path: _site
       guide_page: docs/guide.page.json

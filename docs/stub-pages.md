@@ -207,7 +207,7 @@ idea for PokéAPI: **Fetch** asks `https://pokeapi.co/api/v2/pokemon/<name>`
 once from the browser, **Open JSON** opens that URL so you can copy the text
 the browser shows (its view-source / raw tab), and pasting it back runs
 **Extract** with no network at all. The panel is web-ui's shared source panel
-(`vendor/pysaiyanweboo.py` `source_panel_html`, `source.js`, `source.css`); this repo
+(the pinned `pysaiyanweboo`: `source_panel_html`, `source.js`, `source.css`); this repo
 keeps only its JSON spec, `fixtures/pokeapi/pokeapi.spec.json`, and no panel
 script or stylesheet of its own. The spec reads the same fields as
 `adapters/pokeapi.py` and writes the same Markdown tables, which

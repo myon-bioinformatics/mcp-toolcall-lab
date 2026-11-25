@@ -1216,6 +1216,9 @@ ci-stdlib = [
 ci-wiki-screenshot = [
     { name = "playwright" },
 ]
+pages = [
+    { name = "pysaiyanweboo" },
+]
 
 [package.metadata]
 requires-dist = [
@@ -1226,7 +1229,7 @@ requires-dist = [
     { name = "mcp", specifier = ">=2.3.0" },
     { name = "playwright", marker = "extra == 'browser-test'", specifier = ">=1.64.1" },
     { name = "pydantic", specifier = ">=2.14.1" },
-    { name = "pysaiyanweboo", marker = "extra == 'test'", git = "https://github.com/myon-bioinformatics/PySaiyanWeBoo?rev=bbe5c0b0087f40ff3fffd53bec5111c2ba2d747d" },
+    { name = "pysaiyanweboo", marker = "extra == 'test'", git = "https://github.com/myon-bioinformatics/PySaiyanWeBoo?rev=901b790f14ad7a04a4280409bfd274d8f6926fa7" },
     { name = "pytest", marker = "extra == 'test'", specifier = ">=9.1.1" },
     { name = "pytest-asyncio", marker = "extra == 'test'", specifier = ">=1.4.0" },
     { name = "pyyaml", marker = "extra == 'test'", specifier = ">=6.0.3" },
@@ -1243,6 +1246,7 @@ ci-stdlib = [
     { name = "pytest-asyncio", specifier = ">=1.4.0" },
 ]
 ci-wiki-screenshot = [{ name = "playwright", specifier = ">=1.64.1" }]
+pages = [{ name = "pysaiyanweboo", git = "https://github.com/myon-bioinformatics/PySaiyanWeBoo?rev=901b790f14ad7a04a4280409bfd274d8f6926fa7" }]
 
 [[package]]
 name = "mcp-types"
@@ -1844,7 +1848,7 @@ wheels = [
 [[package]]
 name = "pysaiyanweboo"
 version = "0.1.0"
-source = { git = "https://github.com/myon-bioinformatics/PySaiyanWeBoo?rev=bbe5c0b0087f40ff3fffd53bec5111c2ba2d747d#bbe5c0b0087f40ff3fffd53bec5111c2ba2d747d" }
+source = { git = "https://github.com/myon-bioinformatics/PySaiyanWeBoo?rev=901b790f14ad7a04a4280409bfd274d8f6926fa7#901b790f14ad7a04a4280409bfd274d8f6926fa7" }
 
 [[package]]
 name = "pytest"

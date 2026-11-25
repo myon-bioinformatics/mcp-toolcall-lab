@@ -12,7 +12,7 @@ import yaml
 from vendor import fleet_check as fleet
 
 ROOT = fleet.repo_root(__file__)
-PARENT_WORKFLOW_PIN = "9e3da7ae1846e9604ebc24bb5178f7de094a4e77"
+PARENT_WORKFLOW_PIN = "1cd621c8a46d18611a9135bdc8a0e9d46013d58d"
 ACCEPTED = {"vendor/fleet_check.py": "20de01921e50e9339aa9271b0547a5be7649b3b3"}
 
 
@@ -30,6 +30,16 @@ def test_parent_workflow_references_use_reviewed_rollout_commit():
     pins = fleet.parent_refs(ROOT, skip=(".vendor-sync-tools",))
     assert pins, "shared parent references must remain observable"
     assert set(pins) == {PARENT_WORKFLOW_PIN}, pins
+
+
+def test_pysaiyanweboo_is_one_pin_and_not_vendored():
+    """📦 The pages group and the test extra pin the same PySaiyanWeBoo commit; no vendored copy drifts beside them."""
+    import tomllib
+
+    project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    pins = [d for d in project["project"]["optional-dependencies"]["test"] if d.startswith("pysaiyanweboo @")]
+    assert pins == project["dependency-groups"]["pages"], pins
+    assert not (ROOT / "vendor" / "pysaiyanweboo.py").exists()
 
 
 # ═══ · retired vendor refs ════════════════════════════════════════════════════════════
@@ -69,8 +79,6 @@ def test_vendor_lock_lists_expected_sources():
             "njs_launch.py",
             "vendor/njs_launch.py",
         ),
-        ("myon-bioinformatics/PySaiyanWeBoo", "pysaiyanweboo.py", "vendor/pysaiyanweboo.py"),
-        ("myon-bioinformatics/PySaiyanWeBoo", "LICENSE", "vendor/pysaiyanweboo-LICENSE"),
         (fleet.PARENT, "fleet_check.py", "vendor/fleet_check.py"),
     }
     actual = {(e["repository"], e["source"], e["destination"]) for e in lock["files"]}

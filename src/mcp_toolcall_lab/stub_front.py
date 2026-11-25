@@ -320,20 +320,13 @@ def _vendor_style_tag(md: Any = None) -> str:
 
 
 def load_pysaiyanweboo() -> Any:
-    """The vendored ``pysaiyanweboo.py`` (stdlib, loaded by path like ``markdown.py``)."""
-    import importlib.util
+    """📦 The pinned PySaiyanWeBoo (``pysaiyanweboo``: the ``pages`` group or the ``test`` extra in pyproject.toml)."""
+    import importlib
 
-    spec = importlib.util.spec_from_file_location("lab_vendored_pysaiyanweboo", PYSAIYANWEBOO_SOURCE)
-    if spec is None or spec.loader is None:
-        raise RuntimeError(f"cannot load {PYSAIYANWEBOO_SOURCE}")
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module  # dataclasses resolves annotations through sys.modules
     try:
-        spec.loader.exec_module(module)
-    except BaseException:
-        sys.modules.pop(spec.name, None)
-        raise
-    return module
+        return importlib.import_module("pysaiyanweboo")
+    except ImportError as exc:
+        raise RuntimeError("pysaiyanweboo is not installed: run with `uv run --locked --only-group pages`") from exc
 
 
 def pokemon_spec() -> dict[str, Any]:
@@ -363,10 +356,8 @@ PAGES_WIKI_JS_SOURCE = STATIC_DIR / "pages_wiki.js"
 PAGES_WIKI_JS_NAME = "pages-wiki.js"
 PAGES_PIXIV_JS_SOURCE = STATIC_DIR / "pages_pixiv.js"
 PAGES_PIXIV_JS_NAME = "pages-pixiv.js"
-# The #pokemon panel is web-ui's shared source panel: this repo keeps only the
-# JSON spec, the panel markup, ``source.js`` and its CSS come from the vendored
-# ``vendor/pysaiyanweboo.py`` (pinned in vendor.lock.json).
-PYSAIYANWEBOO_SOURCE = REPO_ROOT / "vendor" / "pysaiyanweboo.py"
+# The #pokemon panel is PySaiyanWeBoo's shared source panel: this repo keeps only the
+# JSON spec, the panel markup, ``source.js`` and its CSS come from the pinned ``pysaiyanweboo``.
 POKEMON_SPEC_SOURCE = REPO_ROOT / "fixtures" / "pokeapi" / "pokeapi.spec.json"
 SOURCE_JS_NAME = "source.js"
 
@@ -936,7 +927,7 @@ def write_pages(
         pswb.source_panel_html(pokemon_spec())
         + '<p class="ui-muted">Same tables as the MCP/local <code>pokeapi/pokemon</code> '
         "and <code>pokeapi/source</code> operations.</p>"
-        f'<script src="{SOURCE_JS_NAME}{_asset_cache_bust(PYSAIYANWEBOO_SOURCE)}"></script>'
+        f'<script src="{SOURCE_JS_NAME}{_asset_cache_bust(Path(pswb.__file__))}"></script>'
     )
     # Hide/show uses the HTML hidden attribute. Converted Markdown CSS comes
     # from vendor/markdown.py (default_stylesheet), not a lab-authored copy.

@@ -1041,7 +1041,7 @@ def test_legacy_redirect_preserves_routes_and_public_export_is_still_retained():
     # the tools are the portfolio's 🔌 MCP 実験室, built from main there; `build` runs the portfolio's commands here.
     pages = (ROOT / '.github/workflows/pages.yml').read_text()
     assert 'guide_page: docs/guide.page.json' in pages and 'guide_dir' not in pages and 'write_portfolio_redirect' not in pages
-    assert 'python3 -S -m mcp_toolcall_lab.stub_front pages --out site/tools' in pages and 'docker' not in pages.lower()
+    assert 'uv run --locked --only-group pages python -m mcp_toolcall_lab.stub_front pages --out site/tools' in pages and 'docker' not in pages.lower()
     assert 'stub-pages-observations' in workflow
     assert '            _site/' in workflow
     assert 'scripts/stub_pages_smoke.py' in workflow
