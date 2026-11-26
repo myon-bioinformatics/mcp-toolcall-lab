@@ -102,6 +102,32 @@
      ]
     },
     {
+     "label": "🔬 検証ガイド",
+     "blocks": [
+      {
+       "type": "runbook",
+       "id": "verify",
+       "books": [
+        {
+         "label": "⚡ そのまま",
+         "intro": "📋 コピーして手元で試し、結果を記録できます。🤖 の手順は、Pages の公開で実際に動かした結果も載ります。",
+         "runbook": {
+          "key": "mcp-toolcall-lab/verify",
+          "steps": [
+           {
+            "id": "budget",
+            "title": "🧮 予算つき圧縮の比較",
+            "command": "PYTHONPATH=src python3 -S -m mcp_toolcall_lab.budget_compression --help",
+            "run": true
+           }
+          ]
+         }
+        }
+       ]
+      }
+     ]
+    },
+    {
      "label": "🎞 GIF デモ",
      "blocks": [
       {
