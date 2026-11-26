@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/mcp-toolcall-lab-logo.png" alt="mcp-toolcall-lab logo: a robot and MCP flask, with the tagline Explore · Test · Trust" width="280">
+  <img src="https://myon-bioinformatics.github.io/mcp-toolcall-lab/icon.png" alt="mcp-toolcall-lab logo: a robot and MCP flask, with the tagline Explore · Test · Trust" width="280">
 </p>
 
 # mcp-toolcall-lab
