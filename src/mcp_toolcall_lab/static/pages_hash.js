@@ -1,6 +1,6 @@
 /*
  * Same-origin hash router for the published GitHub Pages index.
- * Switches the home report and the #wiki / #pixiv / #pokemon / #diagnostics panels (browser
+ * Switches the home report and the #wiki / #pixiv / #pokemon / #diagnostics / #protocol panels (browser
  * Streamable HTTP MCP client in pages-wiki.js). Not the local stub-demo.js heading pulldown.
  *
  * Vanilla JS, no build step. write_pages() copies this file next to
@@ -26,6 +26,8 @@
   var PIXIV = "pixiv";
   var POKEMON = "pokemon";
   var DIAGNOSTICS = "diagnostics";
+  var PROTOCOL = "protocol";
+  var PANELS = [WIKI, PIXIV, POKEMON, DIAGNOSTICS, PROTOCOL];   // #name opens the panel of that name
 
   function fragmentName(hash) {
     var raw = String(hash || "");
@@ -58,19 +60,11 @@
   }
 
   function viewFromLocation(hash, search) {
-    if (fragmentName(hash) === WIKI || queryHasWikiView(search)) {
+    if (queryHasWikiView(search)) {
       return WIKI;
     }
-    if (fragmentName(hash) === PIXIV) {
-      return PIXIV;
-    }
-    if (fragmentName(hash) === POKEMON) {
-      return POKEMON;
-    }
-    if (fragmentName(hash) === DIAGNOSTICS) {
-      return DIAGNOSTICS;
-    }
-    return HOME;
+    var name = fragmentName(hash);
+    return PANELS.indexOf(name) >= 0 ? name : HOME;
   }
 
   function applyView(doc, view) {
@@ -149,6 +143,7 @@
     PIXIV: PIXIV,
     POKEMON: POKEMON,
     DIAGNOSTICS: DIAGNOSTICS,
+    PROTOCOL: PROTOCOL,
     viewFromLocation: viewFromLocation,
     applyView: applyView,
     syncFromLocation: syncFromLocation,

@@ -320,6 +320,14 @@ def _vendor_style_tag(md: Any = None) -> str:
     return ""
 
 
+def _protocol_panel_html(pswb: Any) -> str:
+    """🤝 The ``#protocol`` panel: PySaiyanWeBoo's in-page MCP server (legacy 2025-03-26 and current 2026-07-28, PKCE, a Bearer
+    audience, OAuth metadata), the protocol the lab's tools speak; nothing is sent. It mounts itself when the page loads."""
+    parts = pswb.component_parts("mcp")   # its script is mcp.js beside the page (write_pages)
+    return (parts["html"] + f"<style>{parts['css']}</style>"
+            + f'<script type="module" src="mcp.js{_asset_cache_bust(Path(pswb.__file__))}"></script>')
+
+
 def load_pysaiyanweboo() -> Any:
     """📦 The pinned PySaiyanWeBoo (``pysaiyanweboo``: the ``pages`` group or the ``test`` extra in pyproject.toml)."""
     import importlib
@@ -650,7 +658,7 @@ def _revision_html(revision: Mapping[str, Any]) -> str:
 
 
 def _pages_nav_html() -> str:
-    """Always-visible Home / #wiki / #pixiv / #pokemon / #diagnostics controls. Hash only — Pages stays one endpoint."""
+    """Always-visible Home / #wiki / #pixiv / #pokemon / #diagnostics / #protocol controls. Hash only — Pages stays one endpoint."""
     return (
         '<p id="pages-nav">'
         '<a href="#" data-pages-nav="home" data-testid="pages-nav-home">Home</a>'
@@ -663,6 +671,8 @@ def _pages_nav_html() -> str:
         '<a href="#pokemon" data-pages-nav="pokemon" data-testid="pages-nav-pokemon">Pokémon</a>'
         " · "
         '<a href="#diagnostics" data-pages-nav="diagnostics" data-testid="pages-nav-diagnostics">🩺 Diagnostics</a>'
+        " · "
+        '<a href="#protocol" data-pages-nav="protocol" data-testid="pages-nav-protocol">🤝 Protocol</a>'
         "</p>"
     )
 
@@ -700,6 +710,8 @@ def _pages_home_markdown(md: Any, summary_text: str) -> str:
             "[🩺 Repository diagnostics](#diagnostics) · "
             "[JSON](repository-diagnostics.json) · "
             "[JSONL](repository-diagnostics.jsonl)",
+            "",
+            "[🤝 MCP protocol](#protocol): an in-page MCP server (legacy and current protocol, PKCE, OAuth metadata); nothing is sent.",
             "",
             md.heading("Last Actions summary", 2),
             "Allowlisted snapshot from the last `stub-pages` GitHub Actions run "
@@ -954,6 +966,7 @@ def write_pages(
         f"{_pages_panel_html(view='pixiv', inner=pixiv_inner + _pages_wiki_back_html(), hidden=True)}"
         f"{_pages_panel_html(view='pokemon', inner=pokemon_inner + _pages_wiki_back_html(), hidden=True)}"
         f"{_pages_panel_html(view='diagnostics', inner=diagnostics.panel_html() + _pages_wiki_back_html(), hidden=True)}"
+        f"{_pages_panel_html(view='protocol', inner=_protocol_panel_html(pswb) + _pages_wiki_back_html(), hidden=True)}"
         '</section><aside aria-label="Supporting information">'
         '<section class="ui-card term-evidence"><h2>Tool catalog</h2>'
         '<ul id="tool-catalog">' + "".join(
@@ -980,6 +993,7 @@ def write_pages(
         PAGES_PIXIV_JS_SOURCE.read_text(encoding="utf-8"), encoding="utf-8"
     )
     (out_dir / SOURCE_JS_NAME).write_text(pswb.js_source(SOURCE_JS_NAME), encoding="utf-8")
+    (out_dir / "mcp.js").write_text(pswb.component_parts("mcp")["js"], encoding="utf-8")   # 🤝 the #protocol panel's in-page MCP server
     (out_dir / "summary.json").write_text(summary_text + "\n", encoding="utf-8")
     (out_dir / BUILD_META_NAME).write_text(
         json.dumps(meta, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"

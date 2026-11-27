@@ -305,7 +305,7 @@ python -m mcp_toolcall_lab.stub_front serve --port 8765
 python -m mcp_toolcall_lab.stub_front pages --out _site --last-run test-results/last-run.json
 ```
 
-Pages also publishes repository diagnostics (🩺 the `#diagnostics` panel of the same page) and build/run identity. The UI shell
+Pages also publishes repository diagnostics (🩺 the `#diagnostics` panel of the same page), 🤝 an in-page MCP server to try the protocol on (the `#protocol` panel, PySaiyanWeBoo's MCP lab; nothing is sent) and build/run identity. The UI shell
 is pinned from PySaiyanWeBoo; tool execution, fixtures, traces, and protocol behavior
 remain owned here. See [Pages/stub boundaries](docs/stub-pages.md),
 [local stub roadmap](docs/stub-front-roadmap.md), and the separate

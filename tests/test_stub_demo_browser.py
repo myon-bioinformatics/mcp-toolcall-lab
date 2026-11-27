@@ -177,6 +177,10 @@ def test_published_pages_and_shared_diagnostics_keep_readable_colors(tmp_path, b
             card = page.locator("#diagnostics .repo-diagnostics")
             card.wait_for(state="visible")
             _assert_readable_colors(card)
+
+            page.get_by_test_id("pages-nav-protocol").click()      # 🤝 the in-page MCP server answers the echo demo; nothing is sent
+            page.locator("#protocol [data-mcp-demo-legacy]").click()
+            page.wait_for_function("() => document.querySelector('#protocol [data-mcp-demo-status]').textContent.includes('Demo finished: ok.')")
             assert errors == []
         finally:
             page.close()
