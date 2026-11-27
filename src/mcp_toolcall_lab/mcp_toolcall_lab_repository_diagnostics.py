@@ -18,7 +18,6 @@ REPOSITORY = "myon-bioinformatics/mcp-toolcall-lab"
 _TOOLING_COMMANDS = ("git", "gh", "node", "npm", "npx")
 JSON_NAME = "repository-diagnostics.json"
 JSONL_NAME = "repository-diagnostics.jsonl"
-PAGE_NAME = "repository-diagnostics.html"
 
 
 def _load_gh_identity() -> ModuleType:
@@ -105,14 +104,17 @@ def build_payload(
     return {"schema_version": "1.0", **diagnostics_payload(record, **kwargs), "generated_at": record["generated_at"]}
 
 
-def _renderer_page() -> str:
-    """The shared diagnostics page from PySaiyanWeBoo (bundled CSS and renderer embedded, nothing from a CDN)."""
-    import pysaiyanweboo  # the pinned git dependency in the test extra
+def panel_html() -> str:
+    """🩺 The lab page's ``#diagnostics`` panel: PySaiyanWeBoo's diagnostics card (its CSS and renderer embedded, nothing
+    from a CDN), filled from ``JSON_NAME`` beside the page; one page, not a page of its own."""
+    import pysaiyanweboo  # the pinned git dependency (pages group / test extra)
 
-    # The pinned diagnostics card uses a light surface. Select the shared light
-    # theme so inherited text remains readable without forking vendor CSS.
-    return pysaiyanweboo.repository_diagnostics_page(REPOSITORY, theme="github-like", icon=None, favicon=None,
-                                              description="Canonical public metadata plus anonymous GitHub URL observations.")
+    body = pysaiyanweboo.repository_diagnostics_body(REPOSITORY, icon=None,
+                                                     description="Canonical public metadata plus anonymous GitHub URL observations.")
+    return (body.replace("<h1 ", "<h2 ", 1).replace("</h1>", "</h2>", 1)   # 🔢 the page keeps its one h1
+            + f"<style>{pysaiyanweboo.css_source('repository-diagnostics.css')}</style>"
+            + pysaiyanweboo.classic_script(pysaiyanweboo.js_source("repository-diagnostics.js"))
+            + pysaiyanweboo.classic_script(f'RepositoryDiagnostics.mount(document, "./{JSON_NAME}");'))
 
 
 def write_pages(
@@ -121,7 +123,7 @@ def write_pages(
     probe: bool = True,
     env: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
-    """Write JSON, JSONL, and the reusable diagnostics page into a Pages tree."""
+    """Write the JSON and JSONL the lab page's ``#diagnostics`` panel reads into a Pages tree."""
     out_dir.mkdir(parents=True, exist_ok=True)
     record = build_record(env)
     payload = build_payload(record, probe=probe)
@@ -134,7 +136,6 @@ def write_pages(
         _metadata_jsonl(record),
         encoding="utf-8",
     )
-    (out_dir / PAGE_NAME).write_text(_renderer_page(), encoding="utf-8")
     return payload
 
 

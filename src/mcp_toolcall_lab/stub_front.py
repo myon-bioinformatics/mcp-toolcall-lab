@@ -29,6 +29,7 @@ import argparse, hashlib, html, json, os, re, subprocess, sys, time
 from collections.abc import Mapping, Sequence; from dataclasses import asdict, dataclass, field; from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer; from pathlib import Path; from typing import Any; from urllib.error import HTTPError, URLError; from urllib.parse import parse_qs, urlparse
 
 from mcp_toolcall_lab.catalog import AVAILABLE_TOOLS, TOOL_DESCRIPTIONS, dispatch_tool
+from mcp_toolcall_lab import mcp_toolcall_lab_repository_diagnostics as diagnostics
 from mcp_toolcall_lab.frontends import LIBRECHAT, OPENWEBUI, STUB
 from mcp_toolcall_lab.markdown_lib import (
     Section,
@@ -649,7 +650,7 @@ def _revision_html(revision: Mapping[str, Any]) -> str:
 
 
 def _pages_nav_html() -> str:
-    """Always-visible Home / #wiki / #pixiv / #pokemon controls. Hash only — Pages stays one endpoint."""
+    """Always-visible Home / #wiki / #pixiv / #pokemon / #diagnostics controls. Hash only — Pages stays one endpoint."""
     return (
         '<p id="pages-nav">'
         '<a href="#" data-pages-nav="home" data-testid="pages-nav-home">Home</a>'
@@ -660,6 +661,8 @@ def _pages_nav_html() -> str:
         '<a href="#pixiv" data-pages-nav="pixiv" data-testid="pages-nav-pixiv">Pixiv</a>'
         " · "
         '<a href="#pokemon" data-pages-nav="pokemon" data-testid="pages-nav-pokemon">Pokémon</a>'
+        " · "
+        '<a href="#diagnostics" data-pages-nav="diagnostics" data-testid="pages-nav-diagnostics">🩺 Diagnostics</a>'
         "</p>"
     )
 
@@ -694,7 +697,7 @@ def _pages_home_markdown(md: Any, summary_text: str) -> str:
             "`Mcp-Session-Id`). No hosted Deno service is required. Local `GET /wiki` "
             "still needs compose or `stub_front serve`.",
             "",
-            "[Repository diagnostics](repository-diagnostics.html) · "
+            "[🩺 Repository diagnostics](#diagnostics) · "
             "[JSON](repository-diagnostics.json) · "
             "[JSONL](repository-diagnostics.jsonl)",
             "",
@@ -950,6 +953,7 @@ def write_pages(
         f"{_pages_panel_html(view='wiki', inner=wiki_inner + _pages_wiki_back_html(), hidden=True)}"
         f"{_pages_panel_html(view='pixiv', inner=pixiv_inner + _pages_wiki_back_html(), hidden=True)}"
         f"{_pages_panel_html(view='pokemon', inner=pokemon_inner + _pages_wiki_back_html(), hidden=True)}"
+        f"{_pages_panel_html(view='diagnostics', inner=diagnostics.panel_html() + _pages_wiki_back_html(), hidden=True)}"
         '</section><aside aria-label="Supporting information">'
         '<section class="ui-card term-evidence"><h2>Tool catalog</h2>'
         '<ul id="tool-catalog">' + "".join(

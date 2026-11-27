@@ -37,7 +37,7 @@ test = [
     "uvicorn>=0.54.0",
     # The shared repository-diagnostics page (pysaiyanweboo.repository_diagnostics_page) and the terminal.css generator (pysaiyanweboo.core_css); also used by the Pages build.
     # Move the pin with: uv lock --upgrade-package pysaiyanweboo
-    "pysaiyanweboo @ git+https://github.com/myon-bioinformatics/PySaiyanWeBoo@901b790f14ad7a04a4280409bfd274d8f6926fa7",
+    "pysaiyanweboo @ git+https://github.com/myon-bioinformatics/PySaiyanWeBoo@2df6a1fb7172dfa2d918ef67547d664ba3c09ce1",
 ]
 # Optional: real-browser fetch() coverage of the HTTP API (tests/test_browser_fetch_protocol.py).
 # Not part of `test`. CI installs it only for browser lanes. Those tests
@@ -49,7 +49,7 @@ browser-test = ["playwright>=1.64.1"]
 # This non-default group does not change the existing project/test extras.
 [dependency-groups]
 # 📦 The Pages build (stub_front pages, the diagnostics): PySaiyanWeBoo alone, the same pin as the test extra (tests/test_fleet.py).
-pages = ["pysaiyanweboo @ git+https://github.com/myon-bioinformatics/PySaiyanWeBoo@901b790f14ad7a04a4280409bfd274d8f6926fa7"]
+pages = ["pysaiyanweboo @ git+https://github.com/myon-bioinformatics/PySaiyanWeBoo@2df6a1fb7172dfa2d918ef67547d664ba3c09ce1"]
 # Screenshot CLI + stdlib stub only; server and test extras remain unchanged.
 ci-wiki-screenshot = ["playwright>=1.64.1"]
 ci-stdlib = [

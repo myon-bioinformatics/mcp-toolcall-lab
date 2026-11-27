@@ -173,8 +173,8 @@ def test_published_pages_and_shared_diagnostics_keep_readable_colors(tmp_path, b
             output.wait_for(state="visible")
             assert output.is_visible() and "ditto (#132)" in output.inner_text()
 
-            page.goto(url + diagnostics.PAGE_NAME, wait_until="networkidle")
-            card = page.locator(".repo-diagnostics")
+            page.get_by_test_id("pages-nav-diagnostics").click()   # 🩺 a panel of the one page, not a page of its own
+            card = page.locator("#diagnostics .repo-diagnostics")
             card.wait_for(state="visible")
             _assert_readable_colors(card)
             assert errors == []

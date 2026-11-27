@@ -264,17 +264,16 @@ def test_payload_reuses_public_resolver_without_probe():
     assert payload["resolver"]["observations"] == []
 
 
-def test_pages_renderer_is_the_shared_self_contained_page():
-    html = diagnostics._renderer_page()
-    assert "<title>myon-bioinformatics/mcp-toolcall-lab repository diagnostics</title>" in html
+def test_diagnostics_is_a_panel_of_the_lab_page_with_the_shared_renderer():
+    html = diagnostics.panel_html()
+    assert "<h2 class=\"ui-title\">myon-bioinformatics/mcp-toolcall-lab repository diagnostics</h2>" in html and "<h1" not in html
     assert "cdn.jsdelivr.net" not in html and '<link rel="stylesheet"' not in html
-    assert "/* css/repository-diagnostics.css */" in html and "global.RepositoryDiagnostics = api" in html
+    assert ".repo-diagnostics{" in html and "global.RepositoryDiagnostics = api" in html
     assert 'RepositoryDiagnostics.mount(document, "./repository-diagnostics.json");' in html
     assert "repository-diagnostics.jsonl" in html
-    assert 'data-ui-theme="github-like"' in html
 
 
-def test_write_pages_outputs_json_jsonl_and_html(tmp_path, monkeypatch):
+def test_write_pages_outputs_json_and_jsonl_for_the_panel(tmp_path, monkeypatch):
     record = sample_record()
     monkeypatch.setattr(diagnostics, "build_record", lambda env=None: record)
     payload = diagnostics.write_pages(tmp_path, probe=False)
@@ -283,7 +282,7 @@ def test_write_pages_outputs_json_jsonl_and_html(tmp_path, monkeypatch):
     assert parsed["metadata"] == record
     jsonl = json.loads((tmp_path / diagnostics.JSONL_NAME).read_text(encoding="utf-8"))
     assert jsonl == record
-    assert (tmp_path / diagnostics.PAGE_NAME).is_file()
+    assert sorted(path.name for path in tmp_path.iterdir()) == [diagnostics.JSON_NAME, diagnostics.JSONL_NAME]
 
 
 @pytest.mark.parametrize("repo", ["a.b/demo", "./demo", "bad-/demo", "octo/..", "octo/."])
