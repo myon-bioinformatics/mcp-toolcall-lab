@@ -56,7 +56,7 @@ jobs:
           uv run --locked --only-group pages python -m mcp_toolcall_lab.stub_front pages --out site/tools
           uv run --locked --only-group pages python -m mcp_toolcall_lab.mcp_toolcall_lab_repository_diagnostics site/tools
           python3 -S scripts/build_portable_pages.py --source-sha "$GITHUB_SHA" --out site/lab
-          test -s site/tools/index.html && test -s site/tools/repository-diagnostics.html && test -s site/lab/execution/index.html
+          test -s site/tools/index.html && test -s site/tools/repository-diagnostics.json && test -s site/lab/execution/index.html
   guide:
     permissions:
       contents: read
