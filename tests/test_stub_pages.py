@@ -662,6 +662,8 @@ assert.ok(replaced.includes("#wiki"));
 assert.ok(!replaced.includes("view=wiki"));
 assert.strictEqual(pages.viewFromLocation("#pokemon", ""), "pokemon");
 assert.strictEqual(pages.viewFromLocation("#pokemon?x=1", "?view=pokemon"), "pokemon");
+assert.strictEqual(pages.viewFromLocation("#diagnostics", ""), "diagnostics");
+assert.strictEqual(pages.viewFromLocation("#protocol", ""), "protocol");
 console.log("ok");
 """
 
@@ -949,7 +951,7 @@ POKEMON_FIXTURE = Path(__file__).parents[1] / "fixtures" / "pokeapi" / "ditto.js
 def test_write_pages_has_pokemon_tab_after_wiki_and_pixiv_and_ships_the_shared_source_panel(tmp_path: Path) -> None:
     out = tmp_path / "site"
     html = write_pages(out, revision=_FAKE_REVISION).read_text(encoding="utf-8")
-    nav = [html.index(f'data-pages-nav="{name}"') for name in ("home", "wiki", "pixiv", "pokemon")]
+    nav = [html.index(f'data-pages-nav="{name}"') for name in ("home", "wiki", "pixiv", "pokemon", "diagnostics", "protocol")]
     assert nav == sorted(nav)
     assert 'href="#pokemon"' in html and 'data-testid="pages-nav-pokemon"' in html
     assert 'id="pokemon" data-pages-view="pokemon" data-testid="pages-pokemon" hidden' in html
@@ -1640,3 +1642,14 @@ def test_write_observation_appends_jsonl(tmp_path: Path) -> None:
     assert len(lines) == 2
     assert "MCP_NOT_CALLED" in lines[0]
     assert "PASS" in lines[1]
+
+
+def test_write_pages_has_the_shared_in_page_mcp_server_as_the_protocol_panel(tmp_path: Path) -> None:
+    """🤝 #protocol is PySaiyanWeBoo's MCP lab (component "mcp"), a panel of the one page rather than a page of its own."""
+    out = tmp_path / "site"
+    html = write_pages(out, revision=_FAKE_REVISION).read_text(encoding="utf-8")
+    assert 'href="#protocol"' in html and 'data-testid="pages-nav-protocol"' in html
+    assert 'id="protocol" data-pages-view="protocol" data-testid="pages-protocol" hidden' in html
+    parts = load_pysaiyanweboo().component_parts("mcp")
+    assert parts["html"] in html and parts["css"] in html and '<script type="module" src="mcp.js?v=' in html
+    assert (out / "mcp.js").read_text(encoding="utf-8") == parts["js"] and "bindMcp()" in parts["js"]
