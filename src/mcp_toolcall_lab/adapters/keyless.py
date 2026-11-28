@@ -1,9 +1,14 @@
-"""Keyless public APIs, one reader each: 🎬 YouTube oEmbed, 🕸️ Wikidata (search, an item), 🧬 UniProtKB, 🐙 GitHub.
+"""Keyless public APIs, one reader each: 🔗 oEmbed, 🕸️ Wikidata (search, an item), 🧬 UniProtKB, 🐙 GitHub.
 
 A reader takes the tool arguments and ``get(url) -> text`` and returns a record; ``markdown(name, record)`` is the same
 record to read. The caller owns the transport: a page's XMLHttpRequest (these APIs send CORS headers, so a browser can
 read them), or ``source_access.fetch_bytes`` behind ``allow_network``. No network work occurs at import, and there are no
 keys or tokens: GitHub without one answers 60 requests an hour from one address. Arguments are checked before any request.
+
+🔗 oEmbed reads any URL a provider of the oembed.com registry claims (its ``schemes``, by the shape of the URL: YouTube,
+Vimeo, SoundCloud, Spotify, Flickr, … ``OEMBED_PROVIDERS``, the npm copy, pinned); a provider whose endpoint needs an access
+token (Facebook's Graph API, Instagram) is not read. Whether a browser may read a provider's answer is the provider's choice
+(CORS): one that refuses fails as any request does.
 
 ``TOOLS`` gives each reader as an MCP tool (description, inputSchema) with ``cues``: words that name it, for a router that
 has no family for it yet. ``BROWSER_BLOCKED`` is the exception list: providers of this repository a browser cannot read,
@@ -18,6 +23,8 @@ from urllib.parse import urlencode
 from ..markdown_lib import load_markdown
 
 WIKIDATA = 'https://www.wikidata.org/w/api.php?'
+OEMBED_PROVIDERS = 'https://cdn.jsdelivr.net/npm/oembed-providers@1.0.20260604/providers.json'   # 📇 oembed.com's registry
+_REGISTRY: dict = {}                                   # 📇 the registry once read, by its URL
 BROWSER_BLOCKED = {
     'niconico': 'Snapshot Search API v2 answers without Access-Control-Allow-Origin (checked 2026-10-21)',
     'pixiv': 'pixiv Encyclopedia pages are HTML without CORS headers',
@@ -28,14 +35,38 @@ def _q(**params: Any) -> str:
     return urlencode({key: value for key, value in params.items() if value is not None})
 
 
-def youtube_oembed(args: dict, get: Callable[[str], str]) -> dict:
-    """🎬 One video URL: title, channel and thumbnail (the embed HTML is left out)."""
+def _scheme(pattern: str) -> re.Pattern:
+    """A registry scheme (``https://*.youtube.com/watch*``) as a pattern, http and https alike (a link is pasted as either)."""
+    body = re.escape(re.sub(r'^https?://', '', pattern)).replace(r'\*', '.*')
+    return re.compile(('https?://' if re.match(r'https?://', pattern) else '') + body + '$', re.I)
+
+
+def oembed_endpoint(url: str, providers: list[dict]) -> tuple[str, str] | None:
+    """(provider name, JSON endpoint) of the first registry provider whose scheme matches ``url``, else None."""
+    for provider in providers:
+        for endpoint in provider.get('endpoints', []):
+            if any(_scheme(scheme).match(url) for scheme in endpoint.get('schemes', [])):
+                return provider['provider_name'], endpoint['url'].replace('{format}', 'json')
+    return None
+
+
+def oembed(args: dict, get: Callable[[str], str]) -> dict:
+    """🔗 One URL through the provider the registry gives for it: title, author, thumbnail, size (the embed HTML is left out)."""
     url = str(args['url']).strip()
-    if not re.match(r'https://(?:www\.|m\.|music\.)?(youtube\.com|youtu\.be)/', url):
-        raise ValueError('a https://www.youtube.com/… or https://youtu.be/… URL')
-    data = json.loads(get('https://www.youtube.com/oembed?' + _q(url=url, format='json')))
-    return {'schema': 'youtube-oembed/1', 'url': url, **{key: data.get(key) for key in (
-        'title', 'author_name', 'author_url', 'thumbnail_url', 'thumbnail_width', 'thumbnail_height', 'provider_name')}}
+    if not re.match(r'https?://[^\s/]+/\S*$', url):
+        raise ValueError('an http(s) URL')
+    if OEMBED_PROVIDERS not in _REGISTRY:
+        _REGISTRY[OEMBED_PROVIDERS] = json.loads(get(OEMBED_PROVIDERS))
+    found = oembed_endpoint(url, _REGISTRY[OEMBED_PROVIDERS])
+    if found is None:
+        raise LookupError('no oEmbed provider of the registry claims this URL')
+    provider, endpoint = found
+    if 'graph.facebook.com' in endpoint:
+        raise LookupError(f'{provider} needs an access token')
+    data = json.loads(get(endpoint + ('&' if '?' in endpoint else '?') + _q(url=url, format='json')))
+    return {'schema': 'oembed/1', 'url': url, 'provider': provider, **{key: data.get(key) for key in (
+        'type', 'title', 'author_name', 'author_url', 'provider_name', 'thumbnail_url', 'thumbnail_width', 'thumbnail_height',
+        'width', 'height')}}
 
 
 def wikidata_search(args: dict, get: Callable[[str], str]) -> dict:
@@ -110,8 +141,11 @@ def markdown(name: str, r: dict) -> str:
     """The record of tool ``name`` to read: a heading with its link, then a table (the record as JSON without markdown.py)."""
     if load_markdown() is None:
         return json.dumps(r, ensure_ascii=False)
-    if name == 'fetch_youtube_oembed':
-        return f'### 🎬 [{r["title"]}]({r["url"]})\n\n' + _table(['チャンネル', 'サムネ'], [[f'[{r["author_name"]}]({r["author_url"]})', r['thumbnail_url']]])
+    if name == 'fetch_oembed':
+        author = f'[{r["author_name"]}]({r["author_url"]})' if r['author_url'] else r['author_name']
+        return (f'### 🔗 [{r["title"] or r["url"]}]({r["url"]}) — {r["provider"]}\n\n'
+                + _table(['種類', '作者', 'サムネ', '大きさ'], [[r['type'], author, r['thumbnail_url'],
+                                                             f'{r["width"]}×{r["height"]}' if r['width'] else None]]))
     if name == 'search_wikidata':
         return _table(['ID', 'ラベル', '説明'], [[f'[{i["id"]}]({i["url"]})', i['label'], i['description']] for i in r['items']])
     if name == 'fetch_wikidata_entity':
@@ -132,8 +166,9 @@ def _schema(props: dict, required: list[str]) -> dict:
 
 # name → (reader, description, inputSchema, cues)
 TOOLS = {
-    'fetch_youtube_oembed': (youtube_oembed, 'YouTube の動画 URL から題名・チャンネル・サムネ（oEmbed、キー不要）',
-                             _schema({'url': {'type': 'string'}}, ['url']), ('youtube', 'youtu.be', 'ユーチューブ')),
+    'fetch_oembed': (oembed, 'URL から題名・作者・サムネ（oEmbed。YouTube・Vimeo・SoundCloud・Spotify・Flickr など、oembed.com の登録から URL の形で選ぶ。キー不要）',
+                     _schema({'url': {'type': 'string'}}, ['url']),
+                     ('http://', 'https://', 'oembed', 'youtube', 'ユーチューブ', 'vimeo', 'soundcloud', 'spotify', 'flickr')),
     'search_wikidata': (wikidata_search, 'Wikidata の項目を名前で探す（ID・ラベル・説明）',
                         _schema({'query': {'type': 'string'}, 'lang': {'type': 'string'}}, ['query']), ('wikidata', 'ウィキデータ')),
     'fetch_wikidata_entity': (wikidata_entity, 'Wikidata の項目 1 つ: ラベル・説明・別名と、何の一種か（P31 instance of / P279 subclass of）',

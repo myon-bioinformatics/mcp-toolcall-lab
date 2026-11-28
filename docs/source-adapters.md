@@ -18,7 +18,9 @@ that Ironmate still serves a live catalog or MCP endpoint.
 
 ## 🌐 Keyless public APIs (`keyless.py`)
 
-`mcp_toolcall_lab.adapters.keyless` holds one reader per keyless API: 🎬 YouTube oEmbed (`fetch_youtube_oembed`),
+`mcp_toolcall_lab.adapters.keyless` holds one reader per keyless API: 🔗 oEmbed (`fetch_oembed`: the provider comes from
+oembed.com's registry by the shape of the URL, `OEMBED_PROVIDERS` pinned to the npm copy; YouTube, Vimeo, SoundCloud,
+Spotify, Flickr, X, Bluesky, …; an endpoint that needs an access token, such as Facebook's Graph API, is refused),
 🕸️ Wikidata (`search_wikidata`, `fetch_wikidata_entity`: P31 instance of / P279 subclass of with labels), 🧬 UniProtKB
 (`search_uniprot`) and 🐙 GitHub (`fetch_github_repo`, no token). A reader takes the tool arguments and `get(url) -> text`
 and returns a record; `markdown(name, record)` is the same record as a table (vendored markdown.py). The caller owns the
