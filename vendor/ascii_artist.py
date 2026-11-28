@@ -1,5 +1,6 @@
 # ascii_artist.py
-# metadata: __all__=32 | base_sha=7c21bacfac7b60327b77f9b31a87869ef7838a7e | updated_at=2026-09-23T05:39:43Z
+# metadata: __all__=42 | base_sha=7c21bacfac7b60327b77f9b31a87869ef7838a7e | updated_at=2026-09-23T05:39:43Z
+"""ASCII art generation, conversion, layout and text-based diagrams in one standard-library file."""
 
 __all__ = [
     "generate_square",
@@ -8,6 +9,9 @@ __all__ = [
     "generate_box",
     "get_template",
     "list_templates",
+    "banner",
+    "banner_charset",
+    "render_table",
     "render_prompt_ascii",
     "to_web_ui_v1_html",
     "SUPPORTED",
@@ -35,22 +39,24 @@ __all__ = [
     "to_markdown_outline",
     "from_markdown_outline",
     "inventory",
+    "validate_flow",
+    "flow_html",
+    "flow_mermaid",
+    "flow_document",
+    "flow_css",
+    "patch_flow",
 ]
 
-import argparse
-import html
-import json
-import re
-import sys
-import unicodedata
-from dataclasses import dataclass
-from typing import Any, Callable, Iterable, Literal, Mapping, Protocol
+import argparse, csv, html, json, re, sys, unicodedata
+from collections import deque; from dataclasses import dataclass; from typing import Any, Callable, Iterable, Literal, Mapping, Protocol
 
 SUPPORTED = {
     "generation": [
         "square / triangle / diamond / box text-art generation",
         "non-empty single-line string tokens, including Unicode",
         "built-in text-art templates",
+        "built-in 5-row banner font (A-Z, 0-9, space and common punctuation)",
+        "plain-text tables with display_width-based (CJK-aware) padding",
         "Diagram IR with deterministic flow / branch / tree rendering",
         "lossless Diagram <-> dict / JSON serialization",
         "edge-list and adjacency adapters",
@@ -85,6 +91,8 @@ UNSUPPORTED = {
         "ANSI color rendering",
         "terminal capability negotiation",
         "image/raster rendering or image decoding",
+        "banner glyphs outside the built-in A-Z / 0-9 / punctuation set",
+        "multi-line table cells or automatic column wrapping",
     ],
     "parsing": [
         "full Markdown parsing",
@@ -165,10 +173,10 @@ def _validate_dag(value: Diagram) -> None:
         indegree[edge.target] += 1
         outgoing[edge.source].append(edge.target)
 
-    ready = [node_id for node_id in node_ids if indegree[node_id] == 0]
+    ready = deque(node_id for node_id in node_ids if indegree[node_id] == 0)
     visited = 0
     while ready:
-        current = ready.pop(0)
+        current = ready.popleft()
         visited += 1
         for target in outgoing[current]:
             indegree[target] -= 1
@@ -187,17 +195,19 @@ def _topological_layers(value: Diagram) -> list[list[str]]:
         indegree[edge.target] += 1
         outgoing[edge.source].append(edge.target)
 
-    remaining = set(node_ids)
+    rank = {node_id: index for index, node_id in enumerate(node_ids)}
+    layer = [node_id for node_id in node_ids if indegree[node_id] == 0]
     layers: list[list[str]] = []
-    while remaining:
-        layer = [node_id for node_id in node_ids if node_id in remaining and indegree[node_id] == 0]
-        if not layer:
-            raise ValueError("diagram must be acyclic")
+    while layer:
         layers.append(layer)
+        following = []
         for source in layer:
-            remaining.remove(source)
             for target in outgoing[source]:
                 indegree[target] -= 1
+                if indegree[target] == 0:
+                    following.append(target)
+        # Edge traversal order can differ from input node order.
+        layer = sorted(following, key=rank.__getitem__)
     return layers
 
 
@@ -230,6 +240,8 @@ def from_dict(value: Mapping[str, Any]) -> Diagram:
 
     if not isinstance(value, Mapping):
         raise TypeError("diagram data must be a mapping")
+    if set(value) - {"nodes", "edges"}:
+        raise ValueError("expected nodes/edges Diagram; card flows use validate_flow")
     raw_nodes = value.get("nodes", ())
     raw_edges = value.get("edges", ())
     if not isinstance(raw_nodes, (list, tuple)) or not isinstance(raw_edges, (list, tuple)):
@@ -562,15 +574,43 @@ def _charset(name: str) -> dict[str, str]:
     raise ValueError("charset must be 'unicode' or 'ascii'")
 
 
-def render_diagram(value: Diagram, *, charset: str = "unicode") -> str:
-    """Render any DAG as an exact adjacency-oriented text representation.
+def _render_layered_diagram(value: Diagram, *, arrow: str) -> str:
+    layers = _topological_layers(value)
+    refs = {node.id: index for index, node in enumerate(value.nodes, start=1)}
+    labels = {node.id: node.label for node in value.nodes}
+    rank = {node_id: index for index, layer in enumerate(layers) for node_id in layer}
+    edges_by_layer: list[list[Edge]] = [[] for _ in layers]
+    for edge in value.edges:
+        edges_by_layer[rank[edge.source]].append(edge)
 
-    Specialized convenience renderers such as flow() and branch() may choose a
-    prettier topology-specific layout. This generic renderer prioritizes edge
-    correctness over pretending to be a full graph-layout engine.
+    sections = []
+    for index, layer in enumerate(layers):
+        lines = [f"Layer {index + 1}"]
+        lines.extend(f"  [{refs[node_id]}] {labels[node_id]}" for node_id in layer)
+        lines.extend(
+            f"  [{refs[edge.source]}] {arrow} [{refs[edge.target]}]"
+            for edge in edges_by_layer[index]
+        )
+        sections.append("\n".join(lines))
+    return "\n\n".join(sections)
+
+
+def render_diagram(
+    value: Diagram, *, charset: str = "unicode", layout: str = "adjacency"
+) -> str:
+    """Render a DAG in text, preserving the default adjacency output.
+
+    The optional layered layout lists nodes once in topological layers.
+    Connectors are shown under their source layer with numbered references,
+    so edges that skip layers or link identically labeled nodes stay unambiguous.
+    The charset controls the diagram symbols, not the user-supplied labels.
     """
 
     chars = _charset(charset)
+    if layout == "layered":
+        return _render_layered_diagram(value, arrow=chars["arrow"])
+    if layout != "adjacency":
+        raise ValueError("layout must be 'adjacency' or 'layered'")
     _validate_dag(value)
     labels = {node.id: node.label for node in value.nodes}
     outgoing = {node.id: [] for node in value.nodes}
@@ -730,10 +770,14 @@ _ASCII_TEMPLATES = {
     "cat": " /\\_/\\\n( o.o )\n > ^ <\n",
     "heart": " **   **\n***** *****\n *********\n  *******\n   *****\n    ***\n     *\n",
     "tree": "    *\n   ***\n  *****\n *******\n    |\n",
+    "coffee": "   ( (\n    ) )\n  ........\n  |      |]\n  \\      /\n   `----'\n",
+    "dog": "  __\no-''|\\_____/)\n \\_/|_)     )\n    \\  __  /\n    (_/ (_/\n",
+    "fish": "    __\n><((('>\n    ``\n",
+    "owl": " ,_,\n(O,O)\n(   )\n-\"-\"-\n",
+    "rocket": "    /\\\n   /  \\\n   |()|\n   |  |\n  /|  |\\\n /_|__|_\\\n   /\\/\\\n",
+    "star": "     /\\\n____/  \\____\n\\          /\n \\        /\n /   /\\   \\\n/___/  \\___\\\n",
 }
 
-_DEFAULT_ASCII_PROMPT = "Generate compact ASCII art that represents the user's request."
-_DEFAULT_MAX_WIDTH = 60
 _FENCE_LINE_RE = re.compile(r"^\s*(?:`{3,}|~{3,})(?:[A-Za-z0-9_.+-]+)?\s*$")
 _PREAMBLE_LINE_RE = re.compile(r"^\s*(?:here(?:\'s| is) your ascii art|ascii art)\s*:\s*$", re.IGNORECASE)
 _ROLE_LINE_RE = re.compile(r"^\s*(?:\[(?:system|user|assistant)\]|(?:system|user|assistant))\s*:?\s*$", re.IGNORECASE)
@@ -890,6 +934,9 @@ _BOX_STYLES = {
     "ascii": {
         "tl": "+", "tr": "+", "bl": "+", "br": "+", "h": "-", "v": "|"
     },
+    "heavy": {
+        "tl": "┏", "tr": "┓", "bl": "┗", "br": "┛", "h": "━", "v": "┃"
+    },
 }
 
 
@@ -903,38 +950,242 @@ def display_width(text: str) -> int:
     return width
 
 
+def _box_padding(padding: int | tuple[int, int]) -> tuple[int, int]:
+    """Return (horizontal, vertical) padding. A single int is horizontal only."""
+    if isinstance(padding, int) and not isinstance(padding, bool):
+        if padding < 0:
+            raise ValueError("padding must be a non-negative integer")
+        return padding, 0
+    if (
+        isinstance(padding, tuple)
+        and len(padding) == 2
+        and all(isinstance(part, int) and not isinstance(part, bool) and part >= 0 for part in padding)
+    ):
+        return padding[0], padding[1]
+    raise ValueError("padding must be a non-negative integer or an H,V pair")
+
+
+def _clusters(text: str) -> list[str]:
+    """Split into base characters plus any following combining or format marks."""
+    clusters: list[str] = []
+    for char in text:
+        if clusters and (unicodedata.combining(char) or unicodedata.category(char) in ("Mn", "Me", "Cf")):
+            clusters[-1] += char
+        else:
+            clusters.append(char)
+    return clusters
+
+
+def _wrap_display(text: str, width: int) -> list[str]:
+    """Wrap a single line to a maximum display width, preferring breaks at spaces."""
+    if width < 1:
+        raise ValueError("wrap width must be a positive integer")
+    if display_width(text) <= width:
+        return [text]
+    lines: list[str] = []
+    current = ""
+    for cluster in _clusters(text):
+        trial = current + cluster
+        if current and display_width(trial) > width:
+            broken = current.rsplit(" ", 1)
+            if len(broken) == 2:
+                lines.append(broken[0])
+                current = broken[1] + cluster
+            else:
+                lines.append(current)
+                current = cluster
+        else:
+            current = trial
+    lines.append(current)
+    return lines
+
+
+def _pad_align(text: str, width: int, align: str) -> str:
+    """Pad text to a display width with left, center, or right alignment."""
+    gap = width - display_width(text)
+    if align == "right":
+        return " " * gap + text
+    if align == "center":
+        left = gap // 2
+        return " " * left + text + " " * (gap - left)
+    return text + " " * gap
+
+
+def _box_top(chars: dict[str, str], inner: int, title: str | None) -> str:
+    """Build the top border, optionally embedding a single-line title."""
+    if title is None:
+        return chars["tl"] + chars["h"] * inner + chars["tr"]
+    body = chars["h"] + " " + title + " "
+    return chars["tl"] + body + chars["h"] * (inner - display_width(body)) + chars["tr"]
+
+
+def _box_shadow(text: str, *, ascii_style: bool) -> str:
+    """Add a one-cell drop shadow to the right and below a box."""
+    mark = "#" if ascii_style else "░"
+    lines = text.split("\n")
+    width = max(display_width(line) for line in lines)
+    shadowed = [line + " " * (width - display_width(line)) + mark for line in lines]
+    shadowed.append(" " + mark * width)
+    return "\n".join(shadowed)
+
+
 def generate_box(
     text: str,
     *,
-    padding: int = 1,
-    style: Literal["single", "double", "rounded", "ascii"] = "single",
+    padding: int | tuple[int, int] = 1,
+    style: Literal["single", "double", "rounded", "ascii", "heavy"] = "single",
+    align: Literal["left", "center", "right"] = "left",
+    title: str | None = None,
+    width: int | None = None,
+    shadow: bool = False,
 ) -> str:
-    """Generate a bordered text box around single or multi-line text."""
+    """Generate a bordered text box around single or multi-line text.
+
+    ``padding`` is a non-negative integer (horizontal only, for compatibility)
+    or an ``(horizontal, vertical)`` pair. ``align`` is CJK-aware via
+    ``display_width``. ``title`` is embedded in the top border. ``width`` is a
+    minimum outer width in display cells and wraps text; a drop ``shadow`` is
+    drawn to the right and below and is not counted in ``width``.
+    """
     if not isinstance(text, str):
         raise TypeError("text must be a string")
-    if not isinstance(padding, int) or isinstance(padding, bool) or padding < 0:
-        raise ValueError("padding must be a non-negative integer")
+    horizontal, vertical = _box_padding(padding)
     if not isinstance(style, str) or style not in _BOX_STYLES:
         raise ValueError(f"style must be one of {sorted(_BOX_STYLES.keys())!r}")
+    if align not in {"left", "center", "right"}:
+        raise ValueError("align must be 'left', 'center', or 'right'")
+    if title is not None:
+        if not isinstance(title, str) or "\n" in title or "\r" in title:
+            raise ValueError("title must be a single-line string")
+        if not title:
+            title = None
+    if width is not None and (not isinstance(width, int) or isinstance(width, bool) or width < 1):
+        raise ValueError("width must be a positive integer")
+    if not isinstance(shadow, bool):
+        raise ValueError("shadow must be a bool")
 
     chars = _BOX_STYLES[style]
-    lines = text.replace("\r\n", "\n").replace("\r", "\n").splitlines()
-    if not lines:
-        lines = [""]
+    lines = text.replace("\r\n", "\n").replace("\r", "\n").splitlines() or [""]
+    if width is not None:
+        wrap_at = width - 2 - 2 * horizontal
+        if wrap_at < 1:
+            wrap_at = 1
+        lines = [part for line in lines for part in _wrap_display(line, wrap_at)]
 
-    max_len = max(display_width(line) for line in lines)
-    inner_width = max_len + 2 * padding
-    pad_str = " " * padding
-
-    top = chars["tl"] + chars["h"] * inner_width + chars["tr"]
-    bottom = chars["bl"] + chars["h"] * inner_width + chars["br"]
-
-    content_lines = [
-        f"{chars['v']}{pad_str}{line}{' ' * (max_len - display_width(line))}{pad_str}{chars['v']}"
+    content = max(display_width(line) for line in lines)
+    inner = content + 2 * horizontal
+    if title is not None:
+        inner = max(inner, display_width(title) + 4)
+    if width is not None:
+        inner = max(inner, width - 2)
+    content = inner - 2 * horizontal
+    pad = " " * horizontal
+    blank = f"{chars['v']}{pad}{' ' * content}{pad}{chars['v']}"
+    body = [
+        f"{chars['v']}{pad}{_pad_align(line, content, align)}{pad}{chars['v']}"
         for line in lines
     ]
+    mid = [blank] * vertical + body + [blank] * vertical
+    box = "\n".join([_box_top(chars, inner, title), *mid, chars["bl"] + chars["h"] * inner + chars["br"]])
+    if shadow:
+        return _box_shadow(box, ascii_style=style == "ascii")
+    return box
 
-    return "\n".join([top, *content_lines, bottom])
+
+_TABLE_JUNCTIONS = {
+    "single": {"t": "┬", "m": "┼", "b": "┴", "l": "├", "r": "┤"},
+    "double": {"t": "╦", "m": "╬", "b": "╩", "l": "╠", "r": "╣"},
+    "rounded": {"t": "┬", "m": "┼", "b": "┴", "l": "├", "r": "┤"},
+    "ascii": {"t": "+", "m": "+", "b": "+", "l": "+", "r": "+"},
+    "heavy": {"t": "┳", "m": "╋", "b": "┻", "l": "┣", "r": "┫"},
+}
+_TABLE_ALIGN = {"l": "left", "r": "right", "c": "center", "left": "left", "right": "right", "center": "center"}
+
+
+def _table_cell(value: Any) -> str:
+    text = "" if value is None else str(value)
+    if "\n" in text or "\r" in text:
+        raise ValueError("table cells must be single-line")
+    return text
+
+
+def _pad_cell(text: str, width: int, align: str) -> str:
+    gap = width - display_width(text)
+    if align == "right":
+        return " " * gap + text
+    if align == "center":
+        left = gap // 2
+        return " " * left + text + " " * (gap - left)
+    return text + " " * gap
+
+
+def render_table(
+    rows: Iterable[Iterable[Any]],
+    *,
+    headers: Iterable[Any] | None = None,
+    style: Literal["single", "double", "rounded", "ascii", "heavy"] = "ascii",
+    align: str | Iterable[str] | None = None,
+    padding: int = 1,
+) -> str:
+    """Render rows (and optional headers) as a bordered plain-text table.
+
+    Cells are converted with ``str()`` (``None`` becomes empty) and must be
+    single-line. Short rows are padded with empty cells. Column widths use
+    ``display_width`` so CJK wide characters count as two cells. ``align`` is
+    one entry per column (``l``/``r``/``c`` or ``left``/``right``/``center``,
+    or a string such as ``"lrc"``); missing columns align left. A table with
+    no headers and no rows returns ``""``.
+    """
+    if not isinstance(style, str) or style not in _BOX_STYLES:
+        raise ValueError(f"style must be one of {sorted(_BOX_STYLES.keys())!r}")
+    if not isinstance(padding, int) or isinstance(padding, bool) or padding < 0:
+        raise ValueError("padding must be a non-negative integer")
+    if isinstance(rows, (str, bytes)):
+        raise TypeError("rows must be an iterable of row iterables")
+    body: list[list[str]] = []
+    for row in rows:
+        if isinstance(row, (str, bytes)):
+            raise TypeError("each row must be an iterable of cells, not a string")
+        body.append([_table_cell(cell) for cell in row])
+    head: list[str] | None = None
+    if headers is not None:
+        if isinstance(headers, (str, bytes)):
+            raise TypeError("headers must be an iterable of cells, not a string")
+        head = [_table_cell(cell) for cell in headers]
+    lines_in = ([head] if head is not None else []) + body
+    columns = max((len(line) for line in lines_in), default=0)
+    if columns == 0:
+        return ""
+    if align is None:
+        aligns: list[str] = []
+    else:
+        raw = list(align)
+        if len(raw) > columns:
+            raise ValueError(f"align has {len(raw)} entries for {columns} columns")
+        if any(not isinstance(a, str) or a.lower() not in _TABLE_ALIGN for a in raw):
+            raise ValueError("align entries must be l/r/c or left/right/center")
+        aligns = [_TABLE_ALIGN[a.lower()] for a in raw]
+    aligns += ["left"] * (columns - len(aligns))
+    for line in lines_in:
+        line.extend([""] * (columns - len(line)))
+    widths = [max(display_width(line[i]) for line in lines_in) for i in range(columns)]
+    box, junction = _BOX_STYLES[style], _TABLE_JUNCTIONS[style]
+    pad = " " * padding
+
+    def rule(left: str, mid: str, right: str) -> str:
+        return left + mid.join(box["h"] * (w + 2 * padding) for w in widths) + right
+
+    def text_row(line: list[str], header: bool) -> str:
+        cells = [_pad_cell(cell, widths[i], "center" if header else aligns[i]) for i, cell in enumerate(line)]
+        return box["v"] + box["v"].join(pad + cell + pad for cell in cells) + box["v"]
+
+    out = [rule(box["tl"], junction["t"], box["tr"])]
+    if head is not None:
+        out.append(text_row(head, True))
+        out.append(rule(junction["l"], junction["m"], junction["r"]))
+    out.extend(text_row(line, False) for line in body)
+    out.append(rule(box["bl"], junction["b"], box["br"]))
+    return "\n".join(out)
 
 
 def get_template(name: str) -> str:
@@ -947,6 +1198,118 @@ def list_templates() -> list[str]:
     return sorted(_ASCII_TEMPLATES)
 
 
+# Each glyph is five rows of equal width; "#" marks an ink cell.
+_BANNER_FONT: dict[str, tuple[str, ...]] = {
+    "A": (" ### ", "#   #", "#####", "#   #", "#   #"),
+    "B": ("#### ", "#   #", "#### ", "#   #", "#### "),
+    "C": (" ####", "#    ", "#    ", "#    ", " ####"),
+    "D": ("#### ", "#   #", "#   #", "#   #", "#### "),
+    "E": ("#####", "#    ", "#### ", "#    ", "#####"),
+    "F": ("#####", "#    ", "#### ", "#    ", "#    "),
+    "G": (" ####", "#    ", "#  ##", "#   #", " ####"),
+    "H": ("#   #", "#   #", "#####", "#   #", "#   #"),
+    "I": ("###", " # ", " # ", " # ", "###"),
+    "J": ("  ###", "   # ", "   # ", "#  # ", " ##  "),
+    "K": ("#   #", "#  # ", "###  ", "#  # ", "#   #"),
+    "L": ("#    ", "#    ", "#    ", "#    ", "#####"),
+    "M": ("#   #", "## ##", "# # #", "#   #", "#   #"),
+    "N": ("#   #", "##  #", "# # #", "#  ##", "#   #"),
+    "O": (" ### ", "#   #", "#   #", "#   #", " ### "),
+    "P": ("#### ", "#   #", "#### ", "#    ", "#    "),
+    "Q": (" ### ", "#   #", "# # #", "#  # ", " ## #"),
+    "R": ("#### ", "#   #", "#### ", "#  # ", "#   #"),
+    "S": (" ####", "#    ", " ### ", "    #", "#### "),
+    "T": ("#####", "  #  ", "  #  ", "  #  ", "  #  "),
+    "U": ("#   #", "#   #", "#   #", "#   #", " ### "),
+    "V": ("#   #", "#   #", "#   #", " # # ", "  #  "),
+    "W": ("#   #", "#   #", "# # #", "## ##", "#   #"),
+    "X": ("#   #", " # # ", "  #  ", " # # ", "#   #"),
+    "Y": ("#   #", " # # ", "  #  ", "  #  ", "  #  "),
+    "Z": ("#####", "   # ", "  #  ", " #   ", "#####"),
+    "0": (" ### ", "#  ##", "# # #", "##  #", " ### "),
+    "1": (" # ", "## ", " # ", " # ", "###"),
+    "2": (" ### ", "#   #", "  ## ", " #   ", "#####"),
+    "3": ("#### ", "    #", " ### ", "    #", "#### "),
+    "4": ("#   #", "#   #", "#####", "    #", "    #"),
+    "5": ("#####", "#    ", "#### ", "    #", "#### "),
+    "6": (" ### ", "#    ", "#### ", "#   #", " ### "),
+    "7": ("#####", "    #", "   # ", "  #  ", "  #  "),
+    "8": (" ### ", "#   #", " ### ", "#   #", " ### "),
+    "9": (" ### ", "#   #", " ####", "    #", " ### "),
+    " ": ("   ", "   ", "   ", "   ", "   "),
+    "!": ("#", "#", "#", " ", "#"),
+    "?": (" ### ", "#   #", "  ## ", "     ", "  #  "),
+    ".": (" ", " ", " ", " ", "#"),
+    ",": ("  ", "  ", "  ", " #", "# "),
+    ":": (" ", "#", " ", "#", " "),
+    "'": ("#", "#", " ", " ", " "),
+    "-": ("    ", "    ", "####", "    ", "    "),
+    "_": ("    ", "    ", "    ", "    ", "####"),
+    "+": ("   ", " # ", "###", " # ", "   "),
+    "=": ("    ", "####", "    ", "####", "    "),
+    "/": ("    #", "   # ", "  #  ", " #   ", "#    "),
+    "(": (" #", "# ", "# ", "# ", " #"),
+    ")": ("# ", " #", " #", " #", "# "),
+}
+_BANNER_ROWS = 5
+
+
+def banner_charset() -> str:
+    """Return every character the built-in banner font draws, in a stable order.
+
+    ASCII lowercase ``a``-``z`` are also accepted by ``banner`` and drawn with
+    the uppercase glyphs.
+    """
+    return "".join(_BANNER_FONT)
+
+
+def banner(text: str, *, char: str = "#", spacing: int = 1, fallback: str | None = None) -> str:
+    """Draw single-line ``text`` with the built-in 5-row big-letter font.
+
+    ASCII lowercase letters use the uppercase glyphs. Any other character not
+    in ``banner_charset()`` raises ``ValueError`` unless ``fallback`` names a
+    supported character to draw instead. ``char`` is the ink token; blank
+    cells are padded to its ``display_width`` so wide tokens stay aligned.
+    Trailing spaces are stripped from every row; empty text returns ``""``.
+    """
+    if not isinstance(text, str):
+        raise TypeError("text must be a string")
+    if "\n" in text or "\r" in text:
+        raise ValueError("banner text must be a single line")
+    token = _validate_token(char)
+    if not isinstance(spacing, int) or isinstance(spacing, bool) or spacing < 0:
+        raise ValueError("spacing must be a non-negative integer")
+    if fallback is not None:
+        if not isinstance(fallback, str) or len(fallback) != 1:
+            raise ValueError("fallback must be one supported banner character")
+        fallback = fallback.upper() if "a" <= fallback <= "z" else fallback
+        if fallback not in _BANNER_FONT:
+            raise ValueError(f"fallback {fallback!r} is not in the banner font")
+    if not text:
+        return ""
+    glyphs: list[tuple[str, ...]] = []
+    missing: list[str] = []
+    for ch in text:
+        key = ch.upper() if "a" <= ch <= "z" else ch
+        if key not in _BANNER_FONT:
+            if fallback is None:
+                if ch not in missing:
+                    missing.append(ch)
+                continue
+            key = fallback
+        glyphs.append(_BANNER_FONT[key])
+    if missing:
+        listed = ", ".join(repr(ch) for ch in missing)
+        raise ValueError(f"unsupported banner characters: {listed} (see banner_charset())")
+    blank = " " * display_width(token)
+    gap = blank * spacing
+    rows = []
+    for row in range(_BANNER_ROWS):
+        cells = gap.join(glyph[row] for glyph in glyphs)
+        rows.append("".join(token if cell == "#" else blank for cell in cells).rstrip())
+    return "\n".join(rows)
+
+
 def render_prompt_ascii(
     prompt: str,
     generator: Callable[[str], Any] | _SupportsGenerateLight,
@@ -956,15 +1319,12 @@ def render_prompt_ascii(
     A callable may return a string directly or an object with a string text
     attribute. This keeps the module independent from any specific LLM SDK.
     """
-    base_prompt = _DEFAULT_ASCII_PROMPT
-    max_width = _DEFAULT_MAX_WIDTH
-
     user_prompt = prompt.strip()
     final_prompt = (
-        f"{base_prompt}\n\n"
+        "Generate compact ASCII art that represents the user's request.\n\n"
         f"USER_REQUEST:\n{user_prompt}\n\n"
         f"CONSTRAINTS:\n"
-        f"- Keep width under {max_width} characters.\n"
+        "- Keep width under 60 characters.\n"
         f"- Return ASCII art only.\n"
         f"- No explanations.\n"
     )
@@ -982,6 +1342,178 @@ _CLI_READERS: dict[str, Callable[[str], Diagram]] = {
 }
 
 
+# Card-flow implementation adapted from web-ui (MIT, Copyright (c) 2026 myon).
+# Source and behavioral provenance: docs/card-flows.md.
+FLOW_MAX_INPUT = 256 * 1024
+FLOW_THEMES = ("modern", "github-like")
+
+def _has_control(text):
+    """C0 controls, DEL or unpaired surrogates: rejected in card labels and asset paths."""
+    return any(ord(char) < 32 or ord(char) == 127 or 0xD800 <= ord(char) <= 0xDFFF for char in text)
+
+def _flow_label(value, required=True, length=240):
+    if not isinstance(value, str) or len(value) > length:
+        raise ValueError("labels must be bounded strings")
+    if _has_control(value):
+        raise ValueError("control characters or unpaired surrogates in label")
+    if required and not value.strip():
+        raise ValueError("empty label")
+    return value
+
+def _flow_cards(value, kind):
+    if not isinstance(value, list) or not 1 <= len(value) <= 8:
+        raise ValueError(f"{kind} must contain 1..8 cards")
+    result = []
+    for card in value:
+        if not isinstance(card, dict) or "title" not in card or set(card) - {"title", "note"}:
+            raise ValueError("cards require title and optional note only")
+        result.append({"title": _flow_label(card["title"], length=120),
+                       "note": _flow_label(card.get("note", ""), required=False)})
+    return result
+
+def validate_flow(spec):
+    """Return a detached canonical source/step card flow; reject unknown fields."""
+    if not isinstance(spec, dict) or set(spec) - {"title", "sources_label", "sources", "steps"}:
+        raise ValueError("expected flow object")
+    return {"title": _flow_label(spec.get("title", ""), length=120),
+            "sources_label": _flow_label(spec.get("sources_label", "Sources"), length=120),
+            "sources": _flow_cards(spec.get("sources"), "sources"),
+            "steps": _flow_cards(spec.get("steps"), "steps")}
+
+def _card_html(card):
+    title = '<strong class="ui-flow-card-title">' + html.escape(card["title"]) + '</strong>'
+    note = ('<span class="ui-flow-card-note">' + html.escape(card["note"]) + '</span>') if card["note"] else ""
+    return '<div class="ui-flow-card">' + title + note + '</div>'
+
+def flow_html(spec):
+    """Render an escaped static figure fragment without styles or scripts."""
+    data = validate_flow(spec)
+    sources = "".join('<li class="ui-flow-source">' + _card_html(c) + '</li>' for c in data["sources"])
+    steps = "".join('<li class="ui-flow-step">' + _card_html(c) + '</li>' for c in data["steps"])
+    return ('<figure class="ui-flow" aria-label="' + html.escape(data["title"], quote=True) + '">'
+            '<figcaption class="ui-flow-caption">' + html.escape(data["title"]) + '</figcaption>'
+            '<ul class="ui-flow-sources" aria-label="' + html.escape(data["sources_label"], quote=True) + '">'
+            + sources + '</ul><div class="ui-flow-arrow" aria-hidden="true">↓</div>'
+            '<ol class="ui-flow-steps">' + steps + '</ol></figure>')
+
+def _mermaid_label(value):
+    entities = {'"': "#quot;", "<": "#lt;", ">": "#gt;", "&": "#amp;",
+                "[": "#91;", "]": "#93;", "\\": "#92;", "\n": "#10;"}
+    return "".join(entities.get(char, char) for char in value)
+
+def _card_mermaid(card):
+    label = _mermaid_label(card["title"])
+    return label + "<br/>" + _mermaid_label(card["note"]) if card["note"] else label
+
+def flow_mermaid(spec):
+    """Render fenced Mermaid with generated IDs and entity-escaped labels."""
+    data = validate_flow(spec)
+    lines = ["```mermaid", "flowchart TB",
+             '    subgraph input["' + _mermaid_label(data["sources_label"]) + '"]',
+             "        direction LR"]
+    lines += [f'        S{i}["{_card_mermaid(card)}"]' for i, card in enumerate(data["sources"])]
+    lines.append("    end")
+    lines += [f'    T{i}["{_card_mermaid(card)}"]' for i, card in enumerate(data["steps"])]
+    for i in range(len(data["sources"])):
+        lines.append(f"    S{i} --> T0")
+    for i in range(1, len(data["steps"])):
+        lines.append(f"    T{i-1} --> T{i}")
+    return "\n".join(lines + ["```", ""])
+
+def flow_document(spec, *, asset_base=".", theme="github-like", embed_css=True):
+    """Build standalone HTML in memory; linked mode expects exported flow.css."""
+    if theme not in FLOW_THEMES:
+        raise ValueError("unknown theme")
+    if not isinstance(asset_base, str) or not asset_base or any(
+        c in asset_base for c in ('<', '>', '"', "'", "\\", "?", "#", "\n", "\r")
+    ) or ":" in asset_base or asset_base.startswith("//") or _has_control(asset_base):
+        raise ValueError("asset_base must be a local path")
+    if embed_css:
+        css = "<style>" + flow_css(theme=theme) + "</style>"
+    else:
+        prefix = asset_base.rstrip("/")
+        css = '<link rel="stylesheet" href="' + html.escape(prefix + "/flow.css", quote=True) + '">'
+    data = validate_flow(spec)
+    return ('<!doctype html>\n<html lang="ja"><head><meta charset="utf-8">'
+            '<meta name="viewport" content="width=device-width,initial-scale=1">'
+            '<title>' + html.escape(data["title"]) + '</title>' + css + '</head>'
+            '<body data-ui-theme="' + theme + '"><main class="ui-page">'
+            + flow_html(data) + '</main></body></html>\n')
+
+# Canonical stylesheet stays in this file: vendoring requires no runtime assets.
+_FLOW_CSS = '*{box-sizing:border-box}body{margin:0;font:16px/1.6 Meiryo,メイリオ,sans-serif;background:var(--ui-bg);color:var(--ui-fg)}.ui-page{max-width:960px;margin:auto;padding:1.25rem}\n/* Optional flow diagram component: no JS and no changes to contract/v1. */\n@layer components {\n.ui-flow{padding:clamp(.8rem,3vw,1.8rem);margin:1.25rem 0;border:1px solid var(--ui-border);border-radius:1.5rem;background:var(--ui-bg);color:var(--ui-fg)}\n.ui-flow-caption{margin:0 0 1.25rem;font-size:clamp(1rem,2.25vw,1.25rem);font-weight:700;text-align:center}\n.ui-flow-sources{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,10.5rem),1fr));gap:.85rem;list-style:none;margin:0;padding:0}\n.ui-flow-steps{list-style:none;padding:0;margin:0}\n.ui-flow-source,.ui-flow-step{min-width:0}\n.ui-flow-card{border:1px solid var(--ui-border);border-radius:1.2rem;background:var(--ui-panel);padding:clamp(1rem,3vw,1.7rem);text-align:center;overflow-wrap:anywhere}\n.ui-flow-card-title{display:block;font-weight:750;font-size:clamp(1.15rem,2.5vw,1.9rem);line-height:1.4}\n.ui-flow-card-note{display:block;margin-top:.5rem;color:var(--ui-muted);line-height:1.5}\n.ui-flow-arrow,.ui-flow-step+.ui-flow-step::before{display:block;content:"↓";margin:.85rem auto;width:fit-content;color:var(--ui-muted);font-size:1.8rem;line-height:1.4;font-weight:700;text-align:center}\n@media(max-width:520px){.ui-flow-sources{grid-template-columns:1fr}.ui-flow-card{padding:.85rem}}\n@media print{.ui-flow,.ui-flow-card{break-inside:avoid}}\n}\n'
+_FLOW_PALETTES = {
+    "github-like": "--ui-bg:#fff;--ui-fg:#1f2328;--ui-border:#d0d7de;--ui-panel:#f6f8fa;--ui-muted:#59636e",
+    "modern": "--ui-bg:#0d1117;--ui-fg:#d1f7c4;--ui-border:#58a6ff;--ui-panel:#101820;--ui-muted:#8b949e;color-scheme:dark",
+}
+
+
+def flow_css(*, theme="github-like"):
+    """Build a self-contained card stylesheet in memory (no I/O or JS)."""
+    if theme not in FLOW_THEMES:
+        raise ValueError("unknown theme")
+    return ":root{" + _FLOW_PALETTES[theme] + "}\n" + _FLOW_CSS
+
+
+FLOW_MAX_PATCH = 64 * 1024
+FLOW_MAX_OPS = 64
+_FLOW_FIELDS = frozenset({"title", "note"})
+
+
+def patch_flow(spec, operations):
+    """Apply a batch atomically; invalid operations never mutate caller state."""
+    result = validate_flow(spec)  # detached, JSON-serializable copy
+    if not isinstance(operations, list) or len(operations) > FLOW_MAX_OPS:
+        raise ValueError("patch must be an array with at most 64 operations")
+    for operation in operations:
+        if not isinstance(operation, dict) or set(operation) != {"path", "value"}:
+            raise ValueError("patch entries require path and value")
+        path = operation["path"]
+        if not isinstance(path, str):
+            raise ValueError("patch path must be a string")
+        if path in ("/title", "/sources_label"):
+            result[path[1:]] = operation["value"]
+            continue
+        parts = path.split("/")
+        if len(parts) != 4 or parts[0] != "" or parts[1] not in ("sources", "steps") or parts[3] not in _FLOW_FIELDS:
+            raise ValueError("unsupported patch path")
+        index = parts[2]
+        if not index.isascii() or not index.isdecimal() or str(int(index)) != index:
+            raise ValueError("patch index must be canonical decimal")
+        collection = result[parts[1]]
+        if int(index) >= len(collection):
+            raise ValueError("patch index out of range")
+        collection[int(index)][parts[3]] = operation["value"]
+    return validate_flow(result)
+
+
+def _apply_flow_patch_document(document):
+    if not isinstance(document, dict) or set(document) != {"spec", "patch"}:
+        raise ValueError("expected spec and patch")
+    return patch_flow(document["spec"], document["patch"])
+
+
+
+def _cli_flow(args):
+    budget = FLOW_MAX_INPUT + (FLOW_MAX_PATCH if args.command == "flow-patch" else 0)
+    raw = sys.stdin.buffer.read(budget + 1)
+    if len(raw) > budget:
+        raise ValueError("flow document exceeds byte budget")
+    try:
+        document = json.loads(raw.decode("utf-8"))
+    except RecursionError as exc:
+        raise ValueError("flow JSON nesting is too deep") from exc
+    if args.command == "flow-patch":
+        return json.dumps(_apply_flow_patch_document(document), ensure_ascii=False,
+                          indent=2 if args.pretty else None)
+    if args.format == "mermaid":
+        return flow_mermaid(document)
+    if args.format == "fragment":
+        return flow_html(document)
+    return flow_document(document, theme=args.theme, asset_base=args.asset_base,
+                         embed_css=not args.no_embed_css)
+
+
 def _cli_read(path: str) -> str:
     if path == "-":
         return sys.stdin.read()
@@ -990,9 +1522,11 @@ def _cli_read(path: str) -> str:
 
 
 def _cli_convert(args: argparse.Namespace) -> str:
+    if args.layout is not None and args.target_format != "render":
+        raise ValueError("--layout requires --to render")
     value = _CLI_READERS[args.source_format](_cli_read(args.input))
     if args.target_format == "render":
-        return render_diagram(value, charset=args.charset)
+        return render_diagram(value, charset=args.charset, layout=args.layout or "adjacency")
     if args.target_format == "inventory":
         return json.dumps(inventory(value), ensure_ascii=False, indent=2)
     writers: dict[str, Callable[[Diagram], str]] = {
@@ -1002,6 +1536,32 @@ def _cli_convert(args: argparse.Namespace) -> str:
         "outline": to_markdown_outline,
     }
     return writers[args.target_format](value)
+
+
+def _cli_padding(value: str) -> int | tuple[int, int]:
+    """Parse --padding N or H,V. Negative values are left for generate_box."""
+    parts = value.split(",")
+    if len(parts) == 1:
+        try:
+            return int(parts[0], 10)
+        except ValueError as exc:
+            raise argparse.ArgumentTypeError("padding must be N or H,V") from exc
+    if len(parts) == 2:
+        try:
+            return (int(parts[0], 10), int(parts[1], 10))
+        except ValueError as exc:
+            raise argparse.ArgumentTypeError("padding must be N or H,V") from exc
+    raise argparse.ArgumentTypeError("padding must be N or H,V")
+
+
+def _cli_table(args: argparse.Namespace) -> str:
+    reader = csv.reader(_cli_read(args.input).splitlines(), delimiter="\t" if args.table_format == "tsv" else ",")
+    rows = [row for row in reader if row]
+    if not rows:
+        raise ValueError("table input has no rows")
+    headers = None if args.no_header else rows.pop(0)
+    return render_table(rows, headers=headers, style=args.style, align=args.align)
+
 
 
 def _cli_parser() -> argparse.ArgumentParser:
@@ -1024,26 +1584,64 @@ def _cli_parser() -> argparse.ArgumentParser:
     box = commands.add_parser("box", help="draw a box around text", allow_abbrev=False)
     box.add_argument("input", nargs="?", default="-", metavar="FILE",
                      help="UTF-8 text file; - or omitted reads stdin")
-    box.add_argument("--padding", type=int, default=1, help="non-negative padding (default: 1)")
+    box.add_argument("--padding", type=_cli_padding, default=1,
+                     help="N (horizontal, default: 1) or H,V (horizontal, vertical)")
     box.add_argument("--style", choices=sorted(_BOX_STYLES), default="single",
                      help="border style (default: single)")
-    for name, help_text in (("flow", "render a vertical flow"), ("tree", "render ITEMS as children of ROOT")):
+    box.add_argument("--align", choices=("left", "center", "right"), default="left",
+                     help="text alignment (default: left)")
+    box.add_argument("--title", default=None, help="heading embedded in the top border")
+    box.add_argument("--width", type=int, default=None,
+                     help="minimum outer width in display cells; wraps text")
+    box.add_argument("--shadow", action="store_true", help="draw a one-cell drop shadow")
+    for name, help_text in (("flow", "render a vertical flow"), ("tree", "render ITEMS as children of ROOT"),
+                            ("branch", "render a one-to-many, optionally many-to-one, branch")):
         sub = commands.add_parser(name, help=help_text, allow_abbrev=False)
-        if name == "tree":
+        if name in ("tree", "branch"):
             sub.add_argument("root", metavar="ROOT", help="root label")
-        sub.add_argument("items", nargs="+", metavar="ITEM", help="single-line label")
-        sub.add_argument("--charset", choices=("unicode", "ascii"), default="unicode")
+        nargs = "*" if name == "branch" else "+"
+        sub.add_argument("items", nargs=nargs, metavar="ITEM", help="single-line label")
+        if name == "branch":
+            sub.add_argument("--target", default=None, metavar="TARGET",
+                             help="optional convergence label")
+        sub.add_argument("--charset", choices=("unicode", "ascii"), default="unicode",help="box-drawing characters or plain ASCII (default: %(default)s)")
+    big = commands.add_parser("banner", help="draw TEXT in the built-in big-letter font", allow_abbrev=False)
+    big.add_argument("text", nargs="+", metavar="TEXT", help="words joined with one space; a-z use A-Z glyphs")
+    big.add_argument("--char", default="#", help="non-empty single-line ink token (default: #)")
+    big.add_argument("--spacing", type=int, default=1, help="blank cells between letters (default: 1)")
+    big.add_argument("--fallback", default=None, help="supported character drawn for unsupported ones (default: error)")
+    table = commands.add_parser("table", help="render CSV/TSV rows as a text table", allow_abbrev=False)
+    table.add_argument("input", nargs="?", default="-", metavar="FILE",
+                       help="UTF-8 CSV/TSV file; - or omitted reads stdin")
+    table.add_argument("--format", dest="table_format", choices=("csv", "tsv"), default="csv",
+                       help="input delimiter (default: %(default)s)")
+    table.add_argument("--no-header", action="store_true", help="treat the first row as data, not headers")
+    table.add_argument("--style", choices=sorted(_BOX_STYLES), default="ascii",
+                       help="border style (default: %(default)s)")
+    table.add_argument("--align", default=None, metavar="SPEC",
+                       help="one of l/r/c per column, e.g. lrc (default: all left)")
     template = commands.add_parser("template", help="print a built-in template", allow_abbrev=False)
     template.add_argument("name", metavar="NAME", help="template name (see: templates)")
     commands.add_parser("templates", help="list built-in template names", allow_abbrev=False)
     convert = commands.add_parser("convert", help="convert a text diagram", allow_abbrev=False)
     convert.add_argument("input", nargs="?", default="-", metavar="FILE",
                          help="UTF-8 diagram file; - or omitted reads stdin")
-    convert.add_argument("--from", dest="source_format", choices=sorted(_CLI_READERS), required=True)
+    convert.add_argument("--from", dest="source_format", choices=sorted(_CLI_READERS), required=True,help="input diagram format")
     convert.add_argument("--to", dest="target_format", required=True,
-                         choices=sorted([*_CLI_READERS, "render", "inventory"]))
+                         choices=sorted([*_CLI_READERS, "render", "inventory"]),help="output format; render draws it, inventory prints structural statistics")
     convert.add_argument("--charset", choices=("unicode", "ascii"), default="unicode",
                          help="charset for --to render (default: unicode)")
+    convert.add_argument("--layout", choices=("adjacency", "layered"),
+                         help="layout for --to render (default: adjacency)")
+    cards = commands.add_parser("flow-cards", help="render bounded JSON cards from stdin", allow_abbrev=False)
+    cards.add_argument("--format", choices=("html", "fragment", "mermaid"), default="html",help="full page, HTML fragment, or Mermaid (default: %(default)s)")
+    cards.add_argument("--theme", choices=FLOW_THEMES, default="github-like",help="color theme (default: %(default)s)")
+    cards.add_argument("--asset-base", default=".",help="local path prefix for linked assets (default: %(default)s)")
+    cards.add_argument("--no-embed-css", action="store_true",help="link the stylesheet instead of embedding it")
+    patch = commands.add_parser("flow-patch", help="atomically patch JSON cards from stdin", allow_abbrev=False)
+    patch.add_argument("--pretty", action="store_true",help="indent the patched JSON")
+    for each in (parser, *commands.choices.values()):
+        each.suggest_on_error = True  # 🤔 argparse 3.14+: "maybe you meant" for commands and choices; older Pythons ignore it
     return parser
 
 
@@ -1058,14 +1656,30 @@ def main(argv: Iterable[str] | None = None) -> int:
             generate = {"square": generate_square, "triangle": generate_triangle,
                         "diamond": generate_diamond}[args.command]
             text = generate(args.size, args.char)
+        elif args.command in ("flow-cards", "flow-patch"):
+            text = _cli_flow(args)
         elif args.command == "box":
-            text = generate_box(_cli_read(args.input), padding=args.padding, style=args.style)
+            text = generate_box(
+                _cli_read(args.input),
+                padding=args.padding,
+                style=args.style,
+                align=args.align,
+                title=args.title,
+                width=args.width,
+                shadow=args.shadow,
+            )
         elif args.command == "flow":
             text = flow(args.items, charset=args.charset)
+        elif args.command == "branch":
+            text = branch(args.root, args.items, args.target, charset=args.charset)
         elif args.command == "tree":
             if any(not item or "\n" in item or "\r" in item for item in args.items):
                 raise ValueError("tree items must be non-empty single-line strings")
             text = tree(args.root, {item: {} for item in args.items}, charset=args.charset)
+        elif args.command == "banner":
+            text = banner(" ".join(args.text), char=args.char, spacing=args.spacing, fallback=args.fallback)
+        elif args.command == "table":
+            text = _cli_table(args)
         elif args.command == "template":
             text = get_template(args.name)
             if not text:
@@ -1080,7 +1694,12 @@ def main(argv: Iterable[str] | None = None) -> int:
     except (ValueError, TypeError, KeyError) as exc:
         print(f"ascii_artist.py: error: {exc}", file=sys.stderr)
         return 2
-    sys.stdout.write(text if not text or text.endswith("\n") else text + "\n")
+    output = text if not text or text.endswith("\n") else text + "\n"
+    if args.command in ("flow-cards", "flow-patch") and hasattr(sys.stdout, "buffer"):
+        # Card-flow JSON/HTML is UTF-8 even when redirected Windows stdout is not.
+        sys.stdout.buffer.write(output.encode("utf-8"))
+    else:
+        sys.stdout.write(output)
     return 0
 
 
