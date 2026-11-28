@@ -1,6 +1,8 @@
 """Pixiv and niconico: dictionary tool, markup normalization, source extraction, live evidence and the Pages client."""
 from __future__ import annotations
 
+import importlib.util
+import sys
 import io
 import json
 import subprocess
@@ -26,7 +28,19 @@ from mcp_toolcall_lab.pixiv_source_extract import (
     PixivSourceExtractError, _ENGLISH_LABEL_RE, _PARENT_LABEL_RE, _labeled_field, _split_reading, extract_pixiv_source, fetch_pixiv_source_extract,
 )
 from mcp_toolcall_lab.stub_front import PAGES_PIXIV_JS_SOURCE, _pixiv_error_from_body, pixiv_page_response
-from vendor import fleet_check as fleet
+
+
+def load_vendored(name, relpath):
+    """Load a vendored file by path under a repo-unique name (cli_args README: Loading a vendored copy)."""
+    if name not in sys.modules:
+        spec = importlib.util.spec_from_file_location(name, Path(__file__).resolve().parents[1] / relpath)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[name] = module
+        spec.loader.exec_module(module)
+    return sys.modules[name]
+
+
+fleet = load_vendored("mcp_toolcall_lab_fleet_check", "vendor/fleet_check.py")
 
 # $NODE or node on PATH; no version floor: these only syntax-check and run plain browser JS.
 NODE = fleet.node(minimum=0)

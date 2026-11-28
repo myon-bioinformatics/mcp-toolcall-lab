@@ -1,6 +1,7 @@
 """Pages/Actions stub stack, its smoke script, the stdlib stub front, frontends and markdown rendering: no Docker."""
 from __future__ import annotations
 
+import importlib.util
 import json
 import shutil
 import subprocess
@@ -12,7 +13,6 @@ from urllib.request import Request, urlopen
 
 import pytest
 
-from vendor.cli_args import Command, run_cli, run_command
 
 ROOT = Path(__file__).resolve().parents[1]
 from mcp_toolcall_lab.antipatterns import (
@@ -35,7 +35,23 @@ from mcp_toolcall_lab.stub_front import (
     load_pysaiyanweboo, lookup_heading, main, make_handler, pages_summary, parse_sections, pixiv_page_response, pokemon_spec, render_pixiv_page,
     render_rows, render_wiki_page, reply, write_pages, write_stub_demo_page,
 )
-from vendor import fleet_check as fleet
+
+
+def load_vendored(name, relpath):
+    """Load a vendored file by path under a repo-unique name (cli_args README: Loading a vendored copy)."""
+    if name not in sys.modules:
+        spec = importlib.util.spec_from_file_location(name, Path(__file__).resolve().parents[1] / relpath)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[name] = module
+        spec.loader.exec_module(module)
+    return sys.modules[name]
+
+
+_cli_args = load_vendored("mcp_toolcall_lab_cli_args", "vendor/cli_args.py")
+Command = _cli_args.Command
+run_cli = _cli_args.run_cli
+run_command = _cli_args.run_command
+fleet = load_vendored("mcp_toolcall_lab_fleet_check", "vendor/fleet_check.py")
 
 # $NODE or node on PATH; no version floor: these only syntax-check and run plain browser JS.
 NODE = fleet.node(minimum=0)

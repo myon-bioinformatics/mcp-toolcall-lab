@@ -1,6 +1,9 @@
 """Fleet contracts through the parent's shared checks (vendor/fleet_check.py): the vendor lock, parent pins,
 vendor wiring in CI and the dependency profiles of the small CI lanes."""
 from __future__ import annotations
+import importlib.util
+import sys
+from pathlib import Path
 import unittest
 
 import json, re, tomllib
@@ -9,7 +12,18 @@ from importlib.metadata import entry_points
 import pytest
 import yaml
 
-from vendor import fleet_check as fleet
+
+def load_vendored(name, relpath):
+    """Load a vendored file by path under a repo-unique name (cli_args README: Loading a vendored copy)."""
+    if name not in sys.modules:
+        spec = importlib.util.spec_from_file_location(name, Path(__file__).resolve().parents[1] / relpath)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[name] = module
+        spec.loader.exec_module(module)
+    return sys.modules[name]
+
+
+fleet = load_vendored("mcp_toolcall_lab_fleet_check", "vendor/fleet_check.py")
 
 ROOT = fleet.repo_root(__file__)
 PARENT_WORKFLOW_PIN = "main"  # 🔁 own sources follow main (2026-11-28)

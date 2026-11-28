@@ -1,10 +1,26 @@
 """Portable contract tests need only stdlib Python + Node, not MCP or a model."""
+import importlib.util
 import hashlib, json, os, subprocess, sys, tempfile, unittest, zipfile
 from html.parser import HTMLParser; from pathlib import Path
 
 from mcp_toolcall_lab.adapters.engine_adapter import distill_engine_adapter, export_adapter_cache, extract_engine_spec
-from vendor.cli_args import Command, run_cli, run_command
 from mcp_toolcall_lab.portable_execution import CONTRACT, execute, request_sha256
+
+
+def load_vendored(name, relpath):
+    """Load a vendored file by path under a repo-unique name (cli_args README: Loading a vendored copy)."""
+    if name not in sys.modules:
+        spec = importlib.util.spec_from_file_location(name, Path(__file__).resolve().parents[1] / relpath)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[name] = module
+        spec.loader.exec_module(module)
+    return sys.modules[name]
+
+
+_cli_args = load_vendored("mcp_toolcall_lab_cli_args", "vendor/cli_args.py")
+Command = _cli_args.Command
+run_cli = _cli_args.run_cli
+run_command = _cli_args.run_command
 
 ROOT = Path(__file__).resolve().parents[1]
 CLI = ROOT / 'src/mcp_toolcall_lab/static/portable_cli.mjs'

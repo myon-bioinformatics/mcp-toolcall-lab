@@ -1,6 +1,7 @@
 """MCP server: session correlation, tracing, records, mocks, SDK boundaries, GitHub-ops tools and the Ironmate client."""
 from __future__ import annotations
 
+import importlib.util
 import asyncio
 import copy
 import json
@@ -20,7 +21,6 @@ import httpx
 import httpx2
 import pytest
 
-from vendor.cli_args import Command, run_command
 import uvicorn
 from fastmcp import Client as FastMCPClient
 from mcp import ClientSession, MCPError
@@ -28,6 +28,21 @@ from mcp.client.streamable_http import streamable_http_client
 from starlette.applications import Starlette
 from starlette.responses import RedirectResponse, Response
 from starlette.routing import Route
+
+
+def load_vendored(name, relpath):
+    """Load a vendored file by path under a repo-unique name (cli_args README: Loading a vendored copy)."""
+    if name not in sys.modules:
+        spec = importlib.util.spec_from_file_location(name, Path(__file__).resolve().parents[1] / relpath)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[name] = module
+        spec.loader.exec_module(module)
+    return sys.modules[name]
+
+
+_cli_args = load_vendored("mcp_toolcall_lab_cli_args", "vendor/cli_args.py")
+Command = _cli_args.Command
+run_command = _cli_args.run_command
 
 ROOT = Path(__file__).resolve().parents[1]
 from mcp_toolcall_lab.catalog import AVAILABLE_TOOLS, TOOL_DESCRIPTIONS
