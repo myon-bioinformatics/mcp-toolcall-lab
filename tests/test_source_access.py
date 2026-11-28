@@ -3,6 +3,7 @@
 import hashlib
 import io
 import json
+import re
 import socket
 import subprocess
 import sys
@@ -323,6 +324,126 @@ def test_pokeapi_cli_reads_pasted_json_with_no_network(tmp_path, capsys):
     out = json.loads(capsys.readouterr().out)
     assert out['ok'] and out['result']['data']['name'] == 'ditto' and out['result']['data']['types'] == ['normal']
     assert source.main([str(request), '--allow-network']) == 0
+
+
+# ═══ · keyless APIs ══════════════════════════════════════════════════════════════════════════════════════
+# 🌐 adapters/keyless.py: readers with an injected get(url) -> text; the answers are each API's documented shape, cut down.
+
+OEMBED_REGISTRY = [   # 📇 oembed.com's registry, cut down: plain, {format}, http-only schemes, a token-only endpoint
+    {'provider_name': 'YouTube', 'endpoints': [{'schemes': ['https://*.youtube.com/watch*', 'https://youtu.be/*'], 'url': 'https://www.youtube.com/oembed'}]},
+    {'provider_name': 'Vimeo', 'endpoints': [{'schemes': ['https://vimeo.com/*'], 'url': 'https://vimeo.com/api/oembed.{format}'}]},
+    {'provider_name': 'Flickr', 'endpoints': [{'schemes': ['http://*.flickr.com/photos/*'], 'url': 'https://www.flickr.com/services/oembed/?lang=ja'}]},
+    {'provider_name': 'Facebook', 'endpoints': [{'schemes': ['https://www.facebook.com/*/posts/*'], 'url': 'https://graph.facebook.com/v16.0/oembed_post'}]},
+    {'provider_name': 'No schemes', 'endpoints': [{'url': 'https://example.test/oembed'}]}]
+KEYLESS_ANSWERS = {
+    'oembed-providers@': OEMBED_REGISTRY,
+    'https://vimeo.com/api/oembed.json?': {'type': 'video', 'title': 'A Vimeo video', 'author_name': 'Someone', 'author_url': '', 'width': 640, 'height': 360},
+    'https://www.flickr.com/services/oembed/?lang=ja&': {'type': 'photo', 'title': 'Bees', 'author_name': 'B', 'author_url': 'https://www.flickr.com/photos/b/'},
+    'https://www.youtube.com/oembed?': {'title': 'A video', 'author_name': 'A channel', 'author_url': 'https://www.youtube.com/@a',
+                                        'thumbnail_url': 'https://i.ytimg.com/vi/x/hqdefault.jpg', 'thumbnail_width': 480,
+                                        'thumbnail_height': 360, 'provider_name': 'YouTube', 'html': '<iframe></iframe>'},
+    'action=wbsearchentities': {'search': [{'id': 'Q6607', 'label': 'ギター', 'description': '弦楽器'}]},
+    'props=labels%7Cdescriptions%7Caliases%7Cclaims': {'entities': {'Q6607': {
+        'labels': {'ja': {'value': 'ギター'}}, 'descriptions': {'ja': {'value': '弦楽器'}}, 'aliases': {'ja': [{'value': 'Guitar'}]},
+        'claims': {'P31': [{'mainsnak': {'snaktype': 'value', 'datavalue': {'value': {'id': 'Q1798603'}}}}],
+                   'P279': [{'mainsnak': {'snaktype': 'value', 'datavalue': {'value': {'id': 'Q1063767'}}}}, {'mainsnak': {'snaktype': 'novalue'}}]}}}},
+    'props=labels&': {'entities': {'Q1798603': {'labels': {'en': {'value': 'type of musical instrument'}}},
+                                   'Q1063767': {'labels': {'ja': {'value': '撥弦楽器'}}}}},
+    'https://rest.uniprot.org/uniprotkb/search?': {'results': [{
+        'primaryAccession': 'P69905', 'proteinDescription': {'recommendedName': {'fullName': {'value': 'Hemoglobin subunit alpha'}}},
+        'organism': {'scientificName': 'Homo sapiens'}, 'genes': [{'geneName': {'value': 'HBA1'}}], 'sequence': {'length': 142}}]},
+    'https://api.github.com/repos/': {'full_name': 'myon-bioinformatics/ONTO', 'html_url': 'https://github.com/myon-bioinformatics/ONTO',
+                                      'description': 'ontology index', 'language': 'Python', 'topics': ['ontology'], 'stargazers_count': 3,
+                                      'forks_count': 0, 'open_issues_count': 1, 'license': {'spdx_id': 'MIT'}, 'pushed_at': '2026-11-28T00:00:00Z'},
+}
+
+
+def _keyless_get(asked):
+    def get(url):
+        asked.append(url)
+        return json.dumps(next(answer for piece, answer in KEYLESS_ANSWERS.items() if piece in url))
+    return get
+
+
+@pytest.fixture
+def keyless_module(monkeypatch):
+    from mcp_toolcall_lab.adapters import keyless
+    monkeypatch.setattr(keyless, '_REGISTRY', {})                        # 📇 each test reads the registry anew
+    return keyless
+
+
+@pytest.mark.usefixtures("forbid_network")
+def test_keyless_oembed_picks_the_provider_by_the_shape_of_the_url(keyless_module):
+    keyless, asked = keyless_module, []
+    get = _keyless_get(asked)
+    video = keyless.read('fetch_oembed', {'url': 'https://youtu.be/x'}, get)
+    assert asked == [keyless.OEMBED_PROVIDERS, 'https://www.youtube.com/oembed?url=https%3A%2F%2Fyoutu.be%2Fx&format=json']
+    assert video['provider'] == 'YouTube' and video['title'] == 'A video' and 'html' not in video and video['schema'] == 'oembed/1'
+    vimeo = keyless.read('fetch_oembed', {'url': 'https://vimeo.com/76979871'}, get)              # {format} → json; the registry once
+    assert asked[2:] == ['https://vimeo.com/api/oembed.json?url=https%3A%2F%2Fvimeo.com%2F76979871&format=json'] and vimeo['width'] == 640
+    assert '| video | Someone |' in keyless.markdown('fetch_oembed', vimeo) and '640×360' in keyless.markdown('fetch_oembed', vimeo)
+    bees = keyless.read('fetch_oembed', {'url': 'https://www.flickr.com/photos/b/1/'}, get)       # https for an http scheme; ? → &
+    assert asked[-1].startswith('https://www.flickr.com/services/oembed/?lang=ja&url=') and bees['provider'] == 'Flickr'
+    with pytest.raises(LookupError, match='access token'):
+        keyless.read('fetch_oembed', {'url': 'https://www.facebook.com/x/posts/1'}, get)
+    with pytest.raises(LookupError, match='no oEmbed provider'):
+        keyless.read('fetch_oembed', {'url': 'https://example.com/x'}, get)
+    assert keyless.oembed_endpoint('https://youtu.be/x', OEMBED_REGISTRY) == ('YouTube', 'https://www.youtube.com/oembed')
+    assert len(asked) == 4                                                    # 🚫 neither refusal reached a provider
+
+
+@pytest.mark.usefixtures("forbid_network")
+def test_keyless_readers_build_the_request_and_shape_the_answer(keyless_module):
+    keyless, asked = keyless_module, []
+    run = lambda name, args: (keyless.read(name, args, _keyless_get(asked)), name)
+    item, _ = run('fetch_wikidata_entity', {'id': 'q6607'})
+    assert len(asked) == 2 and asked[-1].endswith('ids=Q1063767%7CQ1798603&props=labels&languages=ja%7Cen&format=json&origin=%2A')
+    assert item['instance_of'] == [{'id': 'Q1798603', 'label': 'type of musical instrument'}]            # en where ja is missing
+    assert item['subclass_of'] == [{'id': 'Q1063767', 'label': '撥弦楽器'}] and item['aliases'] == ['Guitar']
+    assert '| P279 subclass of | 撥弦楽器 (Q1063767) |' in keyless.markdown('fetch_wikidata_entity', item)
+    found = keyless.read('search_wikidata', {'query': 'ギター'}, _keyless_get(asked))
+    assert 'origin=%2A' in asked[-1] and found['items'][0]['url'] == 'https://www.wikidata.org/wiki/Q6607'
+    protein = keyless.read('search_uniprot', {'query': 'hemoglobin', 'size': 3}, _keyless_get(asked))
+    assert 'size=3' in asked[-1] and protein['entries'][0] | {} == {'accession': 'P69905', 'protein': 'Hemoglobin subunit alpha',
+        'organism': 'Homo sapiens', 'genes': ['HBA1'], 'length': 142, 'url': 'https://www.uniprot.org/uniprotkb/P69905'}
+    repo = keyless.read('fetch_github_repo', {'repo': 'https://github.com/myon-bioinformatics/ONTO/'}, _keyless_get(asked))
+    assert asked[-1] == 'https://api.github.com/repos/myon-bioinformatics/ONTO' and repo['license'] == 'MIT'
+    assert '| Python | 3 | 0 | 1 | MIT | 2026-11-28 |' in keyless.markdown('fetch_github_repo', repo)
+    assert keyless.markdown('search_wikidata', {'items': []}) == '0 件'
+
+
+def test_keyless_rejects_bad_arguments_before_any_request(keyless_module):
+    keyless = keyless_module
+    get = Mock(side_effect=AssertionError('no request'))
+    for name, args in (('fetch_oembed', {'url': 'javascript:alert(1)'}), ('fetch_oembed', {'url': 'youtu.be/x'}),
+                       ('fetch_wikidata_entity', {'id': 'Q0; drop'}), ('fetch_github_repo', {'repo': '../../users/x'})):
+        with pytest.raises(ValueError):
+            keyless.read(name, args, get)
+        (key, value), = args.items()                                           # 🧩 the schema's pattern says no as well
+        assert not re.search(keyless.TOOLS[name][2]['properties'][key]['pattern'], value)
+    get.assert_not_called()
+    fits = {'fetch_oembed': ('https://youtu.be/x', 'http://vimeo.com/1'), 'fetch_wikidata_entity': ('Q42', 'q6607'),
+            'fetch_github_repo': ('myon-bioinformatics/ONTO', 'https://github.com/myon-bioinformatics/ONTO/')}
+    for name, values in fits.items():                                        # 🧩 … and yes to what the reader takes
+        (key, spec), = [(k, v) for k, v in keyless.TOOLS[name][2]['properties'].items() if 'pattern' in v]
+        assert all(re.search(spec['pattern'], value) for value in values)
+    assert set(keyless.BROWSER_BLOCKED) == {'niconico', 'pixiv'} and not set(keyless.BROWSER_BLOCKED) & set(keyless.TOOLS)
+    assert all(spec['additionalProperties'] is False and cues for _, _, spec, cues in keyless.TOOLS.values())
+
+
+def test_keyless_registry_needs_network_and_reads_one_json(monkeypatch):
+    calls = []
+
+    def fetch_bytes(url, **kwargs):
+        calls.append((url, kwargs['content_types']))
+        return json.dumps(KEYLESS_ANSWERS['https://api.github.com/repos/']).encode(), 'utf-8'
+    monkeypatch.setattr(source, 'fetch_bytes', fetch_bytes)
+    registry = source.default_registry()
+    with pytest.raises(ValueError, match='allow_network'):
+        registry.invoke('keyless', 'fetch_github_repo', {'repo': 'myon-bioinformatics/ONTO'})
+    out = registry.invoke('keyless', 'fetch_github_repo', {'repo': 'myon-bioinformatics/ONTO', 'name': 'search_uniprot'}, allow_network=True)
+    assert out['data']['schema'] == 'github-repo/1'                       # 🔒 an argument cannot pick another reader
+    assert calls == [('https://api.github.com/repos/myon-bioinformatics/ONTO', {'application/json'})]
 
 
 # ═══ · html snapshot experiment ════════════════════════════════════════════════════════════

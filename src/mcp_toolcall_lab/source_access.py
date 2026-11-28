@@ -118,6 +118,12 @@ def default_registry(*, niconico_adapter=None):
     from .adapters.pokeapi import pokemon, pokemon_source
     registry.register('pokeapi', 'pokemon', pokemon, network=True)
     registry.register('pokeapi', 'source', pokemon_source)
+    from .adapters import keyless                       # 🌐 keyless public APIs: one GET of JSON each (allow_network)
+    get = lambda url: (lambda raw, charset: raw.decode(charset or 'utf-8'))(*fetch_bytes(
+        url, accept='application/json', content_types={'application/json'}, label='JSON'))
+    reader = lambda name: lambda **arguments: keyless.read(name, arguments, get)   # (the arguments cannot pick another reader)
+    for name in keyless.TOOLS:
+        registry.register('keyless', name, reader(name), network=True)
     if niconico_adapter is not None:
         from .adapters.niconico_source import register_niconico
         register_niconico(registry, niconico_adapter)
