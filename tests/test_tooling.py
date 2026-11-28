@@ -447,7 +447,7 @@ def test_python_junit_workflow_keeps_failed_producer_visible():
     assert "if-no-files-found: error" in producer
     assert "needs: [changes, test]" in collector
     assert "if: always() && needs.changes.outputs.product_changed == 'true'" in collector
-    assert "reusable-junit-identity.yml@27dedd9651efc816fa88d8922adb5f242725df69" in collector
+    assert "reusable-junit-identity.yml@main" in collector
     assert "commit-sha: ${{ github.event.pull_request.head.sha || github.sha }}" in collector
     assert 'expected-reports: \'["junit-python-3.12.15-node-26.13.1/pytest.xml", "junit-python-3.15-node-26.13.1/pytest.xml"]\'' in collector
     assert "artifact-pattern: junit-python-*-node-*" in collector

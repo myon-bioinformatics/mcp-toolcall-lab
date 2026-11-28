@@ -12,8 +12,8 @@ import yaml
 from vendor import fleet_check as fleet
 
 ROOT = fleet.repo_root(__file__)
-PARENT_WORKFLOW_PIN = "27dedd9651efc816fa88d8922adb5f242725df69"
-ACCEPTED = {"vendor/fleet_check.py": "20de01921e50e9339aa9271b0547a5be7649b3b3"}
+PARENT_WORKFLOW_PIN = "main"  # 🔁 own sources follow main (2026-11-28)
+ACCEPTED = {"vendor/fleet_check.py"}  # 🔁 locked destinations; they follow main
 
 
 # ═══ · vendor lock and parent pins (fleet_check) ════════════════════════════════════════════════════════════
@@ -21,7 +21,7 @@ ACCEPTED = {"vendor/fleet_check.py": "20de01921e50e9339aa9271b0547a5be7649b3b3"}
 def test_vendor_lock_matches_checked_in_bytes() -> None:
     # Every row, parent tools included: full-SHA ref == commit, blob_sha and sha256 of the placed bytes.
     assert set(json.loads((ROOT / "vendor.lock.json").read_text(encoding="utf-8"))) == {"schema", "files"}
-    rows = fleet.check_lock(ROOT, commits=ACCEPTED)
+    rows = fleet.check_lock(ROOT)
     assert (rows["vendor/fleet_check.py"]["repository"], rows["vendor/fleet_check.py"]["source"]) == (fleet.PARENT, "fleet_check.py")
 
 
@@ -55,7 +55,7 @@ def test_ironmate_sources_are_not_locked_anymore():
 # Regression checks for vendor.lock.json CI wiring.
 
 WORKFLOW = ROOT / ".github/workflows/ci.yml"
-VENDOR_SYNC_PIN = "26c442bc51b8a2837fe2556782b2937f396932af"
+VENDOR_SYNC_PIN = "main"  # 🔁 own sources follow main (2026-11-28)
 
 
 def _workflow():
