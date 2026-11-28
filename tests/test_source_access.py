@@ -325,6 +325,87 @@ def test_pokeapi_cli_reads_pasted_json_with_no_network(tmp_path, capsys):
     assert source.main([str(request), '--allow-network']) == 0
 
 
+# ═══ · keyless APIs ══════════════════════════════════════════════════════════════════════════════════════
+# 🌐 adapters/keyless.py: readers with an injected get(url) -> text; the answers are each API's documented shape, cut down.
+
+KEYLESS_ANSWERS = {
+    'https://www.youtube.com/oembed?': {'title': 'A video', 'author_name': 'A channel', 'author_url': 'https://www.youtube.com/@a',
+                                        'thumbnail_url': 'https://i.ytimg.com/vi/x/hqdefault.jpg', 'thumbnail_width': 480,
+                                        'thumbnail_height': 360, 'provider_name': 'YouTube', 'html': '<iframe></iframe>'},
+    'action=wbsearchentities': {'search': [{'id': 'Q6607', 'label': 'ギター', 'description': '弦楽器'}]},
+    'props=labels%7Cdescriptions%7Caliases%7Cclaims': {'entities': {'Q6607': {
+        'labels': {'ja': {'value': 'ギター'}}, 'descriptions': {'ja': {'value': '弦楽器'}}, 'aliases': {'ja': [{'value': 'Guitar'}]},
+        'claims': {'P31': [{'mainsnak': {'snaktype': 'value', 'datavalue': {'value': {'id': 'Q1798603'}}}}],
+                   'P279': [{'mainsnak': {'snaktype': 'value', 'datavalue': {'value': {'id': 'Q1063767'}}}}, {'mainsnak': {'snaktype': 'novalue'}}]}}}},
+    'props=labels&': {'entities': {'Q1798603': {'labels': {'en': {'value': 'type of musical instrument'}}},
+                                   'Q1063767': {'labels': {'ja': {'value': '撥弦楽器'}}}}},
+    'https://rest.uniprot.org/uniprotkb/search?': {'results': [{
+        'primaryAccession': 'P69905', 'proteinDescription': {'recommendedName': {'fullName': {'value': 'Hemoglobin subunit alpha'}}},
+        'organism': {'scientificName': 'Homo sapiens'}, 'genes': [{'geneName': {'value': 'HBA1'}}], 'sequence': {'length': 142}}]},
+    'https://api.github.com/repos/': {'full_name': 'myon-bioinformatics/ONTO', 'html_url': 'https://github.com/myon-bioinformatics/ONTO',
+                                      'description': 'ontology index', 'language': 'Python', 'topics': ['ontology'], 'stargazers_count': 3,
+                                      'forks_count': 0, 'open_issues_count': 1, 'license': {'spdx_id': 'MIT'}, 'pushed_at': '2026-11-28T00:00:00Z'},
+}
+
+
+def _keyless_get(asked):
+    def get(url):
+        asked.append(url)
+        return json.dumps(next(answer for piece, answer in KEYLESS_ANSWERS.items() if piece in url))
+    return get
+
+
+@pytest.mark.usefixtures("forbid_network")
+def test_keyless_readers_build_the_request_and_shape_the_answer():
+    from mcp_toolcall_lab.adapters import keyless
+    asked = []
+    run = lambda name, args: (keyless.read(name, args, _keyless_get(asked)), name)
+    video, _ = run('fetch_youtube_oembed', {'url': 'https://youtu.be/x'})
+    assert asked[-1] == 'https://www.youtube.com/oembed?url=https%3A%2F%2Fyoutu.be%2Fx&format=json'
+    assert video['title'] == 'A video' and 'html' not in video and video['schema'] == 'youtube-oembed/1'   # the embed HTML is dropped
+    item, _ = run('fetch_wikidata_entity', {'id': 'q6607'})
+    assert len(asked) == 3 and asked[-1].endswith('ids=Q1063767%7CQ1798603&props=labels&languages=ja%7Cen&format=json&origin=%2A')
+    assert item['instance_of'] == [{'id': 'Q1798603', 'label': 'type of musical instrument'}]            # en where ja is missing
+    assert item['subclass_of'] == [{'id': 'Q1063767', 'label': '撥弦楽器'}] and item['aliases'] == ['Guitar']
+    assert '| P279 subclass of | 撥弦楽器 (Q1063767) |' in keyless.markdown('fetch_wikidata_entity', item)
+    found = keyless.read('search_wikidata', {'query': 'ギター'}, _keyless_get(asked))
+    assert 'origin=%2A' in asked[-1] and found['items'][0]['url'] == 'https://www.wikidata.org/wiki/Q6607'
+    protein = keyless.read('search_uniprot', {'query': 'hemoglobin', 'size': 3}, _keyless_get(asked))
+    assert 'size=3' in asked[-1] and protein['entries'][0] | {} == {'accession': 'P69905', 'protein': 'Hemoglobin subunit alpha',
+        'organism': 'Homo sapiens', 'genes': ['HBA1'], 'length': 142, 'url': 'https://www.uniprot.org/uniprotkb/P69905'}
+    repo = keyless.read('fetch_github_repo', {'repo': 'https://github.com/myon-bioinformatics/ONTO/'}, _keyless_get(asked))
+    assert asked[-1] == 'https://api.github.com/repos/myon-bioinformatics/ONTO' and repo['license'] == 'MIT'
+    assert '| Python | 3 | 0 | 1 | MIT | 2026-11-28 |' in keyless.markdown('fetch_github_repo', repo)
+    assert keyless.markdown('search_wikidata', {'items': []}) == '0 件'
+
+
+def test_keyless_rejects_bad_arguments_before_any_request():
+    from mcp_toolcall_lab.adapters import keyless
+    get = Mock(side_effect=AssertionError('no request'))
+    for name, args in (('fetch_youtube_oembed', {'url': 'https://evil.test/watch?v=x'}), ('fetch_youtube_oembed', {'url': 'http://youtu.be/x'}),
+                       ('fetch_wikidata_entity', {'id': 'Q0; drop'}), ('fetch_github_repo', {'repo': '../../users/x'})):
+        with pytest.raises(ValueError):
+            keyless.read(name, args, get)
+    get.assert_not_called()
+    assert set(keyless.BROWSER_BLOCKED) == {'niconico', 'pixiv'} and not set(keyless.BROWSER_BLOCKED) & set(keyless.TOOLS)
+    assert all(spec['additionalProperties'] is False and cues for _, _, spec, cues in keyless.TOOLS.values())
+
+
+def test_keyless_registry_needs_network_and_reads_one_json(monkeypatch):
+    calls = []
+
+    def fetch_bytes(url, **kwargs):
+        calls.append((url, kwargs['content_types']))
+        return json.dumps(KEYLESS_ANSWERS['https://api.github.com/repos/']).encode(), 'utf-8'
+    monkeypatch.setattr(source, 'fetch_bytes', fetch_bytes)
+    registry = source.default_registry()
+    with pytest.raises(ValueError, match='allow_network'):
+        registry.invoke('keyless', 'fetch_github_repo', {'repo': 'myon-bioinformatics/ONTO'})
+    out = registry.invoke('keyless', 'fetch_github_repo', {'repo': 'myon-bioinformatics/ONTO', 'name': 'search_uniprot'}, allow_network=True)
+    assert out['data']['schema'] == 'github-repo/1'                       # 🔒 an argument cannot pick another reader
+    assert calls == [('https://api.github.com/repos/myon-bioinformatics/ONTO', {'application/json'})]
+
+
 # ═══ · html snapshot experiment ════════════════════════════════════════════════════════════
 # The first offline extraction experiment (experiments/html_snapshot); its CLI delegates to the shared parser.
 

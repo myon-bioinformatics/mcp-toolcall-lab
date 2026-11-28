@@ -16,6 +16,21 @@ existing pagination/version/error checks. MCP/API routing remains follow-up #107
 Existing Ironmate fixtures are historical offline contracts; they are not evidence
 that Ironmate still serves a live catalog or MCP endpoint.
 
+## 🌐 Keyless public APIs (`keyless.py`)
+
+`mcp_toolcall_lab.adapters.keyless` holds one reader per keyless API: 🎬 YouTube oEmbed (`fetch_youtube_oembed`),
+🕸️ Wikidata (`search_wikidata`, `fetch_wikidata_entity`: P31 instance of / P279 subclass of with labels), 🧬 UniProtKB
+(`search_uniprot`) and 🐙 GitHub (`fetch_github_repo`, no token). A reader takes the tool arguments and `get(url) -> text`
+and returns a record; `markdown(name, record)` is the same record as a table (vendored markdown.py). The caller owns the
+transport, so the same readers run in a browser (the portfolio chat's in-page MCP server fetches with XMLHttpRequest; these
+APIs send CORS headers) and here behind `allow_network` (`default_registry()` registers them as `keyless/<tool>`, one
+JSON GET each through `fetch_bytes`). Arguments are checked before any request. There are no keys anywhere.
+
+`TOOLS` gives each as an MCP tool (description, `inputSchema`) with `cues`, words that name it, for a router that has no
+family for it (Jev's families are unchanged: adding one changes the smoothing of every other family's confidence).
+`BROWSER_BLOCKED` is the exception list: providers of this repository a browser cannot read (Niconico's Snapshot Search API
+sends no `Access-Control-Allow-Origin`; pixiv Encyclopedia pages are HTML without CORS), kept on a server or left out.
+
 ## Upstream Distillation Engine Adapter (`engine_adapter.py`)
 
 `mcp_toolcall_lab.adapters.engine_adapter` stores **caller-supplied observations**
