@@ -33,8 +33,7 @@ A tool that LibreChat / Open WebUI / the stub should call still belongs
 in the MCP catalog, where the **server process** makes the HTTP call.
 GitHub Pages remains a static host: it cannot keep the local stub
 backend or a github.io `/wiki` route (that path stays 404). The
-published index stays `index.html`; `#wiki` (optional `?view=wiki`)
-hide/shows the browser MCP form. Heading switches reuse the in-memory
+Portfolio uses `/tools/#wiki` to show the browser MCP form. Heading switches reuse the in-memory
 extract (same idea as the Python process cache). The mock
 `stub_demo.js` heading pulldown is still not published.
 
@@ -162,7 +161,7 @@ browser → Wikipedia Streamable HTTP MCP. `#wiki` is still on
 ```bash
 python -m mcp_toolcall_lab.stub_front serve --port 8765
 # open http://127.0.0.1:8765/wiki
-# Pages browser MCP UI: https://myon-bioinformatics.github.io/tools/mcp/#wiki
+# Pages browser MCP UI: https://myon-bioinformatics.github.io/tools/#wiki
 ```
 
 ## Testing without live network

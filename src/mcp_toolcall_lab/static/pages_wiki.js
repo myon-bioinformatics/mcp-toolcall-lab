@@ -553,7 +553,7 @@
         return client.sessionId();
       },
       load: function (title, lang) {
-        fetches += 1;
+        var request = ++fetches;
         heading = "";
         var cleaned = String(title || "").trim();
         if (!cleaned) {
@@ -565,22 +565,16 @@
           article = null;
           return Promise.resolve({ ok: false, error: "Unsupported language code." });
         }
-        if (!url) {
-          return loadDirectArticle(cleaned, safeLang, fetchImpl).then(function (result) {
-            article = result.ok ? result : null;
-            return result;
-          });
+        function settle(result) {
+          if (request === fetches) article = result.ok ? result : null;
+          return result;
         }
+        if (!url) return loadDirectArticle(cleaned, safeLang, fetchImpl).then(settle);
         return client.callArticle(cleaned, safeLang).then(
-          function (result) {
-            article = result.ok ? result : null;
-            return result;
-          },
+          settle,
           function (err) {
             var detail = err && err.message ? err.message : String(err);
-            var failed = { ok: false, error: "could not fetch '" + cleaned + "' from MCP: " + detail };
-            article = null;
-            return failed;
+            return settle({ ok: false, error: "could not fetch '" + cleaned + "' from MCP: " + detail });
           },
         );
       },
@@ -735,7 +729,10 @@
         render({ ok: false, error: MISSING_TITLE }, "");
         return Promise.resolve({ ok: false, error: MISSING_TITLE });
       }
-      return session.load(title, lang).then(function (result) {
+      var pending = session.load(title, lang);
+      var request = session.fetches();
+      return pending.then(function (result) {
+        if (request !== session.fetches()) return result;
         render(result, "");
         if (result.ok) {
           syncHash(title, normalizeLang(lang) || DEFAULT_LANG, "");
@@ -768,15 +765,19 @@
       headingSelect.addEventListener("change", onHeadingChange);
     }
 
-    var fromHash = parseWikiHash(loc.hash || "");
-    if (fromHash.title && titleInput) {
-      titleInput.value = fromHash.title;
-    }
-    if (fromHash.lang && langInput) {
-      ensureLangOption(langInput, normalizeLang(fromHash.lang) || fromHash.lang);
-    }
-    if (fromHash.title) {
-      session.load(fromHash.title, fromHash.lang || currentLang()).then(function (result) {
+    function loadHash() {
+      var hash = loc.hash || "";
+      if (hash.split("?")[0] !== "#wiki") return;
+      var fromHash = parseWikiHash(hash);
+      if (!fromHash.title) return;
+      if (titleInput) titleInput.value = fromHash.title;
+      if (fromHash.lang && langInput) {
+        ensureLangOption(langInput, normalizeLang(fromHash.lang) || fromHash.lang);
+      }
+      var pending = session.load(fromHash.title, fromHash.lang || currentLang());
+      var request = session.fetches();
+      return pending.then(function (result) {
+        if (request !== session.fetches() || loc.hash !== hash) return;
         var heading = fromHash.heading || "";
         if (result.ok && heading) {
           session.selectHeading(heading);
@@ -784,11 +785,13 @@
         render(result, heading);
       });
     }
+    loadHash();
 
     return {
       session: session,
       fetch: onFetch,
       selectHeading: onHeadingChange,
+      loadHash: loadHash,
     };
   }
 
@@ -802,7 +805,9 @@
       return null;
     }
     var start = function () {
-      return mount(root, { location: win.location, history: win.history, fetch: win.fetch });
+      var app = mount(root, { location: win.location, history: win.history, fetch: win.fetch });
+      win.addEventListener("hashchange", app.loadHash);
+      return app;
     };
     if (doc.readyState === "loading" && typeof doc.addEventListener === "function") {
       doc.addEventListener("DOMContentLoaded", start);

@@ -4,6 +4,7 @@ from __future__ import annotations
 import io
 import json
 import os
+import subprocess
 import threading
 import unittest
 from http.server import ThreadingHTTPServer
@@ -669,6 +670,52 @@ def test_pages_tree_hosts_browser_wikipedia_mcp_not_local_wiki_or_try_it(tmp_pat
     assert "Browser → Wikipedia directly by default" in html
     assert "Try it (static, no MCP)" not in html
     assert "mcpToolcallLabStubDemo" not in html
+
+
+def test_pages_wiki_applies_a_hash_delivered_after_mount():
+    script = ROOT / "src/mcp_toolcall_lab/static/pages_wiki.js"
+    js = r"""
+const assert = require('node:assert/strict');
+const wiki = require(process.argv[1]);
+const title = {value: ''};
+const extract = {textContent: '', removeAttribute() {}, setAttribute() {}};
+const elements = {'pages-wiki-title': title, 'pages-wiki-extract': extract};
+const root = {
+    querySelector(selector) { return elements[selector.split('"')[1]]; },
+};
+const location = {hash: ''};
+const releases = new Map();
+let onHashChange;
+const app = wiki.autoMount({
+    document: {readyState: 'complete', querySelector: () => root},
+    location,
+    addEventListener(name, callback) { assert.equal(name, 'hashchange'); onHashChange = callback; },
+    fetch(url) {
+        const name = new URL(url).searchParams.get('titles');
+        const result = {query: {pages: {1: {title: name, extract: name + ' lead\n== History ==\nHistory body'}}}};
+        return new Promise(resolve => releases.set(name, () => resolve(result)));
+    },
+});
+assert.equal(app.session.fetches(), 0);
+(async () => {
+    location.hash = '#wiki?title=Earlier&lang=en';
+    const earlier = onHashChange();
+    location.hash = '#wiki?title=A%26B&lang=en&heading=History';
+    const later = onHashChange();
+    await Promise.resolve();
+    releases.get('A&B')();
+    await later;
+    releases.get('Earlier')();
+    await earlier;
+    assert.equal(title.value, 'A&B');
+    assert.equal(extract.textContent, 'History body');
+    assert.equal(app.session.article().canonical_title, 'A&B');
+    location.hash = '#pixiv?title=Other';
+    await onHashChange();
+    assert.equal(app.session.fetches(), 2);
+})().catch(error => { console.error(error); process.exitCode = 1; });
+"""
+    subprocess.run(["node", "-e", js, str(script)], check=True, timeout=10)
 
 
 def test_composer_page_links_to_wiki_without_implying_pages_backend() -> None:
