@@ -13,7 +13,7 @@
     {
       "repository": "myon-bioinformatics/myon-bioinformatics",
       "ref": "main",
-      "commit": "27dedd9651efc816fa88d8922adb5f242725df69",
+      "commit": "3a92d3417ac2fb908fa618a2c9862c09faf6a2c8",
       "source": "gh_ops.py",
       "destination": "vendor/gh_ops.py",
       "blob_sha": "510f83b5cc9ed0ca09267419df69e1e6cadfee2b",
@@ -22,7 +22,7 @@
     {
       "repository": "myon-bioinformatics/myon-bioinformatics",
       "ref": "main",
-      "commit": "27dedd9651efc816fa88d8922adb5f242725df69",
+      "commit": "3a92d3417ac2fb908fa618a2c9862c09faf6a2c8",
       "source": "vendor_fleet_plan.py",
       "destination": "vendor/vendor_fleet_plan.py",
       "blob_sha": "d2330699532856fb394429a44c6aeeb1f3ea1e0b",
@@ -58,7 +58,7 @@
     {
       "repository": "myon-bioinformatics/myon-bioinformatics",
       "ref": "main",
-      "commit": "27dedd9651efc816fa88d8922adb5f242725df69",
+      "commit": "3a92d3417ac2fb908fa618a2c9862c09faf6a2c8",
       "source": "LICENSE",
       "destination": "vendor/myon-bioinformatics-LICENSE",
       "blob_sha": "4ec4989b801bf1a3df6184d21f79e6e7ed5931f6",
@@ -85,7 +85,7 @@
     {
       "repository": "myon-bioinformatics/myon-bioinformatics",
       "ref": "main",
-      "commit": "27dedd9651efc816fa88d8922adb5f242725df69",
+      "commit": "3a92d3417ac2fb908fa618a2c9862c09faf6a2c8",
       "source": "njs_launch.py",
       "destination": "vendor/njs_launch.py",
       "blob_sha": "79521fdd4d77f4a0ae91ca4a1791f4ad46a0d574",
@@ -94,11 +94,11 @@
     {
       "repository": "myon-bioinformatics/myon-bioinformatics",
       "ref": "main",
-      "commit": "27dedd9651efc816fa88d8922adb5f242725df69",
+      "commit": "3a92d3417ac2fb908fa618a2c9862c09faf6a2c8",
       "source": "fleet_check.py",
       "destination": "vendor/fleet_check.py",
-      "blob_sha": "2a7973ab7485c8a5cac36d3e43796ef6496ea9ff",
-      "sha256": "71c54df9de11c70312ff9580f0633cfd50252ad6738829d05ce92a46e3b18029"
+      "blob_sha": "8cffb731ce78c461f602f4da0653178214e1da46",
+      "sha256": "47b526dc3d2c09afe121071c429014a9423475dd8e32e1b4bde022e4186c29d1"
     },
     {
       "repository": "myon-bioinformatics/cli_args",
