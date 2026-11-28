@@ -19,6 +19,8 @@ import fastmcp.server.http as fastmcp_http
 import httpx
 import httpx2
 import pytest
+
+from vendor.cli_args import Command, run_command
 import uvicorn
 from fastmcp import Client as FastMCPClient
 from mcp import ClientSession, MCPError
@@ -376,18 +378,16 @@ def test_cli_kinds_and_probe(tmp_path: Path) -> None:
         json.dumps({"meta": {"chat_id": "chat_" + "a" * 24, "call_id": "call_" + "b" * 24}}) + "\n",
         encoding="utf-8",
     )
-    kinds_proc = subprocess.run(
-        [sys.executable, "-m", "mcp_toolcall_lab.trace_probe", "kinds"],
+    kinds_proc = run_command(
+        Command([sys.executable, "-m", "mcp_toolcall_lab.trace_probe", "kinds"]),
         cwd=ROOT,
-        check=True,
-        capture_output=True,
-        text=True,
     )
+    assert kinds_proc.returncode == 0, kinds_proc.stderr
     payload = json.loads(kinds_proc.stdout)
     assert any(row["kind"] == "reasoning_id" for row in payload["kinds"])
 
-    probe_proc = subprocess.run(
-        [
+    probe_proc = run_command(
+        Command([
             sys.executable,
             "-m",
             "mcp_toolcall_lab.trace_probe",
@@ -399,11 +399,8 @@ def test_cli_kinds_and_probe(tmp_path: Path) -> None:
             str(tmp_path / "missing-openai.jsonl"),
             "--observe",
             str(tmp_path / "missing-obs.jsonl"),
-        ],
+        ]),
         cwd=ROOT,
-        check=False,
-        capture_output=True,
-        text=True,
     )
     report = json.loads(probe_proc.stdout)
     assert probe_proc.returncode == 0

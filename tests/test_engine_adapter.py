@@ -12,6 +12,8 @@ from pathlib import Path
 
 import pytest
 
+from vendor.cli_args import Command, run_command
+
 ROOT = Path(__file__).resolve().parents[1]
 from mcp_toolcall_lab import jev_shim, prompt_experiment
 from mcp_toolcall_lab.adapters.engine_adapter import (
@@ -528,9 +530,9 @@ def test_replay_selection_preserves_existing_case_results_and_errors(tmp_path, c
 def test_standalone_list_without_site_packages(tmp_path, module):
     (tmp_path / 'sample.json').write_text('not JSON')
     env = dict(os.environ, PYTHONPATH=str(Path(__file__).resolve().parents[1] / 'src'))
-    result = subprocess.run([sys.executable, '-S', '-m', 'mcp_toolcall_lab.' + module, 'replay',
-                             '--fixtures', str(tmp_path), '--case', 'sample', '--list'],
-                            env=env, capture_output=True, text=True, encoding='utf-8')
+    result = run_command(Command([sys.executable, '-S', '-m', 'mcp_toolcall_lab.' + module, 'replay',
+                             '--fixtures', str(tmp_path), '--case', 'sample', '--list']),
+                            env=env)
     assert result.returncode == 0, result.stderr
     assert json.loads(result.stdout)['cases'] == ['sample.json']
 

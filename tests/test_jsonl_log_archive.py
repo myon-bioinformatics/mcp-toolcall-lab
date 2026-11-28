@@ -7,6 +7,8 @@ from pathlib import Path
 
 import pytest
 
+from vendor.cli_args import Command, run_command
+
 from mcp_toolcall_lab.jsonl_log_archive import (
     ArchiveError,
     JsonlArchive,
@@ -185,9 +187,9 @@ def _cli(*args: str) -> list[str]:
 
 def test_cli_get_id_not_found_exit_1(sample_archive: tuple[Path, Path]) -> None:
     _, arc = sample_archive
-    ok = subprocess.run(_cli("get", str(arc), "--id", "PR#42"), capture_output=True, text=True)
+    ok = run_command(Command(_cli("get", str(arc), "--id", "PR#42")))
     assert ok.returncode == 0 and "pull/42" in ok.stdout
-    miss = subprocess.run(_cli("get", str(arc), "--id", "#999999"), capture_output=True, text=True)
+    miss = run_command(Command(_cli("get", str(arc), "--id", "#999999")))
     assert miss.returncode == 1 and miss.stdout == ""
 
 
@@ -229,12 +231,12 @@ def test_cli_similar(tmp_path: Path) -> None:
     src.write_text('{"t":"alpha beta gamma"}\n{"t":"日本語のログ"}\n', encoding="utf-8")
     arc = tmp_path / "s.jlogarc"
     build_archive(src, arc, include_sim=True)
-    res = subprocess.run(_cli("similar", str(arc), "日本語", "-k", "1"), capture_output=True, text=True, encoding="utf-8")
+    res = run_command(Command(_cli("similar", str(arc), "日本語", "-k", "1")))
     assert res.returncode == 0, res.stderr
     assert res.stdout.startswith("2\t")
     plain = tmp_path / "p.jlogarc"
     build_archive(src, plain)
-    res2 = subprocess.run(_cli("similar", str(plain), "x"), capture_output=True, text=True)
+    res2 = run_command(Command(_cli("similar", str(plain), "x")))
     assert res2.returncode == 1
 
 

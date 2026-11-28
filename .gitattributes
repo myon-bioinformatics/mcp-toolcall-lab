@@ -8,3 +8,5 @@ vendor/gh_identity.py -text
 vendor/gh_identity-LICENSE -text
 vendor/njs_launch.py -text
 vendor/fleet_check.py -text
+vendor/cli_args.py -text
+vendor/cli_args-LICENSE -text
