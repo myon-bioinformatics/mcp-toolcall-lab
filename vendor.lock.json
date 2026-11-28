@@ -3,44 +3,44 @@
   "files": [
     {
       "repository": "myon-bioinformatics/ascii_artist",
-      "ref": "43c080016ecdbf1e8aa09bcb4c7583c8d96582eb",
-      "commit": "43c080016ecdbf1e8aa09bcb4c7583c8d96582eb",
+      "ref": "main",
+      "commit": "123cf4e2cc46d189aa0f36269c0490e69a1ba73d",
       "source": "ascii_artist.py",
       "destination": "vendor/ascii_artist.py",
-      "blob_sha": "80902c1fd0bcf865639180d661dd605c9ef6d7f0",
-      "sha256": "8b99f18d56742fa9a164b5bfb67c53dc1333abb334ed488311daf264105ff43f"
+      "blob_sha": "0d4a6704b52c2d455286eef60163f5f4cede9f5a",
+      "sha256": "e221460ef6755a2bcb30e78933ccba7af9794bc0db0201ec61f977428978a863"
     },
     {
       "repository": "myon-bioinformatics/myon-bioinformatics",
-      "ref": "9e3da7ae1846e9604ebc24bb5178f7de094a4e77",
-      "commit": "9e3da7ae1846e9604ebc24bb5178f7de094a4e77",
+      "ref": "main",
+      "commit": "3a92d3417ac2fb908fa618a2c9862c09faf6a2c8",
       "source": "gh_ops.py",
       "destination": "vendor/gh_ops.py",
-      "blob_sha": "cde303be5bd94c1b054f917b11b6b8cbab042741",
-      "sha256": "4b1688961b616a852d3dba49adae480ef67678c0d1f9c6a70a6923b05c50622d"
+      "blob_sha": "510f83b5cc9ed0ca09267419df69e1e6cadfee2b",
+      "sha256": "be5cebd0da67269af96bc1264949b7d373f68604e136d808d130ee92e3adc7a9"
     },
     {
       "repository": "myon-bioinformatics/myon-bioinformatics",
-      "ref": "f789b06b1beb41360e8df163fbf4c19121da3495",
-      "commit": "f789b06b1beb41360e8df163fbf4c19121da3495",
+      "ref": "main",
+      "commit": "3a92d3417ac2fb908fa618a2c9862c09faf6a2c8",
       "source": "vendor_fleet_plan.py",
       "destination": "vendor/vendor_fleet_plan.py",
-      "blob_sha": "c95e830b938acc04e94d7dc7a3908399b2818f80",
-      "sha256": "b017b26358f1cbbc548f57be2a22924e57f682d2dce7e8bc86067ded840152c4"
+      "blob_sha": "d2330699532856fb394429a44c6aeeb1f3ea1e0b",
+      "sha256": "66d16dfd3aebfef3e253a5996f89bc51c8c326fbf7bcd3f6a962c5d12541b155"
     },
     {
       "repository": "myon-bioinformatics/markdown",
-      "ref": "2af2b6646af5663aa1761be08ee7e0c048c3f680",
-      "commit": "2af2b6646af5663aa1761be08ee7e0c048c3f680",
+      "ref": "main",
+      "commit": "f16da6abee20647783a78a4e6187578e46624a41",
       "source": "markdown.py",
       "destination": "vendor/markdown.py",
-      "blob_sha": "3fc9edd43008e14e9b22eb07b83cf489816b82b0",
-      "sha256": "0536a163579d8dbdea0901f375727775d9350e9538214fcf9721b2a603bc3dc7"
+      "blob_sha": "327497845e3a78f31d49067c4c94b236805ea4c5",
+      "sha256": "08b625c509669876e6aba03e0627b17b8af9e827c066c27eefce3bd428146b57"
     },
     {
       "repository": "myon-bioinformatics/ascii_artist",
-      "ref": "24f759916eedd1a3aec8afea83b6852cf3b5afaa",
-      "commit": "24f759916eedd1a3aec8afea83b6852cf3b5afaa",
+      "ref": "main",
+      "commit": "123cf4e2cc46d189aa0f36269c0490e69a1ba73d",
       "source": "LICENSE",
       "destination": "vendor/ascii_artist-LICENSE",
       "blob_sha": "4ec4989b801bf1a3df6184d21f79e6e7ed5931f6",
@@ -48,8 +48,8 @@
     },
     {
       "repository": "myon-bioinformatics/markdown",
-      "ref": "c3063e0887c6eb6a531ee774793682ceff8a164d",
-      "commit": "c3063e0887c6eb6a531ee774793682ceff8a164d",
+      "ref": "main",
+      "commit": "f16da6abee20647783a78a4e6187578e46624a41",
       "source": "LICENSE",
       "destination": "vendor/markdown-LICENSE",
       "blob_sha": "4ec4989b801bf1a3df6184d21f79e6e7ed5931f6",
@@ -57,8 +57,8 @@
     },
     {
       "repository": "myon-bioinformatics/myon-bioinformatics",
-      "ref": "8faa7a74895a48cf33a46f0c9fcb0210f61f81a8",
-      "commit": "8faa7a74895a48cf33a46f0c9fcb0210f61f81a8",
+      "ref": "main",
+      "commit": "3a92d3417ac2fb908fa618a2c9862c09faf6a2c8",
       "source": "LICENSE",
       "destination": "vendor/myon-bioinformatics-LICENSE",
       "blob_sha": "4ec4989b801bf1a3df6184d21f79e6e7ed5931f6",
@@ -66,17 +66,17 @@
     },
     {
       "repository": "myon-bioinformatics/gh_identity",
-      "ref": "e70eb0080c7e1aa42212439d6b69d48ce937d942",
-      "commit": "e70eb0080c7e1aa42212439d6b69d48ce937d942",
+      "ref": "main",
+      "commit": "63c857e3f21eebc9fadd976beda407310b4abbc9",
       "source": "gh_identity.py",
       "destination": "vendor/gh_identity.py",
-      "blob_sha": "7e93336bc21c86c1d701b68526a00f188f24e2e7",
-      "sha256": "01cea3d0a1d04b07e60dc3e6a50a801f1be88ff23e60b774c60996a4f1f28ccb"
+      "blob_sha": "62c18f96d93136c464c0a2e1631cb5fc1102d2c5",
+      "sha256": "dd25f0154cb4d4799f0a8a8717d0cb023cec72d04d2f206da748964047a82220"
     },
     {
       "repository": "myon-bioinformatics/gh_identity",
-      "ref": "c6b52a29d8cd1dce0ebe0c4288cd16b0e4b84b96",
-      "commit": "c6b52a29d8cd1dce0ebe0c4288cd16b0e4b84b96",
+      "ref": "main",
+      "commit": "63c857e3f21eebc9fadd976beda407310b4abbc9",
       "source": "LICENSE",
       "destination": "vendor/gh_identity-LICENSE",
       "blob_sha": "4ec4989b801bf1a3df6184d21f79e6e7ed5931f6",
@@ -84,8 +84,8 @@
     },
     {
       "repository": "myon-bioinformatics/myon-bioinformatics",
-      "ref": "0d20801e2e372a72426ce85cee7ac04d701e71b5",
-      "commit": "0d20801e2e372a72426ce85cee7ac04d701e71b5",
+      "ref": "main",
+      "commit": "3a92d3417ac2fb908fa618a2c9862c09faf6a2c8",
       "source": "njs_launch.py",
       "destination": "vendor/njs_launch.py",
       "blob_sha": "79521fdd4d77f4a0ae91ca4a1791f4ad46a0d574",
@@ -93,8 +93,8 @@
     },
     {
       "repository": "myon-bioinformatics/myon-bioinformatics",
-      "ref": "eee8c096fc753465a5d5a26264e64c12e555638f",
-      "commit": "eee8c096fc753465a5d5a26264e64c12e555638f",
+      "ref": "main",
+      "commit": "3a92d3417ac2fb908fa618a2c9862c09faf6a2c8",
       "source": "fleet_check.py",
       "destination": "vendor/fleet_check.py",
       "blob_sha": "8cffb731ce78c461f602f4da0653178214e1da46",
@@ -102,7 +102,7 @@
     },
     {
       "repository": "myon-bioinformatics/cli_args",
-      "ref": "55d8d0bfe699869c2439ff9ca86abfd3aa879846",
+      "ref": "main",
       "commit": "55d8d0bfe699869c2439ff9ca86abfd3aa879846",
       "source": "cli_args.py",
       "destination": "vendor/cli_args.py",
@@ -111,7 +111,7 @@
     },
     {
       "repository": "myon-bioinformatics/cli_args",
-      "ref": "55d8d0bfe699869c2439ff9ca86abfd3aa879846",
+      "ref": "main",
       "commit": "55d8d0bfe699869c2439ff9ca86abfd3aa879846",
       "source": "LICENSE",
       "destination": "vendor/cli_args-LICENSE",
