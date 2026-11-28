@@ -3,6 +3,7 @@
 import hashlib
 import io
 import json
+import re
 import socket
 import subprocess
 import sys
@@ -418,7 +419,14 @@ def test_keyless_rejects_bad_arguments_before_any_request(keyless_module):
                        ('fetch_wikidata_entity', {'id': 'Q0; drop'}), ('fetch_github_repo', {'repo': '../../users/x'})):
         with pytest.raises(ValueError):
             keyless.read(name, args, get)
+        (key, value), = args.items()                                           # 🧩 the schema's pattern says no as well
+        assert not re.search(keyless.TOOLS[name][2]['properties'][key]['pattern'], value)
     get.assert_not_called()
+    fits = {'fetch_oembed': ('https://youtu.be/x', 'http://vimeo.com/1'), 'fetch_wikidata_entity': ('Q42', 'q6607'),
+            'fetch_github_repo': ('myon-bioinformatics/ONTO', 'https://github.com/myon-bioinformatics/ONTO/')}
+    for name, values in fits.items():                                        # 🧩 … and yes to what the reader takes
+        (key, spec), = [(k, v) for k, v in keyless.TOOLS[name][2]['properties'].items() if 'pattern' in v]
+        assert all(re.search(spec['pattern'], value) for value in values)
     assert set(keyless.BROWSER_BLOCKED) == {'niconico', 'pixiv'} and not set(keyless.BROWSER_BLOCKED) & set(keyless.TOOLS)
     assert all(spec['additionalProperties'] is False and cues for _, _, spec, cues in keyless.TOOLS.values())
 

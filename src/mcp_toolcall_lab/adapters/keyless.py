@@ -164,19 +164,19 @@ def _schema(props: dict, required: list[str]) -> dict:
     return {'type': 'object', 'properties': props, 'required': required, 'additionalProperties': False}
 
 
-# name → (reader, description, inputSchema, cues)
+# name → (reader, description, inputSchema, cues); 🧩 a ``pattern`` is the shape the reader accepts (before it tidies the value)
 TOOLS = {
     'fetch_oembed': (oembed, 'URL から題名・作者・サムネ（oEmbed。YouTube・Vimeo・SoundCloud・Spotify・Flickr など、oembed.com の登録から URL の形で選ぶ。キー不要）',
-                     _schema({'url': {'type': 'string'}}, ['url']),
+                     _schema({'url': {'type': 'string', 'pattern': r'^https?://[^\s/]+/\S*$'}}, ['url']),
                      ('http://', 'https://', 'oembed', 'youtube', 'ユーチューブ', 'vimeo', 'soundcloud', 'spotify', 'flickr')),
     'search_wikidata': (wikidata_search, 'Wikidata の項目を名前で探す（ID・ラベル・説明）',
                         _schema({'query': {'type': 'string'}, 'lang': {'type': 'string'}}, ['query']), ('wikidata', 'ウィキデータ')),
     'fetch_wikidata_entity': (wikidata_entity, 'Wikidata の項目 1 つ: ラベル・説明・別名と、何の一種か（P31 instance of / P279 subclass of）',
-                              _schema({'id': {'type': 'string'}, 'lang': {'type': 'string'}}, ['id']), ('wikidata', 'ウィキデータ')),
+                              _schema({'id': {'type': 'string', 'pattern': '^[Qq][1-9][0-9]{0,11}$', 'description': 'Q42'}, 'lang': {'type': 'string'}}, ['id']), ('wikidata', 'ウィキデータ')),
     'search_uniprot': (uniprot_search, 'UniProtKB でタンパク質を探す（アクセッション・名前・生物種・遺伝子・長さ）',
                        _schema({'query': {'type': 'string'}, 'size': {'type': 'integer'}}, ['query']), ('uniprot', 'タンパク質', 'protein', 'アミノ酸')),
     'fetch_github_repo': (github_repo, '公開 GitHub リポジトリの概要（説明・言語・スター・更新）',
-                          _schema({'repo': {'type': 'string', 'description': 'OWNER/NAME'}}, ['repo']), ('github', 'ギットハブ')),
+                          _schema({'repo': {'type': 'string', 'pattern': r'^(https://github\.com/)?[A-Za-z0-9-]{1,39}/[A-Za-z0-9._-]{1,100}/?$', 'description': 'OWNER/NAME'}}, ['repo']), ('github', 'ギットハブ')),
 }
 
 
