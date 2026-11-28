@@ -3,6 +3,7 @@ import hashlib, json, os, subprocess, sys, tempfile, unittest, zipfile
 from html.parser import HTMLParser; from pathlib import Path
 
 from mcp_toolcall_lab.adapters.engine_adapter import distill_engine_adapter, export_adapter_cache, extract_engine_spec
+from vendor.cli_args import Command, run_cli, run_command
 from mcp_toolcall_lab.portable_execution import CONTRACT, execute, request_sha256
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -160,13 +161,15 @@ class PortableExecutionTests(unittest.TestCase):
     def test_malformed_utf8_is_rejected_by_both_clis(self):
         raw = b'{"schema":"lab-execution/1","operation":"trace_summary","input":{"jsonl":"\xff"}}'
         for command in [['node', str(CLI)], [sys.executable, '-S', '-m', 'mcp_toolcall_lab.portable_execution']]:
-            proc = subprocess.run(command, input=raw, capture_output=True, env=ENV, check=True)
+            proc = run_command(Command(command), stdin=raw, env=ENV)
+            self.assertEqual(proc.returncode, 0, proc.stderr)
             self.assertEqual(json.loads(proc.stdout)['error']['code'], 'invalid_input')
 
     def test_python_rejects_non_utf8_and_excessive_json_depth(self):
         values = [b'\xef\xbb\xbf' + json.dumps(request()).encode(), json.dumps(request()).encode('utf-16'), json.dumps(request()).encode('utf-32'), ('[' * 10000 + '0' + ']' * 10000).encode()]
         for raw in values:
-            proc = subprocess.run([sys.executable, '-S', '-m', 'mcp_toolcall_lab.portable_execution'], input=raw, capture_output=True, env=ENV, check=True)
+            proc = run_command(Command([sys.executable, '-S', '-m', 'mcp_toolcall_lab.portable_execution']), stdin=raw, env=ENV)
+            self.assertEqual(proc.returncode, 0, proc.stderr)
             self.assertEqual(json.loads(proc.stdout)['error']['code'], 'invalid_input')
 
     def test_adapter_reuses_python_contract_and_node_bridge(self):
@@ -212,7 +215,8 @@ console.log(JSON.stringify([ok,miss,mismatch,offline]));'''.replace('CORE', json
         with tempfile.TemporaryDirectory() as directory:
             log = Path(directory) / 'audit.jsonl'
             value = request(jsonl='{"secret":"do-not-log"}')
-            result = subprocess.run([sys.executable, '-S', '-m', 'mcp_toolcall_lab.portable_execution'], input=json.dumps(value), text=True, capture_output=True, check=True, env={**ENV, 'MCP_TOOLCALL_LOG': str(log)})
+            result = run_command(Command([sys.executable, '-S', '-m', 'mcp_toolcall_lab.portable_execution']), stdin=json.dumps(value), env={**ENV, 'MCP_TOOLCALL_LOG': str(log)})
+            self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(json.loads(result.stdout)['status'], 'ok')
             row = json.loads(log.read_text())
             self.assertEqual(row['event'], 'portable/execution')
@@ -223,7 +227,8 @@ console.log(JSON.stringify([ok,miss,mismatch,offline]));'''.replace('CORE', json
         with tempfile.TemporaryDirectory() as directory:
             out = Path(directory) / 'site'
             sha = 'a' * 40
-            subprocess.run([sys.executable, '-S', str(ROOT / 'scripts/build_portable_pages.py'), '--out', str(out), '--source-sha', sha], env=ENV, check=True)
+            built = run_cli(ROOT / 'scripts/build_portable_pages.py', '--out', str(out), '--source-sha', sha, python_options=('-S',), env=ENV)
+            self.assertEqual(built.returncode, 0, built.stderr)
             target = out / 'execution'
             self.assertIn('location.replace', (out / 'index.html').read_text())
             meta = json.loads((target / 'build.json').read_text())
@@ -260,14 +265,15 @@ console.log(JSON.stringify([ok,miss,mismatch,offline]));'''.replace('CORE', json
             extracted = Path(directory) / 'extracted'
             with zipfile.ZipFile(target / 'runtime.zip') as archive:
                 archive.extractall(extracted)
-            proc = subprocess.run([sys.executable, '-S', '-m', 'mcp_toolcall_lab.portable_execution'], input=(target / 'example-request.json').read_text(), text=True, capture_output=True, check=True, cwd=extracted, env={**os.environ, 'PYTHONPATH': str(extracted / 'src')})
+            proc = run_command(Command([sys.executable, '-S', '-m', 'mcp_toolcall_lab.portable_execution']), stdin=(target / 'example-request.json').read_text(), cwd=extracted, env={**os.environ, 'PYTHONPATH': str(extracted / 'src')})
+            self.assertEqual(proc.returncode, 0, proc.stderr)
             self.assertEqual(json.loads(proc.stdout)['metrics']['tool_calls'], 2)
             self.assertTrue((extracted / 'LICENSE').is_file())
             self.assertTrue((extracted / 'vendor.lock.json').is_file())
             self.assertEqual((extracted / 'vendor/njs_launch.py').read_bytes(), (ROOT / 'vendor/njs_launch.py').read_bytes())
-            again = subprocess.run([sys.executable, '-S', str(ROOT / 'scripts/build_portable_pages.py'), '--out', str(out), '--source-sha', sha], env=ENV, capture_output=True)
+            again = run_cli(ROOT / 'scripts/build_portable_pages.py', '--out', str(out), '--source-sha', sha, python_options=('-S',), env=ENV)
             self.assertNotEqual(again.returncode, 0)
-            self.assertIn(b'stale build receipts', again.stderr)
+            self.assertIn('stale build receipts', again.stderr)
 
     def test_no_pages_publisher_and_the_portable_export_image(self):
         workflows = list((ROOT / '.github/workflows').glob('*.yml'))
@@ -287,15 +293,15 @@ console.log(JSON.stringify([ok,miss,mismatch,offline]));'''.replace('CORE', json
             out = Path(directory) / 'site'
             command = [sys.executable, '-S', str(ROOT / 'scripts/build_portable_pages.py'), '--out', str(out), '--source-sha', 'a' * 40]
             for flag in ('--reviewed-corpus', '--result-cache', '--model', '--llama-server'):
-                result = subprocess.run([*command, flag, str(out / 'private')], env=ENV, capture_output=True)
+                result = run_command(Command([*command, flag, str(out / 'private')]), env=ENV)
                 self.assertNotEqual(result.returncode, 0)
-                self.assertIn(b'outside the public output', result.stderr)
+                self.assertIn('outside the public output', result.stderr)
                 self.assertFalse(out.exists())
             out.mkdir()
             (out / 'private.txt').write_text('Unpublished input')
-            result = subprocess.run(command, env=ENV, capture_output=True)
+            result = run_command(Command(command), env=ENV)
             self.assertNotEqual(result.returncode, 0)
-            self.assertIn(b'fresh empty directory', result.stderr)
+            self.assertIn('fresh empty directory', result.stderr)
             self.assertEqual((out / 'private.txt').read_text(), 'Unpublished input')
             self.assertFalse((out / 'execution').exists())
 

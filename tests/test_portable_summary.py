@@ -18,6 +18,8 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+from vendor.cli_args import Command, run_command
+
 ROOT = Path(__file__).resolve().parents[1]
 from mcp_toolcall_lab import portable_summary_build as summary, portable_summary_corpus as corpus
 from mcp_toolcall_lab.portable_execution import canonical_request, execute, request_sha256
@@ -1436,11 +1438,12 @@ class PortableSummaryFetchTests(unittest.TestCase):
             ]
 
             def run(command, request=None, extra=None):
-                completed = subprocess.run(
-                    command + ['--summary-dir', directory] + (extra or []),
-                    input=json.dumps(request or fixture['request']), text=True,
-                    capture_output=True, check=True, timeout=20, env=env,
+                completed = run_command(
+                    Command(command + ['--summary-dir', directory] + (extra or [])),
+                    stdin=json.dumps(request or fixture['request']),
+                    timeout=20, env=env,
                 )
+                assert completed.returncode == 0, completed.stderr
                 return json.loads(completed.stdout)
 
             for command in commands:

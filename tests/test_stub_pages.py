@@ -12,6 +12,8 @@ from urllib.request import Request, urlopen
 
 import pytest
 
+from vendor.cli_args import Command, run_cli, run_command
+
 ROOT = Path(__file__).resolve().parents[1]
 from mcp_toolcall_lab.antipatterns import (
     AUTH_BLOCKED, CPU_LLM_UNREACHABLE, KNOWN_IDS, MCP_NOT_CALLED, MCP_PICKER_OFF, MCP_UNREACHABLE, UI_NO_RESULT, VERDICT_ANTIPATTERN, VERDICT_PASS,
@@ -1026,7 +1028,8 @@ def test_legacy_redirect_preserves_routes_and_public_export_is_still_retained():
     import tempfile
 
     with tempfile.TemporaryDirectory() as directory:
-        subprocess.run(['python', '-S', str(script), directory], check=True)
+        completed = run_cli(script, directory, python='python', python_options=('-S',))
+        assert completed.returncode == 0, completed.stderr
         html = (Path(directory) / 'index.html').read_text()
         assert 'https://myon-bioinformatics.github.io/tools/mcp/' in html
         assert 'rel="icon" type="image/png" href="execution/assets/mcp-toolcall-lab-favicon-artwork.png"' in html
@@ -1181,13 +1184,11 @@ def test_mcp_empty_case() -> None:
 
 
 def test_cli_turn_one_liner() -> None:
-    proc = subprocess.run(
-        [sys.executable, "-m", "mcp_toolcall_lab.stub_front", "turn", "--heading", "Exampleville", "--chat-id", "chat_" + "b" * 24],
+    proc = run_command(
+        Command([sys.executable, "-m", "mcp_toolcall_lab.stub_front", "turn", "--heading", "Exampleville", "--chat-id", "chat_" + "b" * 24]),
         cwd=ROOT,
-        check=True,
-        capture_output=True,
-        text=True,
     )
+    assert proc.returncode == 0, proc.stderr
     payload = json.loads(proc.stdout)
     assert payload["case"] == CASE_HEADING_HIT
     assert payload["chat_id"] == "chat_" + "b" * 24
@@ -1291,26 +1292,22 @@ def test_catalog_and_describe_are_json() -> None:
 
 
 def test_frontends_module_one_liner() -> None:
-    proc = subprocess.run(
-        [sys.executable, "-m", "mcp_toolcall_lab.frontends", "openwebui"],
+    proc = run_command(
+        Command([sys.executable, "-m", "mcp_toolcall_lab.frontends", "openwebui"]),
         cwd=ROOT,
-        check=True,
-        capture_output=True,
-        text=True,
     )
+    assert proc.returncode == 0, proc.stderr
     payload = json.loads(proc.stdout)
     assert payload["id"] == "openwebui"
     assert payload["composer"]["input"]["value"] == "chat-input"
 
 
 def test_chat_ui_describe_one_liner() -> None:
-    proc = subprocess.run(
-        [sys.executable, "-m", "mcp_toolcall_lab.chat_ui", "describe"],
+    proc = run_command(
+        Command([sys.executable, "-m", "mcp_toolcall_lab.chat_ui", "describe"]),
         cwd=ROOT,
-        check=True,
-        capture_output=True,
-        text=True,
     )
+    assert proc.returncode == 0, proc.stderr
     payload = json.loads(proc.stdout)
     assert "one_liners" in payload
     assert payload["clients"]["librechat"]["default_url"].startswith("http://")

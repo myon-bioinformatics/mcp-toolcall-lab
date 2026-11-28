@@ -80,6 +80,8 @@ def test_vendor_lock_lists_expected_sources():
             "vendor/njs_launch.py",
         ),
         (fleet.PARENT, "fleet_check.py", "vendor/fleet_check.py"),
+        ("myon-bioinformatics/cli_args", "cli_args.py", "vendor/cli_args.py"),
+        ("myon-bioinformatics/cli_args", "LICENSE", "vendor/cli_args-LICENSE"),
     }
     actual = {(e["repository"], e["source"], e["destination"]) for e in lock["files"]}
     assert actual == expected
