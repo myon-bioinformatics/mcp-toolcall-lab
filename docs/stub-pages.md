@@ -1,6 +1,6 @@
 > 🔌 Publication: the portfolio builds the Tool Lab from `main` at its deploy time
 > (`python -S -m mcp_toolcall_lab.stub_front pages`, no Docker) and publishes it at
-> https://myon-bioinformatics.github.io/tools/mcp/ (🔌 MCP 実験室), like Ironmate's studios.
+> https://myon-bioinformatics.github.io/tools/#mcp (🔌 MCP 実験室), like Ironmate's studios.
 > The page records no run; its report links this workflow's runs. The lab continues
 > producing `_site/` in `stub-pages-observations` artifacts, running Docker/MCP tests,
 > and preserving raw logs separately. This repository's own Pages is its usage guide
@@ -20,12 +20,12 @@ fallback. Deno can remain a local/CI experiment. GitHub Actions
 is the compute for the Last Actions snapshot: it starts one compose
 network, sends a turn through the stub, appends anti-patterns as JSONL,
 then keeps `_site/` as a workflow artifact. The portfolio publishes the Tool Lab at
-https://myon-bioinformatics.github.io/tools/mcp/ (the execution lab under `execution/`).
+https://myon-bioinformatics.github.io/tools/#mcp and the Execution Lab at
+https://myon-bioinformatics.github.io/tools/#mcp-execution.
 
-The published `index.html` stays on one GitHub Pages endpoint. A
-same-origin hash switch (`#wiki`, optional `?view=wiki`) shows an
-in-page direct Wikipedia / optional MCP form; there is no live `/wiki` path on
-github.io (that URL stays 404 by design — it is the local stub).
+The portfolio opens the direct Wikipedia / optional MCP form at `/tools/#wiki`.
+The standalone build also supports the `#wiki` hash and `?view=wiki`.
+The `/wiki` path belongs to the local stub.
 Default view (`#` / empty hash) is generation identity (Commit /
 optional Version, plus `_site/build_meta.json`), a short pointer, and a
 concise Last Actions snapshot. It does **not** embed the mock
@@ -155,9 +155,8 @@ python -m mcp_toolcall_lab.stub_front serve --port 8765
 ```
 
 Deep-link the wiki panel as
-`https://myon-bioinformatics.github.io/tools/mcp/#wiki`
-(optional `#wiki?title=Mathematics&lang=en`; or `index.html?view=wiki`,
-which the hash script treats like `#wiki`). `write_pages()` copies
+`https://myon-bioinformatics.github.io/tools/#wiki`
+(optionally append `?title=Mathematics&lang=en` to the fragment). `write_pages()` copies
 `pages-hash.js` and `pages-wiki.js` next to `index.html`. Do not
 confuse that with `stub-demo.js` (local/test only).
 

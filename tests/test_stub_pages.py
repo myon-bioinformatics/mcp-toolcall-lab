@@ -1031,15 +1031,25 @@ def test_legacy_redirect_preserves_routes_and_public_export_is_still_retained():
         completed = run_cli(script, directory, python='python', python_options=('-S',))
         assert completed.returncode == 0, completed.stderr
         html = (Path(directory) / 'index.html').read_text()
-        assert 'https://myon-bioinformatics.github.io/tools/mcp/' in html
+        assert 'href="https://myon-bioinformatics.github.io/tools/#mcp"' in html
         assert 'rel="icon" type="image/png" href="execution/assets/mcp-toolcall-lab-favicon-artwork.png"' in html
         assert 'rel="apple-touch-icon"' in html
         assert 'src="execution/assets/mcp-toolcall-lab-logo.png"' in html
         js = html.split('<script>')[1].split('</script>')[0]
-        for route in ('#wiki', '#pixiv', '#pokemon', ''):
-            node = "let result; const location={search:'?view=wiki',hash:" + repr(route) + ",replace:v=>{result=v}};" + js + ";process.stdout.write(result)"
-            result = subprocess.run(['node', '-e', node], text=True, capture_output=True, check=True)
-            assert result.stdout.endswith('?view=wiki' + route)
+        node = ("let result; const location = {search: process.argv[1], hash: process.argv[2], "
+                "replace: url => {result = url}};" + js + ";process.stdout.write(result)")
+        for search, fragment, expected in (
+            ('', '', 'mcp'),
+            ('', '#unknown', 'mcp'),
+            ('?view=wiki', '', 'wiki'),
+            ('', '#wiki?title=A%26B&lang=en', 'wiki?title=A%26B&lang=en'),
+            ('?view=wiki', '#pixiv', 'pixiv'),
+            ('', '#pokemon', 'pokemon'),
+            ('', '#diagnostics', 'diagnostics'),
+            ('', '#protocol', 'protocol'),
+        ):
+            result = subprocess.run(['node', '-e', node, search, fragment], text=True, capture_output=True, check=True)
+            assert result.stdout == 'https://myon-bioinformatics.github.io/tools/#' + expected
     workflow = (ROOT / '.github/workflows/stub-pages.yml').read_text()
     assert 'actions/deploy-pages' not in workflow
     # 📚 The only Pages publisher is pages.yml, and it publishes the usage guide alone (like Ironmate and DRAgoWing):

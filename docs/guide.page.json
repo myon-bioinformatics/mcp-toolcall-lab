@@ -35,11 +35,11 @@
          "items": [
           {
            "label": "🔎 Tool Lab（Wiki・Pixiv・ニコニコ・ポケモン）",
-           "href": "https://myon-bioinformatics.github.io/tools/mcp/"
+           "href": "https://myon-bioinformatics.github.io/tools/#mcp"
           },
           {
            "label": "🧮 Execution Lab（呼び出し記録の集計）",
-           "href": "https://myon-bioinformatics.github.io/tools/mcp/execution/"
+           "href": "https://myon-bioinformatics.github.io/tools/#mcp-execution"
           },
           {
            "label": "🧪 stub-pages の Actions",
