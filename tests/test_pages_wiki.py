@@ -1,6 +1,8 @@
 """Wikipedia in the browser and over Deno: the Pages #wiki client and the Deno Streamable HTTP MCP."""
 from __future__ import annotations
 
+import importlib.util
+import sys
 import asyncio
 import json
 import os
@@ -30,7 +32,19 @@ from mcp_toolcall_lab.wikipedia_mcp_catalog import CATALOG_PATH, WIKIPEDIA_TOOL_
 from mcp_toolcall_lab.wikipedia_tool import FIXTURE_ENV
 from tests.test_schema import EXPECTED_TOOL_SPECS
 from tests.test_streamable_http_protocol import running_mcp_server
-from vendor import fleet_check as fleet
+
+
+def load_vendored(name, relpath):
+    """Load a vendored file by path under a repo-unique name (cli_args README: Loading a vendored copy)."""
+    if name not in sys.modules:
+        spec = importlib.util.spec_from_file_location(name, Path(__file__).resolve().parents[1] / relpath)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[name] = module
+        spec.loader.exec_module(module)
+    return sys.modules[name]
+
+
+fleet = load_vendored("mcp_toolcall_lab_fleet_check", "vendor/fleet_check.py")
 
 # $NODE or node on PATH; no version floor: these only syntax-check and run plain browser JS.
 NODE = fleet.node(minimum=0)
